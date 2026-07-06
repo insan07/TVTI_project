@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "594572257081",
+    "project_id": "twintec-vti",
+    "storage_bucket": "twintec-vti.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:594572257081:android:0742cbdcb25f8a1d732ae8",
+        "android_client_info": {
+          "package_name": "com.twintecvti.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-NXN81B1jV_JVtkbeTO_u8M_4M8g0uQA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
