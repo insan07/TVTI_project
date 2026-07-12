@@ -92,18 +92,22 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
     ...getCommonTabOptions(insets),
     tabBarIcon: ({ color, size }) => {
       let iconName: any = 'home';
-      if (route.name === 'Home') iconName = 'home';
-      else if (route.name === 'Videos') iconName = 'cloud-upload'; 
-      else if (route.name === 'Practice') iconName = 'build'; 
-      else if (route.name === 'Announcements') iconName = 'notifications'; 
-      else if (route.name === 'Profile') iconName = 'person';
+      const isActive = color === COLORS.tabBarActive;
+      if (route.name === 'Home') {
+        iconName = isActive ? 'home' : 'home-outline';
+      } else if (route.name === 'Videos') {
+        iconName = isActive ? 'play-circle' : 'play-circle-outline';
+      } else if (route.name === 'Practice') {
+        iconName = isActive ? 'calendar' : 'calendar-outline';
+      } else if (route.name === 'Profile') {
+        iconName = isActive ? 'person' : 'person-outline';
+      }
       return <Icon name={iconName} size={size} color={color} />;
     },
   })}>
     <Tab.Screen name="Home" component={InstructorHomeScreen} />
     <Tab.Screen name="Videos" component={UploadVideoScreen} />
-    <Tab.Screen name="Practice" component={InstructorPracticeScreen} />
-    <Tab.Screen name="Announcements" component={PostAnnouncementScreen} />
+    <Tab.Screen name="Practice" component={InstructorPracticeScreen} options={{ tabBarLabel: 'Schedule' }} />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>
 );

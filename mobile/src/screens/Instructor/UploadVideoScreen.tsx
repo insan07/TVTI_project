@@ -5,14 +5,22 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { AuthContext } from '../../context/AuthContext';
+import { useRoute } from '@react-navigation/native';
 
 export default function UploadVideoScreen() {
+  const route = useRoute<any>();
   const { user } = useContext(AuthContext) as any;
   const [batches, setBatches] = useState<any[]>([]);
   const [topics, setTopics] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'upload' | 'my_videos'>('upload');
+
+  useEffect(() => {
+    if (route.params?.tab) {
+      setActiveTab(route.params.tab);
+    }
+  }, [route.params]);
   const [myVideos, setMyVideos] = useState<any[]>([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
 
