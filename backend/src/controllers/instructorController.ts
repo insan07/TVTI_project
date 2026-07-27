@@ -5,6 +5,7 @@ import { AuthRequest } from '../middleware/authMiddleware';
 import Video from '../models/Video';
 import PracticeSlot from '../models/PracticeSlot';
 import Announcement from '../models/Announcement';
+import SlotBooking from '../models/SlotBooking';
 
 export const getMySchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -43,6 +44,20 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
       .limit(5)
       .lean();
 
+    const slotIds = activeSlots.map(slot => slot._id);
+    const bookings = await SlotBooking.aggregate([
+      { $match: { slot_id: { $in: slotIds }, status: 'confirmed' } },
+      { $group: { _id: '$slot_id', count: { $sum: 1 } } }
+    ]);
+
+    const activeSlotsWithCounts = activeSlots.map(slot => {
+      const booking = bookings.find(b => String(b._id) === String(slot._id));
+      return {
+        ...slot,
+        booked_count: booking ? booking.count : 0
+      };
+    });
+
     const recentVideos = await Video.find({ instructor_id: instructorId })
       .populate('batch_id', 'name')
       .sort({ createdAt: -1 })
@@ -59,7 +74,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
       totalBatches,
       totalVideos,
       totalAnnouncements,
-      activeSlots,
+      activeSlots: activeSlotsWithCounts,
       recentVideos,
       recentAnnouncements
     });
