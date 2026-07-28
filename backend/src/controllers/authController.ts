@@ -11,11 +11,26 @@ const generateToken = (id: string, expiresIn: any = '7d') => {
 };
 
 export const login = async (req: Request, res: Response): Promise<void> => {
-  const { email, password } = req.body;
+  const { email, identifier, password } = req.body;
+  const loginId = (identifier || email || '').trim();
+
   try {
-    const user = await User.findOne({ email });
+    if (!loginId || !password) {
+      res.status(400).json({ message: 'Index Number/Email and Password are required' });
+      return;
+    }
+
+    const user = await User.findOne({
+      $or: [
+        { email: loginId.toLowerCase() },
+        { index_number: loginId },
+        { index_number: loginId.toUpperCase() },
+        { index_number: new RegExp(`^${loginId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') }
+      ]
+    });
+
     if (!user) {
-      res.status(401).json({ message: 'Invalid credentials' });
+      res.status(401).json({ message: 'Invalid Index Number/Email or Password' });
       return;
     }
 
@@ -26,8 +41,18 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      res.status(401).json({ message: 'Invalid credentials' });
+      res.status(401).json({ message: 'Invalid Index Number/Email or Password' });
       return;
+    }
+
+    // Check if temporary password has expired (7 days limit)
+    if (user.must_change_password && user.temp_password_expires_at) {
+      if (new Date() > new Date(user.temp_password_expires_at)) {
+        res.status(400).json({
+          message: 'Your temporary password has expired after 7 days. Please contact TVTI Admin for a password reset.'
+        });
+        return;
+      }
     }
 
     res.json({
@@ -35,10 +60,54 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       name: user.name,
       email: user.email,
       role: user.role,
+      index_number: user.index_number,
+      must_change_password: user.must_change_password || false,
       token: generateToken(String(user._id)),
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error during login' });
+  }
+};
+
+export const forceChangePassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?._id;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      res.status(400).json({ message: 'New password must be at least 6 characters long' });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password_hash = await bcrypt.hash(newPassword, salt);
+    user.must_change_password = false;
+    user.temp_password_expires_at = undefined;
+    user.password_set_at = new Date();
+
+    await user.save();
+
+    res.json({
+      message: 'Password updated successfully. Access granted.',
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        index_number: user.index_number,
+        must_change_password: false
+      }
+    });
+  } catch (error) {
+    console.error('Force change password error:', error);
+    res.status(500).json({ message: 'Server error updating password' });
   }
 };
 

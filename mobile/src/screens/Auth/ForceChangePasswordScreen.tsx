@@ -6,60 +6,69 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Image,
+  Alert,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  Image,
   ScrollView
 } from 'react-native';
+import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
-const { height } = Dimensions.get('window');
+export default function ForceChangePasswordScreen() {
+  const authContext = useContext(AuthContext) as any;
+  const user = authContext?.user;
 
-export default function LoginScreen() {
-  const route = useRoute<any>();
-  const initialEmail = route.params?.registeredEmail || '';
-  const initialMsg = route.params?.infoMessage || '';
-
-  const [email, setEmail] = useState(initialEmail);
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [infoMsg, setInfoMsg] = useState(initialMsg);
 
-  const authContext = useContext(AuthContext);
-  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
 
-  const handleLogin = async () => {
+  const handleSetPassword = async () => {
     setErrorMsg('');
-    setInfoMsg('');
 
-    if (!email.trim() || !password.trim()) {
-      setErrorMsg('Please enter your Index Number or Email address and password.');
+    if (!newPassword.trim() || !confirmPassword.trim()) {
+      setErrorMsg('Please enter and confirm your new password.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setErrorMsg('Your new password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorMsg('New passwords do not match. Please verify your entries.');
       return;
     }
 
     try {
-      await authContext?.login(email.trim(), password);
+      setLoading(true);
+      const res = await api.put('/users/force-change-password', { newPassword: newPassword.trim() });
+      Alert.alert('Success', 'Password updated successfully! Welcome to TVTI Institute.');
+
+      // Update AuthContext user state to clear must_change_password
+      if (authContext?.setUser) {
+        authContext.setUser({
+          ...user,
+          must_change_password: false
+        });
+      } else if (authContext?.fetchMe) {
+        authContext.fetchMe();
+      }
     } catch (e: any) {
       const serverMsg = e.response?.data?.message;
-      if (serverMsg) {
-        if (serverMsg.toLowerCase().includes('pending') || serverMsg.toLowerCase().includes('inactive')) {
-          setInfoMsg('Account Pending Approval ⏳\nYour student account has been registered and is currently awaiting Admin approval. Please try logging in once an Admin approves your registration.');
-        } else if (serverMsg.toLowerCase().includes('invalid') || serverMsg.toLowerCase().includes('credentials')) {
-          setErrorMsg('Invalid Index Number/Email or Password. Please verify your credentials and try again.');
-        } else {
-          setErrorMsg(serverMsg);
-        }
-      } else {
-        setErrorMsg('Unable to connect to server. Please check your network connection and try again.');
-      }
+      setErrorMsg(serverMsg || 'Failed to update password. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -74,8 +83,8 @@ export default function LoginScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.brandTitle}>Twintec VTI</Text>
-        <Text style={styles.brandSubtitle}>Learning Management System</Text>
+        <Text style={styles.brandTitle}>First-Time Password Setup</Text>
+        <Text style={styles.brandSubtitle}>Student Security Verification</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView
@@ -88,18 +97,16 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.welcomeTitle}>Welcome Back</Text>
-          <Text style={styles.welcomeSubtitle}>Sign in to access your portal</Text>
-
-          {/* Info Banner (e.g. Registered awaiting approval) */}
-          {infoMsg ? (
-            <View style={styles.infoBox}>
-              <Icon name="information-circle-outline" size={20} color="#D97706" style={{ marginRight: 8, marginTop: 2 }} />
-              <Text style={styles.infoBoxText}>{infoMsg}</Text>
+          <View style={styles.securityBox}>
+            <Icon name="shield-checkmark" size={24} color="#D97706" style={{ marginRight: 10 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.securityBoxTitle}>Action Required</Text>
+              <Text style={styles.securityBoxSub}>
+                Welcome, <Text style={{ fontWeight: 'bold' }}>{user?.name || 'Student'}</Text> ({user?.index_number || 'TVTI Student'})! Your account was logged in using a temporary password. You must set a new secure password before proceeding.
+              </Text>
             </View>
-          ) : null}
+          </View>
 
-          {/* Error Banner */}
           {errorMsg ? (
             <View style={styles.errorBox}>
               <Icon name="alert-circle-outline" size={20} color="#DC2626" style={{ marginRight: 8, marginTop: 2 }} />
@@ -107,63 +114,58 @@ export default function LoginScreen() {
             </View>
           ) : null}
 
-          {/* Email / Index Number Input */}
-          <Text style={styles.inputLabel}>Index Number or Email Address</Text>
-          <View style={styles.inputContainer}>
-            <Icon name="person-circle-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 26T0001 or student@tvti.edu"
-              placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="none"
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                if (errorMsg) setErrorMsg('');
-              }}
-            />
-          </View>
-
-          {/* Password Input */}
-          <Text style={styles.inputLabel}>Password</Text>
+          <Text style={styles.inputLabel}>New Password *</Text>
           <View style={styles.inputContainer}>
             <Icon name="lock-closed-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Enter your password"
+              placeholder="At least 6 characters"
+              secureTextEntry={!showNewPassword}
               placeholderTextColor={COLORS.textMuted}
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
+              value={newPassword}
+              onChangeText={(t) => {
+                setNewPassword(t);
                 if (errorMsg) setErrorMsg('');
               }}
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-              <Icon name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={COLORS.textMuted} />
+            <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeIcon}>
+              <Icon name={showNewPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
 
-          {/* Sign In Button */}
+          <Text style={styles.inputLabel}>Confirm New Password *</Text>
+          <View style={styles.inputContainer}>
+            <Icon name="lock-closed-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Re-enter new password"
+              secureTextEntry={!showConfirmPassword}
+              placeholderTextColor={COLORS.textMuted}
+              value={confirmPassword}
+              onChangeText={(t) => {
+                setConfirmPassword(t);
+                if (errorMsg) setErrorMsg('');
+              }}
+            />
+            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
+              <Icon name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
             style={styles.button}
-            onPress={handleLogin}
-            disabled={authContext?.isLoading}
+            onPress={handleSetPassword}
+            disabled={loading}
           >
-            {authContext?.isLoading ? (
+            {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
+              <>
+                <Icon name="checkmark-circle" size={18} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.buttonText}>Set Password & Access Portal</Text>
+              </>
             )}
           </TouchableOpacity>
-
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.link}>Register Here</Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -176,30 +178,29 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   headerGradient: {
-    height: height * 0.35,
+    paddingBottom: 24,
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: SPACING.lg,
   },
   logo: {
-    width: 70,
-    height: 70,
+    width: 50,
+    height: 50,
     marginBottom: SPACING.xs,
   },
   brandTitle: {
-    fontSize: 26,
+    fontSize: 22,
     color: '#FFFFFF',
     ...FONTS.bold,
   },
   brandSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
-    ...FONTS.regular,
+    fontSize: 12,
+    color: '#FDE68A',
     marginTop: 2,
   },
   cardContainer: {
     flex: 1,
-    marginTop: -28,
+    marginTop: -20,
   },
   card: {
     flex: 1,
@@ -209,19 +210,7 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
     ...SHADOW.md,
   },
-  welcomeTitle: {
-    fontSize: 22,
-    color: COLORS.textPrimary,
-    ...FONTS.bold,
-    marginBottom: 4,
-  },
-  welcomeSubtitle: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-    ...FONTS.regular,
-    marginBottom: SPACING.lg,
-  },
-  infoBox: {
+  securityBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#FEF3C7',
@@ -229,14 +218,18 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
     borderRadius: RADIUS.md,
     padding: SPACING.md,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
-  infoBoxText: {
-    flex: 1,
+  securityBoxTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
     color: '#92400E',
+    marginBottom: 4,
+  },
+  securityBoxSub: {
     fontSize: 13,
+    color: '#78350F',
     lineHeight: 18,
-    ...FONTS.medium,
   },
   errorBox: {
     flexDirection: 'row',
@@ -288,26 +281,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingVertical: SPACING.lg,
     borderRadius: RADIUS.md,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: SPACING.sm,
+    justifyContent: 'center',
+    marginTop: SPACING.md,
     ...SHADOW.md,
   },
   buttonText: {
     color: COLORS.textOnPrimary,
     fontSize: 16,
     ...FONTS.bold,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: SPACING.xl,
-  },
-  footerText: {
-    color: COLORS.textSecondary,
-    ...FONTS.regular,
-  },
-  link: {
-    color: COLORS.secondary,
-    ...FONTS.semiBold,
   },
 });

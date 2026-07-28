@@ -11,6 +11,10 @@ export interface IUser extends Document {
   nic?: string;
   desired_course?: string;
   expo_push_token?: string;
+  index_number?: string;
+  must_change_password?: boolean;
+  temp_password_expires_at?: Date;
+  password_set_at?: Date;
 }
 
 const userSchema = new Schema<IUser>(
@@ -25,6 +29,10 @@ const userSchema = new Schema<IUser>(
     nic: { type: String },
     desired_course: { type: String },
     expo_push_token: { type: String },
+    index_number: { type: String, unique: true, sparse: true },
+    must_change_password: { type: Boolean, default: false },
+    temp_password_expires_at: { type: Date },
+    password_set_at: { type: Date },
   },
   { timestamps: true }
 );

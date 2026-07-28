@@ -13,6 +13,7 @@ import adminRoutes from './routes/admin';
 import userRoutes from './routes/userRoutes';
 import studentRoutes from './routes/students';
 import instructorRoutes from './routes/instructors';
+import applicationRoutes from './routes/applications';
 import notificationRoutes from './routes/notifications';
 import announcementRoutes from './routes/announcements';
 
@@ -32,8 +33,8 @@ app.use(express.urlencoded({ extended: true }));
 // Rate Limiting
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window`
-  message: { success: false, message: 'Too many requests from this IP, please try again after 15 minutes' },
+  max: 5000, // Generous limit for dev & live usage
+  message: { success: false, message: 'Too many requests from this IP, please try again later' },
 });
 app.use('/api', apiLimiter);
 
@@ -42,8 +43,7 @@ let isConnected = false;
 const connectDB = async () => {
   if (isConnected) return;
   try {
-    const mongoURI = process.env.MONGO_URI;
-    if (!mongoURI) throw new Error('MONGO_URI is not defined');
+    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/twintec_lms';
     await mongoose.connect(mongoURI);
     isConnected = true;
     console.log('MongoDB Connected successfully.');
@@ -58,6 +58,7 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/applications', applicationRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
+import Result from '../models/Result';
+import Video from '../models/Video';
 
 export const getAdminBatches = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -21,6 +23,43 @@ export const getAdminBatches = async (req: Request, res: Response): Promise<void
 
     res.json(batchStats);
   } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const getBatchDetails = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const batch = await Batch.findById(req.params.id)
+      .populate('course_id', 'title fee description duration_weeks')
+      .populate('instructor_ids', 'name email phone')
+      .lean();
+
+    if (!batch) {
+      res.status(404).json({ message: 'Batch not found' });
+      return;
+    }
+
+    const enrollments = await Enrollment.find({ batch_id: batch._id })
+      .populate('student_id', 'name email phone nic index_number is_active createdAt')
+      .lean();
+
+    const results = await Result.find({ batch_id: batch._id })
+      .populate('student_id', 'name email index_number')
+      .lean();
+
+    const videos = await Video.find({ batch_id: batch._id })
+      .populate('instructor_id', 'name')
+      .lean();
+
+    res.json({
+      batch,
+      enrollments,
+      results,
+      videos,
+      enrolled_count: enrollments.length
+    });
+  } catch (error) {
+    console.error('Error in getBatchDetails:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -50,7 +89,7 @@ export const updateBatch = async (req: Request, res: Response): Promise<void> =>
 export const getBatchStudents = async (req: Request, res: Response): Promise<void> => {
   try {
     const enrollments = await Enrollment.find({ batch_id: req.params.id })
-      .populate('student_id', 'name email nic');
+      .populate('student_id', 'name email nic index_number phone');
     res.json(enrollments);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

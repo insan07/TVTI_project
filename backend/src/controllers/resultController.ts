@@ -5,11 +5,17 @@ import { AuthRequest } from '../middleware/authMiddleware';
 export const getMyResults = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { batchId } = req.query;
-    if (!batchId) {
-      res.status(400).json({ message: 'batchId is required' });
-      return;
+    const query: any = { student_id: req.user._id };
+    if (batchId && batchId !== 'all') {
+      query.batch_id = batchId;
     }
-    const results = await Result.find({ student_id: req.user._id, batch_id: batchId }).lean();
+    const results = await Result.find(query)
+      .populate({
+        path: 'batch_id',
+        select: 'name course_id',
+        populate: { path: 'course_id', select: 'title' }
+      })
+      .lean();
     res.json(results);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

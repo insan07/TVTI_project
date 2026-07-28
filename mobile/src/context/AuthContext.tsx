@@ -12,6 +12,8 @@ interface User {
   name: string;
   email: string;
   role: UserRole;
+  index_number?: string;
+  must_change_password?: boolean;
 }
 
 interface AuthContextType {
@@ -21,6 +23,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  setUser: (user: User | null) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -115,6 +118,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateUserState = (newUser: User | null) => {
+    setUser(newUser);
+    if (newUser) {
+      storage.setItem('user', JSON.stringify(newUser));
+    }
+  };
+
   return (
     <AuthContext.Provider 
       value={{ 
@@ -123,7 +133,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         userRole: user?.role || null, 
         isLoading, 
         login, 
-        logout 
+        logout,
+        setUser: updateUserState
       }}>
       {children}
     </AuthContext.Provider>
