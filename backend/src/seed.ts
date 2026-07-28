@@ -1,6 +1,10 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
+import dns from 'dns';
+
+// Force Google DNS servers to bypass queryTxt ETIMEOUT issues on some networks
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 import User from './models/User';
 import Course from './models/Course';

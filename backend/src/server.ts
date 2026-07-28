@@ -5,6 +5,10 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import dns from 'dns';
+
+// Force Google DNS servers to resolve MongoDB Atlas queryTxt/SRV lookups reliably
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 // Import Routes
 import authRoutes from './routes/auth';
