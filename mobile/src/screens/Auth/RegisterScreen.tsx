@@ -51,8 +51,8 @@ export default function RegisterScreen() {
           setFormData(prev => ({ ...prev, desired_course: res.data[0]._id }));
         } else {
           const mock = [
-            { _id: '1', title: 'Automotive Diagnostics Level 1' },
-            { _id: '2', title: 'Advanced Welding Techniques' }
+            { _id: '60c72b2f9b1d8e1f88c88c81', title: 'Automotive Diagnostics Level 1' },
+            { _id: '60c72b2f9b1d8e1f88c88c82', title: 'Advanced Welding Techniques' }
           ];
           setCourses(mock);
           setFormData(prev => ({ ...prev, desired_course: mock[0]._id }));
