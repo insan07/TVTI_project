@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import Application from '../models/Application';
 import User from '../models/User';
+import Course from '../models/Course';
 import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
 
@@ -54,12 +56,18 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
       return;
     }
 
+    let validCourseId = course_id;
+    if (!mongoose.Types.ObjectId.isValid(course_id)) {
+      const activeCourse = await Course.findOne({ is_active: true });
+      validCourseId = activeCourse ? activeCourse._id : new mongoose.Types.ObjectId();
+    }
+
     const application = await Application.create({
       full_name: full_name.trim(),
       nic_number: nic_number.trim(),
       email: email.toLowerCase().trim(),
       phone: phone.trim(),
-      course_id,
+      course_id: validCourseId,
       status: 'pending',
       terms_accepted: true,
       terms_accepted_at: new Date(),
