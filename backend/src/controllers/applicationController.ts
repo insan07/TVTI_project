@@ -70,9 +70,9 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
       message: 'Application submitted successfully. Awaiting TVTI admin review.',
       application
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error submitting application:', error);
-    res.status(500).json({ message: 'Server error during application submission' });
+    res.status(400).json({ message: error.message || 'Server error during application submission' });
   }
 };
 
