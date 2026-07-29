@@ -41,7 +41,7 @@ export default function LoginScreen() {
     setInfoMsg('');
 
     if (!email.trim() || !password.trim()) {
-      setErrorMsg('Please enter your Index Number or Email address and password.');
+      setErrorMsg('Please enter your Registration No or Email address and password.');
       return;
     }
 
@@ -53,7 +53,7 @@ export default function LoginScreen() {
         if (serverMsg.toLowerCase().includes('pending') || serverMsg.toLowerCase().includes('inactive')) {
           setInfoMsg('Account Pending Approval ⏳\nYour student account has been registered and is currently awaiting Admin approval. Please try logging in once an Admin approves your registration.');
         } else if (serverMsg.toLowerCase().includes('invalid') || serverMsg.toLowerCase().includes('credentials')) {
-          setErrorMsg('Invalid Index Number/Email or Password. Please verify your credentials and try again.');
+          setErrorMsg('Invalid Registration No/Email or Password. Please verify your credentials and try again.');
         } else {
           setErrorMsg(serverMsg);
         }
@@ -107,8 +107,8 @@ export default function LoginScreen() {
             </View>
           ) : null}
 
-          {/* Email / Index Number Input */}
-          <Text style={styles.inputLabel}>Index Number or Email Address</Text>
+          {/* Email / Registration No Input */}
+          <Text style={styles.inputLabel}>Registration No or Email Address</Text>
           <View style={styles.inputContainer}>
             <Icon name="person-circle-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
             <TextInput

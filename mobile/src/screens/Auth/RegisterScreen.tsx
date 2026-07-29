@@ -120,7 +120,7 @@ export default function RegisterScreen() {
     setSuccessModalVisible(false);
     navigation.navigate('Login', {
       registeredEmail: formData.email,
-      infoMessage: 'Application Submitted! ⏳ Your registration status is PENDING. Once approved by TVTI Admin, your unique Index Number & password will be issued.'
+      infoMessage: 'Application Submitted! ⏳ Your registration status is PENDING. Once approved by TVTI Admin, your unique Registration Number & password will be issued.'
     });
   };
 
@@ -290,7 +290,7 @@ export default function RegisterScreen() {
               <Text style={styles.termsContent}>
                 1. <Text style={{ fontWeight: 'bold' }}>Admissions Policy</Text>: All applications submitted via this portal are subject to document verification by TVTI Admissions Office.
                 {'\n\n'}
-                2. <Text style={{ fontWeight: 'bold' }}>Status & Credentials</Text>: Initial submission creates a <Text style={{ color: '#D97706', fontWeight: 'bold' }}>PENDING</Text> record. Upon payment & admin approval, your unique Student Index Number (e.g. 26T0001) and temporary password will be issued.
+                2. <Text style={{ fontWeight: 'bold' }}>Status & Credentials</Text>: Initial submission creates a <Text style={{ color: '#D97706', fontWeight: 'bold' }}>PENDING</Text> record. Upon payment & admin approval, your unique Registration Number (e.g. 26T0001) and temporary password will be issued.
                 {'\n\n'}
                 3. <Text style={{ fontWeight: 'bold' }}>Security & Password Setup</Text>: Temporary passwords expire after 7 days. On your first login, you are required to set a new permanent password.
                 {'\n\n'}
@@ -324,7 +324,7 @@ export default function RegisterScreen() {
               {"\n\n"}
               Application Status: <Text style={{ fontWeight: 'bold', color: '#D97706' }}>PENDING REVIEW</Text>
               {"\n\n"}
-              Once TVTI Admin approves your application, your unique <Text style={{ fontWeight: 'bold', color: '#111827' }}>Student Index Number</Text> (e.g. 26T0001) and temporary login password will be issued.
+              Once TVTI Admin approves your application, your unique <Text style={{ fontWeight: 'bold', color: '#111827' }}>Registration Number</Text> (e.g. 26T0001) and temporary login password will be issued.
             </Text>
 
             <TouchableOpacity style={styles.modalLoginBtn} onPress={handleGoToLogin}>

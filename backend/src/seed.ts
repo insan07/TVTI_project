@@ -1,10 +1,21 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
-import dns from 'dns';
-
-// Force Google DNS servers to bypass queryTxt ETIMEOUT issues on some networks
-dns.setServers(['8.8.8.8', '8.8.4.4']);
+// Dynamically configure DNS: Check if Google DNS is reachable.
+// On some networks, Google DNS is blocked, causing ECONNREFUSED.
+// On other networks, default DNS fails to resolve MongoDB Atlas SRV records, causing ETIMEOUT.
+const setupDNS = () => {
+  return new Promise<void>((resolve) => {
+    const resolver = new dns.Resolver();
+    resolver.setServers(['8.8.8.8']);
+    resolver.resolve('google.com', (err) => {
+      if (!err) {
+        dns.setServers(['8.8.8.8', '8.8.4.4']);
+      }
+      resolve();
+    });
+  });
+};
 
 import User from './models/User';
 import Course from './models/Course';
@@ -22,6 +33,7 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/twintec_lm
 
 const seedDatabase = async () => {
   try {
+    await setupDNS();
     await mongoose.connect(MONGO_URI);
     console.log('Connected to MongoDB for seeding...');
 

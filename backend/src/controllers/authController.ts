@@ -73,7 +73,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 export const forceChangePassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user?._id;
-    const { newPassword } = req.body;
+    const { newPassword, nic, newName, newEmail } = req.body;
 
     if (!newPassword || newPassword.length < 6) {
       res.status(400).json({ message: 'New password must be at least 6 characters long' });
@@ -84,6 +84,28 @@ export const forceChangePassword = async (req: Request, res: Response): Promise<
     if (!user) {
       res.status(404).json({ message: 'User not found' });
       return;
+    }
+
+    // Verify NIC number if it exists on the user account
+    if (user.nic && (!nic || nic.trim().toUpperCase() !== user.nic.toUpperCase())) {
+      res.status(400).json({ message: 'Verification failed. NIC number does not match.' });
+      return;
+    }
+
+    // Update name if newName is provided
+    if (newName && newName.trim()) {
+      user.name = newName.trim();
+    }
+
+    // Update email if newEmail is provided and has changed
+    if (newEmail && newEmail.trim() && newEmail.trim().toLowerCase() !== user.email) {
+      const cleanedEmail = newEmail.trim().toLowerCase();
+      const emailExists = await User.findOne({ email: cleanedEmail });
+      if (emailExists) {
+        res.status(400).json({ message: 'Email address is already in use by another account.' });
+        return;
+      }
+      user.email = cleanedEmail;
     }
 
     const salt = await bcrypt.genSalt(10);

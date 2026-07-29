@@ -23,8 +23,9 @@ export const createCourse = async (req: Request, res: Response): Promise<void> =
   try {
     const course = await Course.create(req.body);
     res.status(201).json(course);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (error: any) {
+    console.error('Error creating course:', error);
+    res.status(400).json({ message: error.message || 'Server error' });
   }
 };
 
@@ -32,8 +33,9 @@ export const updateCourse = async (req: Request, res: Response): Promise<void> =
   try {
     const course = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(course);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (error: any) {
+    console.error('Error updating course:', error);
+    res.status(400).json({ message: error.message || 'Server error' });
   }
 };
 
@@ -41,7 +43,8 @@ export const archiveCourse = async (req: Request, res: Response): Promise<void> 
   try {
     const course = await Course.findByIdAndUpdate(req.params.id, { is_active: false }, { new: true });
     res.json(course);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (error: any) {
+    console.error('Error archiving course:', error);
+    res.status(400).json({ message: error.message || 'Server error' });
   }
 };

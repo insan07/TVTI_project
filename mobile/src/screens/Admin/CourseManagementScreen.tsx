@@ -113,7 +113,21 @@ export default function CourseManagementScreen() {
 
   const saveCourse = async () => {
     if (!formData.title.trim()) {
-      Alert.alert('Validation Error', 'Title is required');
+      Alert.alert('Validation Error', 'Course title is required');
+      return;
+    }
+    if (!formData.description.trim()) {
+      Alert.alert('Validation Error', 'Description is required');
+      return;
+    }
+    const feeVal = Number(formData.fee);
+    if (isNaN(feeVal) || feeVal <= 0) {
+      Alert.alert('Validation Error', 'Fee must be a valid positive number');
+      return;
+    }
+    const durationVal = Number(formData.duration_weeks);
+    if (isNaN(durationVal) || durationVal <= 0) {
+      Alert.alert('Validation Error', 'Duration must be a valid positive number of weeks');
       return;
     }
 
@@ -121,8 +135,8 @@ export default function CourseManagementScreen() {
     try {
       const payload = {
         ...formData,
-        fee: Number(formData.fee || 0),
-        duration_weeks: Number(formData.duration_weeks || 4)
+        fee: feeVal,
+        duration_weeks: durationVal
       };
 
       if (editingCourseId) {
@@ -134,26 +148,10 @@ export default function CourseManagementScreen() {
       }
       setModalVisible(false);
       fetchCourses();
-    } catch (e) {
-      Alert.alert('Success', editingCourseId ? 'Course updated' : 'Course created');
-      setModalVisible(false);
-      // Update local state if API fails in demo mode
-      if (editingCourseId) {
-        setCourses(prev =>
-          prev.map(c => (c._id === editingCourseId ? { ...c, ...formData } : c))
-        );
-      } else {
-        setCourses(prev => [
-          ...prev,
-          {
-            _id: Date.now().toString(),
-            ...formData,
-            fee: Number(formData.fee),
-            duration_weeks: Number(formData.duration_weeks),
-            enrollment_count: 0
-          }
-        ]);
-      }
+    } catch (e: any) {
+      console.warn('API Error saving course:', e);
+      const serverMsg = e.response?.data?.message;
+      Alert.alert('Error', serverMsg || 'Failed to save course. Please check inputs.');
     } finally {
       setSaving(false);
     }

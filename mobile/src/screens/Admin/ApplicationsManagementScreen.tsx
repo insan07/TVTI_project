@@ -58,7 +58,7 @@ export default function ApplicationsManagementScreen() {
     if (newStatus === 'approved') {
       if (Platform.OS === 'web') {
         const confirmed = window.confirm(
-          `Approve application for "${appName}"?\n\nThis will auto-generate a unique Student Index Number and 7-day temporary password.`
+          `Approve application for "${appName}"?\n\nThis will auto-generate a unique Student Registration No and 7-day temporary password.`
         );
         if (confirmed) {
           processStatusUpdate(appId, newStatus);
@@ -66,7 +66,7 @@ export default function ApplicationsManagementScreen() {
       } else {
         Alert.alert(
           'Approve Application?',
-          `Approve application for "${appName}"? This will auto-generate a unique Student Index Number and 7-day temporary password.`,
+          `Approve application for "${appName}"? This will auto-generate a unique Student Registration No and 7-day temporary password.`,
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Confirm Approval', onPress: () => processStatusUpdate(appId, newStatus) }
@@ -228,7 +228,7 @@ export default function ApplicationsManagementScreen() {
                   onPress={() => handleUpdateStatus(item._id, 'approved', item.full_name)}
                 >
                   <Icon name="checkmark-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.stageBtnText}>Approve & Issue Index No.</Text>
+                  <Text style={styles.stageBtnText}>Approve & Issue Reg No.</Text>
                 </TouchableOpacity>
               )}
 
@@ -262,7 +262,7 @@ export default function ApplicationsManagementScreen() {
       {/* Title Header */}
       <View style={styles.topHeader}>
         <Text style={styles.pageTitle}>Student Applications</Text>
-        <Text style={styles.pageSubtitle}>Review registrations, track payment status, and issue index numbers.</Text>
+        <Text style={styles.pageSubtitle}>Review registrations, track payment status, and issue registration numbers.</Text>
       </View>
 
       {/* Tabs Filter Header */}
@@ -311,13 +311,13 @@ export default function ApplicationsManagementScreen() {
             </View>
             <Text style={styles.modalTitle}>Application Approved! 🎉</Text>
             <Text style={styles.modalSub}>
-              Student account created & index number generated successfully.
+              Student account created & registration number generated successfully.
             </Text>
 
             {approvedCredentials && (
               <View style={styles.credentialsBox}>
                 <View style={styles.credRow}>
-                  <Text style={styles.credLabel}>Index Number:</Text>
+                  <Text style={styles.credLabel}>Registration No:</Text>
                   <Text style={styles.credValue}>{approvedCredentials.index_number}</Text>
                 </View>
                 <View style={styles.credRow}>

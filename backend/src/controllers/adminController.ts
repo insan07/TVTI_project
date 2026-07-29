@@ -228,9 +228,31 @@ export const deactivateUser = async (req: Request, res: Response): Promise<void>
   }
 };
 
+const generateUniqueInstructorIndexNumber = async (): Promise<string> => {
+  const fullYear = new Date().getFullYear();
+  const year2Digits = String(fullYear).slice(-2); // e.g. 2026 -> 26
+  const prefix = `${year2Digits}I`;
+  const regex = new RegExp(`^${year2Digits}I(\\d+)`);
+  const users = await User.find({ index_number: { $regex: regex } }).select('index_number');
+
+  let maxSeq = 0;
+  for (const u of users) {
+    if (u.index_number) {
+      const match = u.index_number.match(regex);
+      if (match && match[1]) {
+        const seq = parseInt(match[1], 10);
+        if (seq > maxSeq) maxSeq = seq;
+      }
+    }
+  }
+
+  const nextSeq = maxSeq + 1;
+  return `${prefix}${String(nextSeq).padStart(4, '0')}`;
+};
+
 // POST /api/admin/users/instructor
 export const createInstructor = async (req: Request, res: Response): Promise<void> => {
-  const { name, email, password, phone } = req.body;
+  const { name, email, phone, nic } = req.body;
   try {
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -238,8 +260,13 @@ export const createInstructor = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    // Generate random 7-day temporary password e.g. TVTI#4829
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    const tempPassword = `TVTI#${randomDigits}`;
+
     const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
+    const password_hash = await bcrypt.hash(tempPassword, salt);
+    const index_number = await generateUniqueInstructorIndexNumber();
 
     const user = await User.create({
       name,
@@ -247,10 +274,20 @@ export const createInstructor = async (req: Request, res: Response): Promise<voi
       password_hash,
       role: 'instructor',
       phone,
+      nic,
+      index_number,
       is_active: true, // Instructors created by admin are automatically active
+      must_change_password: true,
+      temp_password_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days expiration
     });
 
-    res.status(201).json({ message: 'Instructor created successfully', _id: user._id });
+    res.status(201).json({
+      message: 'Instructor created successfully',
+      _id: user._id,
+      index_number: user.index_number,
+      temp_password: tempPassword,
+      email: user.email
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

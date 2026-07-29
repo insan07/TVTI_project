@@ -247,7 +247,7 @@ export default function ProfileScreen() {
         <View style={styles.accountInfoCard}>
           <Text style={styles.accountInfoTitle}>System Details</Text>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>{profile.role === 'student' ? 'Reg No:' : 'Index / User ID:'}</Text>
+            <Text style={styles.infoLabel}>{profile.role === 'student' ? 'Reg No:' : 'Reg No / User ID:'}</Text>
             <Text style={[styles.infoVal, { fontWeight: 'bold', color: '#111827' }]} numberOfLines={1}>
               {profile.index_number || profile._id}
             </Text>

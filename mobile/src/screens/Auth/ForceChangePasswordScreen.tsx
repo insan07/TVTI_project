@@ -23,6 +23,9 @@ export default function ForceChangePasswordScreen() {
   const authContext = useContext(AuthContext) as any;
   const user = authContext?.user;
 
+  const [newName, setNewName] = useState(user?.name || '');
+  const [newEmail, setNewEmail] = useState(user?.email || '');
+  const [nic, setNic] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -34,6 +37,21 @@ export default function ForceChangePasswordScreen() {
 
   const handleSetPassword = async () => {
     setErrorMsg('');
+
+    if (!newName.trim()) {
+      setErrorMsg('Please enter your name.');
+      return;
+    }
+
+    if (!newEmail.trim()) {
+      setErrorMsg('Please enter your email address.');
+      return;
+    }
+
+    if (!nic.trim()) {
+      setErrorMsg('Please enter your NIC Number for verification.');
+      return;
+    }
 
     if (!newPassword.trim() || !confirmPassword.trim()) {
       setErrorMsg('Please enter and confirm your new password.');
@@ -52,13 +70,20 @@ export default function ForceChangePasswordScreen() {
 
     try {
       setLoading(true);
-      const res = await api.put('/users/force-change-password', { newPassword: newPassword.trim() });
-      Alert.alert('Success', 'Password updated successfully! Welcome to TVTI Institute.');
+      const res = await api.put('/users/force-change-password', {
+        newPassword: newPassword.trim(),
+        nic: nic.trim(),
+        newName: newName.trim(),
+        newEmail: newEmail.trim()
+      });
+      Alert.alert('Success', 'Profile and password updated successfully! Welcome.');
 
-      // Update AuthContext user state to clear must_change_password
+      // Update AuthContext user state to clear must_change_password, update name and email
       if (authContext?.setUser) {
         authContext.setUser({
           ...user,
+          name: res.data.user.name,
+          email: res.data.user.email,
           must_change_password: false
         });
       } else if (authContext?.fetchMe) {
@@ -66,7 +91,7 @@ export default function ForceChangePasswordScreen() {
       }
     } catch (e: any) {
       const serverMsg = e.response?.data?.message;
-      setErrorMsg(serverMsg || 'Failed to update password. Please try again.');
+      setErrorMsg(serverMsg || 'Failed to update credentials. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -83,8 +108,8 @@ export default function ForceChangePasswordScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.brandTitle}>First-Time Password Setup</Text>
-        <Text style={styles.brandSubtitle}>Student Security Verification</Text>
+        <Text style={styles.brandTitle}>First-Time Setup & Verification</Text>
+        <Text style={styles.brandSubtitle}>TVTI Portal Setup</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView
@@ -102,7 +127,7 @@ export default function ForceChangePasswordScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.securityBoxTitle}>Action Required</Text>
               <Text style={styles.securityBoxSub}>
-                Welcome, <Text style={{ fontWeight: 'bold' }}>{user?.name || 'Student'}</Text> ({user?.index_number || 'TVTI Student'})! Your account was logged in using a temporary password. You must set a new secure password before proceeding.
+                Welcome, <Text style={{ fontWeight: 'bold' }}>{user?.name || 'User'}</Text>! Your account was logged in using a temporary password. You must verify your NIC number and set a new secure password before proceeding.
               </Text>
             </View>
           </View>
@@ -113,6 +138,54 @@ export default function ForceChangePasswordScreen() {
               <Text style={styles.errorBoxText}>{errorMsg}</Text>
             </View>
           ) : null}
+
+          <Text style={styles.inputLabel}>Confirm Full Name *</Text>
+          <View style={styles.inputContainer}>
+            <Icon name="person-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your full name"
+              placeholderTextColor={COLORS.textMuted}
+              value={newName}
+              onChangeText={(t) => {
+                setNewName(t);
+                if (errorMsg) setErrorMsg('');
+              }}
+            />
+          </View>
+
+          <Text style={styles.inputLabel}>Email Address *</Text>
+          <View style={styles.inputContainer}>
+            <Icon name="mail-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your email address"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={newEmail}
+              onChangeText={(t) => {
+                setNewEmail(t);
+                if (errorMsg) setErrorMsg('');
+              }}
+            />
+          </View>
+
+          <Text style={styles.inputLabel}>NIC Number *</Text>
+          <View style={styles.inputContainer}>
+            <Icon name="card-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 199912345678 or 991234567V"
+              placeholderTextColor={COLORS.textMuted}
+              autoCapitalize="characters"
+              value={nic}
+              onChangeText={(t) => {
+                setNic(t);
+                if (errorMsg) setErrorMsg('');
+              }}
+            />
+          </View>
 
           <Text style={styles.inputLabel}>New Password *</Text>
           <View style={styles.inputContainer}>
@@ -162,7 +235,7 @@ export default function ForceChangePasswordScreen() {
             ) : (
               <>
                 <Icon name="checkmark-circle" size={18} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.buttonText}>Set Password & Access Portal</Text>
+                <Text style={styles.buttonText}>Verify & Access Portal</Text>
               </>
             )}
           </TouchableOpacity>

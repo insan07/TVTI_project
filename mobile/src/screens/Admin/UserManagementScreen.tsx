@@ -35,7 +35,7 @@ export default function UserManagementScreen() {
 
   // Add Instructor Modal
   const [instructorModalVisible, setInstructorModalVisible] = useState(false);
-  const [instructorForm, setInstructorForm] = useState({ name: '', email: '', phone: '', password: '' });
+  const [instructorForm, setInstructorForm] = useState({ name: '', email: '', phone: '', nic: '' });
   const [creatingInstructor, setCreatingInstructor] = useState(false);
 
   // Assign Batch Modal
@@ -191,18 +191,29 @@ export default function UserManagementScreen() {
   };
 
   const handleCreateInstructor = async () => {
-    const { name, email, password, phone } = instructorForm;
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Name, email, and password are required');
+    const { name, email, phone, nic } = instructorForm;
+    if (!name.trim() || !email.trim() || !nic.trim()) {
+      Alert.alert('Error', 'Name, email, and NIC number are required');
       return;
     }
 
     setCreatingInstructor(true);
     try {
-      await api.post('/admin/users/instructor', instructorForm);
-      Alert.alert('Success', 'Instructor created successfully');
-      setInstructorForm({ name: '', email: '', phone: '', password: '' });
+      const res = await api.post('/admin/users/instructor', instructorForm);
+      setInstructorForm({ name: '', email: '', phone: '', nic: '' });
       setInstructorModalVisible(false);
+
+      if (res.data.index_number) {
+        setApprovedCredentials({
+          index_number: res.data.index_number,
+          temp_password: res.data.temp_password,
+          email: res.data.email
+        });
+        setCredentialsModalVisible(true);
+      } else {
+        Alert.alert('Success', 'Instructor created successfully');
+      }
+
       if (activeTab === 'instructors') {
         fetchUsers();
       } else {
@@ -684,6 +695,15 @@ export default function UserManagementScreen() {
               keyboardType="email-address"
             />
 
+            <Text style={styles.label}>NIC Number *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 199912345678 or 991234567V"
+              value={instructorForm.nic}
+              onChangeText={v => setInstructorForm({ ...instructorForm, nic: v })}
+              autoCapitalize="characters"
+            />
+
             <Text style={styles.label}>Phone</Text>
             <TextInput
               style={styles.input}
@@ -691,15 +711,6 @@ export default function UserManagementScreen() {
               value={instructorForm.phone}
               onChangeText={v => setInstructorForm({ ...instructorForm, phone: v })}
               keyboardType="phone-pad"
-            />
-
-            <Text style={styles.label}>Password *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              secureTextEntry
-              value={instructorForm.password}
-              onChangeText={v => setInstructorForm({ ...instructorForm, password: v })}
             />
 
             <View style={styles.modalActions}>
@@ -772,13 +783,13 @@ export default function UserManagementScreen() {
             </View>
             <Text style={styles.modalTitle}>User Approved! 🎉</Text>
             <Text style={{ fontSize: 13, color: '#6B7280', textAlign: 'center', marginBottom: 16 }}>
-              Student account created & index number generated successfully.
+              Student account created & registration number generated successfully.
             </Text>
 
             {approvedCredentials && (
               <View style={{ backgroundColor: '#111827', borderRadius: 12, padding: 16, width: '100%', marginBottom: 14 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Index Number:</Text>
+                  <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Registration No:</Text>
                   <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#F58220' }}>{approvedCredentials.index_number}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>

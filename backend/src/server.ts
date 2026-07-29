@@ -20,6 +20,7 @@ import instructorRoutes from './routes/instructors';
 import applicationRoutes from './routes/applications';
 import notificationRoutes from './routes/notifications';
 import announcementRoutes from './routes/announcements';
+import User from './models/User';
 
 // Load environment variables
 dotenv.config();
@@ -51,6 +52,22 @@ const connectDB = async () => {
     await mongoose.connect(mongoURI);
     isConnected = true;
     console.log('MongoDB Connected successfully.');
+
+    // Run simple one-time migration to lowercase all user emails
+    try {
+      const usersWithUpper = await User.find({ email: { $regex: /[A-Z]/ } });
+      if (usersWithUpper.length > 0) {
+        console.log(`[Migration] Found ${usersWithUpper.length} users with uppercase letters in their email. Lowercasing...`);
+        for (const u of usersWithUpper) {
+          const oldEmail = u.email;
+          u.email = u.email.toLowerCase().trim();
+          await u.save();
+          console.log(`[Migration] Updated: "${oldEmail}" -> "${u.email}"`);
+        }
+      }
+    } catch (migErr) {
+      console.error('[Migration] Email lowercasing failed:', migErr);
+    }
   } catch (err: any) {
     console.error('MongoDB connection error:', err.message);
   }
