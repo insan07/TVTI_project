@@ -8,27 +8,14 @@ export const postAnnouncement = async (req: AuthRequest, res: Response): Promise
   try {
     const { batch_id, title, message } = req.body;
 
+    const actualBatchId = (batch_id && batch_id !== 'all') ? batch_id : null;
+
     const announcement = await Announcement.create({
-      batch_id,
+      batch_id: actualBatchId,
       posted_by: req.user._id,
       title,
       message,
     });
-
-    const enrollments = await Enrollment.find({ batch_id, status: 'active' }).select('student_id');
-    const studentIds = enrollments.map(e => e.student_id.toString());
-
-    /*
-    if (studentIds.length > 0) {
-      await sendBatchNotification(
-        studentIds,
-        title,
-        message,
-        'announcement',
-        { batchId: batch_id }
-      );
-    }
-    */
 
     res.status(201).json(announcement);
   } catch (error) {

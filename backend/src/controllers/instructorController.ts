@@ -89,7 +89,7 @@ export const getMyStudents = async (req: AuthRequest, res: Response): Promise<vo
     const batchIds = batches.map(b => b._id);
     
     const enrollments = await Enrollment.find({ batch_id: { $in: batchIds }, status: 'active' })
-      .populate('student_id', 'name email phone')
+      .populate('student_id', 'name email phone nic index_number')
       .populate({
         path: 'batch_id',
         select: 'name course_id',

@@ -21,6 +21,19 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
         return;
       }
       
+      // Enforce route-level blocking if must_change_password is true
+      if (req.user.must_change_password) {
+        const allowedPaths = ['/users/force-change-password', '/users/me', '/auth/me'];
+        const isAllowed = allowedPaths.some(p => req.originalUrl.includes(p));
+        if (!isAllowed) {
+          res.status(403).json({
+            must_change_password: true,
+            message: 'You must set a new password before accessing system features.'
+          });
+          return;
+        }
+      }
+
       next();
     } catch (error) {
       console.error(error);

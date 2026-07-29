@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IAnnouncement extends Document {
-  batch_id: mongoose.Types.ObjectId;
+  batch_id?: mongoose.Types.ObjectId;
   posted_by: mongoose.Types.ObjectId;
   title: string;
   message: string;
@@ -9,7 +9,7 @@ export interface IAnnouncement extends Document {
 
 const announcementSchema = new Schema<IAnnouncement>(
   {
-    batch_id: { type: Schema.Types.ObjectId, ref: 'Batch', required: true },
+    batch_id: { type: Schema.Types.ObjectId, ref: 'Batch', required: false },
     posted_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     title: { type: String, required: true },
     message: { type: String, required: true },

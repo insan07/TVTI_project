@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import api from '../../services/api';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
+import CustomDropdown from '../../components/shared/CustomDropdown';
 import * as DocumentPicker from 'expo-document-picker';
 import { AuthContext } from '../../context/AuthContext';
 import { useRoute } from '@react-navigation/native';
@@ -192,7 +192,6 @@ export default function UploadVideoScreen() {
             <Text style={styles.cardTitle}>Upload Course Material</Text>
 
             {/* Batch */}
-            <Text style={styles.label}>Select Batch *</Text>
             {batchesLoading ? (
               <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 10 }} />
             ) : batches.length === 0 ? (
@@ -201,33 +200,34 @@ export default function UploadVideoScreen() {
                 <Text style={styles.noBatchText}>No batches assigned to you.</Text>
               </View>
             ) : (
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={formData.batch_id}
-                  onValueChange={handleBatchChange}
-                  style={{ width: '100%', height: 50, backgroundColor: 'transparent', borderWidth: 0 }}
-                >
-                  {batches.map(b => (
-                    <Picker.Item key={b._id} label={b.name || b.course_id?.title || 'Unknown Batch'} value={b._id} />
-                  ))}
-                </Picker>
-              </View>
+              <CustomDropdown
+                label="Select Batch *"
+                placeholder="Select assigned batch..."
+                iconName="layers-outline"
+                items={batches.map(b => ({
+                  label: b.name || b.course_id?.title || 'Batch',
+                  value: b._id,
+                  subtext: b.course_id?.title ? `Course: ${b.course_id.title}` : undefined
+                }))}
+                selectedValue={formData.batch_id}
+                onValueChange={handleBatchChange}
+              />
             )}
 
             {/* Topic */}
-            <Text style={styles.label}>Select Topic *</Text>
-            {topics.length > 0 && (
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={formData.topic}
-                  onValueChange={v => setFormData({ ...formData, topic: v, new_topic: '' })}
-                  style={{ width: '100%', height: 50, backgroundColor: 'transparent', borderWidth: 0 }}
-                >
-                  <Picker.Item label="-- Select existing topic --" value="" />
-                  {topics.map(t => <Picker.Item key={t} label={t} value={t} />)}
-                </Picker>
-              </View>
-            )}
+            {topics.length > 0 ? (
+              <CustomDropdown
+                label="Select Existing Topic"
+                placeholder="Choose existing topic..."
+                iconName="bookmarks-outline"
+                items={[
+                  { label: '-- Select existing topic --', value: '' },
+                  ...topics.map(t => ({ label: t, value: t }))
+                ]}
+                selectedValue={formData.topic}
+                onValueChange={v => setFormData({ ...formData, topic: v, new_topic: '' })}
+              />
+            ) : null}
             <TextInput
               style={styles.input}
               placeholder={topics.length > 0 ? 'Or enter a new topic name' : 'Enter topic name'}

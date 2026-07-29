@@ -14,6 +14,7 @@ import { COLORS } from '../config/theme';
 import api from '../services/api';
 
 // Import Screens
+import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
 import UserManagementScreen from '../screens/Admin/UserManagementScreen';
 import ProfileScreen from '../screens/Shared/ProfileScreen';
 import ScheduleScreen from '../screens/Shared/ScheduleScreen';
@@ -32,9 +33,8 @@ import PostAnnouncementScreen from '../screens/Instructor/PostAnnouncementScreen
 import ResultsScreen from '../screens/Student/ResultsScreen';
 import ManageResultsScreen from '../screens/Admin/ManageResultsScreen';
 import MyStudentsScreen from '../screens/Instructor/MyStudentsScreen';
-
-// Placeholders for missing screens to prevent crashes
-const AdminDashboard = () => <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Admin Dashboard</Text></View>;
+import ForceChangePasswordScreen from '../screens/Auth/ForceChangePasswordScreen';
+import ApplicationsManagementScreen from '../screens/Admin/ApplicationsManagementScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -116,16 +116,18 @@ const AdminTabs = ({ insets }: { insets: any }) => (
   <Tab.Navigator screenOptions={({ route }) => ({
     ...getCommonTabOptions(insets),
     tabBarIcon: ({ color, size }) => {
-      let iconName: any = 'home';
-      if (route.name === 'Home') iconName = 'speedometer';
+      let iconName: any = 'grid';
+      if (route.name === 'Home') iconName = 'grid';
+      else if (route.name === 'Applications') iconName = 'document-text';
       else if (route.name === 'Users') iconName = 'people';
-      else if (route.name === 'Courses') iconName = 'library';
-      else if (route.name === 'Results') iconName = 'stats-chart';
+      else if (route.name === 'Courses') iconName = 'book';
+      else if (route.name === 'Results') iconName = 'bar-chart';
       else if (route.name === 'Profile') iconName = 'person';
       return <Icon name={iconName} size={size} color={color} />;
     },
   })}>
-    <Tab.Screen name="Home" component={AdminDashboard} />
+    <Tab.Screen name="Home" component={AdminDashboardScreen} options={{ tabBarLabel: 'Dashboard' }} />
+    <Tab.Screen name="Applications" component={ApplicationsManagementScreen} options={{ tabBarLabel: 'Applications' }} />
     <Tab.Screen name="Users" component={UserManagementScreen} />
     <Tab.Screen name="Courses" component={AdminCoursesStack} />
     <Tab.Screen name="Results" component={ManageResultsScreen} />
@@ -199,6 +201,8 @@ export const AppNavigator = () => {
               animationTypeForReplace: !userToken ? 'pop' : 'push',
             }}
           />
+        ) : context?.user?.must_change_password ? (
+          <Stack.Screen name="ForceChangePassword" component={ForceChangePasswordScreen} />
         ) : (
           <>
             {userRole === 'student' && (

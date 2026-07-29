@@ -5,6 +5,10 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import dns from 'dns';
+
+// Force Google DNS servers to resolve MongoDB Atlas queryTxt/SRV lookups reliably
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 // Import Routes
 import authRoutes from './routes/auth';
@@ -13,8 +17,10 @@ import adminRoutes from './routes/admin';
 import userRoutes from './routes/userRoutes';
 import studentRoutes from './routes/students';
 import instructorRoutes from './routes/instructors';
+import applicationRoutes from './routes/applications';
 import notificationRoutes from './routes/notifications';
 import announcementRoutes from './routes/announcements';
+import User from './models/User';
 
 // Load environment variables
 dotenv.config();
@@ -32,8 +38,8 @@ app.use(express.urlencoded({ extended: true }));
 // Rate Limiting
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window`
-  message: { success: false, message: 'Too many requests from this IP, please try again after 15 minutes' },
+  max: 5000, // Generous limit for dev & live usage
+  message: { success: false, message: 'Too many requests from this IP, please try again later' },
 });
 app.use('/api', apiLimiter);
 
@@ -42,11 +48,26 @@ let isConnected = false;
 const connectDB = async () => {
   if (isConnected) return;
   try {
-    const mongoURI = process.env.MONGO_URI;
-    if (!mongoURI) throw new Error('MONGO_URI is not defined');
+    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/twintec_lms';
     await mongoose.connect(mongoURI);
     isConnected = true;
     console.log('MongoDB Connected successfully.');
+
+    // Run simple one-time migration to lowercase all user emails
+    try {
+      const usersWithUpper = await User.find({ email: { $regex: /[A-Z]/ } });
+      if (usersWithUpper.length > 0) {
+        console.log(`[Migration] Found ${usersWithUpper.length} users with uppercase letters in their email. Lowercasing...`);
+        for (const u of usersWithUpper) {
+          const oldEmail = u.email;
+          u.email = u.email.toLowerCase().trim();
+          await u.save();
+          console.log(`[Migration] Updated: "${oldEmail}" -> "${u.email}"`);
+        }
+      }
+    } catch (migErr) {
+      console.error('[Migration] Email lowercasing failed:', migErr);
+    }
   } catch (err: any) {
     console.error('MongoDB connection error:', err.message);
   }
@@ -58,6 +79,7 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/applications', applicationRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);

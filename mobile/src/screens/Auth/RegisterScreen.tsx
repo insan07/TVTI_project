@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Image } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Image
+} from 'react-native';
+import CustomDropdown from '../../components/shared/CustomDropdown';
 import api from '../../services/api';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,17 +26,18 @@ export default function RegisterScreen() {
     nic: '',
     email: '',
     phone: '',
-    password: '',
-    confirmPassword: '',
     desired_course: '',
   });
-  
-  const [courses, setCourses] = useState<{_id: string, title: string}[]>([]);
+
+  const [courses, setCourses] = useState<{ _id: string; title: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetchingCourses, setFetchingCourses] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+  // Modals
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
 
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -33,13 +46,14 @@ export default function RegisterScreen() {
     const fetchCourses = async () => {
       try {
         const res = await api.get('/courses/active').catch(() => null);
-        if (res && res.data) {
+        if (res && res.data && res.data.length > 0) {
           setCourses(res.data);
-          if (res.data.length > 0) {
-            setFormData(prev => ({ ...prev, desired_course: res.data[0]._id }));
-          }
+          setFormData(prev => ({ ...prev, desired_course: res.data[0]._id }));
         } else {
-          const mock = [{_id: '1', title: 'Web Development'}, {_id: '2', title: 'Network Engineering'}];
+          const mock = [
+            { _id: '1', title: 'Automotive Diagnostics Level 1' },
+            { _id: '2', title: 'Advanced Welding Techniques' }
+          ];
           setCourses(mock);
           setFormData(prev => ({ ...prev, desired_course: mock[0]._id }));
         }
@@ -54,151 +68,271 @@ export default function RegisterScreen() {
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (errorMsg) setErrorMsg('');
   };
 
-  const handleRegister = async () => {
+  const handleRegisterApplication = async () => {
     setErrorMsg('');
-    const { name, nic, email, phone, password, confirmPassword, desired_course } = formData;
-    
-    if (!name || !nic || !email || !phone || !password || !confirmPassword || !desired_course) {
-      setErrorMsg('All fields are required');
+    const { name, nic, email, phone, desired_course } = formData;
+
+    if (!name.trim() || !nic.trim() || !email.trim() || !phone.trim() || !desired_course) {
+      setErrorMsg('Please complete all required application fields.');
       return;
     }
-    
-    if (password !== confirmPassword) {
-      setErrorMsg('Passwords do not match');
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
+    if (!agreedToTerms) {
+      setErrorMsg('You must agree to the Terms & Conditions to submit your application.');
       return;
     }
 
     try {
       setLoading(true);
-      await api.post('/auth/register', {
-        name,
-        email,
-        password,
-        phone,
-        nic,
-        desired_course
+      await api.post('/applications', {
+        full_name: name.trim(),
+        nic_number: nic.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        course_id: desired_course,
+        terms_accepted: true
       });
-      
-      Alert.alert(
-        "Registration Successful", 
-        "Registration submitted. Awaiting admin approval.",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
-      );
+
+      // Show Application Success Modal
+      setSuccessModalVisible(true);
     } catch (e: any) {
-      setErrorMsg(e.response?.data?.message || 'Registration failed');
+      const serverMsg = e.response?.data?.message;
+      if (serverMsg) {
+        setErrorMsg(serverMsg);
+      } else {
+        setErrorMsg('Application submission failed. Please check your connection.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGoToLogin = () => {
+    setSuccessModalVisible(false);
+    navigation.navigate('Login', {
+      registeredEmail: formData.email,
+      infoMessage: 'Application Submitted! ⏳ Your registration status is PENDING. Once approved by TVTI Admin, your unique Registration Number & password will be issued.'
+    });
+  };
+
+  const isFormValid = formData.name.trim() !== '' &&
+    formData.nic.trim() !== '' &&
+    formData.email.trim() !== '' &&
+    formData.phone.trim() !== '' &&
+    formData.desired_course !== '' &&
+    agreedToTerms;
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <LinearGradient
         colors={[COLORS.primaryDark, COLORS.primary]}
-        style={[styles.headerGradient, { paddingTop: insets.top + 20 }]}
+        style={[styles.headerGradient, { paddingTop: insets.top + 12 }]}
       >
-        <Image 
-          source={require('../../../assets/icon.png')} 
+        <Image
+          source={require('../../../assets/icon.png')}
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.brandTitle}>Student Registration</Text>
+        <Text style={styles.brandTitle}>Student Course Application</Text>
+        <Text style={styles.brandSubtitle}>Apply for vocational certification programs</Text>
       </LinearGradient>
 
-      <KeyboardAvoidingView 
-        style={styles.cardContainer} 
+      <KeyboardAvoidingView
+        style={styles.cardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView style={styles.card} contentContainerStyle={{ paddingBottom: 60 + insets.bottom }} showsVerticalScrollIndicator={false}>
-          {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
+        <ScrollView
+          style={styles.card}
+          contentContainerStyle={{ paddingBottom: 60 + insets.bottom }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {errorMsg ? (
+            <View style={styles.errorBox}>
+              <Icon name="alert-circle-outline" size={20} color="#DC2626" style={{ marginRight: 8, marginTop: 2 }} />
+              <Text style={styles.errorBoxText}>{errorMsg}</Text>
+            </View>
+          ) : null}
 
+          <Text style={styles.inputLabel}>Full Name *</Text>
           <View style={styles.inputContainer}>
             <Icon name="person-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-            <TextInput 
-              style={styles.input} placeholder="Full Name" placeholderTextColor={COLORS.textMuted}
-              value={formData.name} onChangeText={(val) => handleChange('name', val)} 
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. John Doe"
+              placeholderTextColor={COLORS.textMuted}
+              value={formData.name}
+              onChangeText={(val) => handleChange('name', val)}
             />
           </View>
-          
+
+          <Text style={styles.inputLabel}>NIC Number *</Text>
           <View style={styles.inputContainer}>
             <Icon name="card-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-            <TextInput 
-              style={styles.input} placeholder="NIC Number" placeholderTextColor={COLORS.textMuted}
-              value={formData.nic} onChangeText={(val) => handleChange('nic', val)} 
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 200112345678"
+              placeholderTextColor={COLORS.textMuted}
+              value={formData.nic}
+              onChangeText={(val) => handleChange('nic', val)}
             />
           </View>
-          
+
+          <Text style={styles.inputLabel}>Email Address *</Text>
           <View style={styles.inputContainer}>
             <Icon name="mail-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-            <TextInput 
-              style={styles.input} placeholder="Email" keyboardType="email-address" autoCapitalize="none" placeholderTextColor={COLORS.textMuted}
-              value={formData.email} onChangeText={(val) => handleChange('email', val)} 
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. john@student.tvti.edu"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholderTextColor={COLORS.textMuted}
+              value={formData.email}
+              onChangeText={(val) => handleChange('email', val)}
             />
           </View>
-          
+
+          <Text style={styles.inputLabel}>Phone Number *</Text>
           <View style={styles.inputContainer}>
             <Icon name="call-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-            <TextInput 
-              style={styles.input} placeholder="Phone Number" keyboardType="phone-pad" placeholderTextColor={COLORS.textMuted}
-              value={formData.phone} onChangeText={(val) => handleChange('phone', val)} 
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. +94 77 123 4567"
+              keyboardType="phone-pad"
+              placeholderTextColor={COLORS.textMuted}
+              value={formData.phone}
+              onChangeText={(val) => handleChange('phone', val)}
             />
           </View>
-          
-          <View style={[styles.inputContainer, { paddingVertical: 0 }]}>
-            <Icon name="library-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-            <View style={{flex: 1}}>
-              {fetchingCourses ? (
-                <ActivityIndicator size="small" color={COLORS.primary} style={{paddingVertical: 14}} />
-              ) : (
-                <Picker
-                  selectedValue={formData.desired_course}
-                  onValueChange={(val) => handleChange('desired_course', val)}
-                  style={styles.picker}
+
+          {fetchingCourses ? (
+            <ActivityIndicator size="small" color={COLORS.primary} style={{ paddingVertical: 14 }} />
+          ) : (
+            <CustomDropdown
+              label="Desired Vocational Course *"
+              placeholder="Select course..."
+              iconName="library-outline"
+              items={courses.map(c => ({
+                label: c.title,
+                value: c._id
+              }))}
+              selectedValue={formData.desired_course}
+              onValueChange={(val) => handleChange('desired_course', val)}
+            />
+          )}
+
+          {/* Checkbox for Terms & Conditions */}
+          <View style={styles.termsRow}>
+            <TouchableOpacity
+              style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}
+              onPress={() => setAgreedToTerms(!agreedToTerms)}
+              activeOpacity={0.8}
+            >
+              {agreedToTerms && <Icon name="checkmark" size={16} color="#FFFFFF" />}
+            </TouchableOpacity>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.termsText}>
+                I agree to the{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => setTermsModalVisible(true)}
                 >
-                  {courses.map(c => (
-                    <Picker.Item key={c._id} label={c.title} value={c._id} color={COLORS.textPrimary} />
-                  ))}
-                </Picker>
-              )}
+                  Terms & Conditions
+                </Text>{' '}
+                of TVTI Vocational Institute *
+              </Text>
             </View>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Icon name="lock-closed-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-            <TextInput 
-              style={styles.input} placeholder="Password" secureTextEntry={!showPassword} placeholderTextColor={COLORS.textMuted}
-              value={formData.password} onChangeText={(val) => handleChange('password', val)} 
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-              <Icon name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.textMuted} />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.inputContainer}>
-            <Icon name="lock-closed-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-            <TextInput 
-              style={styles.input} placeholder="Confirm Password" secureTextEntry={!showConfirmPassword} placeholderTextColor={COLORS.textMuted}
-              value={formData.confirmPassword} onChangeText={(val) => handleChange('confirmPassword', val)} 
-            />
-            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
-              <Icon name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Register</Text>}
+          {/* Submit Button: Disabled until terms checked */}
+          <TouchableOpacity
+            style={[styles.button, (!isFormValid || loading) && styles.buttonDisabled]}
+            onPress={handleRegisterApplication}
+            disabled={!isFormValid || loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Submit Application</Text>
+            )}
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text style={styles.footerText}>Already registered? </Text>
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <Text style={styles.link}>Login Here</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Terms & Conditions Modal */}
+      <Modal visible={termsModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.termsModalCard}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>TVTI Terms & Conditions</Text>
+              <TouchableOpacity onPress={() => setTermsModalVisible(false)}>
+                <Icon name="close" size={22} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flex: 1, marginVertical: 12 }}>
+              <Text style={styles.termsContent}>
+                1. <Text style={{ fontWeight: 'bold' }}>Admissions Policy</Text>: All applications submitted via this portal are subject to document verification by TVTI Admissions Office.
+                {'\n\n'}
+                2. <Text style={{ fontWeight: 'bold' }}>Status & Credentials</Text>: Initial submission creates a <Text style={{ color: '#D97706', fontWeight: 'bold' }}>PENDING</Text> record. Upon payment & admin approval, your unique Registration Number (e.g. 26T0001) and temporary password will be issued.
+                {'\n\n'}
+                3. <Text style={{ fontWeight: 'bold' }}>Security & Password Setup</Text>: Temporary passwords expire after 7 days. On your first login, you are required to set a new permanent password.
+                {'\n\n'}
+                4. <Text style={{ fontWeight: 'bold' }}>Attendance & Discipline</Text>: Enrolled students must maintain a minimum 80% practical workshop attendance.
+              </Text>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.acceptTermsBtn}
+              onPress={() => {
+                setAgreedToTerms(true);
+                setTermsModalVisible(false);
+              }}
+            >
+              <Text style={styles.acceptTermsBtnText}>I Agree & Accept</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Registration Success Modal */}
+      <Modal visible={successModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.successIconCircle}>
+              <Icon name="checkmark-circle" size={54} color="#10B981" />
+            </View>
+            <Text style={styles.modalTitle}>Application Submitted! 🎉</Text>
+            <Text style={styles.modalText}>
+              Your course application has been submitted successfully.
+              {"\n\n"}
+              Application Status: <Text style={{ fontWeight: 'bold', color: '#D97706' }}>PENDING REVIEW</Text>
+              {"\n\n"}
+              Once TVTI Admin approves your application, your unique <Text style={{ fontWeight: 'bold', color: '#111827' }}>Registration Number</Text> (e.g. 26T0001) and temporary login password will be issued.
+            </Text>
+
+            <TouchableOpacity style={styles.modalLoginBtn} onPress={handleGoToLogin}>
+              <Text style={styles.modalLoginBtnText}>Return to Login</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -209,38 +343,60 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   headerGradient: {
-    height: 250,
+    paddingBottom: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: SPACING.xl,
+    paddingTop: SPACING.lg,
   },
   logo: {
-    width: 60,
-    height: 60,
-    marginBottom: SPACING.md,
+    width: 48,
+    height: 48,
+    marginBottom: SPACING.xs,
   },
   brandTitle: {
-    fontSize: 24,
+    fontSize: 20,
     color: '#FFFFFF',
     ...FONTS.bold,
   },
+  brandSubtitle: {
+    fontSize: 12,
+    color: '#FDE68A',
+    marginTop: 2,
+  },
   cardContainer: {
     flex: 1,
-    marginTop: -32,
+    marginTop: -20,
   },
   card: {
     flex: 1,
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: SPACING.xxl,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: SPACING.xl,
     ...SHADOW.md,
   },
-  error: {
-    color: COLORS.error,
-    textAlign: 'center',
-    marginBottom: SPACING.md,
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  errorBoxText: {
+    flex: 1,
+    color: '#991B1B',
+    fontSize: 13,
+    lineHeight: 18,
     ...FONTS.medium,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -257,25 +413,49 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    paddingVertical: 14,
-    fontSize: 16,
+    paddingVertical: 12,
+    fontSize: 15,
     color: COLORS.textPrimary,
     ...FONTS.regular,
   },
-  picker: {
-    height: 50,
-    width: '100%',
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: SPACING.md,
   },
-  eyeIcon: {
-    padding: SPACING.xs,
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.primary,
+  },
+  termsText: {
+    fontSize: 13,
+    color: '#4B5563',
+    lineHeight: 18,
+  },
+  termsLink: {
+    color: COLORS.primary,
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
   },
   button: {
     backgroundColor: COLORS.primary,
     paddingVertical: SPACING.lg,
     borderRadius: RADIUS.md,
     alignItems: 'center',
-    marginTop: SPACING.md,
+    marginTop: SPACING.sm,
     ...SHADOW.md,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   buttonText: {
     color: COLORS.textOnPrimary,
@@ -285,7 +465,7 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: SPACING.xxl,
+    marginTop: SPACING.xl,
   },
   footerText: {
     color: COLORS.textSecondary,
@@ -294,5 +474,80 @@ const styles = StyleSheet.create({
   link: {
     color: COLORS.secondary,
     ...FONTS.semiBold,
-  }
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '88%',
+    alignItems: 'center',
+    elevation: 5,
+  },
+  termsModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+    elevation: 5,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    paddingBottom: 10,
+  },
+  successIconCircle: {
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  modalText: {
+    fontSize: 14,
+    color: '#4B5563',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  termsContent: {
+    fontSize: 13,
+    color: '#374151',
+    lineHeight: 20,
+  },
+  acceptTermsBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  acceptTermsBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  modalLoginBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalLoginBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
 });

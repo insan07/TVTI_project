@@ -138,6 +138,9 @@ export default function MyStudentsScreen() {
               </View>
               <View style={styles.info}>
                 <Text style={styles.name}>{item.student_id?.name || 'Unknown Student'}</Text>
+                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#059669', marginTop: 2 }}>
+                  Reg No: {item.student_id?.index_number || item.student_id?.nic || 'N/A'}
+                </Text>
                 <Text style={styles.email}>{item.student_id?.email || 'No email'}</Text>
                 {item.student_id?.phone ? (
                   <Text style={styles.phone}>📱 {item.student_id.phone}</Text>
