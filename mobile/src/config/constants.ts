@@ -2,6 +2,13 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 const getApiUrl = () => {
+  // ==========================================
+  // CLOUD BACKEND CONFIGURATION
+  // ==========================================
+  // If you deploy your backend to the cloud (e.g., Vercel, Render, Railway, etc.),
+  // uncomment the line below and enter your production backend URL:
+  // return 'https://your-deployed-backend-url.com/api';
+
   // Web browser client check
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const hostname = window.location.hostname;
