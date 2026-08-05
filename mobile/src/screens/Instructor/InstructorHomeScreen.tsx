@@ -161,7 +161,7 @@ export default function InstructorHomeScreen() {
           <Icon name="calendar-outline" size={32} color="#D1D5DB" />
           <Text style={styles.emptyText}>No open practice slots</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Practice')}>
-            <Text style={styles.emptyAction}>Create a slot →</Text>
+            <Text style={styles.emptyAction}>Create a slot -></Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -184,7 +184,7 @@ export default function InstructorHomeScreen() {
               </View>
               <Text style={styles.slotBatchName}>{slot.batch_id?.name || 'Practice Slot'}</Text>
               {slot.equipment_note ? (
-                <Text style={styles.slotNote}>📋 {slot.equipment_note}</Text>
+                <Text style={styles.slotNote}>Note: {slot.equipment_note}</Text>
               ) : null}
               <View style={styles.slotFooter}>
                 <View style={styles.progressContainer}>
@@ -212,7 +212,7 @@ export default function InstructorHomeScreen() {
           <Icon name="videocam-outline" size={32} color="#D1D5DB" />
           <Text style={styles.emptyText}>No videos uploaded yet</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Videos', { tab: 'upload' })}>
-            <Text style={styles.emptyAction}>Upload your first video →</Text>
+            <Text style={styles.emptyAction}>Upload your first video -></Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -238,7 +238,7 @@ export default function InstructorHomeScreen() {
                   {(video.batch_id?.name || 'Class Video').toUpperCase()}
                 </Text>
                 <Text style={styles.videoTitle} numberOfLines={2}>{video.title}</Text>
-                {video.topic ? <Text style={styles.videoTopic} numberOfLines={1}>📌 {video.topic}</Text> : null}
+                {video.topic ? <Text style={styles.videoTopic} numberOfLines={1}>Topic: {video.topic}</Text> : null}
               </View>
             </View>
           ))}
@@ -258,7 +258,7 @@ export default function InstructorHomeScreen() {
           <Icon name="megaphone-outline" size={32} color="#D1D5DB" />
           <Text style={styles.emptyText}>No announcements posted</Text>
           <TouchableOpacity onPress={() => navigation.navigate('PostAnnouncement')}>
-            <Text style={styles.emptyAction}>Post an announcement →</Text>
+            <Text style={styles.emptyAction}>Post an announcement -></Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -278,7 +278,7 @@ export default function InstructorHomeScreen() {
                 <View style={styles.announcementContent}>
                   <Text style={styles.announcementTitle} numberOfLines={1}>{ann.title}</Text>
                   <Text style={styles.announcementMeta}>
-                    {ann.batch_id?.name ? `${ann.batch_id.name} · ` : ''}{formatDate(ann.createdAt)}
+                    {ann.batch_id?.name ? `${ann.batch_id.name} � ` : ''}{formatDate(ann.createdAt)}
                   </Text>
                 </View>
               </View>
@@ -401,3 +401,5 @@ const styles = StyleSheet.create({
   announcementTitle: { fontSize: 13, fontWeight: 'bold', color: '#1F2937' },
   announcementMeta: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
 });
+
+

@@ -11,6 +11,8 @@ import { AuthContext } from '../../context/AuthContext';
 import { useRoute } from '@react-navigation/native';
 import { COLORS } from '../../config/theme';
 
+const MAX_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
+
 export default function UploadVideoScreen() {
   const route = useRoute<any>();
   const { user } = useContext(AuthContext) as any;
@@ -102,7 +104,10 @@ export default function UploadVideoScreen() {
 
   const pickVideo = async () => {
     const res = await DocumentPicker.getDocumentAsync({ type: 'video/*' });
-    if (!res.canceled && res.assets && res.assets.length > 0) setVideoFile(res.assets[0]);
+    if (!res.canceled && res.assets && res.assets.length > 0) {
+      setVideoFile(res.assets[0]);
+      setIsVideoLink(false);
+    }
   };
 
   const pickNotes = async () => {
@@ -123,6 +128,13 @@ export default function UploadVideoScreen() {
     if (!formData.title.trim()) return Alert.alert('Error', 'Please enter a video title');
     if (isVideoLink && !formData.youtube_url.trim()) return Alert.alert('Error', 'Please provide a YouTube URL');
     if (!isVideoLink && !videoFile) return Alert.alert('Error', 'Please select a video file');
+    if (!isVideoLink && videoFile && !videoFile.uri) return Alert.alert('Error', 'The selected video file is invalid. Please pick it again.');
+    if (!isVideoLink && videoFile?.size && videoFile.size > MAX_VIDEO_UPLOAD_BYTES) {
+      return Alert.alert('Error', 'The selected video is too large. Please choose a file under 100 MB.');
+    }
+    if (notesFile?.size && notesFile.size > MAX_VIDEO_UPLOAD_BYTES) {
+      return Alert.alert('Error', 'The selected PDF is too large. Please choose a file under 100 MB.');
+    }
 
     setUploading(true);
     try {
@@ -135,14 +147,22 @@ export default function UploadVideoScreen() {
       if (isVideoLink) {
         data.append('youtube_url', formData.youtube_url.trim());
       } else if (videoFile) {
-        data.append('video', { uri: videoFile.uri, name: videoFile.name, type: videoFile.mimeType || 'video/mp4' } as any);
+        data.append('video', {
+          uri: videoFile.uri,
+          name: videoFile.name || `video-${Date.now()}.mp4`,
+          type: videoFile.mimeType || 'video/mp4'
+        } as any);
       }
 
       if (notesFile) {
-        data.append('notes', { uri: notesFile.uri, name: notesFile.name, type: notesFile.mimeType || 'application/pdf' } as any);
+        data.append('notes', {
+          uri: notesFile.uri,
+          name: notesFile.name || `notes-${Date.now()}.pdf`,
+          type: notesFile.mimeType || 'application/pdf'
+        } as any);
       }
 
-      await api.post('/instructors/videos', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post('/instructors/videos', data);
 
       Alert.alert('Success', 'Video uploaded successfully!', [
         { text: 'View My Videos', onPress: () => { resetForm(); setActiveTab('my_videos'); } },
@@ -290,7 +310,7 @@ export default function UploadVideoScreen() {
             />
 
             {/* PDF Notes */}
-            <Text style={styles.label}>Attach Notes (PDF – Optional)</Text>
+            <Text style={styles.label}>Attach Notes (PDF - Optional)</Text>
             <TouchableOpacity
               style={[styles.uploadBox, { borderColor: '#10B981', backgroundColor: '#ECFDF5' }]}
               onPress={pickNotes}
@@ -353,8 +373,8 @@ export default function UploadVideoScreen() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.videoTitle} numberOfLines={2}>{item.title}</Text>
-                      <Text style={styles.videoMeta}>📌 {item.topic || 'No topic'}</Text>
-                      <Text style={styles.videoMeta}>📚 {item.batch_id?.name || 'Unknown Batch'}</Text>
+                      <Text style={styles.videoMeta}>Topic: {item.topic || 'No topic'}</Text>
+                      <Text style={styles.videoMeta}>Batch: {item.batch_id?.name || 'Unknown Batch'}</Text>
                       <Text style={styles.videoDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
                     </View>
                   </View>
@@ -407,3 +427,4 @@ const styles = StyleSheet.create({
   videoDate: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
   deleteBtn: { padding: 6, marginLeft: 8 },
 });
+
