@@ -108,7 +108,7 @@ export default function InstructorHomeScreen() {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{stats.totalVideos}</Text>
-          <Text style={styles.statLabel}>VIDEOS</Text>
+          <Text style={styles.statLabel}>UPLOADS</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{stats.totalAnnouncements}</Text>
@@ -119,11 +119,11 @@ export default function InstructorHomeScreen() {
       {/* 4. Quick Actions */}
       <Text style={styles.sectionTitle}>Quick Actions</Text>
       <View style={styles.actionsContainer}>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('Videos', { tab: 'upload' })}>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('Uploads', { tab: 'upload' })}>
           <View style={styles.actionIconBg}>
             <Icon name="cloud-upload-outline" size={22} color="#F58220" />
           </View>
-          <Text style={styles.actionText}>Upload Video</Text>
+          <Text style={styles.actionText}>Upload Content</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('Practice')}>
@@ -199,20 +199,20 @@ export default function InstructorHomeScreen() {
         })
       )}
 
-      {/* 6. Recent Videos */}
+      {/* 6. Recent Uploads */}
       <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitleNoMargin}>Recent Videos</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Videos', { tab: 'my_videos' })}>
+        <Text style={styles.sectionTitleNoMargin}>Recent Uploads</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Uploads', { tab: 'my_videos' })}>
           <Text style={styles.viewAllText}>View All</Text>
         </TouchableOpacity>
       </View>
 
       {stats.recentVideos.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Icon name="videocam-outline" size={32} color="#D1D5DB" />
-          <Text style={styles.emptyText}>No videos uploaded yet</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Videos', { tab: 'upload' })}>
-            <Text style={styles.emptyAction}>Upload your first video -></Text>
+          <Icon name="cloud-upload-outline" size={32} color="#D1D5DB" />
+          <Text style={styles.emptyText}>No uploads yet</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Uploads', { tab: 'upload' })}>
+            <Text style={styles.emptyAction}>Upload your first content -></Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -224,7 +224,7 @@ export default function InstructorHomeScreen() {
                   <Image source={{ uri: video.thumbnail }} style={styles.videoThumbnail} />
                 ) : (
                   <View style={styles.videoThumbnailPlaceholder}>
-                    <Icon name="videocam" size={28} color="#9CA3AF" />
+                    <Icon name="cloud-upload" size={28} color="#9CA3AF" />
                   </View>
                 )}
                 <View style={styles.playOverlay}>

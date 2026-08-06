@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "dev": "npm run dev --prefix backend"
+  },
   "dependencies": {
     "dotenv": "^17.4.2",
     "mongoose": "^9.7.0"
