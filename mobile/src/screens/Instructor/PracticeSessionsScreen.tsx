@@ -257,7 +257,7 @@ const PracticeSessionsScreen = () => {
                   <View style={styles.cardHeader}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.cardTitle}>{slot.day_of_week}</Text>
-                      <Text style={styles.cardTime}>{slot.start_time} – {slot.end_time}</Text>
+                      <Text style={styles.cardTime}>{slot.start_time} - {slot.end_time}</Text>
                     </View>
                     <View style={[styles.badge, { backgroundColor: slot.is_open ? '#D1FAE5' : '#FEE2E2' }]}>
                       <Text style={[styles.badgeText, { color: slot.is_open ? '#065F46' : '#991B1B' }]}>
@@ -270,7 +270,7 @@ const PracticeSessionsScreen = () => {
                     <Text style={styles.cardBatch}>📚 {slot.batch_id.name}</Text>
                   ) : null}
                   {slot.equipment_note ? (
-                    <Text style={styles.cardNote}>📋 {slot.equipment_note}</Text>
+                    <Text style={styles.cardNote}>Note: {slot.equipment_note}</Text>
                   ) : null}
 
                   <View style={styles.bookingRow}>
@@ -431,7 +431,7 @@ const PracticeSessionsScreen = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                Bookings — {selectedSlot?.day_of_week} {selectedSlot?.start_time}–{selectedSlot?.end_time}
+                Bookings — {selectedSlot?.day_of_week} {selectedSlot?.start_time}-{selectedSlot?.end_time}
               </Text>
               <TouchableOpacity onPress={() => setBookingsModalVisible(false)}>
                 <Icon name="close" size={22} color="#6B7280" />
@@ -576,3 +576,4 @@ const styles = StyleSheet.create({
 });
 
 export default PracticeSessionsScreen;
+

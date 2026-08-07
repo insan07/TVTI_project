@@ -1,6 +1,16 @@
 import { Platform } from 'react-native';
 import api from './api';
 
+const getMessaging = () => {
+  if (Platform.OS === 'web') return null;
+  try {
+    return require('@react-native-firebase/messaging').default;
+  } catch (e) {
+    console.warn('Firebase messaging not available on this platform:', e);
+    return null;
+  }
+};
+
 /**
  * Request permission and get the FCM token.
  * Call this once after the user logs in.
@@ -11,7 +21,8 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   }
 
   try {
-    const { default: messaging } = await import('@react-native-firebase/messaging');
+    const messaging = getMessaging();
+    if (!messaging) return null;
 
     // Request permission (iOS requires explicit request; Android 13+ also needs it)
     const authStatus = await messaging().requestPermission();
@@ -52,12 +63,12 @@ export const setupNotificationListeners = async (navigationRef: any) => {
   }
 
   try {
-    const { default: messaging } = await import('@react-native-firebase/messaging');
+    const messaging = getMessaging();
+    if (!messaging) return () => {};
 
     // Foreground: message received while app is open
     const unsubscribeForeground = messaging().onMessage(async (remoteMessage: any) => {
       console.log('FCM Message received in foreground:', remoteMessage);
-      // You can show an in-app toast/alert here
     });
 
     // When user taps a notification that opened/resumed the app

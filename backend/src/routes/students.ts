@@ -1,7 +1,7 @@
 import express from 'express';
 import { getMySchedule, getHomeDashboard } from '../controllers/studentController';
 import { getMyResults } from '../controllers/resultController';
-import { getEnrolledBatches, getBatchVideos, getVideoStreamUrl, getNotesUrl } from '../controllers/studentVideoController';
+import { getEnrolledBatches, getBatchVideos, getBatchMaterials, getVideoStreamUrl, getNotesUrl } from '../controllers/studentVideoController';
 import { getOpenSlots, bookSlot, cancelBooking as cancelPracticeBooking, getMyBookings as getMyPracticeBookings } from '../controllers/studentPracticeController';
 import { protect } from '../middleware/authMiddleware';
 import { checkRole } from '../middleware/roleMiddleware';
@@ -14,6 +14,7 @@ router.get('/home', getHomeDashboard);
 
 router.get('/batches', getEnrolledBatches);
 router.get('/batches/:batchId/videos', getBatchVideos);
+router.get('/batches/:batchId/materials', getBatchMaterials);
 router.get('/videos/:videoId/stream-url', getVideoStreamUrl);
 router.get('/videos/:videoId/notes-url', getNotesUrl);
 

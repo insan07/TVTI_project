@@ -95,8 +95,8 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
       const isActive = color === COLORS.tabBarActive;
       if (route.name === 'Home') {
         iconName = isActive ? 'home' : 'home-outline';
-      } else if (route.name === 'Videos') {
-        iconName = isActive ? 'play-circle' : 'play-circle-outline';
+      } else if (route.name === 'Uploads') {
+        iconName = isActive ? 'cloud-upload' : 'cloud-upload-outline';
       } else if (route.name === 'Practice') {
         iconName = isActive ? 'calendar' : 'calendar-outline';
       } else if (route.name === 'Profile') {
@@ -106,7 +106,7 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
     },
   })}>
     <Tab.Screen name="Home" component={InstructorHomeScreen} />
-    <Tab.Screen name="Videos" component={UploadVideoScreen} />
+    <Tab.Screen name="Uploads" component={UploadVideoScreen} options={{ tabBarLabel: 'Uploads' }} />
     <Tab.Screen name="Practice" component={InstructorPracticeScreen} options={{ tabBarLabel: 'Schedule' }} />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>

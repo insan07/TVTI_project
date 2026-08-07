@@ -29,8 +29,25 @@ export const getBatchVideos = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const videos = await Video.find({ batch_id: batchId }).sort({ order_index: 1 }).lean();
+    const videos = await Video.find({ batch_id: batchId, content_type: 'video' }).sort({ order_index: 1 }).lean();
     res.json(videos);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const getBatchMaterials = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { batchId } = req.params;
+    
+    const enrollment = await Enrollment.findOne({ student_id: req.user._id, batch_id: batchId, status: 'active' });
+    if (!enrollment) {
+      res.status(403).json({ message: 'Not enrolled in this batch' });
+      return;
+    }
+
+    const materials = await Video.find({ batch_id: batchId, content_type: 'material' }).sort({ order_index: 1 }).lean();
+    res.json(materials);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

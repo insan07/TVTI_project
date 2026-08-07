@@ -53,6 +53,7 @@ CREATE TABLE videos (
     title VARCHAR(255) NOT NULL,
     cloudinary_url TEXT NOT NULL,
     notes_url TEXT,
+    content_type VARCHAR(20) NOT NULL DEFAULT 'video',
     order_index INT NOT NULL
 );
 

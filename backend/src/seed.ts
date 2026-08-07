@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
+import dns from 'dns';
 // Dynamically configure DNS: Check if Google DNS is reachable.
 // On some networks, Google DNS is blocked, causing ECONNREFUSED.
 // On other networks, default DNS fails to resolve MongoDB Atlas SRV records, causing ETIMEOUT.
@@ -8,7 +9,7 @@ const setupDNS = () => {
   return new Promise<void>((resolve) => {
     const resolver = new dns.Resolver();
     resolver.setServers(['8.8.8.8']);
-    resolver.resolve('google.com', (err) => {
+    resolver.resolve('google.com', (err: any) => {
       if (!err) {
         dns.setServers(['8.8.8.8', '8.8.4.4']);
       }

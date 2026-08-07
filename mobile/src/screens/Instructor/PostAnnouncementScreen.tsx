@@ -97,32 +97,16 @@ export default function PostAnnouncementScreen() {
 
     setLoading(true);
     try {
-      await api.post('/announcements', {
+      const res = await api.post('/announcements', {
         batch_id: formData.batch_id === 'all' ? null : formData.batch_id,
         title: formData.title.trim(),
         message: formData.message.trim()
       });
       Alert.alert('Success', 'Announcement posted successfully!');
-      const newAnn = {
-        _id: Date.now().toString(),
-        title: formData.title.trim(),
-        message: formData.message.trim(),
-        batch_id: formData.batch_id === 'all' ? null : batches.find(b => b._id === formData.batch_id),
-        createdAt: new Date().toISOString()
-      };
-      setAnnouncements(prev => [newAnn, ...prev]);
+      setAnnouncements(prev => [res.data, ...prev]);
       setFormData({ batch_id: 'all', title: '', message: '' });
     } catch (e: any) {
-      Alert.alert('Success', 'Announcement posted successfully!');
-      const newAnn = {
-        _id: Date.now().toString(),
-        title: formData.title.trim(),
-        message: formData.message.trim(),
-        batch_id: formData.batch_id === 'all' ? null : batches.find(b => b._id === formData.batch_id),
-        createdAt: new Date().toISOString()
-      };
-      setAnnouncements(prev => [newAnn, ...prev]);
-      setFormData({ batch_id: 'all', title: '', message: '' });
+      Alert.alert('Error', e.response?.data?.message || 'Failed to post announcement');
     } finally {
       setLoading(false);
     }
@@ -132,10 +116,19 @@ export default function PostAnnouncementScreen() {
     try {
       const d = new Date(dateStr);
       const now = new Date();
-      if (d.toDateString() === now.toDateString()) {
+      const diffMs = now.getTime() - d.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= 0 && d.toDateString() === now.toDateString()) {
         return `Today, ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
       }
-      return 'Yesterday';
+      if (diffDays === 1) {
+        return `Yesterday, ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      }
+      if (diffDays < 7) {
+        return `${diffDays}d ago`;
+      }
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
     } catch {
       return 'Today';
     }

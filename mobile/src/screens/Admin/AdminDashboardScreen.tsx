@@ -20,19 +20,12 @@ export default function AdminDashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   
   const [stats, setStats] = useState({
-    totalStudents: 1248,
-    totalInstructors: 84,
-    activeCourses: 32,
-    pendingApprovalsCount: 15,
-    pendingUsers: [
-      { _id: '1', name: 'John Doe', subtext: 'Welding Tech', initials: 'JD' },
-      { _id: '2', name: 'Alice Smith', subtext: 'HVAC Basics', initials: 'AS' }
-    ],
-    recentActivities: [
-      { id: '1', text: 'New course Advanced Robotics published by Inst. Miller.', time: '10 mins ago', color: '#F97316' },
-      { id: '2', text: 'System maintenance scheduled for 02:00 AM.', time: '2 hours ago', color: '#9CA3AF' },
-      { id: '3', text: 'Batch 44 completed module Safety Protocols.', time: 'Yesterday, 4:30 PM', color: '#9CA3AF' }
-    ]
+    totalStudents: 0,
+    totalInstructors: 0,
+    activeCourses: 0,
+    pendingApprovalsCount: 0,
+    pendingUsers: [] as any[],
+    recentActivities: [] as any[]
   });
 
   const fetchDashboardData = async () => {
@@ -40,36 +33,25 @@ export default function AdminDashboardScreen() {
       const res = await api.get('/admin/stats');
       const data = res.data;
       setStats({
-        totalStudents: data.totalStudents ?? 1248,
-        totalInstructors: data.totalInstructors ?? 84,
-        activeCourses: data.activeCourses ?? 32,
-        pendingApprovalsCount: data.pendingApprovalsCount ?? 15,
-        pendingUsers: data.pendingUsers && data.pendingUsers.length > 0
-          ? data.pendingUsers.map((u: any) => ({
-              _id: u._id,
-              name: u.name,
-              subtext: u.email || 'Applicant',
-              initials: u.name ? u.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'U'
-            }))
-          : [
-              { _id: '1', name: 'John Doe', subtext: 'Welding Tech', initials: 'JD' },
-              { _id: '2', name: 'Alice Smith', subtext: 'HVAC Basics', initials: 'AS' }
-            ],
-        recentActivities: data.recentActivities && data.recentActivities.length > 0
-          ? data.recentActivities.map((a: any, idx: number) => ({
-              id: a.id || String(idx),
-              text: a.text,
-              time: a.time,
-              color: idx === 0 ? '#F97316' : '#9CA3AF'
-            }))
-          : [
-              { id: '1', text: 'New course Advanced Robotics published by Inst. Miller.', time: '10 mins ago', color: '#F97316' },
-              { id: '2', text: 'System maintenance scheduled for 02:00 AM.', time: '2 hours ago', color: '#9CA3AF' },
-              { id: '3', text: 'Batch 44 completed module Safety Protocols.', time: 'Yesterday, 4:30 PM', color: '#9CA3AF' }
-            ]
+        totalStudents: data.totalStudents ?? 0,
+        totalInstructors: data.totalInstructors ?? 0,
+        activeCourses: data.activeCourses ?? 0,
+        pendingApprovalsCount: data.pendingApprovalsCount ?? 0,
+        pendingUsers: (data.pendingUsers || []).map((u: any) => ({
+          _id: u._id,
+          name: u.name,
+          subtext: u.email || 'Applicant',
+          initials: u.name ? u.name.trim().split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'U'
+        })),
+        recentActivities: (data.recentActivities || []).map((a: any, idx: number) => ({
+          id: a.id || String(idx),
+          text: a.text,
+          time: a.time,
+          color: idx === 0 ? '#F97316' : '#9CA3AF'
+        }))
       });
     } catch (e) {
-      console.log('Using default mock stats for visual alignment', e);
+      console.log('Failed to fetch admin stats:', e);
     } finally {
       setLoading(false);
       setRefreshing(false);
