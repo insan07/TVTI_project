@@ -9,6 +9,13 @@ import heroAutomotive from '../assets/hero_automotive.png'
 import heroElectrical from '../assets/hero_electrical.png'
 import heroComputer from '../assets/hero_computer.png'
 
+// Course image imports
+import courseMobile from '../assets/course_mobile.png'
+import courseLaptop from '../assets/course_laptop.png'
+import courseAppliances from '../assets/course_appliances.png'
+import courseCctv from '../assets/course_cctv.png'
+import courseWiring from '../assets/course_wiring.png'
+
 // Reusable Counter component that triggers animation on scroll
 function StatCounter({ end, duration = 1500, suffix = '' }) {
   const [count, setCount] = useState(0)
@@ -88,25 +95,64 @@ export default function Home() {
   const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length)
   const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)
 
+  // Course configurations
+  const coursesList = [
+    {
+      title: 'Mobile Phone Repairing',
+      image: courseMobile,
+      description: 'Learn chip-level diagnostics, screen replacements, and hardware troubleshooting for Android and iOS devices.',
+      duration: '3 Months',
+      fee: 'LKR 25,000'
+    },
+    {
+      title: 'Laptop Repairing',
+      image: courseLaptop,
+      description: 'Master motherboard repairing, BGA soldering, firmware flashing, and operating system recovery.',
+      duration: '3 Months',
+      fee: 'LKR 30,000'
+    },
+    {
+      title: 'Home Appliances Repairing',
+      image: courseAppliances,
+      description: 'Troubleshoot and fix domestic appliances like washing machines, refrigerators, and microwave ovens.',
+      duration: '3 Months',
+      fee: 'LKR 28,000'
+    },
+    {
+      title: 'CCTV Repairing',
+      image: courseCctv,
+      description: 'Set up security cameras, configure digital video recorders (DVRs/NVRs), and set up remote IP monitoring.',
+      duration: '2 Months',
+      fee: 'LKR 18,000'
+    },
+    {
+      title: 'Home Wiring',
+      image: courseWiring,
+      description: 'Master domestic electrical wiring, distribution board assembly, switches, and electrical safety standards.',
+      duration: '3 Months',
+      fee: 'LKR 22,000'
+    }
+  ]
+
   // 6. TESTIMONIALS STATE
   const [activeTestimonial, setActiveTestimonial] = useState(0)
   const testimonials = [
     {
       quote: "The practical classes at TVTI gave me the exact skills I needed to enter the job market. Within three weeks of graduation, I was hired as an automation technician.",
       name: "Aslan Mohamed",
-      course: "Automobile Repair & Maintenance",
+      course: "Home Wiring Specialist",
       avatarLetter: "A"
     },
     {
       quote: "The instructors here are actual industry experts. The workshop training isn't just about reading manuals—it is fully hands-on, simulating real workplace scenarios.",
       name: "Riza Farook",
-      course: "Electrical & Electronics Engineering",
+      course: "Mobile Phone Repairing",
       avatarLetter: "R"
     },
     {
       quote: "Thanks to TVTI's modern networking labs, I was able to pass my Cisco certifications and land a role as a network administrator immediately after completing my program.",
       name: "Fathima Rizna",
-      course: "Information & Communication Technology",
+      course: "Laptop & PC Diagnostics",
       avatarLetter: "F"
     }
   ]
@@ -228,109 +274,41 @@ export default function Home() {
           align="center"
         />
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 pt-4">
-          
-          {/* Course 1 */}
-          <Card className="flex flex-col h-full justify-between" hoverEffect={true}>
-            <div className="space-y-4">
-              {/* Technical Icon */}
-              <div className="h-10 w-10 rounded-lg bg-brand-orange/10 flex items-center justify-center text-brand-orange">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 pt-4">
+          {coursesList.map((course, idx) => (
+            <Card key={idx} className="flex flex-col h-full justify-between p-0 overflow-hidden" hoverEffect={true}>
+              <div>
+                {/* Course Image */}
+                <div className="h-40 overflow-hidden bg-brand-black relative">
+                  <img
+                    src={course.image}
+                    alt={course.title}
+                    className="w-full h-full object-cover object-center transition-transform duration-500 hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-brand-black/10 hover:bg-brand-black/0 transition-colors" />
+                </div>
+                
+                {/* Content */}
+                <div className="p-5 space-y-3 text-left">
+                  <h3 className="font-heading font-bold text-base text-brand-black leading-snug min-h-[48px] flex items-center">
+                    {course.title}
+                  </h3>
+                  <p className="font-sans text-brand-charcoal/80 text-xs leading-relaxed">
+                    {course.description}
+                  </p>
+                </div>
               </div>
-              <h3 className="font-heading font-bold text-lg text-brand-black leading-snug">
-                Automobile Repair & Maintenance
-              </h3>
-              <p className="text-brand-charcoal/80 text-xs sm:text-sm leading-relaxed">
-                Diagnose, service, and rebuild light vehicles using modern mechanical tools.
-              </p>
-            </div>
-            <div className="space-y-4 pt-6 mt-4 border-t border-black/5">
-              <div className="flex flex-col text-xs text-brand-charcoal/70">
-                <span><strong className="text-brand-black">Duration:</strong> 6 Months</span>
-                <span><strong className="text-brand-black">Fee:</strong> LKR 35,000</span>
-              </div>
-              <Button variant="outline" className="w-full text-xs py-2 min-h-[40px]">View Details</Button>
-            </div>
-          </Card>
 
-          {/* Course 2 */}
-          <Card className="flex flex-col h-full justify-between" hoverEffect={true}>
-            <div className="space-y-4">
-              {/* Technical Icon */}
-              <div className="h-10 w-10 rounded-lg bg-brand-orange/10 flex items-center justify-center text-brand-orange">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+              {/* Footer Section */}
+              <div className="px-5 pb-5 pt-3 border-t border-black/5 space-y-4">
+                <div className="flex flex-col text-[11px] text-brand-charcoal/70 text-left">
+                  <span><strong className="text-brand-black">Duration:</strong> {course.duration}</span>
+                  <span><strong className="text-brand-black">Fee:</strong> {course.fee}</span>
+                </div>
+                <Button variant="outline" className="w-full text-xs py-2 min-h-[40px]">View Details</Button>
               </div>
-              <h3 className="font-heading font-bold text-lg text-brand-black leading-snug">
-                Electrical & Electronics
-              </h3>
-              <p className="text-brand-charcoal/80 text-xs sm:text-sm leading-relaxed">
-                Wire domestic circuits, configure industrial systems, and build microcontroller boards.
-              </p>
-            </div>
-            <div className="space-y-4 pt-6 mt-4 border-t border-black/5">
-              <div className="flex flex-col text-xs text-brand-charcoal/70">
-                <span><strong className="text-brand-black">Duration:</strong> 6 Months</span>
-                <span><strong className="text-brand-black">Fee:</strong> LKR 30,000</span>
-              </div>
-              <Button variant="outline" className="w-full text-xs py-2 min-h-[40px]">View Details</Button>
-            </div>
-          </Card>
-
-          {/* Course 3 */}
-          <Card className="flex flex-col h-full justify-between" hoverEffect={true}>
-            <div className="space-y-4">
-              {/* Technical Icon */}
-              <div className="h-10 w-10 rounded-lg bg-brand-orange/10 flex items-center justify-center text-brand-orange">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="font-heading font-bold text-lg text-brand-black leading-snug">
-                Information & Communication Tech
-              </h3>
-              <p className="text-brand-charcoal/80 text-xs sm:text-sm leading-relaxed">
-                Build databases, design networks, compile software, and set up cyber protections.
-              </p>
-            </div>
-            <div className="space-y-4 pt-6 mt-4 border-t border-black/5">
-              <div className="flex flex-col text-xs text-brand-charcoal/70">
-                <span><strong className="text-brand-black">Duration:</strong> 6 Months</span>
-                <span><strong className="text-brand-black">Fee:</strong> LKR 40,000</span>
-              </div>
-              <Button variant="outline" className="w-full text-xs py-2 min-h-[40px]">View Details</Button>
-            </div>
-          </Card>
-
-          {/* Course 4 */}
-          <Card className="flex flex-col h-full justify-between" hoverEffect={true}>
-            <div className="space-y-4">
-              {/* Technical Icon */}
-              <div className="h-10 w-10 rounded-lg bg-brand-orange/10 flex items-center justify-center text-brand-orange">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l-.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="font-heading font-bold text-lg text-brand-black leading-snug">
-                Hospitality & Food Technology
-              </h3>
-              <p className="text-brand-charcoal/80 text-xs sm:text-sm leading-relaxed">
-                Master professional culinary operations, hotel services, and hygiene management.
-              </p>
-            </div>
-            <div className="space-y-4 pt-6 mt-4 border-t border-black/5">
-              <div className="flex flex-col text-xs text-brand-charcoal/70">
-                <span><strong className="text-brand-black">Duration:</strong> 6 Months</span>
-                <span><strong className="text-brand-black">Fee:</strong> LKR 32,000</span>
-              </div>
-              <Button variant="outline" className="w-full text-xs py-2 min-h-[40px]">View Details</Button>
-            </div>
-          </Card>
-
+            </Card>
+          ))}
         </div>
       </section>
 
@@ -539,8 +517,8 @@ export default function Home() {
           </div>
         </div>
         {/* Decorative circular shapes */}
-        <div className="absolute -left-16 -top-16 w-64 h-64 bg-brand-white/5 rounded-full blur-2xl" />
-        <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-brand-black/5 rounded-full blur-2xl" />
+        <div className="absolute -left-16 -top-16 w-64 h-64 bg-brand-white/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-brand-black/5 rounded-full blur-2xl pointer-events-none" />
       </section>
 
     </div>
