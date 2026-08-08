@@ -124,12 +124,12 @@ export default function Header() {
       <div className="bg-brand-black text-brand-white text-xs h-9 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-brand-charcoal">
         {/* Left utility text */}
         <div>
-          <a
-            href="#apply"
+          <Link
+            to="/inquiry"
             className="text-brand-orange font-heading font-bold uppercase tracking-wider hover:underline hover:text-brand-orange/90 transition-colors"
           >
             Register for Courses — Apply Now
-          </a>
+          </Link>
         </div>
         {/* Right hotline and social links */}
         <div className="flex items-center space-x-6">
@@ -254,11 +254,11 @@ export default function Header() {
 
             {/* Standout Cta Button (Apply Now) */}
             <div className="hidden lg:flex">
-              <a href="#apply">
+              <Link to="/inquiry">
                 <button className="bg-brand-orange text-brand-white font-heading font-bold text-xs uppercase tracking-wider py-3 px-6 rounded-full hover:bg-brand-black hover:text-brand-white shadow-sm hover:shadow-md transition-all duration-300 min-h-[44px] flex items-center justify-center">
                   Apply Now
                 </button>
-              </a>
+              </Link>
             </div>
 
             {/* Hamburger Icon button below 1024px */}
@@ -362,11 +362,11 @@ export default function Header() {
             
             {/* Standout Apply Now button inside mobile drawer */}
             <div className="pt-6">
-              <a href="#apply" onClick={toggleMenu}>
+              <Link to="/inquiry" onClick={toggleMenu}>
                 <button className="w-full bg-brand-orange text-brand-white font-heading font-bold text-sm uppercase py-3.5 rounded-lg hover:bg-brand-black hover:text-brand-white shadow-sm transition-all duration-300 min-h-[48px]">
                   Apply Now
                 </button>
-              </a>
+              </Link>
             </div>
           </div>
         </div>

@@ -199,7 +199,7 @@ export default function Home() {
                     <a href="#courses">
                       <Button variant="primary" className="w-full sm:w-auto">Explore Courses</Button>
                     </a>
-                    <Link to="/contact">
+                    <Link to="/inquiry">
                       <Button variant="darkOutline" className="w-full sm:w-auto">Enroll Now</Button>
                     </Link>
                   </div>
@@ -509,7 +509,7 @@ export default function Home() {
             Apply online today and reserve your seat. Batches fill quickly. Speak with an admissions advisor for assistance.
           </p>
           <div className="pt-4">
-            <Link to="/contact">
+            <Link to="/inquiry">
               <button className="bg-brand-black text-brand-white font-heading font-extrabold text-sm uppercase tracking-wider py-4 px-8 rounded-full hover:bg-brand-white hover:text-brand-black shadow-md hover:shadow-lg transition-all duration-300 min-h-[48px]">
                 Apply Now
               </button>
