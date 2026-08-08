@@ -169,11 +169,11 @@ export default function Header() {
       {/* 2. MAIN NAVIGATION BAR (white background, sticky on scroll, shadow on scroll) */}
       <nav
         className={`bg-brand-white text-brand-black sticky top-0 z-50 border-b border-black/5 transition-all duration-300 ${
-          isScrolled ? 'shadow-md py-2.5' : 'shadow-sm py-4'
+          isScrolled ? 'shadow-md py-2' : 'shadow-sm py-3.5'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between min-h-[56px]">
             {/* Left Brand Area (Logo Image + wordmark) */}
             <div className="flex-shrink-0">
               <Link to="/" className="flex items-center space-x-3 group" onClick={closeMenu}>
@@ -181,14 +181,14 @@ export default function Header() {
                 <img
                   src={logoImg}
                   alt="Twintec Logo"
-                  className="h-14 sm:h-16 w-auto transition-transform duration-300 group-hover:scale-105"
+                  className="h-11 sm:h-12 lg:h-14 w-auto transition-transform duration-300 group-hover:scale-105"
                 />
                 {/* Logo text wordmark */}
                 <div className="flex flex-col text-left">
-                  <span className="font-heading font-extrabold text-base sm:text-lg leading-none tracking-wider text-brand-black uppercase">
+                  <span className="font-heading font-extrabold text-base sm:text-lg lg:text-xl leading-none tracking-wider text-brand-black uppercase">
                     Twintec
                   </span>
-                  <span className="font-heading font-bold text-[8px] sm:text-[9px] uppercase tracking-widest text-brand-charcoal/70 mt-0.5 whitespace-nowrap">
+                  <span className="font-heading font-bold text-[8px] sm:text-[9px] uppercase tracking-[0.18em] text-brand-charcoal/70 mt-1 whitespace-nowrap">
                     Vocational Training Institute
                   </span>
                 </div>
@@ -196,31 +196,28 @@ export default function Header() {
             </div>
 
             {/* Desktop Center/Right Menu */}
-            <div className="hidden lg:flex items-center space-x-1">
+            <div className="hidden md:flex items-center space-x-0.5 md:space-x-1 lg:space-x-2 xl:space-x-4">
               {menuItems.map((item, idx) => {
                 const isActive = isItemActive(item)
                 return (
                   <div key={item.name} className="relative group py-2">
                     {item.hasDropdown ? (
-                      /* Dropdown Trigger - Link, not toggle button */
+                      /* Dropdown Trigger Link */
                       <Link
                         to={item.path}
-                        className={`flex items-center space-x-1 px-3.5 py-2 font-heading font-semibold text-sm transition-all duration-200 focus:outline-none cursor-pointer ${
+                        className={`px-1.5 md:px-2 lg:px-3.5 py-2 font-heading font-bold text-xs lg:text-sm tracking-wider uppercase transition-all duration-200 focus:outline-none cursor-pointer ${
                           isActive
                             ? 'text-brand-orange border-b-2 border-brand-orange'
                             : 'text-brand-charcoal hover:text-brand-orange border-b-2 border-transparent'
                         }`}
                       >
-                        <span>{item.name}</span>
-                        <svg className="h-4 w-4 text-current transition-transform duration-200 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
+                        {item.name}
                       </Link>
                     ) : (
                       /* Standard Link */
                       <Link
                         to={item.path}
-                        className={`px-3.5 py-2 font-heading font-semibold text-sm transition-all duration-200 ${
+                        className={`px-1.5 md:px-2 lg:px-3.5 py-2 font-heading font-bold text-xs lg:text-sm tracking-wider uppercase transition-all duration-200 ${
                           isActive
                             ? 'text-brand-orange border-b-2 border-brand-orange'
                             : 'text-brand-charcoal hover:text-brand-orange border-b-2 border-transparent'
@@ -232,12 +229,12 @@ export default function Header() {
 
                     {/* Dropdown Menu (on hover) */}
                     {item.hasDropdown && (
-                      <div className="absolute left-0 mt-2 w-64 bg-brand-white border border-black/5 rounded-xl shadow-[0_10px_35px_-8px_rgba(0,0,0,0.1)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 translate-y-2 group-hover:translate-y-0 z-50 p-2 space-y-1">
+                      <div className="absolute left-0 top-full mt-1 w-60 bg-brand-white border border-black/5 rounded-xl shadow-[0_10px_35px_-8px_rgba(0,0,0,0.1)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 translate-y-2 group-hover:translate-y-0 z-50 p-2 space-y-1">
                         {item.dropdownItems.map((subItem) => (
                           <Link
                             key={subItem.name}
                             to={subItem.path}
-                            className={`block px-4 py-2.5 text-xs font-heading font-medium rounded-lg transition-all duration-150 ${
+                            className={`block px-4 py-2.5 text-xs font-heading font-semibold rounded-lg transition-all duration-150 ${
                               currentPath === subItem.path
                                 ? 'bg-brand-orange/10 text-brand-orange font-bold'
                                 : 'text-brand-charcoal hover:bg-brand-light hover:text-brand-orange'
@@ -254,16 +251,16 @@ export default function Header() {
             </div>
 
             {/* Standout Cta Button (Apply Now) */}
-            <div className="hidden lg:flex">
+            <div className="hidden md:flex items-center">
               <Link to="/inquiry">
-                <button className="bg-brand-orange text-brand-white font-heading font-bold text-xs uppercase tracking-wider py-3 px-6 rounded-full hover:bg-brand-black hover:text-brand-white shadow-sm hover:shadow-md transition-all duration-300 min-h-[44px] flex items-center justify-center">
+                <button className="bg-brand-orange text-brand-white font-heading font-extrabold text-xs uppercase tracking-widest py-2.5 px-4 lg:px-6 rounded-full hover:bg-brand-black hover:text-brand-white shadow-sm hover:shadow-md transition-all duration-300 min-h-[44px] flex items-center justify-center whitespace-nowrap">
                   Apply Now
                 </button>
               </Link>
             </div>
 
-            {/* Hamburger Icon button below 1024px */}
-            <div className="lg:hidden flex items-center">
+            {/* Hamburger Icon button (Mobile only < 768px) */}
+            <div className="md:hidden flex items-center">
               <button
                 onClick={toggleMenu}
                 type="button"
@@ -286,9 +283,9 @@ export default function Header() {
           </div>
         </div>
 
-        {/* 3. MOBILE MENU DRAWERS/SLIDE-IN (Tappable accordions) */}
+        {/* 3. MOBILE MENU DRAWERS/SLIDE-IN (Mobile only < 768px) */}
         <div
-          className={`lg:hidden fixed inset-0 top-[88px] z-40 bg-brand-white border-t border-black/10 transition-all duration-300 ease-in-out transform ${
+          className={`md:hidden fixed inset-0 top-[88px] z-40 bg-brand-white border-t border-black/10 transition-all duration-300 ease-in-out transform ${
             isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none'
           } overflow-y-auto pb-12`}
           id="mobile-menu"

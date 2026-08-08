@@ -78,22 +78,22 @@ export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const slides = [
     {
-      title: 'Build Your Future With Hands-On Skills Training',
-      subtitle: 'Gain practical expertise in cutting-edge industrial fields and secure a high-demand professional career.',
-      image: heroAutomotive,
-      tag: 'AUTOMOTIVE LAB'
-    },
-    {
-      title: 'Master Technical Disciplines & Modern Technology',
-      subtitle: 'Learn from industry professionals in high-tech environments designed to simulate real-world workshops.',
-      image: heroElectrical,
-      tag: 'ELECTRICAL ENGINEERING'
-    },
-    {
-      title: 'Accelerate Your Path Into High-Demand Digital Careers',
-      subtitle: 'Develop software engineering, network administration, and cybersecurity skills designed for current market needs.',
+      title: 'Master Smartphone & Laptop Chip-Level Repair',
+      subtitle: 'Gain hands-on micro-soldering, hardware diagnostics, and firmware programming skills to launch your own repair business.',
       image: heroComputer,
-      tag: 'INFORMATION TECHNOLOGY'
+      tag: 'MOBILE & LAPTOP REPAIR'
+    },
+    {
+      title: 'Professional Home Wiring & CCTV Camera Installation',
+      subtitle: 'Become a certified electrician and security systems installer. Learn domestic power wiring, DB layouts, IP camera mounting, and remote monitoring.',
+      image: heroElectrical,
+      tag: 'ELECTRICAL & SECURITY SYSTEMS'
+    },
+    {
+      title: 'Expert Home Appliances Maintenance & Servicing',
+      subtitle: 'Master inverter refrigerator servicing, washing machine PCB troubleshooting, and microwave repairs in state-of-the-art practical workshops.',
+      image: courseAppliances,
+      tag: 'DOMESTIC APPLIANCES REPAIR'
     }
   ]
 
@@ -110,37 +110,50 @@ export default function Home() {
   // Course configurations
   const coursesList = [
     {
-      title: 'Mobile Phone Repairing',
+      title: 'Mobile Phone Repairing (Hardware)',
+      slug: 'mobile-phone-repairing-hardware',
       image: courseMobile,
-      description: 'Learn chip-level diagnostics, screen replacements, and hardware troubleshooting for Android and iOS devices.',
+      description: 'Master micro-soldering, SMD component replacement, screen lamination, and hardware diagnostics for smartphones.',
       duration: '3 Months',
       fee: 'LKR 25,000'
     },
     {
-      title: 'Laptop Repairing',
+      title: 'Mobile Phone Repairing (Hardware + Software)',
+      slug: 'mobile-phone-repairing-hardware-software',
+      image: courseMobile,
+      description: 'Comprehensive chip-level hardware repair plus OS flashing, bootloop recovery, unlocking, and firmware programming.',
+      duration: '4 Months',
+      fee: 'LKR 35,000'
+    },
+    {
+      title: 'Laptop & Desktop Repairing',
+      slug: 'laptop-desktop-repairing',
       image: courseLaptop,
-      description: 'Master motherboard repairing, BGA soldering, firmware flashing, and operating system recovery.',
+      description: 'Master motherboard schematic reading, power rail diagnostics, BGA chip reballing, and BIOS EEPROM programming.',
       duration: '3 Months',
       fee: 'LKR 30,000'
     },
     {
       title: 'Home Appliances Repairing',
+      slug: 'home-appliances-repairing',
       image: courseAppliances,
-      description: 'Troubleshoot and fix domestic appliances like washing machines, refrigerators, and microwave ovens.',
+      description: 'Diagnose and repair major household electrical appliances including washing machines, refrigerators, and microwave ovens.',
       duration: '3 Months',
       fee: 'LKR 28,000'
     },
     {
-      title: 'CCTV Repairing',
+      title: 'CCTV Installation',
+      slug: 'cctv-installation',
       image: courseCctv,
-      description: 'Set up security cameras, configure digital video recorders (DVRs/NVRs), and set up remote IP monitoring.',
+      description: 'Hands-on training in IP camera mounting, DVR/NVR storage setup, network cabling, and remote smartphone surveillance monitoring.',
       duration: '2 Months',
       fee: 'LKR 18,000'
     },
     {
       title: 'Home Wiring',
+      slug: 'home-wiring',
       image: courseWiring,
-      description: 'Master domestic electrical wiring, distribution board assembly, switches, and electrical safety standards.',
+      description: 'Master single-phase and 3-phase domestic wiring, circuit breaker installations, earth pit testing, and safety codes.',
       duration: '3 Months',
       fee: 'LKR 22,000'
     }
@@ -158,14 +171,14 @@ export default function Home() {
     {
       quote: "The instructors here are actual industry experts. The workshop training isn't just about reading manuals—it is fully hands-on, simulating real workplace scenarios.",
       name: "Riza Farook",
-      course: "Mobile Phone Repairing",
+      course: "Electronics Repair Technician",
       avatarLetter: "R"
     },
     {
-      quote: "Thanks to TVTI's modern networking labs, I was able to pass my Cisco certifications and land a role as a network administrator immediately after completing my program.",
-      name: "Fathima Rizna",
-      course: "Laptop & PC Diagnostics",
-      avatarLetter: "F"
+      quote: "Studying CCTV & Security Installation opened up incredible freelancing opportunities for me in Puttalam. Highly recommended!",
+      name: "Kavindu Perera",
+      course: "CCTV Installation Specialist",
+      avatarLetter: "K"
     }
   ]
 
@@ -173,59 +186,57 @@ export default function Home() {
   const prevTestimonial = () => setActiveTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length)
 
   return (
-    <div className="flex flex-col w-full overflow-hidden select-none">
-      
-      {/* 1. HERO SECTION (Auto-rotating image slider with dark overlay) */}
-      <section className="relative h-[550px] sm:h-[600px] lg:h-[650px] bg-brand-black overflow-hidden">
-        {/* Slides */}
-        {slides.map((slide, idx) => (
+    <div className="flex flex-col min-w-full font-sans select-none bg-brand-white text-brand-black">
+      {/* 1. HERO BANNER SLIDER */}
+      <section className="relative h-[85vh] min-h-[500px] max-h-[700px] w-full overflow-hidden bg-brand-black text-brand-white">
+        {slides.map((slide, index) => (
           <div
-            key={idx}
+            key={index}
             className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-              idx === currentSlide ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
             }`}
           >
-            {/* Background Image */}
             <img
               src={slide.image}
               alt={slide.title}
-              className="w-full h-full object-cover object-center transform scale-102 transition-transform duration-6000 ease-out"
+              className="w-full h-full object-cover object-center filter brightness-[0.4]"
             />
-            {/* Dark Overlay */}
-            <div className="absolute inset-0 bg-brand-black/75" />
+            <div className="absolute inset-0 bg-gradient-to-t from-brand-black via-brand-black/40 to-transparent" />
             
-            {/* Slide Content */}
-            <div className="absolute inset-0 flex items-center">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-left">
-                <div className="max-w-3xl space-y-6">
-                  <span className="inline-block text-brand-orange font-heading font-extrabold text-xs sm:text-sm uppercase tracking-widest bg-brand-orange/15 border border-brand-orange/30 px-3 py-1.5 rounded-md">
-                    {slide.tag}
-                  </span>
-                  <h1 className="font-heading font-extrabold text-3xl sm:text-5xl lg:text-6xl text-brand-white leading-tight uppercase tracking-tight">
-                    {slide.title}
-                  </h1>
-                  <p className="font-sans text-brand-light/80 text-sm sm:text-base md:text-lg max-w-xl leading-relaxed">
-                    {slide.subtitle}
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                    <a href="#courses">
-                      <Button variant="primary" className="w-full sm:w-auto">Explore Courses</Button>
-                    </a>
-                    <Link to="/inquiry">
-                      <Button variant="darkOutline" className="w-full sm:w-auto">Enroll Now</Button>
-                    </Link>
-                  </div>
+            {/* Slide Text Content */}
+            <div className="absolute inset-0 flex items-center justify-start max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="max-w-2xl text-left space-y-4">
+                <span className="inline-block bg-brand-orange text-brand-white font-heading font-extrabold text-[10px] sm:text-xs uppercase tracking-widest px-3 py-1 rounded-full shadow-sm">
+                  {slide.tag}
+                </span>
+                <h1 className="font-heading font-extrabold text-3xl sm:text-5xl lg:text-6xl text-brand-white tracking-tight leading-tight">
+                  {slide.title}
+                </h1>
+                <p className="font-sans text-brand-light/90 text-sm sm:text-lg max-w-xl font-normal leading-relaxed">
+                  {slide.subtitle}
+                </p>
+                <div className="pt-4 flex flex-wrap gap-4">
+                  <Link to="/courses">
+                    <Button variant="primary" className="text-xs uppercase tracking-wider py-3.5 px-6">
+                      Explore All Courses
+                    </Button>
+                  </Link>
+                  <Link to="/inquiry">
+                    <Button variant="secondary" className="text-xs uppercase tracking-wider py-3.5 px-6">
+                      Enroll Today
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>
           </div>
         ))}
 
-        {/* Navigation Arrows */}
+        {/* Carousel Controls */}
         <button
           onClick={prevSlide}
-          className="absolute left-4 top-1/2 -translate-y-1/2 bg-brand-white/10 hover:bg-brand-orange text-brand-white p-2 rounded-full transition-all duration-300 min-h-[44px] min-w-[44px] flex items-center justify-center border border-brand-white/20 focus:outline-none"
-          aria-label="Previous slide"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-black/40 hover:bg-brand-orange text-brand-white p-3 rounded-full backdrop-blur-sm transition-all focus:outline-none"
+          aria-label="Previous Slide"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -233,65 +244,80 @@ export default function Home() {
         </button>
         <button
           onClick={nextSlide}
-          className="absolute right-4 top-1/2 -translate-y-1/2 bg-brand-white/10 hover:bg-brand-orange text-brand-white p-2 rounded-full transition-all duration-300 min-h-[44px] min-w-[44px] flex items-center justify-center border border-brand-white/20 focus:outline-none"
-          aria-label="Next slide"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-black/40 hover:bg-brand-orange text-brand-white p-3 rounded-full backdrop-blur-sm transition-all focus:outline-none"
+          aria-label="Next Slide"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </button>
 
-        {/* Dot Indicators */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex space-x-3">
-          {slides.map((_, idx) => (
+        {/* Slide Indicator Dots */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
+          {slides.map((_, index) => (
             <button
-              key={idx}
-              onClick={() => setCurrentSlide(idx)}
-              className={`h-2 rounded-full transition-all duration-300 focus:outline-none ${
-                idx === currentSlide ? 'w-8 bg-brand-orange' : 'w-2 bg-brand-white/50 hover:bg-brand-white'
+              key={index}
+              onClick={() => setCurrentSlide(index)}
+              className={`h-2.5 transition-all rounded-full ${
+                index === currentSlide ? 'w-8 bg-brand-orange' : 'w-2.5 bg-brand-white/50'
               }`}
-              aria-label={`Go to slide ${idx + 1}`}
+              aria-label={`Go to slide ${index + 1}`}
             />
           ))}
         </div>
       </section>
 
-      {/* 2. INSTITUTE OVERVIEW STRIP */}
-      <section className="bg-brand-light border-y border-black/5 py-10 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="max-w-4xl text-left space-y-2">
-            <h2 className="font-heading font-extrabold text-sm uppercase tracking-widest text-brand-orange">
-              Who We Are
-            </h2>
-            <p className="font-sans text-brand-charcoal text-sm sm:text-base leading-relaxed">
-              Twintec Vocational Training Institute (TVTI) is Puttalam's premier center for technical education. We specialize in transforming student potential into immediate career success through high-intensity, workshop-driven courses in engineering, IT, and specialized vocational services.
+      {/* 2. INSTITUTE OVERVIEW & VALUE PROPOSITION */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="space-y-6 text-left">
+            <SectionHeading
+              title="Building Practical Skills for a Brighter Future"
+              subtitle="TVTI Puttalam is dedicated to transforming ambitious learners into certified technical professionals through industry-standard vocational education."
+              align="left"
+            />
+            <p className="font-sans text-brand-charcoal text-sm leading-relaxed">
+              Our state-of-the-art training facilities provide real hands-on experience using modern machinery, modern repair kits, and industrial software tools. Whether you aim to start your own repair shop or join leading engineering teams, our accredited courses set you up for long-term career success.
             </p>
+
+            <div className="grid grid-cols-2 gap-6 pt-2">
+              <div className="border-l-4 border-brand-orange pl-4 space-y-1">
+                <span className="font-heading font-extrabold text-2xl text-brand-black">100%</span>
+                <p className="font-sans text-xs text-brand-charcoal/80 font-medium">Practical Workshop Training</p>
+              </div>
+              <div className="border-l-4 border-brand-orange pl-4 space-y-1">
+                <span className="font-heading font-extrabold text-2xl text-brand-black">NVQ</span>
+                <p className="font-sans text-xs text-brand-charcoal/80 font-medium">Industry Aligned Standards</p>
+              </div>
+            </div>
           </div>
-          <div className="flex-shrink-0">
-            <Link to="/about" className="inline-flex items-center space-x-1.5 font-heading font-bold text-xs uppercase tracking-wider text-brand-orange hover:text-brand-black transition-colors py-2 border-b-2 border-brand-orange">
-              <span>Read More About Us</span>
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
+
+          <div className="relative">
+            <Card hoverEffect={false} className="bg-brand-light p-4 rounded-2xl border border-black/5 shadow-md">
+              <img
+                src={courseMobile}
+                alt="Practical Training Workshop"
+                className="w-full h-80 object-cover rounded-xl shadow-inner"
+              />
+            </Card>
           </div>
         </div>
       </section>
 
       {/* 3. FEATURED COURSES */}
-      <section id="courses" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-12">
+      <section id="courses" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-12 bg-brand-light/40 rounded-3xl my-6">
         <SectionHeading
-          title="Our Courses"
-          subtitle="Select from our range of practical programs built in cooperation with industrial partners."
+          title="Our Specialized Courses"
+          subtitle="Hands-on vocational technical courses designed for immediate employment and entrepreneurship."
           align="center"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 pt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
           {coursesList.map((course, idx) => (
-            <Card key={idx} className="flex flex-col h-full justify-between p-0 overflow-hidden" hoverEffect={true}>
+            <Card key={idx} className="flex flex-col h-full justify-between p-0 overflow-hidden bg-brand-white border border-black/5" hoverEffect={true}>
               <div>
                 {/* Course Image */}
-                <div className="h-40 overflow-hidden bg-brand-black relative">
+                <div className="h-48 overflow-hidden bg-brand-black relative">
                   <img
                     src={course.image}
                     alt={course.title}
@@ -302,7 +328,7 @@ export default function Home() {
                 
                 {/* Content */}
                 <div className="p-5 space-y-3 text-left">
-                  <h3 className="font-heading font-bold text-base text-brand-black leading-snug min-h-[48px] flex items-center">
+                  <h3 className="font-heading font-bold text-base text-brand-black leading-snug min-h-[44px] flex items-center">
                     {course.title}
                   </h3>
                   <p className="font-sans text-brand-charcoal/80 text-xs leading-relaxed">
@@ -313,11 +339,13 @@ export default function Home() {
 
               {/* Footer Section */}
               <div className="px-5 pb-5 pt-3 border-t border-black/5 space-y-4">
-                <div className="flex flex-col text-[11px] text-brand-charcoal/70 text-left">
+                <div className="flex flex-col text-[11px] text-brand-charcoal/70 text-left space-y-0.5">
                   <span><strong className="text-brand-black">Duration:</strong> {course.duration}</span>
                   <span><strong className="text-brand-black">Fee:</strong> {course.fee}</span>
                 </div>
-                <Button variant="outline" className="w-full text-xs py-2 min-h-[40px]">View Details</Button>
+                <Link to={`/courses/${course.slug}`}>
+                  <Button variant="outline" className="w-full text-xs py-2 min-h-[40px]">View Details</Button>
+                </Link>
               </div>
             </Card>
           ))}
