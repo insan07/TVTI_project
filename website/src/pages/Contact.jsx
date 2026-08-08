@@ -1,10 +1,21 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import SectionHeading from '../components/SectionHeading'
 import Card from '../components/Card'
 import InquiryForm from '../components/InquiryForm'
 
 export default function Contact() {
+  useEffect(() => {
+    document.title = 'Contact Us | Twintec Vocational Training Institute Puttalam'
+    const metaDesc = document.querySelector('meta[name="description"]')
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        'content',
+        'Contact TVTI Puttalam. Reach us at 0117 270 270, email info@tvti.lk, view our campus location on maps, or submit a message directly.'
+      )
+    }
+  }, [])
+
   return (
     <div className="flex flex-col w-full overflow-hidden select-none">
       

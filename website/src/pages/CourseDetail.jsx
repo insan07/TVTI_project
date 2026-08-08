@@ -17,11 +17,6 @@ import courseBrick from '../assets/course_brick.png'
 export default function CourseDetail() {
   const { slug } = useParams()
 
-  // Scroll to top on page mount/slug change
-  useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [slug])
-
   const coursesDb = {
     'automobile-repair-maintenance': {
       slug: 'automobile-repair-maintenance',
@@ -221,6 +216,18 @@ export default function CourseDetail() {
 
   // Lookup course, fallback to Automobile if not found
   const course = coursesDb[slug] || coursesDb['automobile-repair-maintenance']
+
+  // Scroll to top and set dynamic SEO metadata on slug change
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    if (course) {
+      document.title = `${course.title} | TVTI Puttalam`
+      const metaDesc = document.querySelector('meta[name="description"]')
+      if (metaDesc) {
+        metaDesc.setAttribute('content', course.description)
+      }
+    }
+  }, [slug, course])
 
   // Find 3 related courses from the same category (excluding current course)
   const allCoursesList = Object.values(coursesDb)

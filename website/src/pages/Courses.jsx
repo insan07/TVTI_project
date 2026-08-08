@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import SectionHeading from '../components/SectionHeading'
 import Card from '../components/Card'
@@ -15,6 +15,17 @@ import facilityKitchen from '../assets/facility_kitchen.png'
 import courseBrick from '../assets/course_brick.png'
 
 export default function Courses() {
+  useEffect(() => {
+    document.title = 'Our Courses | Twintec Vocational Training Institute Puttalam'
+    const metaDesc = document.querySelector('meta[name="description"]')
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        'content',
+        'Explore our range of hands-on technical diplomas in Puttalam. Categories include Automobile, Electrical & Electronics, ICT, Hospitality, and Construction.'
+      )
+    }
+  }, [])
+
   const [selectedCategory, setSelectedCategory] = useState('All')
 
   const categories = [

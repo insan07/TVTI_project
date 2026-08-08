@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import SectionHeading from '../components/SectionHeading'
 import Card from '../components/Card'
@@ -11,6 +11,17 @@ import facilityElectrical from '../assets/facility_electrical.png'
 import facilityKitchen from '../assets/facility_kitchen.png'
 
 export default function About() {
+  useEffect(() => {
+    document.title = 'About Us | Twintec Vocational Training Institute Puttalam'
+    const metaDesc = document.querySelector('meta[name="description"]')
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        'content',
+        'Learn more about TVTI Puttalam. Read our vision, mission, state-of-the-art facility workshops, and meet our senior faculty instructors.'
+      )
+    }
+  }, [])
+
   const facilities = [
     {
       title: 'Auto Mechanics Workshop',

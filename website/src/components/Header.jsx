@@ -304,7 +304,7 @@ export default function Header() {
                     <div>
                       <button
                         onClick={() => toggleAccordion(index)}
-                        className={`w-full flex items-center justify-between py-2 text-left font-heading font-bold text-base transition-colors ${
+                        className={`w-full flex items-center justify-between py-3 text-left font-heading font-bold text-base transition-colors ${
                           isActive ? 'text-brand-orange' : 'text-brand-charcoal'
                         }`}
                       >
@@ -333,7 +333,7 @@ export default function Header() {
                             key={subItem.name}
                             to={subItem.path}
                             onClick={toggleMenu}
-                            className={`block py-2 text-sm font-heading font-semibold transition-colors ${
+                            className={`block py-3 text-sm font-heading font-semibold transition-colors ${
                               currentPath === subItem.path
                                 ? 'text-brand-orange pl-2 border-l-2 border-brand-orange'
                                 : 'text-brand-charcoal/80 hover:text-brand-orange'
@@ -349,7 +349,7 @@ export default function Header() {
                     <Link
                       to={item.path}
                       onClick={toggleMenu}
-                      className={`block py-2 font-heading font-bold text-base transition-colors ${
+                      className={`block py-3 font-heading font-bold text-base transition-colors ${
                         isActive ? 'text-brand-orange' : 'text-brand-charcoal'
                       }`}
                     >

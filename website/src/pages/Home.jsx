@@ -62,6 +62,18 @@ function StatCounter({ end, duration = 1500, suffix = '' }) {
 }
 
 export default function Home() {
+  // Set page meta tags
+  useEffect(() => {
+    document.title = 'Home | Twintec Vocational Training Institute Puttalam'
+    const metaDesc = document.querySelector('meta[name="description"]')
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        'content',
+        'Welcome to TVTI Puttalam. Build your future with our hands-on vocational courses in mobile repairing, laptop repair, home appliances, CCTV, and wiring.'
+      )
+    }
+  }, [])
+
   // 1. HERO SLIDER STATE
   const [currentSlide, setCurrentSlide] = useState(0)
   const slides = [

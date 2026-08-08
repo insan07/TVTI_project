@@ -1,8 +1,19 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import InquiryForm from '../components/InquiryForm'
 
 export default function Inquiry() {
+  useEffect(() => {
+    document.title = 'Online Inquiry | Twintec Vocational Training Institute Puttalam'
+    const metaDesc = document.querySelector('meta[name="description"]')
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        'content',
+        'Submit an online application or ask a question about our technical training courses in Puttalam.'
+      )
+    }
+  }, [])
+
   return (
     <div className="min-h-screen bg-brand-light flex items-center justify-center py-16 px-4 sm:px-6 lg:px-8 font-sans select-none">
       <div className="w-full max-w-[620px] space-y-6">
