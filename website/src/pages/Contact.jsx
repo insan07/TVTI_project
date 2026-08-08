@@ -1,13 +1,17 @@
 import React, { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import SectionHeading from '../components/SectionHeading'
 import Button from '../components/Button'
 import Card from '../components/Card'
 
 export default function Contact() {
+  const [searchParams] = useSearchParams()
+  const courseParam = searchParams.get('course') || 'general'
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    program: 'general',
+    program: courseParam,
     message: '',
   })
 
@@ -18,7 +22,7 @@ export default function Contact() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    alert(`Form submitted! Name: ${formData.name}, Email: ${formData.email}`)
+    alert(`Form submitted! Program: ${formData.program}, Name: ${formData.name}, Email: ${formData.email}`)
   }
 
   return (
@@ -117,9 +121,14 @@ export default function Contact() {
                 className="w-full bg-brand-light border border-black/10 rounded-lg px-4 py-2.5 text-sm font-sans focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all"
               >
                 <option value="general">General Admissions</option>
-                <option value="robotics">Robotics & Automation</option>
-                <option value="machining">Precision Machining</option>
-                <option value="cybersecurity">Cybersecurity & Networking</option>
+                <option value="automobile-repair-maintenance">Automobile Repair & Maintenance</option>
+                <option value="mobile-phone-repairing">Mobile Phone Repairing</option>
+                <option value="laptop-repairing">Laptop Repairing</option>
+                <option value="home-appliances-repairing">Home Appliances Repairing</option>
+                <option value="cctv-repairing">CCTV Repairing</option>
+                <option value="home-wiring">Home Wiring</option>
+                <option value="culinary-arts-hospitality">Culinary Arts & Hospitality Operations</option>
+                <option value="modern-masonry-bricklaying">Modern Masonry & Bricklaying</option>
               </select>
             </div>
 
