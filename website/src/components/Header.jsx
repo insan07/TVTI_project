@@ -61,21 +61,21 @@ export default function Header() {
     },
     {
       name: 'Student',
-      path: '#student',
+      path: '/inquiry',
       hasDropdown: true,
       dropdownItems: [
-        { name: 'Apply Online', path: '/contact' },
-        { name: 'Student Comments', path: '#comments' },
-        { name: 'Success Stories', path: '#stories' },
+        { name: 'Apply Online', path: '/inquiry' },
+        { name: 'Student Comments', path: '#' },
+        { name: 'Success Stories', path: '#' },
       ],
     },
     {
       name: 'Courses',
-      path: '#courses',
+      path: '/courses',
       hasDropdown: true,
       dropdownItems: [
-        { name: 'Course Listing', path: '#course-listing' },
-        { name: 'Course Details / Brochure', path: '#brochure' },
+        { name: 'Course Listing', path: '/courses' },
+        { name: 'Course Details / Brochure', path: '/courses/automobile-repair-maintenance' },
       ],
     },
     {
@@ -180,16 +180,16 @@ export default function Header() {
                 {/* Logo Image */}
                 <img
                   src={logoImg}
-                  alt="TVTI Logo"
-                  className="h-12 w-auto transition-transform duration-300 group-hover:scale-105"
+                  alt="Twintec Logo"
+                  className="h-14 sm:h-16 w-auto transition-transform duration-300 group-hover:scale-105"
                 />
                 {/* Logo text wordmark */}
-                <div className="flex flex-col">
-                  <span className="font-heading font-extrabold text-lg sm:text-xl leading-none tracking-wider text-brand-black uppercase">
-                    TV<span className="text-brand-orange">TI</span>
+                <div className="flex flex-col text-left">
+                  <span className="font-heading font-extrabold text-base sm:text-lg leading-none tracking-wider text-brand-black uppercase">
+                    Twintec
                   </span>
-                  <span className="font-heading font-bold text-[8px] uppercase tracking-widest text-brand-charcoal/60 mt-0.5">
-                    Puttalam
+                  <span className="font-heading font-bold text-[8px] sm:text-[9px] uppercase tracking-widest text-brand-charcoal/70 mt-0.5 whitespace-nowrap">
+                    Vocational Training Institute
                   </span>
                 </div>
               </Link>
@@ -202,8 +202,9 @@ export default function Header() {
                 return (
                   <div key={item.name} className="relative group py-2">
                     {item.hasDropdown ? (
-                      /* Dropdown Trigger */
-                      <button
+                      /* Dropdown Trigger - Link, not toggle button */
+                      <Link
+                        to={item.path}
                         className={`flex items-center space-x-1 px-3.5 py-2 font-heading font-semibold text-sm transition-all duration-200 focus:outline-none cursor-pointer ${
                           isActive
                             ? 'text-brand-orange border-b-2 border-brand-orange'
@@ -214,7 +215,7 @@ export default function Header() {
                         <svg className="h-4 w-4 text-current transition-transform duration-200 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                         </svg>
-                      </button>
+                      </Link>
                     ) : (
                       /* Standard Link */
                       <Link

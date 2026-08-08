@@ -33,15 +33,15 @@ export default function Footer() {
             <Link to="/" className="flex items-center space-x-3">
               <img
                 src={logoImg}
-                alt="TVTI Logo"
-                className="h-12 w-auto brightness-0 invert"
+                alt="Twintec Logo"
+                className="h-14 w-auto brightness-0 invert"
               />
-              <div className="flex flex-col">
-                <span className="font-heading font-extrabold text-xl tracking-wider text-brand-white uppercase">
-                  TV<span className="text-brand-orange">TI</span>
+              <div className="flex flex-col text-left">
+                <span className="font-heading font-extrabold text-base sm:text-lg leading-none tracking-wider text-brand-white uppercase">
+                  Twintec
                 </span>
-                <span className="font-heading font-bold text-[9px] uppercase tracking-widest text-brand-light/60 mt-0.5">
-                  Puttalam
+                <span className="font-heading font-bold text-[8px] sm:text-[9px] uppercase tracking-widest text-brand-light/60 mt-0.5 whitespace-nowrap">
+                  Vocational Training Institute
                 </span>
               </div>
             </Link>
