@@ -33,6 +33,11 @@ export default function Header() {
     setOpenAccordion(null)
   }
 
+  const closeMenu = () => {
+    setIsOpen(false)
+    setOpenAccordion(null)
+  }
+
   const toggleAccordion = (index) => {
     setOpenAccordion(openAccordion === index ? null : index)
   }
