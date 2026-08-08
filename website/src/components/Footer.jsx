@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import logoImg from '../assets/logo.png'
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
@@ -17,14 +18,20 @@ export default function Footer() {
           
           {/* Brand info */}
           <div className="space-y-4">
-            <Link to="/" className="flex items-center space-x-2">
-              <span className="font-heading font-extrabold text-xl tracking-wider text-brand-white">
-                T<span className="text-brand-orange">VTI</span>
-              </span>
-              <span className="h-4 w-px bg-brand-charcoal" />
-              <span className="font-heading font-bold text-xs uppercase tracking-widest text-brand-light/60">
-                Technical Institute
-              </span>
+            <Link to="/" className="flex items-center space-x-3">
+              <img
+                src={logoImg}
+                alt="TVTI Logo"
+                className="h-12 w-auto brightness-0 invert"
+              />
+              <div className="flex flex-col">
+                <span className="font-heading font-extrabold text-xl tracking-wider text-brand-white uppercase">
+                  TV<span className="text-brand-orange">TI</span>
+                </span>
+                <span className="font-heading font-bold text-[9px] uppercase tracking-widest text-brand-light/60 mt-0.5">
+                  Puttalam
+                </span>
+              </div>
             </Link>
             <p className="text-brand-light/60 text-sm max-w-sm leading-relaxed">
               Empowering individuals with advanced technical and vocational training to build professional careers in industry and technology.
