@@ -18,6 +18,7 @@ import userRoutes from './routes/userRoutes';
 import studentRoutes from './routes/students';
 import instructorRoutes from './routes/instructors';
 import applicationRoutes from './routes/applications';
+import certificateRoutes from './routes/certificateRoutes';
 import notificationRoutes from './routes/notifications';
 import announcementRoutes from './routes/announcements';
 import User from './models/User';
@@ -80,6 +81,7 @@ app.get('/', (req: Request, res: Response) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
+app.use('/api/certificates', certificateRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);

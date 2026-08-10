@@ -53,20 +53,10 @@ export default function Header() {
       path: '/about',
       hasDropdown: true,
       dropdownItems: [
-        { name: 'Overview', path: '/about' },
-        { name: 'Vision & Mission', path: '#vision' },
-        { name: 'Our Leaders/Instructors', path: '#leaders' },
-        { name: 'Contact Details', path: '/contact' },
-      ],
-    },
-    {
-      name: 'Student',
-      path: '/inquiry',
-      hasDropdown: true,
-      dropdownItems: [
-        { name: 'Apply Online', path: '/inquiry' },
-        { name: 'Student Comments', path: '#' },
-        { name: 'Success Stories', path: '#' },
+        { name: 'Institute Overview', path: '/about' },
+        { name: 'Vision & Mission', path: '/about#vision' },
+        { name: 'Senior Faculty', path: '/about#leaders' },
+        { name: 'Workshop Facilities', path: '/about#facilities' },
       ],
     },
     {
@@ -74,38 +64,29 @@ export default function Header() {
       path: '/courses',
       hasDropdown: true,
       dropdownItems: [
-        { name: 'Course Listing', path: '/courses' },
-        { name: 'Course Details / Brochure', path: '/courses/automobile-repair-maintenance' },
+        { name: 'All Technical Programs', path: '/courses' },
+        { name: 'Mobile Hardware Repair', path: '/courses/mobile-phone-repairing-hardware' },
+        { name: 'Mobile Hardware + Software', path: '/courses/mobile-phone-repairing-hardware-software' },
+        { name: 'Laptop & Desktop Systems', path: '/courses/laptop-desktop-repairing' },
+        { name: 'Home Appliances Repair', path: '/courses/home-appliances-repairing' },
+        { name: 'CCTV Installation', path: '/courses/cctv-installation' },
+        { name: 'Domestic Home Wiring', path: '/courses/home-wiring' },
       ],
     },
     {
-      name: 'Information',
-      path: '#information',
-      hasDropdown: true,
-      dropdownItems: [
-        { name: 'Right to Information', path: '#rti' },
-        { name: 'Certificate Verification', path: '#verification' },
-        { name: 'Downloads', path: '#downloads' },
-      ],
+      name: 'Verification',
+      path: '/verify',
+      hasDropdown: false,
     },
     {
-      name: 'Gallery',
-      path: '#gallery',
-      hasDropdown: true,
-      dropdownItems: [
-        { name: 'Photo Gallery', path: '#photos' },
-        { name: 'Video Gallery', path: '#videos' },
-      ],
+      name: 'Application',
+      path: '/inquiry',
+      hasDropdown: false,
     },
     {
       name: 'Contact Us',
       path: '/contact',
-      hasDropdown: true,
-      dropdownItems: [
-        { name: 'Inquiries', path: '/contact' },
-        { name: 'Center/Location', path: '#location' },
-        { name: 'Contact Details', path: '/contact' },
-      ],
+      hasDropdown: false,
     },
   ]
 
@@ -137,7 +118,7 @@ export default function Header() {
             <svg className="h-3.5 w-3.5 text-brand-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
             </svg>
-            <span className="font-semibold tracking-wide">0117 270 270</span>
+            <span className="font-semibold tracking-wide">076 538 0715 / 078 538 0715</span>
           </div>
 
           <span className="h-3.5 w-px bg-brand-charcoal" />
@@ -188,7 +169,7 @@ export default function Header() {
                   <span className="font-heading font-extrabold text-base sm:text-lg lg:text-xl leading-none tracking-wider text-brand-black uppercase">
                     Twintec
                   </span>
-                  <span className="font-heading font-bold text-[8px] sm:text-[9px] uppercase tracking-[0.18em] text-brand-charcoal/70 mt-1 whitespace-nowrap">
+                  <span className="font-heading font-extrabold text-[10px] sm:text-[11px] lg:text-xs uppercase tracking-wider text-brand-charcoal/90 mt-0.5 whitespace-nowrap">
                     Vocational Training Institute
                   </span>
                 </div>

@@ -8,6 +8,7 @@ import Contact from './pages/Contact'
 import Courses from './pages/Courses'
 import CourseDetail from './pages/CourseDetail'
 import Inquiry from './pages/Inquiry'
+import Verify from './pages/Verify'
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
             <Route path="/courses/:slug" element={<CourseDetail />} />
             <Route path="/inquiry" element={<Inquiry />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/verify" element={<Verify />} />
           </Routes>
         </main>
 

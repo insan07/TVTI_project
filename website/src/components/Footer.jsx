@@ -16,9 +16,9 @@ export default function Footer() {
   const usefulLinks = [
     { name: 'About Us', path: '/about' },
     { name: 'Courses', path: '/courses' },
-    { name: 'Gallery', path: '#' },
-    { name: 'Success Stories', path: '#' },
-    { name: 'Downloads', path: '#' },
+    { name: 'Certificate Verification', path: '/verify' },
+    { name: 'Online Application', path: '/inquiry' },
+    { name: 'Contact Us', path: '/contact' },
   ]
 
   return (
@@ -34,13 +34,13 @@ export default function Footer() {
               <img
                 src={logoImg}
                 alt="Twintec Logo"
-                className="h-14 w-auto brightness-0 invert"
+                className="h-14 w-auto"
               />
               <div className="flex flex-col text-left">
                 <span className="font-heading font-extrabold text-base sm:text-lg leading-none tracking-wider text-brand-white uppercase">
                   Twintec
                 </span>
-                <span className="font-heading font-bold text-[8px] sm:text-[9px] uppercase tracking-widest text-brand-light/60 mt-0.5 whitespace-nowrap">
+                <span className="font-heading font-extrabold text-[10px] sm:text-[11px] lg:text-xs uppercase tracking-wider text-brand-light/80 mt-0.5 whitespace-nowrap">
                   Vocational Training Institute
                 </span>
               </div>
@@ -98,27 +98,27 @@ export default function Footer() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span>No. 45, Kurunegala Road, Puttalam, Sri Lanka</span>
+                <span>Mannar Road, Puttalam, Sri Lanka</span>
               </li>
               <li className="flex items-center space-x-2.5">
                 <svg className="h-5 w-5 text-brand-orange flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
-                <span>0117 270 270</span>
+                <span>076 538 0715 / 078 538 0715</span>
               </li>
               <li className="flex items-center space-x-2.5">
                 <svg className="h-5 w-5 text-brand-orange flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                <span>info@tvti.lk</span>
+                <span>info@tvti.edu.lk</span>
               </li>
               <li className="flex items-start space-x-2.5 pt-1 border-t border-brand-charcoal/50">
                 <svg className="h-5 w-5 text-brand-orange mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div className="flex flex-col text-xs text-brand-light/65">
-                  <span className="font-bold text-brand-light">Mon - Fri: 8:30 AM - 4:30 PM</span>
-                  <span>Weekends Closed</span>
+                  <span className="font-bold text-brand-light">Sat - Thu: 8:30 AM - 5:00 PM</span>
+                  <span className="text-red-400 font-semibold">Friday Closed</span>
                 </div>
               </li>
             </ul>

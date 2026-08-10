@@ -4,6 +4,7 @@ export default function SectionHeading({
   title,
   subtitle,
   align = 'left',
+  dark = false,
   className = '',
   ...props
 }) {
@@ -18,7 +19,9 @@ export default function SectionHeading({
       className={`flex flex-col ${alignmentClasses[align]} ${className}`}
       {...props}
     >
-      <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-brand-black tracking-tight uppercase">
+      <h2 className={`font-heading font-extrabold text-2xl sm:text-3xl md:text-4xl tracking-tight uppercase ${
+        dark ? 'text-white' : 'text-slate-900'
+      }`}>
         {title}
       </h2>
       
@@ -26,7 +29,9 @@ export default function SectionHeading({
       <span className="h-1.5 w-16 bg-brand-orange mt-3 rounded-full transition-all duration-500 hover:w-24" />
       
       {subtitle && (
-        <p className="mt-4 text-brand-charcoal/80 font-sans font-normal text-sm sm:text-base md:text-lg max-w-2xl leading-relaxed">
+        <p className={`mt-4 font-sans font-normal text-sm sm:text-base md:text-lg max-w-2xl leading-relaxed ${
+          dark ? 'text-slate-300' : 'text-slate-600'
+        }`}>
           {subtitle}
         </p>
       )}

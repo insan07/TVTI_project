@@ -21,7 +21,7 @@ export default function Courses() {
     if (metaDesc) {
       metaDesc.setAttribute(
         'content',
-        'Explore our range of hands-on technical diplomas in Puttalam. Categories include Automobile, Electrical & Electronics, ICT, Hospitality, and Construction.'
+        'Explore our range of hands-on technical certificate courses in Puttalam. Categories include Mobile Repairing, Computer Engineering, Home Appliances, CCTV, and Wiring.'
       )
     }
   }, [])
@@ -40,7 +40,7 @@ export default function Courses() {
     {
       slug: 'mobile-phone-repairing-hardware',
       title: 'Mobile Phone Repairing (Hardware)',
-      professionalTitle: 'Diploma in Mobile Phone Hardware Engineering',
+      professionalTitle: 'Certificate in Mobile Phone Hardware Repair',
       category: 'ICT & Mobile',
       image: courseMobile,
       duration: '3 Months',
@@ -50,7 +50,7 @@ export default function Courses() {
     {
       slug: 'mobile-phone-repairing-hardware-software',
       title: 'Mobile Phone Repairing (Hardware + Software)',
-      professionalTitle: 'Master Diploma in Mobile Phone Repair (Hardware & Software)',
+      professionalTitle: 'Certificate in Mobile Phone Hardware & Software Repair',
       category: 'ICT & Mobile',
       image: courseMobile,
       duration: '4 Months',
@@ -60,7 +60,7 @@ export default function Courses() {
     {
       slug: 'laptop-desktop-repairing',
       title: 'Laptop & Desktop Repairing',
-      professionalTitle: 'Diploma in Computer, Laptop & Desktop System Engineering',
+      professionalTitle: 'Certificate in Laptop & Desktop Repairing',
       category: 'Computers',
       image: courseLaptop,
       duration: '3 Months',
@@ -70,7 +70,7 @@ export default function Courses() {
     {
       slug: 'home-appliances-repairing',
       title: 'Home Appliances Repairing',
-      professionalTitle: 'Diploma in Domestic Electrical Appliances Maintenance & Repair',
+      professionalTitle: 'Certificate in Home Appliances Repairing',
       category: 'Electrical & Appliances',
       image: courseAppliances,
       duration: '3 Months',
@@ -80,7 +80,7 @@ export default function Courses() {
     {
       slug: 'cctv-installation',
       title: 'CCTV Installation',
-      professionalTitle: 'Professional Certification in CCTV Security Systems & Network Camera Installation',
+      professionalTitle: 'Certificate in CCTV & Security Camera Installation',
       category: 'Security Systems',
       image: courseCctv,
       duration: '2 Months',
@@ -90,7 +90,7 @@ export default function Courses() {
     {
       slug: 'home-wiring',
       title: 'Home Wiring',
-      professionalTitle: 'Diploma in Domestic Electrical Wiring & Power Installation',
+      professionalTitle: 'Certificate in Domestic Home Wiring',
       category: 'Electrical & Appliances',
       image: courseWiring,
       duration: '3 Months',

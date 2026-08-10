@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import SectionHeading from '../components/SectionHeading'
 import Card from '../components/Card'
-import InquiryForm from '../components/InquiryForm'
+import Button from '../components/Button'
 
 export default function Contact() {
   useEffect(() => {
@@ -16,8 +16,50 @@ export default function Contact() {
     }
   }, [])
 
+  // Contact Form State
+  const [contactData, setContactData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    subject: 'General Inquiry',
+    message: ''
+  })
+
+  const [contactLoading, setContactLoading] = useState(false)
+  const [contactSubmitted, setContactSubmitted] = useState(false)
+  const [contactError, setContactError] = useState('')
+
+  const handleContactSubmit = (e) => {
+    e.preventDefault()
+    if (!contactData.name.trim() || !contactData.phone.trim() || !contactData.message.trim()) {
+      setContactError('Please fill in your name, phone number, and message.')
+      return
+    }
+
+    setContactError('')
+    setContactLoading(true)
+
+    // Simulate sending message
+    setTimeout(() => {
+      setContactLoading(false)
+      setContactSubmitted(true)
+    }, 800)
+  }
+
+  const handleResetForm = () => {
+    setContactData({
+      name: '',
+      email: '',
+      phone: '',
+      subject: 'General Inquiry',
+      message: ''
+    })
+    setContactSubmitted(false)
+    setContactError('')
+  }
+
   return (
-    <div className="flex flex-col w-full overflow-hidden select-none">
+    <div className="flex flex-col w-full overflow-hidden select-none bg-brand-white text-brand-black">
       
       {/* 1. PAGE HEADER BANNER */}
       <section className="bg-brand-black text-brand-white py-12 px-4 sm:px-6 lg:px-8 border-b border-brand-charcoal relative">
@@ -49,7 +91,7 @@ export default function Contact() {
           <div className="lg:col-span-6 space-y-8 text-left">
             <SectionHeading
               title="Get In Touch"
-              subtitle="Have questions about applications, classes, or corporate technical training?"
+              subtitle="Have questions about TVTI certificate courses, workshop schedules, or campus location?"
               align="left"
             />
 
@@ -66,7 +108,7 @@ export default function Contact() {
                 <div className="space-y-1">
                   <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-brand-charcoal/50">Campus Address</h4>
                   <p className="font-sans text-brand-black text-sm sm:text-base font-semibold">
-                    No. 45, Kurunegala Road, Puttalam, Sri Lanka
+                    Mannar Road, Puttalam, Sri Lanka
                   </p>
                 </div>
               </div>
@@ -81,7 +123,7 @@ export default function Contact() {
                 <div className="space-y-1">
                   <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-brand-charcoal/50">Admissions Hotline</h4>
                   <p className="font-sans text-brand-black text-sm sm:text-base font-semibold">
-                    0117 270 270
+                    076 538 0715 / 078 538 0715
                   </p>
                 </div>
               </div>
@@ -96,7 +138,7 @@ export default function Contact() {
                 <div className="space-y-1">
                   <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-brand-charcoal/50">Support Email</h4>
                   <p className="font-sans text-brand-black text-sm sm:text-base font-semibold">
-                    info@tvti.lk
+                    info@tvti.edu.lk
                   </p>
                 </div>
               </div>
@@ -118,11 +160,11 @@ export default function Contact() {
                   </thead>
                   <tbody className="bg-brand-white divide-y divide-black/5 text-sm font-sans text-brand-charcoal">
                     <tr>
-                      <td className="px-4 py-3 font-semibold">Monday - Friday</td>
-                      <td className="px-4 py-3">8:30 AM - 4:30 PM</td>
+                      <td className="px-4 py-3 font-semibold">Saturday - Thursday</td>
+                      <td className="px-4 py-3 font-semibold text-emerald-700">8:30 AM - 5:00 PM</td>
                     </tr>
                     <tr className="bg-brand-light/20">
-                      <td className="px-4 py-3 font-semibold">Saturday - Sunday</td>
+                      <td className="px-4 py-3 font-semibold">Friday</td>
                       <td className="px-4 py-3 text-red-500 font-semibold uppercase tracking-wider text-xs">Closed</td>
                     </tr>
                   </tbody>
@@ -173,17 +215,136 @@ export default function Contact() {
 
         </div>
 
-        {/* 3. REUSED INQUIRY FORM COMPONENT */}
-        <div className="mt-20 max-w-2xl mx-auto w-full space-y-6">
+        {/* 3. DEDICATED CONTACT FORM */}
+        <div className="mt-20 max-w-2xl mx-auto w-full space-y-6 text-left">
           <div className="text-center space-y-2">
-            <h3 className="font-heading font-extrabold text-xl sm:text-2xl text-brand-black uppercase tracking-tight">
-              Have a Specific Question?
+            <h3 className="font-heading font-extrabold text-xl sm:text-3xl text-brand-black uppercase tracking-tight">
+              Send Us a Message
             </h3>
             <p className="font-sans text-brand-charcoal/70 text-sm max-w-md mx-auto">
-              Fill out our general inquiry form below and we will get back to you within 24 hours.
+              Fill out the message form below and our institute administration will respond within 24 business hours.
             </p>
           </div>
-          <InquiryForm />
+
+          <Card hoverEffect={false} className="bg-brand-white border border-black/10 p-6 sm:p-10 rounded-3xl shadow-xl">
+            {contactSubmitted ? (
+              <div className="py-8 text-center space-y-4">
+                <div className="h-16 w-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto border-2 border-emerald-500/20">
+                  <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h4 className="font-heading font-extrabold text-2xl text-brand-black uppercase">
+                  Message Sent Successfully!
+                </h4>
+                <p className="font-sans text-brand-charcoal text-sm max-w-md mx-auto leading-relaxed">
+                  Thank you for contacting Twintec Vocational Training Institute. Our team will review your message and reply via email or phone shortly.
+                </p>
+                <div className="pt-4">
+                  <Button variant="outline" onClick={handleResetForm} className="text-xs py-3 px-6">
+                    Send Another Message
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleContactSubmit} className="space-y-5">
+                
+                {contactError && (
+                  <div className="bg-red-50 text-red-600 text-xs p-3.5 rounded-xl border border-red-200 font-semibold">
+                    {contactError}
+                  </div>
+                )}
+
+                {/* Name */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-heading font-bold uppercase tracking-wider text-brand-black">
+                    Your Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={contactData.name}
+                    onChange={(e) => setContactData({ ...contactData, name: e.target.value })}
+                    placeholder="Enter your full name"
+                    className="w-full px-4 py-3 rounded-xl border border-black/10 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-brand-orange bg-brand-light/30"
+                  />
+                </div>
+
+                {/* Email & Phone Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-heading font-bold uppercase tracking-wider text-brand-black">
+                      Phone / WhatsApp <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={contactData.phone}
+                      onChange={(e) => setContactData({ ...contactData, phone: e.target.value })}
+                      placeholder="e.g. 077 123 4567"
+                      className="w-full px-4 py-3 rounded-xl border border-black/10 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-brand-orange bg-brand-light/30"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-heading font-bold uppercase tracking-wider text-brand-black">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={contactData.email}
+                      onChange={(e) => setContactData({ ...contactData, email: e.target.value })}
+                      placeholder="your.name@example.com"
+                      className="w-full px-4 py-3 rounded-xl border border-black/10 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-brand-orange bg-brand-light/30"
+                    />
+                  </div>
+                </div>
+
+                {/* Subject Dropdown */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-heading font-bold uppercase tracking-wider text-brand-black">
+                    Inquiry Topic
+                  </label>
+                  <select
+                    value={contactData.subject}
+                    onChange={(e) => setContactData({ ...contactData, subject: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-black/10 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-brand-orange bg-brand-light/30"
+                  >
+                    <option value="General Inquiry">General Inquiry</option>
+                    <option value="Certificate Course Details">Certificate Course Details</option>
+                    <option value="Workshop & Class Schedules">Workshop & Class Schedules</option>
+                    <option value="Certificate Verification Help">Certificate Verification Help</option>
+                    <option value="Other Questions">Other Questions</option>
+                  </select>
+                </div>
+
+                {/* Message Box */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-heading font-bold uppercase tracking-wider text-brand-black">
+                    Your Message <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={contactData.message}
+                    onChange={(e) => setContactData({ ...contactData, message: e.target.value })}
+                    placeholder="Type your inquiry or message here..."
+                    className="w-full px-4 py-3 rounded-xl border border-black/10 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-brand-orange bg-brand-light/30 resize-none"
+                  />
+                </div>
+
+                {/* Submit Button */}
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={contactLoading}
+                    className="w-full py-4 text-xs font-heading font-extrabold uppercase tracking-widest min-h-[48px] shadow-md hover:shadow-lg"
+                  >
+                    {contactLoading ? 'Sending Message...' : 'Send Message'}
+                  </Button>
+                </div>
+
+              </form>
+            )}
+          </Card>
         </div>
 
       </section>

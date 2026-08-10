@@ -21,7 +21,7 @@ export default function CourseDetail() {
     'mobile-phone-repairing-hardware': {
       slug: 'mobile-phone-repairing-hardware',
       title: 'Mobile Phone Repairing (Hardware)',
-      professionalTitle: 'Diploma in Mobile Phone Hardware Engineering',
+      professionalTitle: 'Certificate in Mobile Phone Hardware Repair',
       category: 'ICT & Mobile',
       image: courseMobile,
       duration: '3 Months',
@@ -47,7 +47,7 @@ export default function CourseDetail() {
     'mobile-phone-repairing-hardware-software': {
       slug: 'mobile-phone-repairing-hardware-software',
       title: 'Mobile Phone Repairing (Hardware + Software)',
-      professionalTitle: 'Master Diploma in Mobile Phone Repair (Hardware & Software)',
+      professionalTitle: 'Certificate in Mobile Phone Hardware & Software Repair',
       category: 'ICT & Mobile',
       image: courseMobile,
       duration: '4 Months',
@@ -72,7 +72,7 @@ export default function CourseDetail() {
     'laptop-desktop-repairing': {
       slug: 'laptop-desktop-repairing',
       title: 'Laptop & Desktop Repairing',
-      professionalTitle: 'Diploma in Computer, Laptop & Desktop System Engineering',
+      professionalTitle: 'Certificate in Laptop & Desktop Repairing',
       category: 'Computers',
       image: courseLaptop,
       duration: '3 Months',
@@ -97,7 +97,7 @@ export default function CourseDetail() {
     'home-appliances-repairing': {
       slug: 'home-appliances-repairing',
       title: 'Home Appliances Repairing',
-      professionalTitle: 'Diploma in Domestic Electrical Appliances Maintenance & Repair',
+      professionalTitle: 'Certificate in Home Appliances Repairing',
       category: 'Electrical & Appliances',
       image: courseAppliances,
       duration: '3 Months',
@@ -122,7 +122,7 @@ export default function CourseDetail() {
     'cctv-installation': {
       slug: 'cctv-installation',
       title: 'CCTV Installation',
-      professionalTitle: 'Professional Certification in CCTV Security Systems & Network Camera Installation',
+      professionalTitle: 'Certificate in CCTV & Security Camera Installation',
       category: 'Security Systems',
       image: courseCctv,
       duration: '2 Months',
@@ -147,7 +147,7 @@ export default function CourseDetail() {
     'home-wiring': {
       slug: 'home-wiring',
       title: 'Home Wiring',
-      professionalTitle: 'Diploma in Domestic Electrical Wiring & Power Installation',
+      professionalTitle: 'Certificate in Domestic Home Wiring',
       category: 'Electrical & Appliances',
       image: courseWiring,
       duration: '3 Months',
@@ -330,14 +330,14 @@ export default function CourseDetail() {
                 </div>
                 <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-brand-charcoal/70">Certification</span>
-                  <span className="font-heading font-bold text-brand-black">TVTI Validated Diploma</span>
+                  <span className="font-heading font-bold text-brand-black">TVTI Vocational Certificate</span>
                 </div>
               </div>
 
               <div className="pt-2">
                 <Link to={`/inquiry?course=${course.slug}`}>
                   <button className="w-full bg-brand-orange text-brand-white font-heading font-extrabold text-sm uppercase py-4 rounded-lg hover:bg-brand-black hover:text-brand-white transition-all duration-300 min-h-[48px] shadow-sm hover:shadow-md flex items-center justify-center">
-                    Inquire / Register
+                    Apply Now
                   </button>
                 </Link>
               </div>
