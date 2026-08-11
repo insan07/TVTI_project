@@ -23,9 +23,6 @@ export default function ForceChangePasswordScreen() {
   const authContext = useContext(AuthContext) as any;
   const user = authContext?.user;
 
-  const [newName, setNewName] = useState(user?.name || '');
-  const [newEmail, setNewEmail] = useState(user?.email || '');
-  const [nic, setNic] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -37,21 +34,6 @@ export default function ForceChangePasswordScreen() {
 
   const handleSetPassword = async () => {
     setErrorMsg('');
-
-    if (!newName.trim()) {
-      setErrorMsg('Please enter your name.');
-      return;
-    }
-
-    if (!newEmail.trim()) {
-      setErrorMsg('Please enter your email address.');
-      return;
-    }
-
-    if (!nic.trim()) {
-      setErrorMsg('Please enter your NIC Number for verification.');
-      return;
-    }
 
     if (!newPassword.trim() || !confirmPassword.trim()) {
       setErrorMsg('Please enter and confirm your new password.');
@@ -71,19 +53,14 @@ export default function ForceChangePasswordScreen() {
     try {
       setLoading(true);
       const res = await api.put('/users/force-change-password', {
-        newPassword: newPassword.trim(),
-        nic: nic.trim(),
-        newName: newName.trim(),
-        newEmail: newEmail.trim()
+        newPassword: newPassword.trim()
       });
-      Alert.alert('Success', 'Profile and password updated successfully! Welcome.');
+      Alert.alert('Success', 'Password updated successfully! Welcome.');
 
-      // Update AuthContext user state to clear must_change_password, update name and email
+      // Update AuthContext user state to clear must_change_password
       if (authContext?.setUser) {
         authContext.setUser({
           ...user,
-          name: res.data.user.name,
-          email: res.data.user.email,
           must_change_password: false
         });
       } else if (authContext?.fetchMe) {
@@ -91,7 +68,7 @@ export default function ForceChangePasswordScreen() {
       }
     } catch (e: any) {
       const serverMsg = e.response?.data?.message;
-      setErrorMsg(serverMsg || 'Failed to update credentials. Please try again.');
+      setErrorMsg(serverMsg || 'Failed to update password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -108,8 +85,8 @@ export default function ForceChangePasswordScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.brandTitle}>First-Time Setup & Verification</Text>
-        <Text style={styles.brandSubtitle}>TVTI Portal Setup</Text>
+        <Text style={styles.brandTitle}>First-Time Password Setup</Text>
+        <Text style={styles.brandSubtitle}>TVTI Student Portal</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView
@@ -125,10 +102,35 @@ export default function ForceChangePasswordScreen() {
           <View style={styles.securityBox}>
             <Icon name="shield-checkmark" size={24} color="#D97706" style={{ marginRight: 10 }} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.securityBoxTitle}>Action Required</Text>
+              <Text style={styles.securityBoxTitle}>First Login Password Setup</Text>
               <Text style={styles.securityBoxSub}>
-                Welcome, <Text style={{ fontWeight: 'bold' }}>{user?.name || 'User'}</Text>! Your account was logged in using a temporary password. You must verify your NIC number and set a new secure password before proceeding.
+                Welcome, <Text style={{ fontWeight: 'bold' }}>{user?.name || 'Student'}</Text>! Please create a new secure permanent password for your account.
               </Text>
+            </View>
+          </View>
+
+          {/* Read-Only Student Profile Details */}
+          <View style={styles.profileSummaryBox}>
+            <Text style={styles.profileSummaryTitle}>Student Identity Profile</Text>
+            
+            <View style={styles.readOnlyRow}>
+              <Text style={styles.readOnlyLabel}>Reg No / Index:</Text>
+              <Text style={styles.readOnlyValueBold}>{user?.index_number || 'Registered Student'}</Text>
+            </View>
+
+            <View style={styles.readOnlyRow}>
+              <Text style={styles.readOnlyLabel}>Full Name:</Text>
+              <Text style={styles.readOnlyValue}>{user?.name || 'N/A'}</Text>
+            </View>
+
+            <View style={styles.readOnlyRow}>
+              <Text style={styles.readOnlyLabel}>Email Address:</Text>
+              <Text style={styles.readOnlyValue}>{user?.email || 'N/A'}</Text>
+            </View>
+
+            <View style={styles.lockNoticeRow}>
+              <Icon name="lock-closed" size={14} color="#6B7280" style={{ marginRight: 6 }} />
+              <Text style={styles.lockNoticeText}>Profile details verified by TVTI Admin and cannot be edited.</Text>
             </View>
           </View>
 
@@ -139,55 +141,7 @@ export default function ForceChangePasswordScreen() {
             </View>
           ) : null}
 
-          <Text style={styles.inputLabel}>Confirm Full Name *</Text>
-          <View style={styles.inputContainer}>
-            <Icon name="person-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your full name"
-              placeholderTextColor={COLORS.textMuted}
-              value={newName}
-              onChangeText={(t) => {
-                setNewName(t);
-                if (errorMsg) setErrorMsg('');
-              }}
-            />
-          </View>
-
-          <Text style={styles.inputLabel}>Email Address *</Text>
-          <View style={styles.inputContainer}>
-            <Icon name="mail-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email address"
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={newEmail}
-              onChangeText={(t) => {
-                setNewEmail(t);
-                if (errorMsg) setErrorMsg('');
-              }}
-            />
-          </View>
-
-          <Text style={styles.inputLabel}>NIC Number *</Text>
-          <View style={styles.inputContainer}>
-            <Icon name="card-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 199912345678 or 991234567V"
-              placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="characters"
-              value={nic}
-              onChangeText={(t) => {
-                setNic(t);
-                if (errorMsg) setErrorMsg('');
-              }}
-            />
-          </View>
-
-          <Text style={styles.inputLabel}>New Password *</Text>
+          <Text style={styles.inputLabel}>New Permanent Password *</Text>
           <View style={styles.inputContainer}>
             <Icon name="lock-closed-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
             <TextInput
@@ -235,7 +189,7 @@ export default function ForceChangePasswordScreen() {
             ) : (
               <>
                 <Icon name="checkmark-circle" size={18} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.buttonText}>Verify & Access Portal</Text>
+                <Text style={styles.buttonText}>Set Password & Enter Portal</Text>
               </>
             )}
           </TouchableOpacity>
@@ -303,6 +257,54 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#78350F',
     lineHeight: 18,
+  },
+  profileSummaryBox: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  profileSummaryTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  readOnlyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  readOnlyLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  readOnlyValue: {
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '500',
+  },
+  readOnlyValueBold: {
+    fontSize: 14,
+    color: '#D97706',
+    fontWeight: 'bold',
+  },
+  lockNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  lockNoticeText: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontStyle: 'italic',
   },
   errorBox: {
     flexDirection: 'row',

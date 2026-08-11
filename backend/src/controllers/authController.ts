@@ -86,8 +86,8 @@ export const forceChangePassword = async (req: Request, res: Response): Promise<
       return;
     }
 
-    // Verify NIC number if it exists on the user account
-    if (user.nic && (!nic || nic.trim().toUpperCase() !== user.nic.toUpperCase())) {
+    // Verify NIC number if explicitly supplied in request body
+    if (nic && user.nic && nic.trim().toUpperCase() !== user.nic.toUpperCase()) {
       res.status(400).json({ message: 'Verification failed. NIC number does not match.' });
       return;
     }

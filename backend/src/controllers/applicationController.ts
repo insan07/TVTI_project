@@ -31,10 +31,17 @@ export const generateUniqueIndexNumber = async (): Promise<string> => {
 
 export const submitApplication = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { full_name, nic_number, email, phone, course_id, terms_accepted } = req.body;
+    const { full_name, nic_number, email, phone, course_id, course_ids, terms_accepted } = req.body;
 
-    if (!full_name || !nic_number || !email || !phone || !course_id) {
-      res.status(400).json({ message: 'All application fields are required' });
+    let selectedCourseIds: string[] = [];
+    if (Array.isArray(course_ids) && course_ids.length > 0) {
+      selectedCourseIds = course_ids;
+    } else if (course_id) {
+      selectedCourseIds = [course_id];
+    }
+
+    if (!full_name || !nic_number || !email || !phone || selectedCourseIds.length === 0) {
+      res.status(400).json({ message: 'All application fields and at least one course selection are required' });
       return;
     }
 
@@ -67,7 +74,8 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
       nic_number: nic_number.trim(),
       email: email.toLowerCase().trim(),
       phone: phone.trim(),
-      course_id: validCourseId,
+      course_id: selectedCourseIds[0],
+      course_ids: selectedCourseIds,
       status: 'pending',
       terms_accepted: true,
       terms_accepted_at: new Date(),
@@ -94,6 +102,7 @@ export const getApplications = async (req: Request, res: Response): Promise<void
 
     const applications = await Application.find(filter)
       .populate('course_id', 'title fee duration_weeks')
+      .populate('course_ids', 'title fee duration_weeks')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -107,15 +116,19 @@ export const getApplications = async (req: Request, res: Response): Promise<void
 export const updateApplicationStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, assigned_course_ids } = req.body;
 
-    const application = await Application.findById(id).populate('course_id');
+    const application = await Application.findById(id).populate('course_id').populate('course_ids');
     if (!application) {
       res.status(404).json({ message: 'Application not found' });
       return;
     }
 
     application.status = status;
+    if (assigned_course_ids && Array.isArray(assigned_course_ids) && assigned_course_ids.length > 0) {
+      application.course_ids = assigned_course_ids as any;
+      application.course_id = assigned_course_ids[0] as any;
+    }
 
     let generatedCredentials = null;
 
@@ -174,21 +187,29 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
         student_id: studentUser._id
       };
 
-      // Auto-enroll into active batch for this course if available
+      // Auto-enroll into active batch(es) for all selected/assigned courses
       try {
-        const activeBatch = await Batch.findOne({ course_id: application.course_id }).sort({ createdAt: -1 });
-        if (activeBatch) {
-          const existingEnrollment = await Enrollment.findOne({
-            student_id: studentUser._id,
-            batch_id: activeBatch._id
-          });
-          if (!existingEnrollment) {
-            await Enrollment.create({
+        const coursesToEnroll = (assigned_course_ids && assigned_course_ids.length > 0)
+          ? assigned_course_ids
+          : ((application.course_ids && application.course_ids.length > 0)
+              ? application.course_ids.map((c: any) => c._id || c)
+              : [application.course_id]);
+
+        for (const targetCourseId of coursesToEnroll) {
+          const activeBatch = await Batch.findOne({ course_id: targetCourseId }).sort({ createdAt: -1 });
+          if (activeBatch) {
+            const existingEnrollment = await Enrollment.findOne({
               student_id: studentUser._id,
-              batch_id: activeBatch._id,
-              enrolled_date: new Date(),
-              status: 'active'
+              batch_id: activeBatch._id
             });
+            if (!existingEnrollment) {
+              await Enrollment.create({
+                student_id: studentUser._id,
+                batch_id: activeBatch._id,
+                enrolled_date: new Date(),
+                status: 'active'
+              });
+            }
           }
         }
       } catch (enrollErr) {
