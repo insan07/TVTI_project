@@ -84,6 +84,15 @@ export default function Header() {
       hasDropdown: false,
     },
     {
+      name: 'Gallery',
+      path: '/gallery',
+      hasDropdown: true,
+      dropdownItems: [
+        { name: 'Videos', path: '/gallery/videos' },
+        { name: 'Photos', path: '/gallery/photos' },
+      ],
+    },
+    {
       name: 'Contact Us',
       path: '/contact',
       hasDropdown: false,
