@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import dns from 'dns';
+import multer from 'multer';
 
 // Force Google DNS servers to resolve MongoDB Atlas queryTxt/SRV lookups reliably
 dns.setServers(['8.8.8.8', '8.8.4.4']);
@@ -95,6 +96,23 @@ app.use('/api/announcements', announcementRoutes);
 // Global Error Handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
+
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      res.status(413).json({
+        success: false,
+        message: 'Video or attachment is too large. Please upload a smaller file.',
+      });
+      return;
+    }
+
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+    return;
+  }
+
   res.status(500).json({
     success: false,
     message: err.message || 'Internal Server Error',

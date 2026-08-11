@@ -1,15 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { getOpenPracticeSlots, bookPracticeSlot, cancelPracticeBooking, getMyPracticeBookings } from '../../services/practiceService';
+import {
+  getOpenPracticeSlots,
+  bookPracticeSlot,
+  cancelPracticeBooking,
+  getMyPracticeBookings,
+} from '../../services/practiceService';
 import api from '../../services/api';
-import { COLORS } from '../../config/theme';
+import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
 const parseUTCDate = (dateStr: string) => {
   const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (match) {
     const year = parseInt(match[1], 10);
-    const month = parseInt(match[2], 10) - 1; // 0-indexed
+    const month = parseInt(match[2], 10) - 1;
     const day = parseInt(match[3], 10);
     return new Date(year, month, day, 0, 0, 0, 0);
   }
@@ -27,8 +42,10 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
   return slotDate;
 };
 
-const PracticeSessionsScreen = () => {
-  const [activeTab, setActiveTab] = useState<'book' | 'my_sessions'>('book');
+export default function PracticeSessionsScreen() {
+  const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const [activeTab, setActiveTab] = useState<'book' | 'my_sessions'>('my_sessions');
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
   const [slots, setSlots] = useState<any[]>([]);
   const [myBookings, setMyBookings] = useState<any[]>([]);
@@ -51,7 +68,8 @@ const PracticeSessionsScreen = () => {
 
   function getMonday(d: Date) {
     d = new Date(d);
-    var day = d.getDay(), diff = d.getDate() - day + (day == 0 ? -6 : 1); 
+    var day = d.getDay(),
+      diff = d.getDate() - day + (day == 0 ? -6 : 1);
     return new Date(d.setDate(diff));
   }
 
@@ -64,8 +82,8 @@ const PracticeSessionsScreen = () => {
   const fetchBatches = async () => {
     try {
       const res = await api.get('/students/batches');
-      setBatches(res.data);
-      if (res.data.length > 0 && !selectedBatch) setSelectedBatch(res.data[0]._id);
+      setBatches(res.data || []);
+      if (res.data && res.data.length > 0 && !selectedBatch) setSelectedBatch(res.data[0]._id);
     } catch (e) {
       console.log('Error fetching batches', e);
     }
@@ -82,8 +100,11 @@ const PracticeSessionsScreen = () => {
     if (!selectedBatch) return;
     setLoading(true);
     try {
-      const data = await getOpenPracticeSlots({ batchId: selectedBatch, weekStart: getLocalDateString(weekStart) });
-      setSlots(data);
+      const data = await getOpenPracticeSlots({
+        batchId: selectedBatch,
+        weekStart: getLocalDateString(weekStart),
+      });
+      setSlots(data || []);
     } catch (e) {
       console.log(e);
     } finally {
@@ -95,7 +116,7 @@ const PracticeSessionsScreen = () => {
     setLoading(true);
     try {
       const data = await getMyPracticeBookings();
-      setMyBookings(data);
+      setMyBookings(data || []);
     } catch (e) {
       console.log(e);
     } finally {
@@ -116,153 +137,478 @@ const PracticeSessionsScreen = () => {
   const handleCancelBooking = async (slotId: string) => {
     Alert.alert('Confirm', 'Are you sure you want to cancel this booking?', [
       { text: 'No' },
-      { text: 'Yes', onPress: async () => {
-        try {
-          await cancelPracticeBooking(slotId);
-          Alert.alert('Success', 'Booking cancelled');
-          if (activeTab === 'my_sessions') fetchMyBookings();
-          else fetchOpenSlots();
-        } catch (e) {
-          Alert.alert('Error', 'Failed to cancel booking');
-        }
-      }}
+      {
+        text: 'Yes',
+        onPress: async () => {
+          try {
+            await cancelPracticeBooking(slotId);
+            Alert.alert('Success', 'Booking cancelled');
+            if (activeTab === 'my_sessions') fetchMyBookings();
+            else fetchOpenSlots();
+          } catch (e) {
+            Alert.alert('Error', 'Failed to cancel booking');
+          }
+        },
+      },
     ]);
   };
 
-  const hasBookedThisWeek = slots.some(s => s.already_booked);
+  const hasBookedThisWeek = slots.some((s) => s.already_booked);
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabHeader}>
-        <TouchableOpacity style={[styles.tab, activeTab === 'book' && styles.activeTab]} onPress={() => setActiveTab('book')}>
-          <Text style={[styles.tabText, activeTab === 'book' && styles.activeTabText]}>Book a Session</Text>
+      {/* Top Header Bar */}
+      <View style={[styles.topHeaderBar, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('Profile')}>
+          <Icon name="menu-outline" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, activeTab === 'my_sessions' && styles.activeTab]} onPress={() => setActiveTab('my_sessions')}>
-          <Text style={[styles.tabText, activeTab === 'my_sessions' && styles.activeTabText]}>My Sessions</Text>
+        <Text style={styles.headerTitle}>Twintec VTI</Text>
+        <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('Profile')}>
+          <Icon name="person-circle-outline" size={26} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
-      {activeTab === 'book' ? (
-        <>
-          <View style={styles.batchContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {batches.map(b => (
-                <TouchableOpacity key={b._id} style={[styles.batchBtn, selectedBatch === b._id && styles.activeBatchBtn]} onPress={() => setSelectedBatch(b._id)}>
-                  <Text style={selectedBatch === b._id ? styles.activeTabText : styles.tabText}>{b.name || 'Batch'}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
+        <View style={styles.contentPadding}>
+          {/* Main Title */}
+          <Text style={styles.pageTitle}>Practice Sessions</Text>
+
+          {/* Warning Info Box */}
+          <View style={styles.infoBanner}>
+            <Icon name="information-circle-outline" size={20} color="#D97706" style={{ marginRight: 10 }} />
+            <Text style={styles.infoBannerText}>
+              One booking per week allowed to ensure fair access for all students.
+            </Text>
           </View>
 
-          <View style={styles.weekPicker}>
-            <TouchableOpacity onPress={() => changeWeek(-1)}><Icon name="chevron-back" size={24} color={COLORS.primary} /></TouchableOpacity>
-            <Text style={styles.weekText}>Week of {getLocalDateString(weekStart)}</Text>
-            <TouchableOpacity onPress={() => changeWeek(1)}><Icon name="chevron-forward" size={24} color={COLORS.primary} /></TouchableOpacity>
+          {/* Tab Switcher Bar */}
+          <View style={styles.tabSwitcherRow}>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'book' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('book')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'book' && styles.tabButtonTextActive]}>
+                Book a Session
+              </Text>
+              {activeTab === 'book' && <View style={styles.activeTabUnderline} />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'my_sessions' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('my_sessions')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'my_sessions' && styles.tabButtonTextActive]}>
+                My Sessions
+              </Text>
+              {activeTab === 'my_sessions' && <View style={styles.activeTabUnderline} />}
+            </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.content}>
-            {loading ? <ActivityIndicator size="large" color={COLORS.primary} /> :
-              slots.length === 0 ? <Text style={styles.emptyText}>No open slots for this week.</Text> :
-              slots.map((slot) => {
-                const isFull = slot.seats_available <= 0;
-                const disabled = isFull || (hasBookedThisWeek && !slot.already_booked);
-
-                return (
-                  <View key={slot._id} style={[styles.card, disabled && styles.disabledCard]}>
-                    <View style={styles.cardHeader}>
-                      <Text style={styles.cardTitle}>{slot.day_of_week} | {slot.start_time} - {slot.end_time}</Text>
-                      {slot.already_booked && (
-                        <View style={styles.bookedBadge}>
-                          <Text style={styles.badgeText}>Booked</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.cardSub}>Instructor: {slot.instructor_id?.name || 'Unknown'}</Text>
-                    <Text style={styles.cardSub}>Seats: {slot.seats_available} / {slot.max_students} left</Text>
-                    {slot.equipment_note ? <Text style={styles.cardSub}>Note: {slot.equipment_note}</Text> : null}
-                    
-                    {!slot.already_booked && (
-                      <TouchableOpacity 
-                        style={[styles.bookBtn, disabled && styles.disabledBookBtn]} 
-                        disabled={disabled}
-                        onPress={() => handleBookSlot(slot._id)}
-                      >
-                        <Text style={styles.bookBtnText}>
-                          {isFull ? 'Full' : hasBookedThisWeek ? 'Already booked this week' : 'Book'}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                    {slot.already_booked && (
-                      <TouchableOpacity style={[styles.bookBtn, { backgroundColor: COLORS.error }]} onPress={() => handleCancelBooking(slot._id)}>
-                        <Text style={styles.bookBtnText}>Cancel Booking</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                );
-              })
-            }
-          </ScrollView>
-        </>
-      ) : (
-        <ScrollView style={styles.content}>
-          {loading ? <ActivityIndicator size="large" color={COLORS.primary} /> :
-            myBookings.length === 0 ? <Text style={styles.emptyText}>No upcoming bookings.</Text> :
-            myBookings.map((booking) => {
-              const slot = booking.slot_id;
-              if (!slot) return null;
-              const actualSlotDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const isFuture = actualSlotDate >= today;
-              return (
-                <View key={booking._id} style={styles.card}>
-                  <Text style={styles.cardTitle}>{slot.batch_id?.course_id?.title || 'Batch'} - {slot.day_of_week}</Text>
-                  <Text style={styles.cardSub}>Date: {actualSlotDate.toLocaleDateString()}</Text>
-                  <Text style={styles.cardSub}>Time: {slot.start_time} - {slot.end_time}</Text>
-                  <Text style={styles.cardSub}>Instructor: {slot.instructor_id?.name}</Text>
-                  {slot.equipment_note ? <Text style={styles.cardSub}>Note: {slot.equipment_note}</Text> : null}
-                  
-                  {isFuture && (
-                    <TouchableOpacity style={styles.cancelBtn} onPress={() => handleCancelBooking(slot._id)}>
-                      <Text style={styles.cancelBtnText}>Cancel</Text>
+          {/* TAB 1: BOOK A SESSION */}
+          {activeTab === 'book' && (
+            <View style={{ marginTop: SPACING.md }}>
+              {/* Batch Selector */}
+              {batches.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: SPACING.md }}>
+                  {batches.map((b) => (
+                    <TouchableOpacity
+                      key={b._id}
+                      style={[styles.batchPill, selectedBatch === b._id ? styles.batchPillActive : styles.batchPillInactive]}
+                      onPress={() => setSelectedBatch(b._id)}
+                    >
+                      <Text style={selectedBatch === b._id ? styles.batchPillTextActive : styles.batchPillTextInactive}>
+                        {b.name || 'Batch'}
+                      </Text>
                     </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })
-          }
-        </ScrollView>
-      )}
+                  ))}
+                </ScrollView>
+              )}
+
+              {/* Week Picker */}
+              <View style={styles.weekPickerRow}>
+                <TouchableOpacity onPress={() => changeWeek(-1)}>
+                  <Icon name="chevron-back-outline" size={20} color="#1A1A1A" />
+                </TouchableOpacity>
+                <Text style={styles.weekText}>Week of {getLocalDateString(weekStart)}</Text>
+                <TouchableOpacity onPress={() => changeWeek(1)}>
+                  <Icon name="chevron-forward-outline" size={20} color="#1A1A1A" />
+                </TouchableOpacity>
+              </View>
+
+              {loading ? (
+                <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 30 }} />
+              ) : slots.length > 0 ? (
+                slots.map((slot) => {
+                  const isFull = slot.seats_available <= 0;
+                  const disabled = isFull || (hasBookedThisWeek && !slot.already_booked);
+                  return (
+                    <View key={slot._id} style={styles.sessionCard}>
+                      <View style={styles.sessionCardAccentBar} />
+                      <View style={styles.sessionCardContent}>
+                        <View style={styles.pillTagsRow}>
+                          <View style={styles.coursePillTag}>
+                            <Text style={styles.coursePillText}>
+                              {slot.batch_id?.course_id?.title || 'Practice Session'}
+                            </Text>
+                          </View>
+                          <View style={styles.batchPillTag}>
+                            <Text style={styles.batchPillTagText}>
+                              {slot.batch_id?.name || 'Batch 01'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Text style={styles.sessionDateText}>{slot.day_of_week}</Text>
+                        <Text style={styles.sessionTimeText}>
+                          {slot.start_time} – {slot.end_time}
+                        </Text>
+
+                        <View style={styles.instructorRow}>
+                          <Icon name="person-outline" size={15} color="#666" style={{ marginRight: 4 }} />
+                          <Text style={styles.instructorText}>
+                            Inst. {slot.instructor_id?.name || 'Instructor'}
+                          </Text>
+                        </View>
+
+                        {slot.already_booked ? (
+                          <TouchableOpacity
+                            style={styles.cancelOutlineButton}
+                            onPress={() => handleCancelBooking(slot._id)}
+                          >
+                            <Text style={styles.cancelOutlineButtonText}>Cancel</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            style={[styles.bookSolidButton, disabled && styles.disabledButton]}
+                            disabled={disabled}
+                            onPress={() => handleBookSlot(slot._id)}
+                          >
+                            <Text style={styles.bookSolidButtonText}>
+                              {isFull ? 'Full' : hasBookedThisWeek ? 'Already booked this week' : 'Book Session'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={styles.emptyText}>No open practice slots for this week.</Text>
+              )}
+            </View>
+          )}
+
+          {/* TAB 2: MY SESSIONS */}
+          {activeTab === 'my_sessions' && (
+            <View style={{ marginTop: SPACING.md }}>
+              {loading ? (
+                <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 30 }} />
+              ) : myBookings.length > 0 ? (
+                myBookings.map((booking) => {
+                  const slot = booking.slot_id;
+                  if (!slot) return null;
+                  const actualSlotDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const isFuture = actualSlotDate >= today;
+
+                  return (
+                    <View key={booking._id} style={[styles.sessionCard, !isFuture && styles.pastSessionCard]}>
+                      {isFuture && <View style={styles.sessionCardAccentBar} />}
+                      <View style={styles.sessionCardContent}>
+                        <View style={styles.pillTagsRow}>
+                          <View style={[styles.coursePillTag, !isFuture && styles.pastPillTag]}>
+                            <Text style={[styles.coursePillText, !isFuture && styles.pastPillText]}>
+                              {slot.batch_id?.course_id?.title || 'Welding Basics'}
+                            </Text>
+                          </View>
+                          <View style={[styles.batchPillTag, !isFuture && styles.pastPillTag]}>
+                            <Text style={[styles.batchPillTagText, !isFuture && styles.pastPillText]}>
+                              {slot.batch_id?.name || 'Batch 01'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Text style={[styles.sessionDateText, !isFuture && styles.pastText]}>
+                          {actualSlotDate.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'short' })}
+                          {!isFuture ? ' (Past)' : ''}
+                        </Text>
+
+                        <Text style={[styles.sessionTimeText, !isFuture && styles.pastText]}>
+                          {slot.start_time} – {slot.end_time}
+                        </Text>
+
+                        <View style={styles.instructorRow}>
+                          <Icon name="person-outline" size={15} color={isFuture ? '#666' : '#B0B0B0'} style={{ marginRight: 4 }} />
+                          <Text style={[styles.instructorText, !isFuture && styles.pastText]}>
+                            Inst. {slot.instructor_id?.name || 'Instructor'}
+                          </Text>
+                        </View>
+
+                        {isFuture && (
+                          <TouchableOpacity
+                            style={styles.cancelOutlineButton}
+                            onPress={() => handleCancelBooking(slot._id)}
+                          >
+                            <Text style={styles.cancelOutlineButtonText}>Cancel</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={{ color: '#888888', ...FONTS.regular, textAlign: 'center', marginTop: 30 }}>
+                  No practice bookings found.
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  tabHeader: { flexDirection: 'row', backgroundColor: '#fff', elevation: 2 },
-  tab: { flex: 1, padding: 15, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  activeTab: { borderBottomColor: COLORS.primary },
-  tabText: { fontWeight: 'bold', color: '#666' },
-  activeTabText: { color: COLORS.primary },
-  weekPicker: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#fff', marginTop: 1 },
-  weekText: { fontSize: 16, fontWeight: 'bold' },
-  batchContainer: { padding: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  batchBtn: { paddingHorizontal: 15, paddingVertical: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 20, marginRight: 10, backgroundColor: '#fff' },
-  activeBatchBtn: { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '20' },
-  content: { padding: 15 },
-  emptyText: { textAlign: 'center', marginTop: 20, color: '#666' },
-  card: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, elevation: 1 },
-  disabledCard: { opacity: 0.7 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  cardTitle: { fontSize: 16, fontWeight: 'bold' },
-  bookedBadge: { backgroundColor: COLORS.success, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  cardSub: { color: '#666', marginBottom: 5 },
-  bookBtn: { backgroundColor: COLORS.primary, padding: 10, borderRadius: 5, alignItems: 'center', marginTop: 10 },
-  disabledBookBtn: { backgroundColor: '#ccc' },
-  bookBtnText: { color: '#fff', fontWeight: 'bold' },
-  cancelBtn: { backgroundColor: COLORS.error, padding: 10, borderRadius: 5, alignItems: 'center', marginTop: 10 },
-  cancelBtnText: { color: '#fff', fontWeight: 'bold' }
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F6F8',
+  },
+  topHeaderBar: {
+    backgroundColor: '#000000',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.md,
+  },
+  headerIconButton: {
+    padding: SPACING.xs,
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    ...FONTS.bold,
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  contentPadding: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.xl,
+    paddingBottom: SPACING.xxxl,
+  },
+  pageTitle: {
+    fontSize: 26,
+    color: '#000000',
+    ...FONTS.bold,
+    marginBottom: SPACING.md,
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF8E1',
+    borderWidth: 1,
+    borderColor: '#FFE082',
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.xl,
+  },
+  infoBannerText: {
+    flex: 1,
+    color: '#78350F',
+    fontSize: 13,
+    ...FONTS.regular,
+    lineHeight: 18,
+  },
+  tabSwitcherRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EAEAEA',
+    marginBottom: SPACING.lg,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  tabButtonActive: {},
+  tabButtonText: {
+    fontSize: 15,
+    color: '#888888',
+    ...FONTS.semiBold,
+  },
+  tabButtonTextActive: {
+    color: '#F58220',
+    ...FONTS.bold,
+  },
+  activeTabUnderline: {
+    position: 'absolute',
+    bottom: -1,
+    left: 10,
+    right: 10,
+    height: 3,
+    backgroundColor: '#F58220',
+    borderRadius: 1.5,
+  },
+  batchPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: RADIUS.full,
+    marginRight: 8,
+  },
+  batchPillActive: {
+    backgroundColor: '#000000',
+  },
+  batchPillInactive: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  batchPillTextActive: {
+    color: '#FFFFFF',
+    ...FONTS.bold,
+  },
+  batchPillTextInactive: {
+    color: '#555555',
+    ...FONTS.medium,
+  },
+  weekPickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.md,
+    ...SHADOW.sm,
+  },
+  weekText: {
+    fontSize: 14,
+    color: '#1A1A1A',
+    ...FONTS.bold,
+  },
+  sessionCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    marginBottom: SPACING.md,
+    ...SHADOW.sm,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  pastSessionCard: {
+    backgroundColor: '#FFFFFF',
+  },
+  sessionCardAccentBar: {
+    width: 5,
+    backgroundColor: '#F58220',
+  },
+  sessionCardContent: {
+    flex: 1,
+    padding: SPACING.lg,
+  },
+  pillTagsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  coursePillTag: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+    marginRight: 8,
+  },
+  coursePillText: {
+    fontSize: 12,
+    color: '#333333',
+    ...FONTS.bold,
+  },
+  batchPillTag: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+  },
+  batchPillTagText: {
+    fontSize: 12,
+    color: '#666666',
+    ...FONTS.medium,
+  },
+  pastPillTag: {
+    backgroundColor: '#F9FAFB',
+  },
+  pastPillText: {
+    color: '#B0B0B0',
+  },
+  sessionDateText: {
+    fontSize: 18,
+    color: '#1A1A1A',
+    ...FONTS.bold,
+    marginBottom: 4,
+  },
+  sessionTimeText: {
+    fontSize: 16.5,
+    color: '#B45309',
+    ...FONTS.bold,
+    marginBottom: SPACING.xs,
+  },
+  pastTimeText: {
+    color: '#B0B0B0',
+  },
+  instructorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  instructorText: {
+    fontSize: 13.5,
+    color: '#666666',
+    ...FONTS.regular,
+  },
+  pastText: {
+    color: '#B0B0B0',
+  },
+  cancelOutlineButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#FF5252',
+    borderRadius: RADIUS.md,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  cancelOutlineButtonText: {
+    color: '#FF5252',
+    fontSize: 14.5,
+    ...FONTS.bold,
+  },
+  bookSolidButton: {
+    backgroundColor: '#F58220',
+    borderRadius: RADIUS.md,
+    paddingVertical: 11,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  disabledButton: {
+    backgroundColor: '#D1D5DB',
+  },
+  bookSolidButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14.5,
+    ...FONTS.bold,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 30,
+    color: '#999999',
+    ...FONTS.regular,
+  },
 });
 
-export default PracticeSessionsScreen;

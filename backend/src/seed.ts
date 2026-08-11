@@ -9,7 +9,7 @@ const setupDNS = () => {
   return new Promise<void>((resolve) => {
     const resolver = new dns.Resolver();
     resolver.setServers(['8.8.8.8']);
-    resolver.resolve('google.com', (err) => {
+    resolver.resolve('google.com', (err: any) => {
       if (!err) {
         dns.setServers(['8.8.8.8', '8.8.4.4']);
       }
