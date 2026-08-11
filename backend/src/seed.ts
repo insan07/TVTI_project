@@ -103,6 +103,7 @@ const seedDatabase = async () => {
       is_approved: true,
       is_active: true,
       nic: '200112345678',
+      index_number: '26T0001',
       phone: '+94 77 444 5566'
     });
 
@@ -114,6 +115,7 @@ const seedDatabase = async () => {
       is_approved: true,
       is_active: true,
       nic: '200223456789',
+      index_number: '26T0002',
       phone: '+94 77 555 6677'
     });
 
