@@ -8,6 +8,7 @@ export interface IApplication extends Document {
   email: string;
   phone: string;
   course_id: mongoose.Types.ObjectId;
+  course_ids?: mongoose.Types.ObjectId[];
   status: ApplicationStatus;
   terms_accepted: boolean;
   terms_accepted_at: Date;
@@ -22,6 +23,7 @@ const applicationSchema = new Schema<IApplication>(
     email: { type: String, required: true, lowercase: true, trim: true },
     phone: { type: String, required: true },
     course_id: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
+    course_ids: [{ type: Schema.Types.ObjectId, ref: 'Course' }],
     status: {
       type: String,
       enum: ['pending', 'contacted', 'paid', 'approved', 'rejected'],

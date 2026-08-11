@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
+import dns from 'dns';
 // Dynamically configure DNS: Check if Google DNS is reachable.
 // On some networks, Google DNS is blocked, causing ECONNREFUSED.
 // On other networks, default DNS fails to resolve MongoDB Atlas SRV records, causing ETIMEOUT.
@@ -153,47 +154,63 @@ const seedDatabase = async () => {
 
     console.log('Created Users: 1 Admin, 3 Instructors, 5 Students (4 Active, 1 Pending).');
 
-    // 4. Create Vocational Courses
+    // 4. Create All 6 Website Vocational Courses
     const course1 = await Course.create({
-      title: 'Automotive Diagnostics Level 1',
-      description: 'Introduction to OBD-II systems, engine management, and basic electrical fault finding.',
-      duration_weeks: 8,
-      fee: 35000,
+      title: 'Mobile Phone Repairing (Hardware)',
+      description: 'Master micro-soldering, SMD component replacement, screen lamination, water damage recovery, and hardware diagnostics for modern smartphones.',
+      duration_weeks: 12,
+      fee: 25000,
       is_active: true
     });
 
     const course2 = await Course.create({
-      title: 'Advanced Welding Techniques',
-      description: 'TIG/MIG welding certification preparation for industrial and high-precision applications.',
-      duration_weeks: 12,
-      fee: 45000,
+      title: 'Mobile Phone Repairing (Hardware + Software)',
+      description: 'Comprehensive chip-level hardware repair plus OS flashing, bootloop recovery, network unlocking, IMEI diagnostics, and firmware programming.',
+      duration_weeks: 16,
+      fee: 35000,
       is_active: true
     });
 
     const course3 = await Course.create({
-      title: 'HVAC & Electrical Systems',
-      description: 'Comprehensive installation, maintenance, and safety protocols for commercial HVAC.',
-      duration_weeks: 10,
+      title: 'Laptop & Desktop Repairing',
+      description: 'Learn motherboard schematic reading, power rail diagnostics, BGA chip reballing, desktop PC assembly, and BIOS EEPROM programming.',
+      duration_weeks: 12,
       fee: 30000,
       is_active: true
     });
 
     const course4 = await Course.create({
-      title: 'Industrial Robotics & Automation',
-      description: 'PLC programming, robotic arm kinematics, and sensor automation in modern factories.',
-      duration_weeks: 16,
-      fee: 55000,
+      title: 'Home Appliances Repairing',
+      description: 'Diagnose, service, and repair major household electrical appliances including washing machines, inverter refrigerators, microwave ovens, and air coolers.',
+      duration_weeks: 12,
+      fee: 28000,
       is_active: true
     });
 
-    console.log('Created 4 Vocational Courses.');
+    const course5 = await Course.create({
+      title: 'CCTV Installation',
+      description: 'Hands-on training in IP camera mounting, DVR/NVR storage setup, network cabling, coaxial crimping, and remote smartphone surveillance monitoring.',
+      duration_weeks: 8,
+      fee: 18000,
+      is_active: true
+    });
 
-    // 5. Create Batches
+    const course6 = await Course.create({
+      title: 'Home Wiring',
+      description: 'Become a certified electrician. Master single-phase and 3-phase domestic wiring, circuit breaker installations, earth pit testing, and safety codes.',
+      duration_weeks: 12,
+      fee: 22000,
+      is_active: true
+    });
+
+    console.log('Created 6 Website Vocational Courses.');
+
+    // 5. Create Batches for all courses
     const batch1 = await Batch.create({
-      name: 'Auto Diagnostics - Morning Batch A',
+      name: 'Mobile Hardware - Morning Batch 2026',
       course_id: course1._id,
       start_date: new Date(),
-      end_date: new Date(Date.now() + 60 * 86400000),
+      end_date: new Date(Date.now() + 90 * 86400000),
       instructor_ids: [instructor1._id],
       capacity: 25,
       status: 'active',
@@ -201,8 +218,19 @@ const seedDatabase = async () => {
     });
 
     const batch2 = await Batch.create({
-      name: 'Advanced Welding - Weekend Intensive',
+      name: 'Mobile HW+SW Master Class',
       course_id: course2._id,
+      start_date: new Date(),
+      end_date: new Date(Date.now() + 120 * 86400000),
+      instructor_ids: [instructor1._id],
+      capacity: 20,
+      status: 'active',
+      schedule_json: { days: ['Tue', 'Thu', 'Sat'] }
+    });
+
+    const batch3 = await Batch.create({
+      name: 'Laptop & Desktop Repair - Weekend Batch',
+      course_id: course3._id,
       start_date: new Date(),
       end_date: new Date(Date.now() + 90 * 86400000),
       instructor_ids: [instructor2._id],
@@ -211,29 +239,40 @@ const seedDatabase = async () => {
       schedule_json: { days: ['Sat', 'Sun'] }
     });
 
-    const batch3 = await Batch.create({
-      name: 'HVAC Systems - Evening Batch',
-      course_id: course3._id,
+    const batch4 = await Batch.create({
+      name: 'Home Appliances Servicing - Evening Batch',
+      course_id: course4._id,
       start_date: new Date(),
-      end_date: new Date(Date.now() + 75 * 86400000),
+      end_date: new Date(Date.now() + 90 * 86400000),
+      instructor_ids: [instructor3._id],
+      capacity: 20,
+      status: 'active',
+      schedule_json: { days: ['Mon', 'Wed'] }
+    });
+
+    const batch5 = await Batch.create({
+      name: 'CCTV & Security Camera Installation',
+      course_id: course5._id,
+      start_date: new Date(),
+      end_date: new Date(Date.now() + 60 * 86400000),
+      instructor_ids: [instructor2._id],
+      capacity: 25,
+      status: 'active',
+      schedule_json: { days: ['Sat'] }
+    });
+
+    const batch6 = await Batch.create({
+      name: 'Domestic Home Wiring - Batch A',
+      course_id: course6._id,
+      start_date: new Date(),
+      end_date: new Date(Date.now() + 90 * 86400000),
       instructor_ids: [instructor3._id],
       capacity: 20,
       status: 'active',
       schedule_json: { days: ['Tue', 'Thu'] }
     });
 
-    const batch4 = await Batch.create({
-      name: 'Robotics - FastTrack 2026',
-      course_id: course4._id,
-      start_date: new Date(),
-      end_date: new Date(Date.now() + 120 * 86400000),
-      instructor_ids: [instructor1._id],
-      capacity: 20,
-      status: 'active',
-      schedule_json: { days: ['Mon', 'Wed', 'Fri'] }
-    });
-
-    console.log('Created 4 Active Batches with different schedules.');
+    console.log('Created 6 Active Batches with schedules.');
 
     // 6. Enroll Active Students into Batches
     await Enrollment.create({ student_id: student1._id, batch_id: batch1._id, status: 'active' });

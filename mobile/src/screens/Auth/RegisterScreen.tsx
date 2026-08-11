@@ -26,7 +26,7 @@ export default function RegisterScreen() {
     nic: '',
     email: '',
     phone: '',
-    desired_course: '',
+    desired_courses: [] as string[],
   });
 
   const [courses, setCourses] = useState<{ _id: string; title: string }[]>([]);
@@ -48,14 +48,15 @@ export default function RegisterScreen() {
         const res = await api.get('/courses/active').catch(() => null);
         if (res && res.data && res.data.length > 0) {
           setCourses(res.data);
-          setFormData(prev => ({ ...prev, desired_course: res.data[0]._id }));
+          setFormData(prev => ({ ...prev, desired_courses: [res.data[0]._id] }));
         } else {
           const mock = [
-            { _id: '60c72b2f9b1d8e1f88c88c81', title: 'Automotive Diagnostics Level 1' },
-            { _id: '60c72b2f9b1d8e1f88c88c82', title: 'Advanced Welding Techniques' }
+            { _id: '60c72b2f9b1d8e1f88c88c81', title: 'Mobile Phone Repairing' },
+            { _id: '60c72b2f9b1d8e1f88c88c82', title: 'Laptop & Desktop Repairing' },
+            { _id: '60c72b2f9b1d8e1f88c88c83', title: 'CCTV Installation & Networking' }
           ];
           setCourses(mock);
-          setFormData(prev => ({ ...prev, desired_course: mock[0]._id }));
+          setFormData(prev => ({ ...prev, desired_courses: [mock[0]._id] }));
         }
       } catch (e) {
         console.warn('Failed to fetch courses', e);
@@ -66,17 +67,32 @@ export default function RegisterScreen() {
     fetchCourses();
   }, []);
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (errorMsg) setErrorMsg('');
+  };
+
+  const toggleCourse = (courseId: string) => {
+    setFormData(prev => {
+      const exists = prev.desired_courses.includes(courseId);
+      let updated: string[];
+      if (exists) {
+        if (prev.desired_courses.length === 1) return prev; // Keep at least one selected
+        updated = prev.desired_courses.filter(id => id !== courseId);
+      } else {
+        updated = [...prev.desired_courses, courseId];
+      }
+      return { ...prev, desired_courses: updated };
+    });
     if (errorMsg) setErrorMsg('');
   };
 
   const handleRegisterApplication = async () => {
     setErrorMsg('');
-    const { name, nic, email, phone, desired_course } = formData;
+    const { name, nic, email, phone, desired_courses } = formData;
 
-    if (!name.trim() || !nic.trim() || !email.trim() || !phone.trim() || !desired_course) {
-      setErrorMsg('Please complete all required application fields.');
+    if (!name.trim() || !nic.trim() || !email.trim() || !phone.trim() || desired_courses.length === 0) {
+      setErrorMsg('Please complete all required fields and select at least one course.');
       return;
     }
 
@@ -98,7 +114,8 @@ export default function RegisterScreen() {
         nic_number: nic.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
-        course_id: desired_course,
+        course_id: desired_courses[0],
+        course_ids: desired_courses,
         terms_accepted: true
       });
 
@@ -128,7 +145,7 @@ export default function RegisterScreen() {
     formData.nic.trim() !== '' &&
     formData.email.trim() !== '' &&
     formData.phone.trim() !== '' &&
-    formData.desired_course !== '' &&
+    formData.desired_courses.length > 0 &&
     agreedToTerms;
 
   return (
@@ -192,7 +209,7 @@ export default function RegisterScreen() {
             <Icon name="mail-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="e.g. john@student.tvti.edu"
+              placeholder="e.g. john@gmail.com"
               keyboardType="email-address"
               autoCapitalize="none"
               placeholderTextColor={COLORS.textMuted}
@@ -214,20 +231,30 @@ export default function RegisterScreen() {
             />
           </View>
 
+          <Text style={styles.inputLabel}>Desired Vocational Course(s) * (Select one or more)</Text>
           {fetchingCourses ? (
             <ActivityIndicator size="small" color={COLORS.primary} style={{ paddingVertical: 14 }} />
           ) : (
-            <CustomDropdown
-              label="Desired Vocational Course *"
-              placeholder="Select course..."
-              iconName="library-outline"
-              items={courses.map(c => ({
-                label: c.title,
-                value: c._id
-              }))}
-              selectedValue={formData.desired_course}
-              onValueChange={(val) => handleChange('desired_course', val)}
-            />
+            <View style={{ marginBottom: SPACING.md }}>
+              {courses.map(c => {
+                const isSelected = formData.desired_courses.includes(c._id);
+                return (
+                  <TouchableOpacity
+                    key={c._id}
+                    style={[styles.courseOptionCard, isSelected && styles.courseOptionCardSelected]}
+                    onPress={() => toggleCourse(c._id)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.courseCheckbox, isSelected && styles.courseCheckboxSelected]}>
+                      {isSelected && <Icon name="checkmark" size={14} color="#FFFFFF" />}
+                    </View>
+                    <Text style={[styles.courseOptionTitle, isSelected && styles.courseOptionTitleSelected]}>
+                      {c.title}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           )}
 
           {/* Checkbox for Terms & Conditions */}
@@ -417,6 +444,46 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.textPrimary,
     ...FONTS.regular,
+  },
+  courseOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: RADIUS.md,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  courseOptionCardSelected: {
+    backgroundColor: '#FFF7ED',
+    borderColor: COLORS.primary,
+  },
+  courseCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#9CA3AF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  courseCheckboxSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  courseOptionTitle: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+    flex: 1,
+  },
+  courseOptionTitleSelected: {
+    color: COLORS.primary,
+    fontWeight: 'bold',
   },
   termsRow: {
     flexDirection: 'row',

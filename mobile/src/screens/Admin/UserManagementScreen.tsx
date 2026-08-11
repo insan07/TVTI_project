@@ -688,7 +688,7 @@ export default function UserManagementScreen() {
             <Text style={styles.label}>Email *</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. miller@tvti.edu"
+              placeholder="e.g. miller@gmail.com"
               value={instructorForm.email}
               onChangeText={v => setInstructorForm({ ...instructorForm, email: v })}
               autoCapitalize="none"

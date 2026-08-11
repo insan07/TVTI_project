@@ -113,7 +113,7 @@ export default function LoginScreen() {
             <Icon name="person-circle-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="e.g. 26T0001 or student@tvti.edu"
+              placeholder="e.g. 26T0001 or student@gmail.com"
               placeholderTextColor={COLORS.textMuted}
               autoCapitalize="none"
               value={email}

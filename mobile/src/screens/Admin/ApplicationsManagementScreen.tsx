@@ -30,6 +30,13 @@ export default function ApplicationsManagementScreen() {
   const [credentialsModalVisible, setCredentialsModalVisible] = useState(false);
   const [approvedCredentials, setApprovedCredentials] = useState<any>(null);
 
+  // Assign Courses Modal State
+  const [assignCoursesModalVisible, setAssignCoursesModalVisible] = useState(false);
+  const [selectedAppForAssignment, setSelectedAppForAssignment] = useState<any>(null);
+  const [allAvailableCourses, setAllAvailableCourses] = useState<any[]>([]);
+  const [assignedCourseIds, setAssignedCourseIds] = useState<string[]>([]);
+  const [assigningCourses, setAssigningCourses] = useState(false);
+
   useEffect(() => {
     fetchApplications();
   }, [activeTab]);
@@ -52,6 +59,71 @@ export default function ApplicationsManagementScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchApplications();
+  };
+
+  const handleOpenAssignCoursesModal = async (app: any) => {
+    setSelectedAppForAssignment(app);
+    let initialIds: string[] = [];
+    if (app.course_ids && app.course_ids.length > 0) {
+      initialIds = app.course_ids.map((c: any) => c._id || c);
+    } else if (app.course_id) {
+      initialIds = [app.course_id._id || app.course_id];
+    }
+    setAssignedCourseIds(initialIds);
+
+    try {
+      const res = await api.get('/courses/active');
+      setAllAvailableCourses(res.data || []);
+    } catch (e) {
+      console.warn('Failed to fetch courses', e);
+    }
+    setAssignCoursesModalVisible(true);
+  };
+
+  const toggleAssignedCourse = (courseId: string) => {
+    setAssignedCourseIds(prev => {
+      if (prev.includes(courseId)) {
+        if (prev.length === 1) return prev; // Keep at least 1 course
+        return prev.filter(id => id !== courseId);
+      } else {
+        return [...prev, courseId];
+      }
+    });
+  };
+
+  const handleSaveCourseAssignments = async (newStatus?: string) => {
+    if (!selectedAppForAssignment) return;
+    if (assignedCourseIds.length === 0) {
+      if (Platform.OS === 'web') window.alert('Please select at least one course to assign.');
+      else Alert.alert('Error', 'Please select at least one course to assign.');
+      return;
+    }
+
+    setAssigningCourses(true);
+    try {
+      const targetStatus = newStatus || selectedAppForAssignment.status;
+      const res = await api.put(`/admin/applications/${selectedAppForAssignment._id}/status`, {
+        status: targetStatus,
+        assigned_course_ids: assignedCourseIds
+      });
+
+      setAssignCoursesModalVisible(false);
+      if (targetStatus === 'approved' && res.data.credentials) {
+        setApprovedCredentials(res.data.credentials);
+        setCredentialsModalVisible(true);
+        setActiveTab('approved');
+      } else {
+        if (Platform.OS === 'web') window.alert(`Courses assigned successfully! Status: ${targetStatus.toUpperCase()}`);
+        else Alert.alert('Success', `Courses assigned successfully! Status: ${targetStatus.toUpperCase()}`);
+      }
+      fetchApplications();
+    } catch (e: any) {
+      const msg = e.response?.data?.message || 'Failed to save course assignments';
+      if (Platform.OS === 'web') window.alert(`Error: ${msg}`);
+      else Alert.alert('Error', msg);
+    } finally {
+      setAssigningCourses(false);
+    }
   };
 
   const handleUpdateStatus = async (appId: string, newStatus: string, appName: string) => {
@@ -144,7 +216,21 @@ export default function ApplicationsManagementScreen() {
           </View>
           <View style={{ flex: 1, marginRight: 8 }}>
             <Text style={styles.studentName}>{item.full_name}</Text>
-            <Text style={styles.courseTitle}>{item.course_id?.title || 'Vocational Course'}</Text>
+            <View style={styles.courseTagsContainer}>
+              {item.course_ids && item.course_ids.length > 0 ? (
+                item.course_ids.map((c: any, i: number) => (
+                  <View key={c._id || i} style={styles.courseBadgeChip}>
+                    <Icon name="book-outline" size={11} color="#D97706" style={{ marginRight: 3 }} />
+                    <Text style={styles.courseBadgeText}>{c.title || 'Course'}</Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.courseBadgeChip}>
+                  <Icon name="book-outline" size={11} color="#D97706" style={{ marginRight: 3 }} />
+                  <Text style={styles.courseBadgeText}>{item.course_id?.title || 'Vocational Course'}</Text>
+                </View>
+              )}
+            </View>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
             <Text style={[styles.statusBadgeText, { color: badge.text }]}>{badge.label}</Text>
@@ -182,6 +268,14 @@ export default function ApplicationsManagementScreen() {
             <ActivityIndicator size="small" color="#000000" style={{ paddingVertical: 6 }} />
           ) : (
             <>
+              <TouchableOpacity
+                style={[styles.stageBtn, { backgroundColor: '#F58220' }]}
+                onPress={() => handleOpenAssignCoursesModal(item)}
+              >
+                <Icon name="create-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                <Text style={styles.stageBtnText}>Assign Courses</Text>
+              </TouchableOpacity>
+
               {item.status === 'pending' && (
                 <>
                   <TouchableOpacity
@@ -195,12 +289,6 @@ export default function ApplicationsManagementScreen() {
                     onPress={() => handleUpdateStatus(item._id, 'approved', item.full_name)}
                   >
                     <Text style={styles.stageBtnText}>Approve</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.stageBtn, { backgroundColor: '#EF4444' }]}
-                    onPress={() => handleUpdateStatus(item._id, 'rejected', item.full_name)}
-                  >
-                    <Text style={styles.stageBtnText}>Reject</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -238,17 +326,8 @@ export default function ApplicationsManagementScreen() {
                   onPress={() => handleUpdateStatus(item._id, 'approved', item.full_name)}
                 >
                   <Icon name="key-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.stageBtnText}>Re-issue Temp Password / Credentials</Text>
+                  <Text style={styles.stageBtnText}>Re-issue Credentials</Text>
                 </TouchableOpacity>
-              )}
-
-              {item.status === 'rejected' && (
-                <View style={styles.completedStatusBox}>
-                  <Icon name="information-circle-outline" size={16} color="#6B7280" style={{ marginRight: 6 }} />
-                  <Text style={styles.completedStatusText}>
-                    Status finalized as <Text style={{ fontWeight: 'bold' }}>REJECTED</Text>
-                  </Text>
-                </View>
               )}
             </>
           )}
@@ -301,6 +380,74 @@ export default function ApplicationsManagementScreen() {
           ListEmptyComponent={<Text style={styles.emptyText}>No applications found in "{activeTab}" status.</Text>}
         />
       )}
+
+      {/* Assign Courses Modal */}
+      <Modal visible={assignCoursesModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.assignModalCard}>
+            <View style={styles.assignModalHeader}>
+              <Text style={styles.assignModalTitle}>Assign Courses & Approve Fee</Text>
+              <TouchableOpacity onPress={() => setAssignCoursesModalVisible(false)}>
+                <Icon name="close" size={22} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.assignModalSub}>
+              Select the course(s) to assign for student <Text style={{ fontWeight: 'bold', color: '#111827' }}>{selectedAppForAssignment?.full_name}</Text>:
+            </Text>
+
+            <ScrollView style={{ flexMaxHeight: 280, marginVertical: 12 }}>
+              {allAvailableCourses.map(course => {
+                const isSelected = assignedCourseIds.includes(course._id);
+                return (
+                  <TouchableOpacity
+                    key={course._id}
+                    style={[styles.assignCourseItem, isSelected && styles.assignCourseItemActive]}
+                    onPress={() => toggleAssignedCourse(course._id)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.assignCheckbox, isSelected && styles.assignCheckboxActive]}>
+                      {isSelected && <Icon name="checkmark" size={14} color="#FFFFFF" />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.assignCourseText, isSelected && styles.assignCourseTextActive]}>
+                        {course.title}
+                      </Text>
+                      {course.fee ? (
+                        <Text style={{ fontSize: 11, color: '#6B7280' }}>Fee: LKR {course.fee.toLocaleString()}</Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.assignModalActions}>
+              <TouchableOpacity
+                style={[styles.assignSaveBtn, { backgroundColor: '#374151' }]}
+                onPress={() => handleSaveCourseAssignments(selectedAppForAssignment?.status)}
+                disabled={assigningCourses}
+              >
+                <Text style={styles.assignSaveBtnText}>Save Course Selection</Text>
+              </TouchableOpacity>
+
+              {selectedAppForAssignment?.status !== 'approved' && (
+                <TouchableOpacity
+                  style={[styles.assignSaveBtn, { backgroundColor: '#10B981' }]}
+                  onPress={() => handleSaveCourseAssignments('approved')}
+                  disabled={assigningCourses}
+                >
+                  {assigningCourses ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.assignSaveBtnText}>Assign & Approve Reg No.</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Generated Credentials Modal */}
       <Modal visible={credentialsModalVisible} animationType="slide" transparent={true}>
@@ -429,10 +576,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111827',
   },
-  courseTitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 1,
+  courseTagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 3,
+  },
+  courseBadgeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  courseBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#92400E',
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -468,6 +629,7 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
     justifyContent: 'flex-end',
+    flexWrap: 'wrap',
   },
   stageBtn: {
     borderRadius: 8,
@@ -496,6 +658,89 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 40,
     fontSize: 15,
+  },
+
+  /* ASSIGN COURSES MODAL STYLES */
+  assignModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxHeight: '85%',
+    elevation: 5,
+  },
+  assignModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    paddingBottom: 10,
+  },
+  assignModalTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  assignModalSub: {
+    fontSize: 13,
+    color: '#4B5563',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  assignCourseItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  assignCourseItemActive: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#F58220',
+  },
+  assignCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#9CA3AF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  assignCheckboxActive: {
+    backgroundColor: '#F58220',
+    borderColor: '#F58220',
+  },
+  assignCourseText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  assignCourseTextActive: {
+    color: '#D97706',
+    fontWeight: 'bold',
+  },
+  assignModalActions: {
+    flexDirection: 'column',
+    gap: 8,
+    marginTop: 10,
+  },
+  assignSaveBtn: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assignSaveBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 
   /* CREDENTIALS MODAL STYLES */
