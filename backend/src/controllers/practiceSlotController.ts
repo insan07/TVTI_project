@@ -2,6 +2,7 @@ import { Response } from 'express';
 import PracticeSlot from '../models/PracticeSlot';
 import SlotBooking from '../models/SlotBooking';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { sendNotification } from '../services/notificationService';
 
 const checkSlotInstructorLimit = async (
   weekStartDate: Date,
@@ -105,6 +106,16 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
         is_open: true,
       }))
     );
+
+    // Send instant notification to enrolled batch students
+    await sendNotification({
+      batchId: batch_id,
+      title: 'New Practice Slots Open',
+      message: 'New practical session slots have been posted for your batch. Book your slot now!',
+      type: 'practice_slots',
+      link: '/schedule'
+    });
+
     res.status(201).json(created);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

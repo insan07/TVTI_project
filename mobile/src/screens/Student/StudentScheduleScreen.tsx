@@ -26,7 +26,7 @@ const parseUTCDate = (dateStr: string) => {
   return new Date(dateStr);
 };
 
-export default function StudentScheduleScreen() {
+export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: number }) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const [batches, setBatches] = useState<any[]>([]);
@@ -162,9 +162,10 @@ export default function StudentScheduleScreen() {
         <Text style={styles.headerTitle}>Twintec VTI</Text>
         <TouchableOpacity
           style={styles.headerIconButton}
-          onPress={() => navigation.navigate('Profile')}
+          onPress={() => navigation.navigate('Notifications')}
         >
-          <Icon name="person-circle-outline" size={26} color="#FFFFFF" />
+          <Icon name="notifications-outline" size={24} color="#FFFFFF" />
+          {unreadCount && unreadCount > 0 ? <View style={styles.badgeDot} /> : null}
         </TouchableOpacity>
       </View>
 
@@ -388,6 +389,16 @@ const styles = StyleSheet.create({
   },
   headerIconButton: {
     padding: SPACING.xs,
+    position: 'relative',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
   },
   headerTitle: {
     color: '#FFFFFF',

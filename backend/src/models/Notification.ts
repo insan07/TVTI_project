@@ -6,6 +6,8 @@ export interface INotification extends Document {
   message: string;
   type?: string;
   is_read: boolean;
+  related_id?: mongoose.Types.ObjectId;
+  link?: string;
 }
 
 const notificationSchema = new Schema<INotification>(
@@ -15,6 +17,8 @@ const notificationSchema = new Schema<INotification>(
     message: { type: String, required: true },
     type: { type: String },
     is_read: { type: Boolean, default: false },
+    related_id: { type: Schema.Types.ObjectId },
+    link: { type: String },
   },
   { timestamps: true }
 );

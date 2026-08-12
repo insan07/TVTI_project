@@ -40,7 +40,7 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
   return slotDate;
 };
 
-export default function HomeScreen() {
+export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadCount?: number }) {
   const { user } = useContext(AuthContext) as any;
   const navigation = useNavigation<any>();
   const [data, setData] = useState<any>(null);
@@ -70,7 +70,7 @@ export default function HomeScreen() {
     );
   }
 
-  const unreadCount = data?.notifications?.filter((n: any) => !n.is_read).length || 0;
+  const unreadCount = passedUnreadCount !== undefined ? passedUnreadCount : (data?.notifications?.filter((n: any) => !n.is_read).length || 0);
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false} bounces={false}>

@@ -89,7 +89,7 @@ export const verifyCertificate = async (req: Request, res: Response): Promise<vo
         course_slug: course.slug || '',
         completion_status: enr.status === 'completed' ? 'Certified / Passed' : 'Active Student / In Progress',
         enrolled_date: enr.enrolled_date || student.createdAt,
-        issued_date: new Date(student.createdAt).toLocaleDateString('en-US', {
+        issued_date: new Date(student.createdAt || Date.now()).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
           day: 'numeric'
@@ -111,7 +111,7 @@ export const verifyCertificate = async (req: Request, res: Response): Promise<vo
         course_slug: '',
         completion_status: 'Certified / Verified Student',
         enrolled_date: student.createdAt,
-        issued_date: new Date(student.createdAt).toLocaleDateString('en-US', {
+        issued_date: new Date(student.createdAt || Date.now()).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
           day: 'numeric'

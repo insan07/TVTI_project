@@ -6,23 +6,32 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Linking,
+  Alert,
+  Platform,
 } from 'react-native';
 import api from '../../services/api';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { API_URL } from '../../config/constants';
 
-export default function VideosScreen() {
+export default function VideosScreen({ unreadCount }: { unreadCount?: number }) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+
+  const [activeTab, setActiveTab] = useState<'videos' | 'materials'>('videos');
   const [batches, setBatches] = useState<any[]>([]);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+  
   const [videos, setVideos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
-    'Module 2': true,
-  });
+  const [materials, setMaterials] = useState<any[]>([]);
+  
+  const [loadingVideos, setLoadingVideos] = useState(false);
+  const [loadingMaterials, setLoadingMaterials] = useState(false);
+
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchBatches();
@@ -33,29 +42,53 @@ export default function VideosScreen() {
       const res = await api.get('/students/batches');
       setBatches(res.data || []);
       if (res.data && res.data.length > 0) {
-        setActiveBatchId(res.data[0]._id);
-        fetchVideos(res.data[0]._id);
+        const firstId = res.data[0]._id;
+        setActiveBatchId(firstId);
+        fetchContent(firstId);
       }
     } catch (e) {
-      console.warn(e);
+      console.warn('Failed to load batches:', e);
     }
   };
 
+  const fetchContent = (batchId: string) => {
+    fetchVideos(batchId);
+    fetchMaterials(batchId);
+  };
+
   const fetchVideos = async (batchId: string) => {
-    setLoading(true);
+    setLoadingVideos(true);
     try {
       const res = await api.get(`/students/batches/${batchId}/videos`);
       setVideos(res.data || []);
+      
+      // Auto-expand first topic
+      if (res.data && res.data.length > 0) {
+        const firstTopic = res.data[0].topic || 'General Module';
+        setExpandedModules((prev) => ({ ...prev, [firstTopic]: true }));
+      }
     } catch (e) {
-      console.warn(e);
+      console.warn('Failed to load videos:', e);
     } finally {
-      setLoading(false);
+      setLoadingVideos(false);
+    }
+  };
+
+  const fetchMaterials = async (batchId: string) => {
+    setLoadingMaterials(true);
+    try {
+      const res = await api.get(`/students/batches/${batchId}/materials`);
+      setMaterials(res.data || []);
+    } catch (e) {
+      console.warn('Failed to load materials:', e);
+    } finally {
+      setLoadingMaterials(false);
     }
   };
 
   const handleBatchSelect = (batchId: string) => {
     setActiveBatchId(batchId);
-    fetchVideos(batchId);
+    fetchContent(batchId);
   };
 
   const toggleModule = (modKey: string) => {
@@ -63,6 +96,14 @@ export default function VideosScreen() {
       ...prev,
       [modKey]: !prev[modKey],
     }));
+  };
+
+  const openPdfDocument = (rawUrl: string, title: string) => {
+    if (!rawUrl) {
+      Alert.alert('Error', 'PDF URL not found');
+      return;
+    }
+    navigation.navigate('PdfViewer', { pdfUrl: rawUrl, title });
   };
 
   const currentBatch = batches.find((b) => b._id === activeBatchId);
@@ -83,9 +124,10 @@ export default function VideosScreen() {
         <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('Profile')}>
           <Icon name="menu-outline" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>TVTI</Text>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('Profile')}>
-          <Icon name="person-circle-outline" size={26} color="#FFFFFF" />
+        <Text style={styles.headerTitle}>TVTI Learning Portal</Text>
+        <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('Notifications')}>
+          <Icon name="notifications-outline" size={24} color="#FFFFFF" />
+          {unreadCount && unreadCount > 0 ? <View style={styles.badgeDot} /> : null}
         </TouchableOpacity>
       </View>
 
@@ -138,80 +180,129 @@ export default function VideosScreen() {
             )}
           </ScrollView>
 
-          {/* Modules Section */}
-          {loading ? (
-            <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 40 }} />
-          ) : Object.keys(groupedVideos).length > 0 ? (
-            Object.keys(groupedVideos).map((topic, idx) => {
-              const isExpanded = expandedModules[topic] !== false;
-              return (
-                <View key={topic} style={styles.moduleAccordionCard}>
-                  <TouchableOpacity
-                    style={styles.moduleHeader}
-                    activeOpacity={0.8}
-                    onPress={() => toggleModule(topic)}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.moduleTag}>MODULE {idx + 1}</Text>
-                      <Text style={styles.moduleTitle}>{topic}</Text>
-                    </View>
-                    <Icon
-                      name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
-                      size={20}
-                      color="#1A1A1A"
-                    />
-                  </TouchableOpacity>
+          {/* Main Content Tabs: Videos vs Study Materials (PDFs) */}
+          <View style={styles.tabToggleBar}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, activeTab === 'videos' && styles.toggleBtnActive]}
+              onPress={() => setActiveTab('videos')}
+              activeOpacity={0.8}
+            >
+              <Icon name="play-circle" size={18} color={activeTab === 'videos' ? '#FFFFFF' : '#64748B'} style={{ marginRight: 6 }} />
+              <Text style={[styles.toggleBtnText, activeTab === 'videos' && styles.toggleBtnTextActive]}>
+                Videos ({videos.length})
+              </Text>
+            </TouchableOpacity>
 
-                  {isExpanded && (
-                    <View style={styles.moduleContent}>
-                      {groupedVideos[topic].map((v: any, vIdx: number) => {
-                        const isLast = vIdx === groupedVideos[topic].length - 1;
-                        return (
-                          <TouchableOpacity
-                            key={v._id || vIdx}
-                            style={[styles.videoItemRow, !isLast && styles.videoItemBorder]}
-                            activeOpacity={0.8}
-                            onPress={() => navigation.navigate('VideoPlayer', { videoId: v._id, batchId: activeBatchId })}
-                          >
-                            <View style={styles.thumbnailBox}>
-                              <Icon name="play-circle" size={24} color="#FFFFFF" />
-                              {v.duration ? (
-                                <View style={styles.durationBadge}>
-                                  <Text style={styles.durationText}>{v.duration}</Text>
-                                </View>
-                              ) : null}
-                            </View>
+            <TouchableOpacity
+              style={[styles.toggleBtn, activeTab === 'materials' && styles.toggleBtnActive]}
+              onPress={() => setActiveTab('materials')}
+              activeOpacity={0.8}
+            >
+              <Icon name="document-text" size={18} color={activeTab === 'materials' ? '#FFFFFF' : '#64748B'} style={{ marginRight: 6 }} />
+              <Text style={[styles.toggleBtnText, activeTab === 'materials' && styles.toggleBtnTextActive]}>
+                PDF Notes ({materials.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-                            <View style={styles.videoItemDetails}>
-                              <Text style={styles.videoItemTitle}>{v.title}</Text>
-                              {v.subtitle || v.description ? (
-                                <Text style={styles.videoItemSubtitle} numberOfLines={1}>
-                                  {v.subtitle || v.description}
-                                </Text>
-                              ) : null}
+          {/* Tab 1: Video Lectures */}
+          {activeTab === 'videos' ? (
+            loadingVideos ? (
+              <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 40 }} />
+            ) : Object.keys(groupedVideos).length > 0 ? (
+              Object.keys(groupedVideos).map((topic, idx) => {
+                const isExpanded = expandedModules[topic] !== false;
+                return (
+                  <View key={topic} style={styles.moduleAccordionCard}>
+                    <TouchableOpacity
+                      style={styles.moduleHeader}
+                      activeOpacity={0.8}
+                      onPress={() => toggleModule(topic)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.moduleTag}>MODULE {idx + 1}</Text>
+                        <Text style={styles.moduleTitle}>{topic}</Text>
+                      </View>
+                      <Icon
+                        name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+                        size={20}
+                        color="#1A1A1A"
+                      />
+                    </TouchableOpacity>
 
-                              {v.progress ? (
-                                <View style={styles.progressBarTrack}>
-                                  <View style={[styles.progressBarFill, { width: `${v.progress}%` }]} />
-                                </View>
-                              ) : null}
-                            </View>
+                    {isExpanded && (
+                      <View style={styles.moduleContent}>
+                        {groupedVideos[topic].map((v: any, vIdx: number) => {
+                          const isLast = vIdx === groupedVideos[topic].length - 1;
+                          return (
+                            <TouchableOpacity
+                              key={v._id || vIdx}
+                              style={[styles.videoItemRow, !isLast && styles.videoItemBorder]}
+                              activeOpacity={0.8}
+                              onPress={() => navigation.navigate('VideoPlayer', { videoId: v._id, batchId: activeBatchId })}
+                            >
+                              <View style={styles.thumbnailBox}>
+                                <Icon name="play-circle" size={24} color="#FFFFFF" />
+                              </View>
 
-                            {v.completed && (
-                              <Icon name="checkmark-circle-outline" size={20} color="#10B981" style={{ marginLeft: 6 }} />
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              );
-            })
+                              <View style={styles.videoItemDetails}>
+                                <Text style={styles.videoItemTitle}>{v.title}</Text>
+                                {v.notes_url ? (
+                                  <Text style={styles.hasPdfTag}>📄 Includes PDF Study Notes</Text>
+                                ) : null}
+                              </View>
+                              <Icon name="chevron-forward" size={18} color="#94A3B8" />
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            ) : (
+              <Text style={styles.emptyStateText}>
+                No video lectures available for this batch.
+              </Text>
+            )
           ) : (
-            <Text style={{ color: '#888888', ...FONTS.regular, textAlign: 'center', marginTop: 40 }}>
-              No videos available for this batch.
-            </Text>
+            /* Tab 2: PDF Study Materials */
+            loadingMaterials ? (
+              <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 40 }} />
+            ) : materials.length > 0 ? (
+              <View style={styles.materialsListContainer}>
+                {materials.map((mat) => (
+                  <View key={mat._id} style={styles.materialCard}>
+                    <View style={styles.materialIconCircle}>
+                      <Icon name="document-text" size={26} color="#F58220" />
+                    </View>
+                    <View style={styles.materialInfo}>
+                      <Text style={styles.materialTitle}>{mat.title}</Text>
+                      <Text style={styles.materialTopic}>Topic: {mat.topic || 'General'}</Text>
+                      <Text style={styles.materialDate}>
+                        Posted: {new Date(mat.createdAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.openPdfBtn}
+                      activeOpacity={0.8}
+                      onPress={() => openPdfDocument(mat.cloudinary_url, mat.title)}
+                    >
+                      <Icon name="arrow-down-circle" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
+                      <Text style={styles.openPdfBtnText}>Open PDF</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyMaterialsBox}>
+                <Icon name="document-text-outline" size={48} color="#CBD5E1" />
+                <Text style={styles.emptyStateText}>
+                  No PDF study materials posted yet for this batch.
+                </Text>
+              </View>
+            )
           )}
         </View>
       </ScrollView>
@@ -234,10 +325,20 @@ const styles = StyleSheet.create({
   },
   headerIconButton: {
     padding: SPACING.xs,
+    position: 'relative',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
   },
   headerTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 18,
     ...FONTS.bold,
   },
   scrollContent: {
@@ -276,7 +377,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   batchPillsContainer: {
-    paddingBottom: SPACING.xl,
+    paddingBottom: SPACING.lg,
   },
   batchPill: {
     paddingHorizontal: 20,
@@ -304,6 +405,32 @@ const styles = StyleSheet.create({
   batchPillTextInactive: {
     color: '#555555',
     ...FONTS.medium,
+  },
+  tabToggleBar: {
+    flexDirection: 'row',
+    backgroundColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: SPACING.xl,
+  },
+  toggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  toggleBtnActive: {
+    backgroundColor: '#0F172A',
+  },
+  toggleBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  toggleBtnTextActive: {
+    color: '#FFFFFF',
   },
   moduleAccordionCard: {
     backgroundColor: '#FFFFFF',
@@ -348,56 +475,98 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F0F0F0',
   },
   thumbnailBox: {
-    width: 96,
-    height: 58,
-    borderRadius: RADIUS.sm,
+    width: 50,
+    height: 50,
+    borderRadius: 12,
     backgroundColor: '#0F172A',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  durationBadge: {
-    position: 'absolute',
-    bottom: 3,
-    right: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 3,
-  },
-  durationText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    ...FONTS.bold,
   },
   videoItemDetails: {
     flex: 1,
     justifyContent: 'center',
   },
   videoItemTitle: {
-    fontSize: 15.5,
+    fontSize: 15,
     color: '#1A1A1A',
     ...FONTS.bold,
     marginBottom: 2,
   },
-  videoItemSubtitle: {
-    fontSize: 13,
-    color: '#666666',
-    ...FONTS.regular,
+  hasPdfTag: {
+    fontSize: 11.5,
+    color: '#F58220',
+    ...FONTS.semiBold,
+    marginTop: 2,
   },
-  progressBarTrack: {
-    height: 4,
-    backgroundColor: '#EAEAEA',
-    borderRadius: 2,
-    marginTop: 6,
-    overflow: 'hidden',
-    width: '85%',
+  materialsListContainer: {
+    gap: 12,
   },
-  progressBarFill: {
-    height: '100%',
+  materialCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...SHADOW.sm,
+  },
+  materialIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FFF3E6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  materialInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  materialTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  materialTopic: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  materialDate: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  openPdfBtn: {
     backgroundColor: '#F58220',
-    borderRadius: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  openPdfBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  emptyMaterialsBox: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  emptyStateText: {
+    color: '#888888',
+    ...FONTS.regular,
+    textAlign: 'center',
+    marginTop: 12,
+    fontSize: 14,
   },
 });
