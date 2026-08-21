@@ -9,6 +9,8 @@ import Courses from './pages/Courses'
 import CourseDetail from './pages/CourseDetail'
 import Inquiry from './pages/Inquiry'
 import Verify from './pages/Verify'
+import GalleryVideos from './pages/GalleryVideos'
+import GalleryPhotos from './pages/GalleryPhotos'
 
 function App() {
   return (
@@ -25,6 +27,8 @@ function App() {
             <Route path="/courses" element={<Courses />} />
             <Route path="/courses/:slug" element={<CourseDetail />} />
             <Route path="/inquiry" element={<Inquiry />} />
+            <Route path="/gallery/videos" element={<GalleryVideos />} />
+            <Route path="/gallery/photos" element={<GalleryPhotos />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/verify" element={<Verify />} />
           </Routes>

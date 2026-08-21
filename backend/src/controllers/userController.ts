@@ -96,9 +96,15 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
 
 export const updatePushToken = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { push_token } = req.body;
-    await User.findByIdAndUpdate(req.user._id, { expo_push_token: push_token });
-    res.json({ message: 'Push token updated' });
+    const { push_token, token } = req.body;
+    const finalToken = token || push_token;
+    if (finalToken) {
+      await User.findByIdAndUpdate(req.user._id, {
+        expo_push_token: finalToken,
+        fcm_token: finalToken,
+      });
+    }
+    res.json({ message: 'Push token updated successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

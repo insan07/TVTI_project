@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import Announcement from '../models/Announcement';
 import Enrollment from '../models/Enrollment';
-// import { sendBatchNotification } from '../services/NotificationService';
+import { sendNotification } from '../services/notificationService';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 export const postAnnouncement = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -16,6 +16,27 @@ export const postAnnouncement = async (req: AuthRequest, res: Response): Promise
       title,
       message,
     });
+
+    // Send instant notifications to target students
+    if (actualBatchId) {
+      await sendNotification({
+        batchId: actualBatchId,
+        title: `New Announcement: ${title}`,
+        message,
+        type: 'announcement',
+        relatedId: announcement._id,
+        link: '/announcements'
+      });
+    } else {
+      await sendNotification({
+        role: 'student',
+        title: `Announcement: ${title}`,
+        message,
+        type: 'announcement',
+        relatedId: announcement._id,
+        link: '/announcements'
+      });
+    }
 
     res.status(201).json(announcement);
   } catch (error) {

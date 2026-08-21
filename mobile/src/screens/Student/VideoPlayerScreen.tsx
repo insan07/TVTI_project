@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   Linking,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import YoutubeIframe from 'react-native-youtube-iframe';
 import api from '../../services/api';
+import { API_URL } from '../../config/constants';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
@@ -161,9 +163,13 @@ export default function VideoPlayerScreen() {
               <TouchableOpacity
                 style={styles.viewNotesButton}
                 activeOpacity={0.8}
-                onPress={() => Linking.openURL(notesUrl)}
+                onPress={() => {
+                  if (notesUrl) {
+                    navigation.navigate('PdfViewer', { pdfUrl: notesUrl, title: `${videoData?.title || 'Lecture'} - Notes` });
+                  }
+                }}
               >
-                <Icon name="download-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Icon name="document-text" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
                 <Text style={styles.viewNotesButtonText}>View Notes (PDF)</Text>
               </TouchableOpacity>
             </View>

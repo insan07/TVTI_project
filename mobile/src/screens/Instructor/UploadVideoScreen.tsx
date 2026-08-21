@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, Alert, FlatList, RefreshControl
+  TextInput, ActivityIndicator, Alert, FlatList, RefreshControl, Platform
 } from 'react-native';
 import api from '../../services/api';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -12,12 +12,7 @@ import { API_URL } from '../../config/constants';
 import { storage } from '../../utils/storage';
 import { COLORS } from '../../config/theme';
 
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
-const MATERIAL_MIME_TYPES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-];
+const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500MB
 
 export default function UploadVideoScreen() {
   const route = useRoute<any>();
@@ -28,7 +23,9 @@ export default function UploadVideoScreen() {
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'upload' | 'my_videos'>('upload');
   const [uploadMode, setUploadMode] = useState<'video' | 'material'>('video');
+  const [videoSource, setVideoSource] = useState<'youtube' | 'file'>('youtube');
   const [listMode, setListMode] = useState<'video' | 'material'>('video');
+  
   const [myVideos, setMyVideos] = useState<any[]>([]);
   const [myMaterials, setMyMaterials] = useState<any[]>([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
@@ -43,6 +40,9 @@ export default function UploadVideoScreen() {
     youtube_url: '',
     order_index: '0'
   });
+
+  const [videoFile, setVideoFile] = useState<any>(null);
+  const [notesFile, setNotesFile] = useState<any>(null);
   const [materialFile, setMaterialFile] = useState<any>(null);
 
   useEffect(() => {
@@ -126,6 +126,34 @@ export default function UploadVideoScreen() {
     fetchTopics(val);
   };
 
+  const pickVideoFile = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ['video/*', 'video/mp4', 'video/quicktime', 'video/x-msvideo', '*/*'],
+        copyToCacheDirectory: true,
+      });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setVideoFile(res.assets[0]);
+      }
+    } catch (e) {
+      console.warn('Error picking video file', e);
+    }
+  };
+
+  const pickNotesFile = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', '*/*'],
+        copyToCacheDirectory: true,
+      });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setNotesFile(res.assets[0]);
+      }
+    } catch (e) {
+      console.warn('Error picking notes file', e);
+    }
+  };
+
   const pickMaterial = async () => {
     try {
       const res = await DocumentPicker.getDocumentAsync({
@@ -142,35 +170,55 @@ export default function UploadVideoScreen() {
 
   const resetForm = () => {
     setFormData(prev => ({ ...prev, title: '', youtube_url: '', new_topic: '', topic: topics[0] || '', order_index: '0' }));
+    setVideoFile(null);
+    setNotesFile(null);
     setMaterialFile(null);
+  };
+
+  const showAlert = (title: string, msg: string, onOk?: () => void) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n\n${msg}`);
+      if (onOk) onOk();
+    } else {
+      Alert.alert(title, msg, [
+        { text: 'OK', onPress: onOk }
+      ]);
+    }
+  };
+
+  const appendFileToFormData = (formData: FormData, fieldName: string, fileAsset: any) => {
+    if (!fileAsset) return;
+
+    if (Platform.OS === 'web') {
+      if (fileAsset.file instanceof File || fileAsset.file instanceof Blob) {
+        formData.append(fieldName, fileAsset.file, fileAsset.name || `${fieldName}_${Date.now()}`);
+      } else {
+        formData.append(fieldName, fileAsset as any);
+      }
+    } else {
+      const fileObj = {
+        uri: Platform.OS === 'ios' ? fileAsset.uri.replace('file://', '') : fileAsset.uri,
+        name: fileAsset.name || `${fieldName}_${Date.now()}`,
+        type: fileAsset.mimeType || fileAsset.type || (fieldName === 'video' ? 'video/mp4' : 'application/pdf'),
+      };
+      formData.append(fieldName, fileObj as any);
+    }
   };
 
   const submit = async () => {
     const finalTopic = formData.new_topic.trim() || formData.topic;
-    if (!formData.batch_id) return Alert.alert('Error', 'Please select a batch');
-    if (!finalTopic) return Alert.alert('Error', 'Please select or enter a topic');
-    if (!formData.title.trim()) return Alert.alert('Error', `Please enter a ${uploadMode === 'video' ? 'video' : 'material'} title`);
+    if (!formData.batch_id) return showAlert('Error', 'Please select a target batch');
+    if (!finalTopic) return showAlert('Error', 'Please select or enter a topic name');
+    if (!formData.title.trim()) return showAlert('Error', `Please enter a ${uploadMode === 'video' ? 'video' : 'material'} title`);
 
     if (uploadMode === 'video') {
-      if (!formData.youtube_url.trim()) return Alert.alert('Error', 'Please provide a YouTube URL');
+      if (videoSource === 'youtube') {
+        if (!formData.youtube_url.trim()) return showAlert('Error', 'Please enter a YouTube video URL');
+      } else {
+        if (!videoFile) return showAlert('Error', 'Please select a video file (MP4, MOV)');
+      }
     } else {
-      if (!materialFile) return Alert.alert('Error', 'Please select a PDF or document file');
-      if (materialFile?.size && materialFile.size > MAX_UPLOAD_BYTES) {
-        return Alert.alert('Error', 'The selected document is too large. Please choose a file under 100 MB.');
-      }
-      const mime = (materialFile?.mimeType || materialFile?.type || '').toLowerCase();
-      const lowerName = String(materialFile?.name || '').toLowerCase();
-      const looksLikeMaterial =
-        MATERIAL_MIME_TYPES.includes(mime) ||
-        lowerName.endsWith('.pdf') ||
-        lowerName.endsWith('.doc') ||
-        lowerName.endsWith('.docx') ||
-        mime.includes('pdf') ||
-        mime.includes('word') ||
-        mime.includes('document');
-      if (!looksLikeMaterial) {
-        return Alert.alert('Error', 'Please select a PDF, DOC, or DOCX file.');
-      }
+      if (!materialFile) return showAlert('Error', 'Please select a document file (PDF, DOC)');
     }
 
     setUploading(true);
@@ -179,42 +227,38 @@ export default function UploadVideoScreen() {
       data.append('batch_id', formData.batch_id);
       data.append('topic', finalTopic);
       data.append('title', formData.title.trim());
-      data.append('order_index', formData.order_index);
+      data.append('order_index', formData.order_index || '0');
 
       if (uploadMode === 'video') {
-        data.append('youtube_url', formData.youtube_url.trim());
+        if (videoSource === 'youtube') {
+          data.append('youtube_url', formData.youtube_url.trim());
+        } else if (videoFile) {
+          appendFileToFormData(data, 'video', videoFile);
+        }
+
+        if (notesFile) {
+          appendFileToFormData(data, 'notes', notesFile);
+        }
+
         await api.post('/instructors/videos', data);
       } else {
-        const fileObj = {
-          uri: materialFile.uri,
-          name: materialFile.name || `material-${Date.now()}.pdf`,
-          type: materialFile.mimeType || materialFile.type || 'application/pdf'
-        };
-        data.append('material', fileObj as any);
+        appendFileToFormData(data, 'material', materialFile);
 
-        const token = await storage.getItem('token');
-        const response = await fetch(`${API_URL}/instructors/materials`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          body: data,
-        });
-
-        const resData = await response.json();
-        if (!response.ok) {
-          throw new Error(resData.message || 'Failed to upload material');
-        }
+        await api.post('/instructors/materials', data);
       }
 
-      Alert.alert('Success', uploadMode === 'video' ? 'Video uploaded successfully!' : 'Material uploaded successfully!', [
-        { text: 'View My Uploads', onPress: () => { resetForm(); setActiveTab('my_videos'); } },
-        { text: 'Upload Another', style: 'cancel', onPress: resetForm }
-      ]);
+      const successMsg = uploadMode === 'video'
+        ? '🎉 Video uploaded successfully to Cloudinary!\nInstant notification sent to all enrolled students.'
+        : '🎉 Study material uploaded successfully!\nInstant notification sent to all enrolled students.';
+
+      showAlert('SUCCESSFUL UPLOAD ✨', successMsg, () => {
+        resetForm();
+        setActiveTab('my_videos');
+      });
     } catch (e: any) {
       const backendMessage = e.response?.data?.message;
       const nativeMessage = e.message;
-      Alert.alert('Error', backendMessage || nativeMessage || 'Failed to upload');
+      showAlert('Upload Error', backendMessage || nativeMessage || 'Failed to upload content');
     } finally {
       setUploading(false);
     }
@@ -246,7 +290,7 @@ export default function UploadVideoScreen() {
       <View style={styles.tabHeader}>
         <TouchableOpacity style={[styles.tab, activeTab === 'upload' && styles.activeTab]} onPress={() => setActiveTab('upload')}>
           <Icon name="cloud-upload-outline" size={16} color={activeTab === 'upload' ? COLORS.primary : '#6B7280'} style={{ marginRight: 5 }} />
-          <Text style={[styles.tabText, activeTab === 'upload' && styles.activeTabText]}>Upload</Text>
+          <Text style={[styles.tabText, activeTab === 'upload' && styles.activeTabText]}>Upload Portal</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tab, activeTab === 'my_videos' && styles.activeTab]} onPress={() => setActiveTab('my_videos')}>
           <Icon name="layers-outline" size={16} color={activeTab === 'my_videos' ? COLORS.primary : '#6B7280'} style={{ marginRight: 5 }} />
@@ -257,13 +301,20 @@ export default function UploadVideoScreen() {
       {activeTab === 'upload' ? (
         <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Upload Course Content</Text>
+            <Text style={styles.cardTitle}>Lecturer Video & Study Notes Upload</Text>
+
             <View style={styles.modeRow}>
-              <TouchableOpacity style={[styles.modeBtn, uploadMode === 'video' && styles.modeBtnActive]} onPress={() => { setUploadMode('video'); resetForm(); }}>
-                <Text style={[styles.modeBtnText, uploadMode === 'video' && styles.modeBtnTextActive]}>Upload</Text>
+              <TouchableOpacity
+                style={[styles.modeBtn, uploadMode === 'video' && styles.modeBtnActive]}
+                onPress={() => { setUploadMode('video'); resetForm(); }}
+              >
+                <Text style={[styles.modeBtnText, uploadMode === 'video' && styles.modeBtnTextActive]}>🎥 Video Lecture</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modeBtn, uploadMode === 'material' && styles.modeBtnActive]} onPress={() => { setUploadMode('material'); resetForm(); }}>
-                <Text style={[styles.modeBtnText, uploadMode === 'material' && styles.modeBtnTextActive]}>Material</Text>
+              <TouchableOpacity
+                style={[styles.modeBtn, uploadMode === 'material' && styles.modeBtnActive]}
+                onPress={() => { setUploadMode('material'); resetForm(); }}
+              >
+                <Text style={[styles.modeBtnText, uploadMode === 'material' && styles.modeBtnTextActive]}>📄 Study Material</Text>
               </TouchableOpacity>
             </View>
 
@@ -276,7 +327,7 @@ export default function UploadVideoScreen() {
               </View>
             ) : (
               <CustomDropdown
-                label="Select Batch *"
+                label="Select Target Batch *"
                 placeholder="Select assigned batch..."
                 iconName="layers-outline"
                 items={batches.map(b => ({
@@ -305,16 +356,16 @@ export default function UploadVideoScreen() {
 
             <TextInput
               style={styles.input}
-              placeholder={topics.length > 0 ? 'Or enter a new topic name' : 'Enter topic name'}
+              placeholder={topics.length > 0 ? 'Or enter a new topic name' : 'Enter topic name (e.g. Engine Diagnostics)'}
               value={formData.new_topic}
               onChangeText={t => setFormData({ ...formData, new_topic: t, topic: '' })}
               placeholderTextColor="#9CA3AF"
             />
 
-            <Text style={styles.label}>{uploadMode === 'video' ? 'Upload Title *' : 'Material Title *'}</Text>
+            <Text style={styles.label}>{uploadMode === 'video' ? 'Video Lecture Title *' : 'Material Title *'}</Text>
             <TextInput
               style={styles.input}
-              placeholder={uploadMode === 'video' ? 'e.g. Introduction to Engine Parts' : 'e.g. Engine Parts PDF'}
+              placeholder={uploadMode === 'video' ? 'e.g. Engine Repair Demonstration Part 1' : 'e.g. Wiring Diagram Manual'}
               value={formData.title}
               onChangeText={t => setFormData({ ...formData, title: t })}
               placeholderTextColor="#9CA3AF"
@@ -322,31 +373,85 @@ export default function UploadVideoScreen() {
 
             {uploadMode === 'video' ? (
               <>
-                <Text style={styles.label}>YouTube URL *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="https://youtube.com/watch?v=..."
-                  value={formData.youtube_url}
-                  onChangeText={t => setFormData({ ...formData, youtube_url: t })}
-                  autoCapitalize="none"
-                  placeholderTextColor="#9CA3AF"
-                />
+                <Text style={styles.label}>Select Video Source:</Text>
+                <View style={styles.sourceSelectorRow}>
+                  <TouchableOpacity
+                    style={[styles.sourceBtn, videoSource === 'youtube' && styles.sourceBtnActive]}
+                    onPress={() => setVideoSource('youtube')}
+                  >
+                    <Icon name="logo-youtube" size={16} color={videoSource === 'youtube' ? '#EF4444' : '#6B7280'} />
+                    <Text style={[styles.sourceBtnText, videoSource === 'youtube' && styles.sourceBtnTextActive]}>YouTube Link</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.sourceBtn, videoSource === 'file' && styles.sourceBtnActive]}
+                    onPress={() => setVideoSource('file')}
+                  >
+                    <Icon name="cloud-upload" size={16} color={videoSource === 'file' ? COLORS.primary : '#6B7280'} />
+                    <Text style={[styles.sourceBtnText, videoSource === 'file' && styles.sourceBtnTextActive]}>Video File (Cloudinary)</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {videoSource === 'youtube' ? (
+                  <>
+                    <Text style={styles.label}>YouTube Video URL *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="https://youtube.com/watch?v=..."
+                      value={formData.youtube_url}
+                      onChangeText={t => setFormData({ ...formData, youtube_url: t })}
+                      autoCapitalize="none"
+                      placeholderTextColor="#9CA3AF"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.label}>Pick Video File (MP4 / MOV) *</Text>
+                    <TouchableOpacity style={styles.uploadBox} onPress={pickVideoFile}>
+                      <Icon name={videoFile ? 'checkmark-circle' : 'videocam-outline'} size={24} color={videoFile ? '#10B981' : COLORS.primary} />
+                      <Text style={[styles.uploadBoxText, { color: videoFile ? '#10B981' : COLORS.primary }]}>
+                        {videoFile ? videoFile.name : '+ Select Video File from Storage'}
+                      </Text>
+                      {videoFile && (
+                        <TouchableOpacity onPress={() => setVideoFile(null)} style={{ marginLeft: 8 }}>
+                          <Icon name="close-circle" size={20} color="#EF4444" />
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                <Text style={styles.label}>Optional Attached PDF Notes:</Text>
+                <TouchableOpacity style={[styles.uploadBox, { backgroundColor: '#F8FAFC' }]} onPress={pickNotesFile}>
+                  <Icon name={notesFile ? 'checkmark-circle' : 'document-attach-outline'} size={20} color={notesFile ? '#10B981' : '#64748B'} />
+                  <Text style={[styles.uploadBoxText, { color: notesFile ? '#10B981' : '#64748B' }]}>
+                    {notesFile ? notesFile.name : '+ Attach Study Notes PDF'}
+                  </Text>
+                  {notesFile && (
+                    <TouchableOpacity onPress={() => setNotesFile(null)} style={{ marginLeft: 8 }}>
+                      <Icon name="close-circle" size={18} color="#EF4444" />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
               </>
             ) : (
-              <TouchableOpacity style={styles.uploadBox} onPress={pickMaterial}>
-                <Icon name={materialFile ? 'checkmark-circle' : 'document-attach-outline'} size={22} color={materialFile ? '#10B981' : COLORS.primary} />
-                <Text style={[styles.uploadBoxText, { color: materialFile ? '#10B981' : COLORS.primary }]}>
-                  {materialFile ? materialFile.name : '+ Select PDF / DOC File'}
-                </Text>
-                {materialFile && (
-                  <TouchableOpacity onPress={() => setMaterialFile(null)} style={{ marginLeft: 8 }}>
-                    <Icon name="close-circle" size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                )}
-              </TouchableOpacity>
+              <>
+                <Text style={styles.label}>Select Study Document *</Text>
+                <TouchableOpacity style={styles.uploadBox} onPress={pickMaterial}>
+                  <Icon name={materialFile ? 'checkmark-circle' : 'document-attach-outline'} size={22} color={materialFile ? '#10B981' : COLORS.primary} />
+                  <Text style={[styles.uploadBoxText, { color: materialFile ? '#10B981' : COLORS.primary }]}>
+                    {materialFile ? materialFile.name : '+ Select PDF / DOC File'}
+                  </Text>
+                  {materialFile && (
+                    <TouchableOpacity onPress={() => setMaterialFile(null)} style={{ marginLeft: 8 }}>
+                      <Icon name="close-circle" size={18} color="#EF4444" />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+              </>
             )}
 
-            <Text style={styles.label}>Sort Order (Order Index)</Text>
+            <Text style={styles.label}>Sort Order Index</Text>
             <TextInput
               style={styles.input}
               keyboardType="numeric"
@@ -365,8 +470,10 @@ export default function UploadVideoScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Icon name="cloud-upload-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.btnText}>{uploadMode === 'video' ? 'Submit Upload' : 'Submit Material'}</Text>
+                  <Icon name="cloud-upload-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={styles.btnText}>
+                    {uploadMode === 'video' ? 'Upload Video to Cloudinary' : 'Upload Material Document'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -376,7 +483,7 @@ export default function UploadVideoScreen() {
         <View style={{ flex: 1 }}>
           <View style={styles.modeRowList}>
             <TouchableOpacity style={[styles.modeBtn, listMode === 'video' && styles.modeBtnActive]} onPress={() => setListMode('video')}>
-              <Text style={[styles.modeBtnText, listMode === 'video' && styles.modeBtnTextActive]}>Uploads</Text>
+              <Text style={[styles.modeBtnText, listMode === 'video' && styles.modeBtnTextActive]}>Videos</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.modeBtn, listMode === 'material' && styles.modeBtnActive]} onPress={() => setListMode('material')}>
               <Text style={[styles.modeBtnText, listMode === 'material' && styles.modeBtnTextActive]}>Materials</Text>
@@ -442,25 +549,27 @@ const styles = StyleSheet.create({
   tabText: { fontWeight: 'bold', color: '#6B7280', fontSize: 14 },
   activeTabText: { color: COLORS.primary },
   card: { backgroundColor: '#fff', margin: 15, borderRadius: 12, padding: 20, elevation: 2 },
-  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 8, textAlign: 'center' },
-  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 12, textAlign: 'center' },
+  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   modeRowList: { flexDirection: 'row', gap: 8, padding: 15, paddingBottom: 0 },
-  modeBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#E5E7EB', alignItems: 'center' },
+  modeBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#E5E7EB', alignItems: 'center' },
   modeBtnActive: { backgroundColor: COLORS.primary },
-  modeBtnText: { fontWeight: '700', color: '#374151' },
+  modeBtnText: { fontWeight: '700', color: '#374151', fontSize: 13 },
   modeBtnTextActive: { color: '#fff' },
+  sourceSelectorRow: { flexDirection: 'row', gap: 8, marginTop: 6, marginBottom: 6 },
+  sourceBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#F9FAFB' },
+  sourceBtnActive: { borderColor: COLORS.primary, backgroundColor: '#EFF6FF' },
+  sourceBtnText: { fontSize: 12, fontWeight: '600', color: '#4B5563' },
+  sourceBtnTextActive: { color: COLORS.primary, fontWeight: 'bold' },
   label: { fontSize: 13, fontWeight: '600', color: '#374151', marginTop: 14, marginBottom: 6 },
-  pickerContainer: { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, marginBottom: 4, backgroundColor: '#F9FAFB' },
   noBatchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFBEB', padding: 12, borderRadius: 8, marginBottom: 4 },
   noBatchText: { color: '#92400E', fontSize: 13, marginLeft: 8 },
   input: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 12, fontSize: 14, color: '#1F2937', marginBottom: 4 },
-  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, marginBottom: 8, backgroundColor: '#F9FAFB', padding: 12, borderRadius: 8 },
-  switchSubtext: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   uploadBox: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: COLORS.primary, backgroundColor: '#EFF6FF', padding: 16, borderRadius: 8, marginBottom: 4, gap: 8 },
-  uploadBoxText: { fontSize: 14, fontWeight: 'bold', flex: 1 },
-  btn: { flexDirection: 'row', backgroundColor: COLORS.primary, padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  uploadBoxText: { fontSize: 13, fontWeight: 'bold', flex: 1 },
+  btn: { flexDirection: 'row', backgroundColor: COLORS.primary, padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 22 },
   btnDisabled: { opacity: 0.5 },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 10, color: '#9CA3AF' },
   emptyContainer: { alignItems: 'center', marginTop: 60 },

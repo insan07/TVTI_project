@@ -35,6 +35,7 @@ import ManageResultsScreen from '../screens/Admin/ManageResultsScreen';
 import MyStudentsScreen from '../screens/Instructor/MyStudentsScreen';
 import ForceChangePasswordScreen from '../screens/Auth/ForceChangePasswordScreen';
 import ApplicationsManagementScreen from '../screens/Admin/ApplicationsManagementScreen';
+import PdfViewerScreen from '../screens/Student/PdfViewerScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -74,15 +75,20 @@ const StudentTabs = ({ unreadCount, insets }: { unreadCount: number, insets: any
       let iconName: any = 'home';
       if (route.name === 'Home') iconName = 'home';
       else if (route.name === 'Videos') iconName = 'play-circle';
-      else if (route.name === 'Practice') iconName = 'build'; 
       else if (route.name === 'Schedule') iconName = 'calendar';
       else if (route.name === 'Profile') iconName = 'person';
       return <Icon name={iconName} size={size} color={color} />;
     },
   })}>
-    <Tab.Screen name="Home" component={HomeScreen} />
-    <Tab.Screen name="Videos" component={VideosScreen} options={{ tabBarBadge: unreadCount > 0 ? unreadCount : undefined }} />
-    <Tab.Screen name="Schedule" component={StudentScheduleScreen} />
+    <Tab.Screen name="Home">
+      {props => <HomeScreen {...props} unreadCount={unreadCount} />}
+    </Tab.Screen>
+    <Tab.Screen name="Videos">
+      {props => <VideosScreen {...props} unreadCount={unreadCount} />}
+    </Tab.Screen>
+    <Tab.Screen name="Schedule">
+      {props => <StudentScheduleScreen {...props} unreadCount={unreadCount} />}
+    </Tab.Screen>
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>
 );
@@ -163,7 +169,7 @@ export const AppNavigator = () => {
         } catch (e) {}
       };
       fetchUnread(); // Initial fetch
-      interval = setInterval(fetchUnread, 30000); // Poll every 30s
+      interval = setInterval(fetchUnread, 10000); // Poll every 10s
     }
     return () => clearInterval(interval);
   }, [context?.userToken]);

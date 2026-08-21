@@ -53,6 +53,8 @@ export const getBatchMaterials = async (req: AuthRequest, res: Response): Promis
   }
 };
 
+import { normalizeYouTubeUrl } from './videoController';
+
 export const getVideoStreamUrl = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { videoId } = req.params;
@@ -68,25 +70,37 @@ export const getVideoStreamUrl = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    if (video.cloudinary_url.includes('youtube.com') || video.cloudinary_url.includes('youtu.be')) {
-      res.json({ url: video.cloudinary_url, type: 'youtube' });
+    const rawUrl = video.cloudinary_url || '';
+
+    // Handle YouTube URLs
+    if (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be')) {
+      const embedUrl = normalizeYouTubeUrl(rawUrl);
+      res.json({
+        url: embedUrl,
+        rawUrl: rawUrl,
+        type: 'youtube',
+        title: video.title,
+        topic: video.topic,
+        notes_url: video.notes_url,
+      });
       return;
     }
 
-    const urlParts = video.cloudinary_url.split('/upload/');
-    let secureStreamUrl = video.cloudinary_url;
-    if (urlParts.length === 2) {
-      const publicIdWithExt = urlParts[1].split('/').slice(1).join('/');
-      const publicId = publicIdWithExt.split('.')[0];
-      secureStreamUrl = cloudinary.url(publicId, {
-        resource_type: 'video',
-        sign_url: true,
-        type: 'upload',
-        expires_at: Math.floor(Date.now() / 1000) + 3600
-      });
+    // Handle Local disk uploaded files e.g. /uploads/videos/123.mp4
+    let finalUrl = rawUrl;
+    if (rawUrl.startsWith('/uploads/')) {
+      const protocol = req.protocol;
+      const host = req.get('host');
+      finalUrl = `${protocol}://${host}${rawUrl}`;
     }
 
-    res.json({ url: secureStreamUrl, type: 'cloudinary' });
+    res.json({
+      url: finalUrl,
+      type: 'cloudinary',
+      title: video.title,
+      topic: video.topic,
+      notes_url: video.notes_url,
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -107,7 +121,14 @@ export const getNotesUrl = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    res.json({ url: video.notes_url });
+    let notesUrl = video.notes_url;
+    if (notesUrl.startsWith('/uploads/')) {
+      const protocol = req.protocol;
+      const host = req.get('host');
+      notesUrl = `${protocol}://${host}${notesUrl}`;
+    }
+
+    res.json({ url: notesUrl });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
