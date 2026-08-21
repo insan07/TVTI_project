@@ -76,15 +76,8 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false} bounces={false}>
       {/* Dark Header Container */}
       <View style={[styles.headerContainer, { paddingTop: insets.top + 12 }]}>
-        {/* Header Top Bar */}
+        {/* Header Top Notification Bar */}
         <View style={styles.headerTop}>
-          <TouchableOpacity style={styles.menuBtn} onPress={() => navigation.navigate('Profile')}>
-            <Icon name="menu-outline" size={24} color="#FFF" />
-          </TouchableOpacity>
-          <View style={styles.headerLogoContainer}>
-            <Image source={require('../../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
-            <Text style={styles.headerBrand}>Twintec VTI</Text>
-          </View>
           <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
             <Icon name="notifications-outline" size={24} color="#FFF" />
             {unreadCount > 0 && <View style={styles.badgeDot} />}
@@ -321,9 +314,9 @@ const styles = StyleSheet.create({
   },
   headerTop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.sm,
   },
   menuBtn: {
     padding: SPACING.xs,

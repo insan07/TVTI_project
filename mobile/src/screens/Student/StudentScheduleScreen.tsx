@@ -154,18 +154,10 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
 
   return (
     <View style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={[styles.topHeaderBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('Profile')}>
-          <Icon name="menu-outline" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Twintec VTI</Text>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() => navigation.navigate('Notifications')}
-        >
-          <Icon name="notifications-outline" size={24} color="#FFFFFF" />
-          {unreadCount && unreadCount > 0 ? <View style={styles.badgeDot} /> : null}
+      {/* Top Notification Bar */}
+      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
+          <Icon name="notifications-outline" size={24} color="#1A1A1A" />
         </TouchableOpacity>
       </View>
 
@@ -379,15 +371,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F6F8',
   },
-  topHeaderBar: {
-    backgroundColor: '#000000',
+  topNotificationBar: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.md,
+    paddingBottom: SPACING.xs,
   },
-  headerIconButton: {
+  bellBtn: {
     padding: SPACING.xs,
     position: 'relative',
   },
@@ -399,11 +390,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#EF4444',
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    ...FONTS.bold,
   },
   scrollContent: {
     flex: 1,
