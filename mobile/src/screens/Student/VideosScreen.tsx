@@ -78,14 +78,10 @@ export default function VideosScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={[styles.topHeaderBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('Profile')}>
-          <Icon name="menu-outline" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>TVTI</Text>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('Profile')}>
-          <Icon name="person-circle-outline" size={26} color="#FFFFFF" />
+      {/* Top Notification Bar */}
+      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
+          <Icon name="notifications-outline" size={24} color="#1A1A1A" />
         </TouchableOpacity>
       </View>
 
@@ -224,21 +220,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F6F8',
   },
-  topHeaderBar: {
-    backgroundColor: '#000000',
+  topNotificationBar: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.md,
+    paddingBottom: SPACING.xs,
   },
-  headerIconButton: {
+  bellBtn: {
     padding: SPACING.xs,
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    ...FONTS.bold,
   },
   scrollContent: {
     flex: 1,

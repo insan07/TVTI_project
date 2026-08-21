@@ -210,10 +210,10 @@ export const AppNavigator = () => {
                 <Stack.Screen name="StudentApp">
                   {props => <StudentTabs {...props} unreadCount={unreadCount} insets={insets} />}
                 </Stack.Screen>
-                <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ ...headerOptions, headerShown: true, title: 'Video Player' }} />
+                <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false }} />
 
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
-                <Stack.Screen name="Results" component={ResultsScreen} options={{ ...headerOptions, headerShown: true, title: 'My Results' }} />
+                <Stack.Screen name="Results" component={ResultsScreen} options={{ headerShown: false }} />
               </>
             )}
             {userRole === 'instructor' && (

@@ -8,12 +8,14 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import api from '../../services/api';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ResultsScreen() {
+  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>('all');
@@ -60,15 +62,15 @@ export default function ResultsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={[styles.topHeaderBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home'))}>
-          <Icon name="menu-outline" size={24} color="#FFFFFF" />
+      {/* Top Notification Bar */}
+      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home'))}>
+          <Icon name="arrow-back" size={22} color="#1A1A1A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Results</Text>
-        <View style={styles.headerRightIconContainer}>
-          <Icon name="document-text" size={18} color="#60A5FA" />
-        </View>
+        <Text style={styles.pageHeaderTitle}>My Results</Text>
+        <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
+          <Icon name="notifications-outline" size={24} color="#1A1A1A" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
@@ -155,29 +157,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F6F8',
   },
-  topHeaderBar: {
-    backgroundColor: '#000000',
+  topNotificationBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.md,
+    paddingBottom: SPACING.xs,
   },
-  headerIconButton: {
+  backBtn: {
     padding: SPACING.xs,
   },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
+  pageHeaderTitle: {
+    fontSize: 18,
+    color: '#1A1A1A',
     ...FONTS.bold,
   },
-  headerRightIconContainer: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#1E293B',
-    justifyContent: 'center',
-    alignItems: 'center',
+  bellBtn: {
+    padding: SPACING.xs,
   },
   scrollContent: {
     flex: 1,
