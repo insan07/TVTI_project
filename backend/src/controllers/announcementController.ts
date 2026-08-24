@@ -54,3 +54,25 @@ export const getMyAnnouncements = async (req: AuthRequest, res: Response): Promi
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// GET /api/students/announcements  — announcements for enrolled batches + global ones
+export const getStudentAnnouncements = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const enrollments = await Enrollment.find({ student_id: req.user._id, status: 'active' }).select('batch_id');
+    const batchIds = enrollments.map((e) => e.batch_id);
+
+    const announcements = await Announcement.find({
+      $or: [
+        { batch_id: { $in: batchIds } },  // batch-specific
+        { batch_id: null },               // global announcements
+      ],
+    })
+      .populate('batch_id', 'name')
+      .populate('posted_by', 'name role')
+      .sort({ createdAt: -1 });
+
+    res.json(announcements);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};

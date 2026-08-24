@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Animated, Text, StyleSheet } from 'react-native';
+import { Animated, Text, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 let showToastFn: (msg: string, type?: 'success' | 'error') => void;
@@ -25,9 +25,9 @@ export default function Toast() {
       slideAnim.setValue(-150);
       
       Animated.sequence([
-        Animated.timing(slideAnim, { toValue: Math.max(insets.top, 20), duration: 300, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: Math.max(insets.top, 20), duration: 300, useNativeDriver: Platform.OS !== 'web' }),
         Animated.delay(3000),
-        Animated.timing(slideAnim, { toValue: -150, duration: 300, useNativeDriver: true })
+        Animated.timing(slideAnim, { toValue: -150, duration: 300, useNativeDriver: Platform.OS !== 'web' })
       ]).start(() => {
         setMessage('');
       });
@@ -60,10 +60,17 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     zIndex: 2000,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     elevation: 4,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      }
+    }) as any,
   },
   text: {
     color: '#FFF',
