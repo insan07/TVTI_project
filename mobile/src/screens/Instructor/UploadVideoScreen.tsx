@@ -264,21 +264,26 @@ export default function UploadVideoScreen() {
     }
   };
 
+  const deleteUpload = async (videoId: string) => {
+    try {
+      await api.delete(`/instructors/videos/${videoId}`);
+      setMyVideos(prev => prev.filter(v => v._id !== videoId));
+      setMyMaterials(prev => prev.filter(v => v._id !== videoId));
+    } catch (e: any) {
+      showAlert('Error', e.response?.data?.message || 'Failed to delete upload');
+    }
+  };
+
   const handleDeleteVideo = (videoId: string, title: string) => {
-    Alert.alert('Delete Upload', `Delete "${title}"? This cannot be undone.`, [
+    const message = `Delete "${title}"? This cannot be undone.`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) void deleteUpload(videoId);
+      return;
+    }
+
+    Alert.alert('Delete Upload', message, [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/instructors/videos/${videoId}`);
-            setMyVideos(prev => prev.filter(v => v._id !== videoId));
-            setMyMaterials(prev => prev.filter(v => v._id !== videoId));
-          } catch (e: any) {
-            Alert.alert('Error', e.response?.data?.message || 'Failed to delete upload');
-          }
-        }
-      }
+      { text: 'Delete', style: 'destructive', onPress: () => void deleteUpload(videoId) },
     ]);
   };
 
@@ -513,7 +518,36 @@ export default function UploadVideoScreen() {
               }
               renderItem={({ item }) => (
                 <View style={styles.videoCard}>
+<<<<<<< Updated upstream
                   <View style={styles.videoCardLeft}>
+=======
+                  <TouchableOpacity 
+                    style={styles.videoCardLeft}
+                    onPress={() => {
+                      if (item.content_type === 'material') {
+                        let url = item.cloudinary_url;
+                        if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
+                          url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                        }
+                        if (Platform.OS === 'web') {
+                          window.open(url, '_blank');
+                        } else {
+                          Linking.openURL(url);
+                        }
+                      } else {
+                        let url = item.cloudinary_url || item.youtube_url;
+                        if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
+                          url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                        }
+                        if (Platform.OS === 'web') {
+                          window.open(url, '_blank');
+                        } else {
+                          Linking.openURL(url);
+                        }
+                      }
+                    }}
+                  >
+>>>>>>> Stashed changes
                     <View style={styles.videoIcon}>
                       <Icon
                         name={item.content_type === 'material' ? 'document-text' : item.youtube_url ? 'logo-youtube' : 'videocam'}

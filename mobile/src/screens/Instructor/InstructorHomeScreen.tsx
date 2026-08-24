@@ -218,7 +218,30 @@ export default function InstructorHomeScreen() {
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollContent}>
           {stats.recentVideos.map((video) => (
+<<<<<<< Updated upstream
             <View key={video._id} style={styles.videoCard}>
+=======
+            <TouchableOpacity 
+              key={video._id} 
+              style={styles.videoCard}
+              onPress={() => {
+                let url = video.cloudinary_url || video.youtube_url;
+                if (!url && video.content_type === 'material') {
+                  url = video.cloudinary_url; // Materials use cloudinary_url
+                }
+                if (url) {
+                  if (url.startsWith('/uploads/') || url.startsWith('/api/files/')) {
+                    url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                  }
+                  if (Platform.OS === 'web') {
+                    window.open(url, '_blank');
+                  } else {
+                    Linking.openURL(url);
+                  }
+                }
+              }}
+            >
+>>>>>>> Stashed changes
               <View style={styles.videoThumbnailContainer}>
                 {video.thumbnail ? (
                   <Image source={{ uri: video.thumbnail }} style={styles.videoThumbnail} />

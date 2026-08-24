@@ -7,6 +7,8 @@ export interface IVideo extends Document {
   title: string;
   cloudinary_url: string; // Used for Cloudinary video or Youtube url
   notes_url?: string;
+  file_id?: string;
+  notes_file_id?: string;
   content_type: 'video' | 'material';
   order_index: number;
 }
@@ -19,6 +21,8 @@ const videoSchema = new Schema<IVideo>(
     title: { type: String, required: true },
     cloudinary_url: { type: String, required: true },
     notes_url: { type: String },
+    file_id: { type: String },
+    notes_file_id: { type: String },
     content_type: { type: String, enum: ['video', 'material'], default: 'video' },
     order_index: { type: Number, default: 0 },
   },

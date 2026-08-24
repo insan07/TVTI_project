@@ -9,6 +9,10 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import api from '../../services/api';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';

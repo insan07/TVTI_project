@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import Video from '../models/Video';
 import cloudinary from '../config/cloudinary';
 import { sendNotification } from '../services/notificationService';
+import { saveBufferToGridFS } from '../services/fileStorage';
 
 const saveFileToDisk = (buffer: Buffer, originalName: string, subfolder: 'videos' | 'notes' | 'materials'): string => {
   const uploadsDir = path.join(process.cwd(), 'uploads', subfolder);
@@ -80,10 +81,13 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Save material PDF directly to local server disk storage
-    // (Bypasses Cloudinary "Customer is marked as untrusted" PDF delivery block)
     const originalName = materialFile.originalname || 'document.pdf';
-    const cloudinary_url = saveFileToDisk(materialFile.buffer, originalName, 'materials');
+    const file_id = await saveBufferToGridFS(
+      materialFile.buffer,
+      originalName,
+      materialFile.mimetype || 'application/pdf'
+    );
+    const cloudinary_url = `/api/files/${file_id}`;
 
     const material = await Video.create({
       batch_id,
@@ -91,6 +95,7 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
       topic,
       title,
       cloudinary_url,
+      file_id,
       content_type: 'material',
       order_index: Number(order_index) || 0,
     });
