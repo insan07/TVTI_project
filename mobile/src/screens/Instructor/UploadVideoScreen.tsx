@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, Alert, FlatList, RefreshControl, Platform
+  TextInput, ActivityIndicator, Alert, FlatList, RefreshControl, Platform, Linking
 } from 'react-native';
 import api from '../../services/api';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -513,7 +513,32 @@ export default function UploadVideoScreen() {
               }
               renderItem={({ item }) => (
                 <View style={styles.videoCard}>
-                  <View style={styles.videoCardLeft}>
+                  <TouchableOpacity 
+                    style={styles.videoCardLeft}
+                    onPress={() => {
+                      if (item.content_type === 'material') {
+                        let url = item.cloudinary_url;
+                        if (url && url.startsWith('/uploads/')) {
+                          url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                        }
+                        if (Platform.OS === 'web') {
+                          window.open(url, '_blank');
+                        } else {
+                          Linking.openURL(url);
+                        }
+                      } else {
+                        let url = item.cloudinary_url || item.youtube_url;
+                        if (url && url.startsWith('/uploads/')) {
+                          url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                        }
+                        if (Platform.OS === 'web') {
+                          window.open(url, '_blank');
+                        } else {
+                          Linking.openURL(url);
+                        }
+                      }
+                    }}
+                  >
                     <View style={styles.videoIcon}>
                       <Icon
                         name={item.content_type === 'material' ? 'document-text' : item.youtube_url ? 'logo-youtube' : 'videocam'}
@@ -527,7 +552,7 @@ export default function UploadVideoScreen() {
                       <Text style={styles.videoMeta}>Batch: {item.batch_id?.name || 'Unknown Batch'}</Text>
                       <Text style={styles.videoDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => handleDeleteVideo(item._id, item.title)} style={styles.deleteBtn}>
                     <Icon name="trash-outline" size={18} color="#EF4444" />
                   </TouchableOpacity>

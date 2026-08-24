@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export const COLORS = {
   primary: '#1A1A1A',       // Black — main brand color (from TVTI logo)
   primaryLight: '#333333',  // Lighter black for accents
@@ -41,7 +43,16 @@ export const RADIUS = {
 };
 
 export const SHADOW = {
-  sm: { shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  md: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 4 },
-  lg: { shadowColor: '#000000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.16, shadowRadius: 16, elevation: 8 },
+  sm: Platform.select({
+    web: { boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.08)' },
+    default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 }
+  }) as any,
+  md: Platform.select({
+    web: { boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.12)' },
+    default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 4 }
+  }) as any,
+  lg: Platform.select({
+    web: { boxShadow: '0px 8px 16px rgba(0, 0, 0, 0.16)' },
+    default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.16, shadowRadius: 16, elevation: 8 }
+  }) as any,
 };
