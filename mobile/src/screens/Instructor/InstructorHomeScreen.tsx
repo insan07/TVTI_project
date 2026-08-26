@@ -6,6 +6,7 @@ import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
 import { API_URL } from '../../config/constants';
 import { COLORS, SHADOW } from '../../config/theme';
+import { API_URL } from '../../config/constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -219,6 +220,7 @@ export default function InstructorHomeScreen() {
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollContent}>
           {stats.recentVideos.map((video) => (
+
             <TouchableOpacity 
               key={video._id} 
               style={styles.videoCard}
@@ -228,7 +230,7 @@ export default function InstructorHomeScreen() {
                   url = video.cloudinary_url; // Materials use cloudinary_url
                 }
                 if (url) {
-                  if (url.startsWith('/uploads/')) {
+                  if (url.startsWith('/uploads/') || url.startsWith('/api/files/')) {
                     url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
                   }
                   if (Platform.OS === 'web') {

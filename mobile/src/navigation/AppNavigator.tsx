@@ -47,10 +47,7 @@ const getCommonTabOptions = (insets: any) => ({
     minHeight: 60 + (Platform.OS === 'ios' ? insets.bottom : 0),
     paddingBottom: Platform.OS === 'ios' ? insets.bottom : 10,
     paddingTop: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
+    boxShadow: '0px -4px 12px rgba(0, 0, 0, 0.08)',
     elevation: 8,
   },
   tabBarActiveTintColor: COLORS.tabBarActive,
@@ -74,7 +71,7 @@ const StudentTabs = ({ unreadCount, insets }: { unreadCount: number, insets: any
     tabBarIcon: ({ color, size }) => {
       let iconName: any = 'home';
       if (route.name === 'Home') iconName = 'home';
-      else if (route.name === 'Videos') iconName = 'play-circle';
+      else if (route.name === 'Videos') iconName = 'cloud-upload';
       else if (route.name === 'Schedule') iconName = 'calendar';
       else if (route.name === 'Profile') iconName = 'person';
       return <Icon name={iconName} size={size} color={color} />;
@@ -83,7 +80,7 @@ const StudentTabs = ({ unreadCount, insets }: { unreadCount: number, insets: any
     <Tab.Screen name="Home">
       {props => <HomeScreen {...props} unreadCount={unreadCount} />}
     </Tab.Screen>
-    <Tab.Screen name="Videos">
+    <Tab.Screen name="Videos" options={{ tabBarLabel: 'Uploads' }}>
       {props => <VideosScreen {...props} unreadCount={unreadCount} />}
     </Tab.Screen>
     <Tab.Screen name="Schedule">
@@ -216,7 +213,9 @@ export const AppNavigator = () => {
                 <Stack.Screen name="StudentApp">
                   {props => <StudentTabs {...props} unreadCount={unreadCount} insets={insets} />}
                 </Stack.Screen>
+
                 <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
 
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
                 <Stack.Screen name="Results" component={ResultsScreen} options={{ headerShown: false }} />

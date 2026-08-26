@@ -27,6 +27,7 @@ import certificateRoutes from './routes/certificateRoutes';
 import notificationRoutes from './routes/notifications';
 import announcementRoutes from './routes/announcements';
 import User from './models/User';
+import { getGridFSDownloadStream } from './services/fileStorage';
 
 // Load environment variables
 dotenv.config();
@@ -57,6 +58,25 @@ app.use('/uploads', (req, res, next) => {
   }
   next();
 }, express.static(path.join(process.cwd(), 'uploads')));
+
+app.get('/api/files/:fileId', (req: Request, res: Response) => {
+  try {
+    const fileId = Array.isArray(req.params.fileId) ? req.params.fileId[0] : req.params.fileId;
+    const downloadStream = getGridFSDownloadStream(fileId);
+    downloadStream.on('file', (file) => {
+      const contentType = file.metadata?.contentType || 'application/octet-stream';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', 'inline');
+    });
+    downloadStream.on('error', () => {
+      if (!res.headersSent) res.status(404).json({ message: 'File not found' });
+      else res.end();
+    });
+    downloadStream.pipe(res);
+  } catch {
+    res.status(400).json({ message: 'Invalid file ID' });
+  }
+});
 
 // Rate Limiting
 const apiLimiter = rateLimit({
