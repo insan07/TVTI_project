@@ -396,7 +396,7 @@ export default function ApplicationsManagementScreen() {
               Select the course(s) to assign for student <Text style={{ fontWeight: 'bold', color: '#111827' }}>{selectedAppForAssignment?.full_name}</Text>:
             </Text>
 
-            <ScrollView style={{ flexMaxHeight: 280, marginVertical: 12 }}>
+            <ScrollView style={{ maxHeight: 280, marginVertical: 12 }}>
               {allAvailableCourses.map(course => {
                 const isSelected = assignedCourseIds.includes(course._id);
                 return (

@@ -13,5 +13,7 @@ router.put('/profile', upload.single('profile_photo'), updateProfile);
 router.put('/change-password', changePassword);
 router.put('/force-change-password', forceChangePassword);
 router.put('/push-token', updatePushToken);
+router.post('/push-token', updatePushToken);
+router.post('/fcm-token', updatePushToken);
 
 export default router;

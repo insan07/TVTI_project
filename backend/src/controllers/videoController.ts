@@ -1,7 +1,32 @@
+import fs from 'fs';
+import path from 'path';
 import { Request, Response } from 'express';
 import Video from '../models/Video';
 import Enrollment from '../models/Enrollment';
 import cloudinary from '../config/cloudinary';
+import { sendNotification } from '../services/notificationService';
+
+export const normalizeYouTubeUrl = (url: string): string => {
+  if (!url) return '';
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  if (match && match[2] && match[2].length === 11) {
+    return `https://www.youtube.com/embed/${match[2]}`;
+  }
+  return url;
+};
+
+const saveFileToDisk = (buffer: Buffer, originalName: string, subfolder: 'videos' | 'notes' | 'materials'): string => {
+  const uploadsDir = path.join(process.cwd(), 'uploads', subfolder);
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  const ext = path.extname(originalName) || (subfolder === 'videos' ? '.mp4' : '.pdf');
+  const filename = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
+  const filePath = path.join(uploadsDir, filename);
+  fs.writeFileSync(filePath, buffer);
+  return `/uploads/${subfolder}/${filename}`;
+};
 
 // ─── Cloudinary stream upload helper ─────────────────────────────────────────
 
@@ -77,8 +102,6 @@ export const getMyMaterials = async (req: Request, res: Response): Promise<void>
 };
 
 // ─── POST /api/instructors/videos ────────────────────────────────────────────
-// Accepts: YouTube URL  OR  a video file (multipart field: "video")
-// Optionally: a notes/PDF attachment (multipart field: "notes")
 
 export const uploadVideo = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -107,28 +130,25 @@ export const uploadVideo = async (req: Request, res: Response): Promise<void> =>
 
     // ── Option A: YouTube URL ──────────────────────────────────────
     if (youtube_url) {
-      cloudinary_url = youtube_url;
+      cloudinary_url = normalizeYouTubeUrl(youtube_url.trim());
     } else {
-      // ── Option B: Video file → upload to Cloudinary ───────────────
+      // ── Option B: Video file → Cloudinary or Local Disk ───────────
       const videoFile = files.video[0];
       if (!videoFile?.buffer) {
         res.status(400).json({ message: 'Video file was not received correctly.' });
         return;
       }
-      try {
-        const result: any = await streamUpload(videoFile.buffer, 'video', 'lms_videos', {
-          access_control: [{ access_type: 'token' }],
-        });
-        cloudinary_url = result.secure_url;
-      } catch (error) {
-        console.error('[uploadVideo] Cloudinary video upload failed', {
-          title, batch_id, topic,
-          file: { name: videoFile.originalname, mimetype: videoFile.mimetype, size: videoFile.size },
-          error: describeUploadError(error),
-        });
-        const base64Data = videoFile.buffer.toString('base64');
-        const mime = videoFile.mimetype || 'video/mp4';
-        cloudinary_url = `data:${mime};base64,${base64Data}`;
+
+      if (process.env.CLOUDINARY_API_KEY) {
+        try {
+          const result: any = await streamUpload(videoFile.buffer, 'video', 'lms_videos');
+          cloudinary_url = result.secure_url;
+        } catch (error) {
+          console.warn('[uploadVideo] Cloudinary failed, using local storage fallback:', describeUploadError(error));
+          cloudinary_url = saveFileToDisk(videoFile.buffer, videoFile.originalname || 'video.mp4', 'videos');
+        }
+      } else {
+        cloudinary_url = saveFileToDisk(videoFile.buffer, videoFile.originalname || 'video.mp4', 'videos');
       }
     }
 
@@ -140,19 +160,7 @@ export const uploadVideo = async (req: Request, res: Response): Promise<void> =>
         res.status(400).json({ message: 'Notes file was not received correctly.' });
         return;
       }
-      try {
-        const result: any = await streamUpload(notesFile.buffer, 'raw', 'lms_notes');
-        notes_url = result.secure_url;
-      } catch (error) {
-        console.error('[uploadVideo] Cloudinary notes upload failed', {
-          title, batch_id, topic,
-          file: { name: notesFile.originalname, mimetype: notesFile.mimetype, size: notesFile.size },
-          error: describeUploadError(error),
-        });
-        const base64Data = notesFile.buffer.toString('base64');
-        const mime = notesFile.mimetype || 'application/pdf';
-        notes_url = `data:${mime};base64,${base64Data}`;
-      }
+      notes_url = saveFileToDisk(notesFile.buffer, notesFile.originalname || 'notes.pdf', 'notes');
     }
 
     const video = await Video.create({
@@ -166,9 +174,15 @@ export const uploadVideo = async (req: Request, res: Response): Promise<void> =>
       order_index: Number(order_index) || 0,
     });
 
-    // Fetch enrolled students (for future notification use)
-    const enrollments = await Enrollment.find({ batch_id, status: 'active' }).select('student_id');
-    void enrollments; // reserved for push notifications
+    // Send instant notifications to enrolled students
+    await sendNotification({
+      batchId: batch_id,
+      title: `New Video: ${title}`,
+      message: `Instructor added a new video for topic "${topic}".`,
+      type: 'new_video',
+      relatedId: video._id,
+      link: '/videos'
+    });
 
     res.status(201).json(video);
   } catch (error) {

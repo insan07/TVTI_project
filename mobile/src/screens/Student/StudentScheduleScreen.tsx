@@ -26,7 +26,7 @@ const parseUTCDate = (dateStr: string) => {
   return new Date(dateStr);
 };
 
-export default function StudentScheduleScreen() {
+export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: number }) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const [batches, setBatches] = useState<any[]>([]);
@@ -158,6 +158,7 @@ export default function StudentScheduleScreen() {
       <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
           <Icon name="notifications-outline" size={24} color="#1A1A1A" />
+          {unreadCount && unreadCount > 0 ? <View style={styles.badgeDot} /> : null}
         </TouchableOpacity>
       </View>
 
@@ -380,6 +381,16 @@ const styles = StyleSheet.create({
   },
   bellBtn: {
     padding: SPACING.xs,
+    position: 'relative',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
   },
   scrollContent: {
     flex: 1,

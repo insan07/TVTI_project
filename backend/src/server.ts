@@ -1,3 +1,4 @@
+import http from 'http';
 import express, { Application, Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -10,6 +11,9 @@ import multer from 'multer';
 
 // Force Google DNS servers to resolve MongoDB Atlas queryTxt/SRV lookups reliably
 dns.setServers(['8.8.8.8', '8.8.4.4']);
+
+// Import Socket initialization
+import { initSocket } from './services/notificationService';
 
 // Import Routes
 import authRoutes from './routes/auth';
@@ -30,12 +34,29 @@ dotenv.config();
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize Socket.io
+initSocket(server);
+
+import path from 'path';
+
 // Middleware
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  if (req.path.toLowerCase().endsWith('.pdf')) {
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline');
+  }
+  next();
+}, express.static(path.join(process.cwd(), 'uploads')));
 
 // Rate Limiting
 const apiLimiter = rateLimit({
@@ -90,8 +111,6 @@ app.use('/api/students', studentRoutes);
 app.use('/api/instructors', instructorRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/announcements', announcementRoutes);
-// app.use('/api/users', userRoutes);
-// ...
 
 // Global Error Handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
@@ -123,8 +142,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 connectDB();
 
 if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  server.listen(PORT, () => {
+    console.log(`Server & Socket.io running on port ${PORT}`);
   });
 }
 

@@ -161,7 +161,7 @@ export default function InstructorHomeScreen() {
           <Icon name="calendar-outline" size={32} color="#D1D5DB" />
           <Text style={styles.emptyText}>No open practice slots</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Practice')}>
-            <Text style={styles.emptyAction}>Create a slot -></Text>
+            <Text style={styles.emptyAction}>Create a slot {'->'}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -212,7 +212,7 @@ export default function InstructorHomeScreen() {
           <Icon name="cloud-upload-outline" size={32} color="#D1D5DB" />
           <Text style={styles.emptyText}>No uploads yet</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Uploads', { tab: 'upload' })}>
-            <Text style={styles.emptyAction}>Upload your first content -></Text>
+            <Text style={styles.emptyAction}>Upload your first content {'->'}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -258,7 +258,7 @@ export default function InstructorHomeScreen() {
           <Icon name="megaphone-outline" size={32} color="#D1D5DB" />
           <Text style={styles.emptyText}>No announcements posted</Text>
           <TouchableOpacity onPress={() => navigation.navigate('PostAnnouncement')}>
-            <Text style={styles.emptyAction}>Post an announcement -></Text>
+            <Text style={styles.emptyAction}>Post an announcement {'->'}</Text>
           </TouchableOpacity>
         </View>
       ) : (

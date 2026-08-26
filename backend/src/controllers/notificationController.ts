@@ -45,3 +45,34 @@ export const markAllAsRead = async (req: AuthRequest, res: Response): Promise<vo
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+export const sendCustomNotification = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!['admin', 'instructor'].includes(req.user.role)) {
+      res.status(403).json({ message: 'Not authorized to send notifications' });
+      return;
+    }
+
+    const { userIds, role, batchId, title, message, type, link } = req.body;
+    if (!title || !message) {
+      res.status(400).json({ message: 'Title and message are required' });
+      return;
+    }
+
+    const { sendNotification } = await import('../services/notificationService');
+    const created = await sendNotification({
+      userIds,
+      role,
+      batchId,
+      title,
+      message,
+      type: type || 'admin_alert',
+      link,
+    });
+
+    res.status(201).json({ message: 'Notification sent successfully', count: created.length });
+  } catch (error) {
+    console.error('Error sending custom notification:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

@@ -1,6 +1,21 @@
+import fs from 'fs';
+import path from 'path';
 import { Request, Response } from 'express';
 import Video from '../models/Video';
 import cloudinary from '../config/cloudinary';
+import { sendNotification } from '../services/notificationService';
+
+const saveFileToDisk = (buffer: Buffer, originalName: string, subfolder: 'videos' | 'notes' | 'materials'): string => {
+  const uploadsDir = path.join(process.cwd(), 'uploads', subfolder);
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  const ext = path.extname(originalName) || '.pdf';
+  const filename = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
+  const filePath = path.join(uploadsDir, filename);
+  fs.writeFileSync(filePath, buffer);
+  return `/uploads/${subfolder}/${filename}`;
+};
 
 // ─── Cloudinary stream upload helper ─────────────────────────────────────────
 
@@ -65,28 +80,10 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Upload to Cloudinary
-    let cloudinary_url: string;
-    try {
-      const originalName = materialFile.originalname || 'document.pdf';
-      const cleanName = originalName.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const result: any = await streamUpload(materialFile.buffer, 'raw', 'lms_materials', {
-        public_id: `${Date.now()}_${cleanName}`,
-        resource_type: 'raw',
-      });
-      cloudinary_url = result.secure_url;
-    } catch (error) {
-      console.error('[uploadMaterial] Cloudinary upload failed', {
-        title, batch_id, topic,
-        file: { name: materialFile.originalname, mimetype: materialFile.mimetype, size: materialFile.size },
-        error: describeUploadError(error),
-      });
-      // Fallback: If Cloudinary fails or is unconfigured, create a Data URI fallback so upload still succeeds
-      const base64Data = materialFile.buffer.toString('base64');
-      const mime = materialFile.mimetype || 'application/pdf';
-      cloudinary_url = `data:${mime};base64,${base64Data}`;
-      console.log('[uploadMaterial] Using Data URI fallback for material');
-    }
+    // Save material PDF directly to local server disk storage
+    // (Bypasses Cloudinary "Customer is marked as untrusted" PDF delivery block)
+    const originalName = materialFile.originalname || 'document.pdf';
+    const cloudinary_url = saveFileToDisk(materialFile.buffer, originalName, 'materials');
 
     const material = await Video.create({
       batch_id,
@@ -97,6 +94,20 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
       content_type: 'material',
       order_index: Number(order_index) || 0,
     });
+
+    // Send instant notification to enrolled students
+    try {
+      await sendNotification({
+        title: 'New Study Material Available 📄',
+        message: `New material "${title}" has been uploaded for ${topic}.`,
+        role: 'student',
+        batchId: batch_id,
+        type: 'material',
+        relatedId: material._id,
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send material notification:', notifErr);
+    }
 
     res.status(201).json(material);
   } catch (error) {

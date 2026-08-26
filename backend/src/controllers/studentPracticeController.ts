@@ -3,7 +3,7 @@ import PracticeSlot from '../models/PracticeSlot';
 import SlotBooking from '../models/SlotBooking';
 import Enrollment from '../models/Enrollment';
 import { AuthRequest } from '../middleware/authMiddleware';
-// import { sendPushNotification } from '../services/NotificationService';
+import { sendNotification } from '../services/notificationService';
 
 // GET /api/student/practice-slots?batchId=&weekStart=
 export const getOpenSlots = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -75,18 +75,17 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
 
     const booking = await SlotBooking.create({ slot_id: slot._id, student_id: req.user?._id });
 
-    /*
-    try {
-      await sendPushNotification(
-        String(slot.instructor_id),
-        'New session booking',
-        `A student booked your ${slot.day_of_week} ${slot.start_time} slot.`,
-        { type: 'session_booked' }
-      );
-    } catch (e) {
-      console.error('Notification failed', e);
+    // Notify instructor
+    if (slot.instructor_id) {
+      await sendNotification({
+        userIds: [slot.instructor_id.toString()],
+        title: 'New Session Booking',
+        message: `${req.user?.name || 'A student'} booked your ${slot.day_of_week} slot (${slot.start_time} - ${slot.end_time}).`,
+        type: 'session_booked',
+        relatedId: slot._id,
+        link: '/instructor/slots'
+      });
     }
-    */
 
     res.status(201).json(booking);
   } catch (error: any) {
@@ -104,6 +103,19 @@ export const cancelBooking = async (req: AuthRequest, res: Response): Promise<vo
       { new: true }
     );
     if (!result) { res.status(404).json({ message: 'Booking not found' }); return; }
+
+    const slot = await PracticeSlot.findById(req.params.slotId);
+    if (slot && slot.instructor_id) {
+      await sendNotification({
+        userIds: [slot.instructor_id.toString()],
+        title: 'Booking Cancelled',
+        message: `${req.user?.name || 'A student'} cancelled their booking for ${slot.day_of_week} (${slot.start_time} - ${slot.end_time}).`,
+        type: 'booking_cancelled',
+        relatedId: slot._id,
+        link: '/instructor/slots'
+      });
+    }
+
     res.json({ message: 'Booking cancelled' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

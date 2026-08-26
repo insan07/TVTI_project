@@ -6,6 +6,7 @@ import User from '../models/User';
 import Course from '../models/Course';
 import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
+import { sendNotification } from '../services/notificationService';
 
 export const generateUniqueIndexNumber = async (): Promise<string> => {
   const fullYear = new Date().getFullYear();
@@ -218,6 +219,21 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
     }
 
     await application.save();
+
+    // Send instant notification if student account exists
+    const matchingUser = await User.findOne({ email: application.email.toLowerCase() });
+    if (matchingUser) {
+      await sendNotification({
+        userIds: [matchingUser._id],
+        title: `Application ${status.toUpperCase()}`,
+        message: status === 'approved'
+          ? `Congratulations! Your TVTI course application has been APPROVED. Index: ${application.generated_index_number || matchingUser.index_number || 'Assigned'}.`
+          : `Your TVTI application status has been updated to: ${status}.`,
+        type: 'application_update',
+        relatedId: application._id,
+        link: '/profile'
+      });
+    }
 
     res.json({
       message: `Application marked as ${status}`,

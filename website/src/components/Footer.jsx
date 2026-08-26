@@ -16,6 +16,8 @@ export default function Footer() {
   const usefulLinks = [
     { name: 'About Us', path: '/about' },
     { name: 'Courses', path: '/courses' },
+    { name: 'Video Gallery', path: '/gallery/videos' },
+    { name: 'Photo Gallery', path: '/gallery/photos' },
     { name: 'Certificate Verification', path: '/verify' },
     { name: 'Online Application', path: '/inquiry' },
     { name: 'Contact Us', path: '/contact' },
