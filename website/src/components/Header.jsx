@@ -110,10 +110,10 @@ export default function Header() {
 
   return (
     <header className="w-full z-50 flex flex-col font-sans">
-      {/* 1. TOP UTILITY BAR (thin strip, black background, white/orange text, ~36px tall) */}
-      <div className="bg-brand-black text-brand-white text-xs h-9 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-brand-charcoal">
+      {/* 1. TOP UTILITY BAR (thin strip, black background, white/orange text) */}
+      <div className="bg-brand-black text-brand-white text-[11px] sm:text-xs h-9 flex items-center justify-between px-5 sm:px-8 lg:px-12 xl:px-16 border-b border-brand-charcoal">
         {/* Left utility text */}
-        <div>
+        <div className="truncate">
           <Link
             to="/inquiry"
             className="text-brand-orange font-heading font-bold uppercase tracking-wider hover:underline hover:text-brand-orange/90 transition-colors"
@@ -122,7 +122,7 @@ export default function Header() {
           </Link>
         </div>
         {/* Right hotline and social links */}
-        <div className="flex items-center space-x-6">
+        <div className="hidden sm:flex items-center space-x-4 lg:space-x-6">
           <div className="flex items-center space-x-1.5 text-brand-light/90">
             <svg className="h-3.5 w-3.5 text-brand-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -130,23 +130,20 @@ export default function Header() {
             <span className="font-semibold tracking-wide">076 538 0715 / 078 538 0715</span>
           </div>
 
-          <span className="h-3.5 w-px bg-brand-charcoal" />
+          <span className="h-3.5 w-px bg-brand-charcoal hidden md:block" />
 
           {/* Socials */}
-          <div className="flex items-center space-x-3.5 text-brand-light/75">
-            {/* Facebook */}
+          <div className="hidden md:flex items-center space-x-3 text-brand-light/75">
             <a href="#facebook" aria-label="Facebook" className="hover:text-brand-orange transition-colors">
               <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c4.56-.93 8-4.96 8-9.75z"/>
               </svg>
             </a>
-            {/* YouTube */}
             <a href="#youtube" aria-label="YouTube" className="hover:text-brand-orange transition-colors">
               <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M23.498 6.163a3.003 3.003 0 00-2.11-2.11C19.517 3.545 12 3.545 12 3.545s-7.517 0-9.388.508a3.003 3.003 0 00-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 002.11 2.11c1.871.508 9.388.508 9.388.508s7.517 0 9.388-.508a3.003 3.003 0 002.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
               </svg>
             </a>
-            {/* Instagram */}
             <a href="#instagram" aria-label="Instagram" className="hover:text-brand-orange transition-colors">
               <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
@@ -156,29 +153,27 @@ export default function Header() {
         </div>
       </div>
 
-      {/* 2. MAIN NAVIGATION BAR (white background, sticky on scroll, shadow on scroll) */}
+      {/* 2. MAIN NAVIGATION BAR (white background, sticky on scroll) */}
       <nav
         className={`bg-brand-white text-brand-black sticky top-0 z-50 border-b border-black/5 transition-all duration-300 ${
           isScrolled ? 'shadow-md py-2' : 'shadow-sm py-3.5'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16">
           <div className="flex items-center justify-between min-h-[56px]">
             {/* Left Brand Area (Logo Image + wordmark) */}
             <div className="flex-shrink-0">
-              <Link to="/" className="flex items-center space-x-3 group" onClick={closeMenu}>
-                {/* Logo Image */}
+              <Link to="/" className="flex items-center space-x-2.5 sm:space-x-3 group" onClick={closeMenu}>
                 <img
                   src={logoImg}
                   alt="Twintec Logo"
-                  className="h-11 sm:h-12 lg:h-14 w-auto transition-transform duration-300 group-hover:scale-105"
+                  className="h-10 sm:h-12 lg:h-14 w-auto transition-transform duration-300 group-hover:scale-105"
                 />
-                {/* Logo text wordmark */}
                 <div className="flex flex-col text-left">
-                  <span className="font-heading font-extrabold text-base sm:text-lg lg:text-xl leading-none tracking-wider text-brand-black uppercase">
+                  <span className="font-heading font-extrabold text-sm sm:text-lg lg:text-xl leading-none tracking-wider text-brand-black uppercase">
                     Twintec
                   </span>
-                  <span className="font-heading font-extrabold text-[10px] sm:text-[11px] lg:text-xs uppercase tracking-wider text-brand-charcoal/90 mt-0.5 whitespace-nowrap">
+                  <span className="font-heading font-extrabold text-[9px] sm:text-[11px] lg:text-xs uppercase tracking-wider text-brand-charcoal/90 mt-0.5 whitespace-nowrap">
                     Vocational Training Institute
                   </span>
                 </div>
@@ -186,16 +181,15 @@ export default function Header() {
             </div>
 
             {/* Desktop Center/Right Menu */}
-            <div className="hidden md:flex items-center space-x-0.5 md:space-x-1 lg:space-x-2 xl:space-x-4">
+            <div className="hidden lg:flex items-center space-x-1 lg:space-x-2 xl:space-x-4">
               {menuItems.map((item, idx) => {
                 const isActive = isItemActive(item)
                 return (
                   <div key={item.name} className="relative group py-2">
                     {item.hasDropdown ? (
-                      /* Dropdown Trigger Link */
                       <Link
                         to={item.path}
-                        className={`px-1.5 md:px-2 lg:px-3.5 py-2 font-heading font-bold text-xs lg:text-sm tracking-wider uppercase transition-all duration-200 focus:outline-none cursor-pointer ${
+                        className={`px-2.5 lg:px-3.5 py-2 font-heading font-bold text-xs lg:text-sm tracking-wider uppercase transition-all duration-200 focus:outline-none cursor-pointer ${
                           isActive
                             ? 'text-brand-orange border-b-2 border-brand-orange'
                             : 'text-brand-charcoal hover:text-brand-orange border-b-2 border-transparent'
@@ -204,10 +198,9 @@ export default function Header() {
                         {item.name}
                       </Link>
                     ) : (
-                      /* Standard Link */
                       <Link
                         to={item.path}
-                        className={`px-1.5 md:px-2 lg:px-3.5 py-2 font-heading font-bold text-xs lg:text-sm tracking-wider uppercase transition-all duration-200 ${
+                        className={`px-2.5 lg:px-3.5 py-2 font-heading font-bold text-xs lg:text-sm tracking-wider uppercase transition-all duration-200 ${
                           isActive
                             ? 'text-brand-orange border-b-2 border-brand-orange'
                             : 'text-brand-charcoal hover:text-brand-orange border-b-2 border-transparent'
@@ -217,7 +210,6 @@ export default function Header() {
                       </Link>
                     )}
 
-                    {/* Dropdown Menu (on hover) */}
                     {item.hasDropdown && (
                       <div className="absolute left-0 top-full mt-1 w-60 bg-brand-white border border-black/5 rounded-xl shadow-[0_10px_35px_-8px_rgba(0,0,0,0.1)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 translate-y-2 group-hover:translate-y-0 z-50 p-2 space-y-1">
                         {item.dropdownItems.map((subItem) => (
@@ -241,7 +233,7 @@ export default function Header() {
             </div>
 
             {/* Standout Cta Button (Apply Now) */}
-            <div className="hidden md:flex items-center">
+            <div className="hidden lg:flex items-center">
               <Link to="/inquiry">
                 <button className="bg-brand-orange text-brand-white font-heading font-extrabold text-xs uppercase tracking-widest py-2.5 px-4 lg:px-6 rounded-full hover:bg-brand-black hover:text-brand-white shadow-sm hover:shadow-md transition-all duration-300 min-h-[44px] flex items-center justify-center whitespace-nowrap">
                   Apply Now
@@ -249,8 +241,8 @@ export default function Header() {
               </Link>
             </div>
 
-            {/* Hamburger Icon button (Mobile only < 768px) */}
-            <div className="md:hidden flex items-center">
+            {/* Hamburger Icon button (Mobile/Tablet < 1024px) */}
+            <div className="lg:hidden flex items-center">
               <button
                 onClick={toggleMenu}
                 type="button"
@@ -273,9 +265,9 @@ export default function Header() {
           </div>
         </div>
 
-        {/* 3. MOBILE MENU DRAWERS/SLIDE-IN (Mobile only < 768px) */}
+        {/* 3. MOBILE MENU DRAWERS/SLIDE-IN (Mobile/Tablet < 1024px) */}
         <div
-          className={`md:hidden fixed inset-0 top-[88px] z-40 bg-brand-white border-t border-black/10 transition-all duration-300 ease-in-out transform ${
+          className={`lg:hidden fixed inset-0 top-[88px] z-40 bg-brand-white border-t border-black/10 transition-all duration-300 ease-in-out transform ${
             isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none'
           } overflow-y-auto pb-12`}
           id="mobile-menu"

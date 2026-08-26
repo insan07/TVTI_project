@@ -62,7 +62,7 @@ export default function Contact() {
     <div className="flex flex-col w-full overflow-hidden select-none bg-brand-white text-brand-black">
       
       {/* 1. PAGE HEADER BANNER */}
-      <section className="bg-brand-black text-brand-white py-12 px-4 sm:px-6 lg:px-8 border-b border-brand-charcoal relative">
+      <section className="bg-brand-black text-brand-white py-12 px-5 sm:px-8 lg:px-12 xl:px-16 border-b border-brand-charcoal relative">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-2 text-left">
             {/* Breadcrumb */}
@@ -72,7 +72,7 @@ export default function Contact() {
               <span className="text-brand-orange font-bold">Contact Us</span>
             </div>
             <h1 className="font-heading font-extrabold text-3xl sm:text-4xl uppercase tracking-tight text-brand-white">
-              Contact Us
+              Contact & Location
             </h1>
           </div>
           <div className="hidden sm:block text-right">
@@ -83,8 +83,8 @@ export default function Contact() {
         <div className="absolute inset-0 opacity-5 bg-[linear-gradient(to_right,#333_1px,transparent_1px),linear-gradient(to_bottom,#333_1px,transparent_1px)] bg-[size:2rem_2rem] pointer-events-none" />
       </section>
 
-      {/* 2. TWO-COLUMN LAYOUT (Details vs Map) */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+      {/* 2. DUAL COLUMN: FORM & INFO */}
+      <section className="py-16 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           
           {/* LEFT: Contact details */}

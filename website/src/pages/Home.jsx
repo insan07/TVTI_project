@@ -195,7 +195,7 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
             
             {/* Slide Text Content */}
-            <div className="absolute inset-0 flex items-center justify-start max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="absolute inset-0 flex items-center justify-start max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16">
               <div className="max-w-2xl text-left space-y-5">
                 <span className="inline-flex items-center space-x-2 bg-orange-500/20 text-orange-400 font-heading font-extrabold text-xs uppercase tracking-widest px-3.5 py-1.5 rounded-full border border-orange-500/30">
                   <span className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
@@ -207,14 +207,14 @@ export default function Home() {
                 <p className="font-sans text-slate-300 text-sm sm:text-lg max-w-xl font-normal leading-relaxed">
                   {slide.subtitle}
                 </p>
-                <div className="pt-2 flex flex-wrap gap-4">
-                  <Link to="/courses">
-                    <Button variant="primary" className="text-xs uppercase tracking-widest py-4 px-7 font-heading font-extrabold shadow-lg shadow-orange-500/20">
+                <div className="pt-2 flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
+                  <Link to="/courses" className="w-full sm:w-auto">
+                    <Button variant="primary" className="w-full sm:w-auto text-xs uppercase tracking-widest py-3.5 sm:py-4 px-6 sm:px-7 font-heading font-extrabold shadow-lg shadow-orange-500/20">
                       Explore All Programs
                     </Button>
                   </Link>
-                  <Link to="/inquiry">
-                    <Button variant="secondary" className="text-xs uppercase tracking-widest py-4 px-7 font-heading font-extrabold bg-white text-slate-900 hover:bg-slate-100">
+                  <Link to="/inquiry" className="w-full sm:w-auto">
+                    <Button variant="secondary" className="w-full sm:w-auto text-xs uppercase tracking-widest py-3.5 sm:py-4 px-6 sm:px-7 font-heading font-extrabold bg-white text-slate-900 hover:bg-slate-100">
                       Apply Online Today
                     </Button>
                   </Link>
@@ -260,7 +260,7 @@ export default function Home() {
       </section>
 
       {/* FLOATING STATS STRIP */}
-      <section className="relative z-30 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10">
+      <section className="relative z-30 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 -mt-10">
         <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-xl border border-slate-200/80 grid grid-cols-2 md:grid-cols-4 gap-6">
           <StatCounter end="100" suffix="%" label="Practical Training" sublabel="Hands-on Workshop Labs" />
           <StatCounter end="100" suffix="%" label="Certified Programs" sublabel="TVTI Practical Standard" />
@@ -270,7 +270,7 @@ export default function Home() {
       </section>
 
       {/* 2. INSTITUTE OVERVIEW & VALUE PROPOSITION */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-16">
+      <section className="py-20 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full space-y-16">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6 text-left">
             <SectionHeading
@@ -296,7 +296,7 @@ export default function Home() {
       </section>
 
       {/* 3. FEATURED COURSES CATALOG */}
-      <section id="courses" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-12 bg-slate-100/70 rounded-3xl my-6 border border-slate-200/60">
+      <section id="courses" className="py-20 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full space-y-12 bg-slate-100/70 rounded-3xl my-6 border border-slate-200/60">
         <SectionHeading
           title="Our Practical Certificate Courses"
           subtitle="Hands-on certificate programs designed for immediate employment, freelancing, and technical entrepreneurship."
@@ -339,7 +339,7 @@ export default function Home() {
       </section>
 
       {/* 4. WHY CHOOSE TVTI - KEY ADVANTAGES */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-12">
+      <section className="py-20 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full space-y-12">
         <SectionHeading
           title="Why Choose TVTI Puttalam?"
           subtitle="Equipping Sri Lanka's next generation of technicians with world-class hands-on skills."
@@ -398,7 +398,7 @@ export default function Home() {
       </section>
 
       {/* 5. TESTIMONIALS */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full bg-slate-900 text-white rounded-3xl my-6 relative overflow-hidden">
+      <section className="py-20 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full bg-slate-900 text-white rounded-3xl my-6 relative overflow-hidden">
         <div className="space-y-10 relative z-10">
           <SectionHeading
             title="Graduate Success Stories"
@@ -446,7 +446,7 @@ export default function Home() {
       </section>
 
       {/* 6. CALL TO ACTION (CTA) BANNER */}
-     <section className="bg-brand-orange text-brand-white py-16 px-4 sm:px-6 lg:px-8 border-t border-brand-orange shadow-inner relative overflow-hidden">
+     <section className="bg-brand-orange text-brand-white py-16 px-5 sm:px-8 lg:px-12 xl:px-16 border-t border-brand-orange shadow-inner relative overflow-hidden">
              <div className="max-w-4xl mx-auto text-center space-y-6 relative z-10">
                <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl uppercase tracking-tight leading-none text-brand-white">
                  Ready to Start Your Career?

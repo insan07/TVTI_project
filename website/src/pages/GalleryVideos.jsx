@@ -73,7 +73,7 @@ export default function GalleryVideos() {
     <div className="flex flex-col w-full overflow-hidden select-none">
       
       {/* 1. PAGE HEADER BANNER */}
-      <section className="bg-brand-black text-brand-white py-12 px-4 sm:px-6 lg:px-8 border-b border-brand-charcoal relative">
+      <section className="bg-brand-black text-brand-white py-12 px-5 sm:px-8 lg:px-12 xl:px-16 border-b border-brand-charcoal relative">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-2 text-left">
             {/* Breadcrumb */}
@@ -97,7 +97,7 @@ export default function GalleryVideos() {
       </section>
 
       {/* 2. FILTER BAR & VIDEO GRID */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-12">
+      <section className="py-16 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full space-y-12">
         
         {/* Filter Pills */}
         <div className="flex flex-wrap justify-center gap-3">

@@ -5,7 +5,7 @@ import Button from '../components/Button'
 
 export default function About() {
   return (
-    <div className="space-y-12 py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div className="space-y-12 py-12 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto">
       {/* Intro Section */}
       <section className="space-y-6">
         <SectionHeading

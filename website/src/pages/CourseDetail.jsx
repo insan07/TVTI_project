@@ -214,7 +214,7 @@ export default function CourseDetail() {
         <div className="absolute inset-0 bg-brand-black/80" />
         
         {/* Content */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-left">
+        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 w-full text-left">
           <div className="max-w-3xl space-y-4">
             <span className="inline-block bg-brand-orange text-brand-white font-heading font-bold text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-md border border-brand-orange/30">
               {course.category}
@@ -235,7 +235,7 @@ export default function CourseDetail() {
       </section>
 
       {/* 2. DUAL COLUMN LAYOUT */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+      <section className="py-16 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* LEFT COLUMN: Main Info */}
@@ -348,7 +348,7 @@ export default function CourseDetail() {
       </section>
 
       {/* 3. RELATED COURSES */}
-      <section className="bg-brand-light border-t border-black/5 py-20 px-4 sm:px-6 lg:px-8 w-full">
+      <section className="bg-brand-light border-t border-black/5 py-20 px-5 sm:px-8 lg:px-12 xl:px-16 w-full">
         <div className="max-w-7xl mx-auto space-y-12">
           <SectionHeading
             title="Related Courses"
@@ -356,7 +356,7 @@ export default function CourseDetail() {
             align="center"
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
             {finalRelatedCourses.map((rel, idx) => (
               <Card key={idx} className="flex flex-col h-full justify-between p-0 overflow-hidden bg-brand-white" hoverEffect={true}>
                 <div>
