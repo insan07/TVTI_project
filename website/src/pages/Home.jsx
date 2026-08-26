@@ -190,33 +190,32 @@ export default function Home() {
             <img
               src={slide.image}
               alt={slide.title}
-              className="w-full h-full object-cover object-center filter brightness-90 sm:brightness-95 transform scale-105 transition-transform duration-10000"
+              className="w-full h-full object-cover object-center filter brightness-[0.35] transform scale-105 transition-transform duration-10000"
             />
-            {/* Subtle Gradient Overlay for photo clarity */}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
             
-            {/* Slide Text Content inside sleek translucent card */}
+            {/* Slide Text Content */}
             <div className="absolute inset-0 flex items-center justify-start max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16">
-              <div className="max-w-lg text-left space-y-3.5 bg-slate-950/50 backdrop-blur-md p-6 sm:p-7 rounded-2xl border border-white/15 shadow-2xl">
-                <span className="inline-flex items-center space-x-2 bg-orange-500/20 text-orange-400 font-heading font-extrabold text-[11px] uppercase tracking-widest px-3 py-1 rounded-full border border-orange-500/30">
+              <div className="max-w-2xl text-left space-y-5">
+                <span className="inline-flex items-center space-x-2 bg-orange-500/20 text-orange-400 font-heading font-extrabold text-xs uppercase tracking-widest px-3.5 py-1.5 rounded-full border border-orange-500/30">
                   <span className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
                   <span>{slide.tag}</span>
                 </span>
-                <h1 className="font-heading font-extrabold text-xl sm:text-2xl lg:text-3xl text-white tracking-tight leading-snug uppercase">
+                <h1 className="font-heading font-extrabold text-xl sm:text-3xl lg:text-4xl text-white tracking-tight leading-snug uppercase">
                   {slide.title}
                 </h1>
-                <p className="font-sans text-slate-200 text-xs sm:text-sm font-normal leading-relaxed">
+                <p className="font-sans text-slate-300 text-xs sm:text-sm lg:text-base max-w-xl font-normal leading-relaxed">
                   {slide.subtitle}
                 </p>
-                <div className="pt-1.5 flex flex-col sm:flex-row gap-2.5 sm:gap-3 w-full sm:w-auto">
+                <div className="pt-2 flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
                   <Link to="/courses" className="w-full sm:w-auto">
-                    <Button variant="primary" className="w-full sm:w-auto text-[11px] uppercase tracking-wider py-2.5 sm:py-3 px-5 font-heading font-extrabold shadow-lg shadow-orange-500/20">
+                    <Button variant="primary" className="w-full sm:w-auto text-xs uppercase tracking-widest py-3.5 sm:py-4 px-6 sm:px-7 font-heading font-extrabold shadow-lg shadow-orange-500/20">
                       Explore All Programs
                     </Button>
                   </Link>
                   <Link to="/inquiry" className="w-full sm:w-auto">
-                    <Button variant="secondary" className="w-full sm:w-auto text-[11px] uppercase tracking-wider py-2.5 sm:py-3 px-5 font-heading font-extrabold bg-white text-slate-900 hover:bg-slate-100">
-                      Apply Online
+                    <Button variant="secondary" className="w-full sm:w-auto text-xs uppercase tracking-widest py-3.5 sm:py-4 px-6 sm:px-7 font-heading font-extrabold bg-white text-slate-900 hover:bg-slate-100">
+                      Apply Online Today
                     </Button>
                   </Link>
                 </div>
