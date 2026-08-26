@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -24,39 +24,50 @@ export default function PdfViewerScreen() {
   const title: string = route.params?.title || 'PDF Document';
 
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
-  // 1. Resolve relative server URLs vs Cloudinary URLs
-  let fullUrl = rawUrl.trim();
-  if (fullUrl.startsWith('/uploads/') || fullUrl.startsWith('/api/files/')) {
+  // 1. Resolve relative server URLs vs absolute URLs
+  const getFullPdfUrl = (urlStr: string): string => {
+    if (!urlStr) return '';
+    let trimmed = urlStr.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
     const baseUrl = API_URL.replace(/\/api\/?$/, '');
-    fullUrl = `${baseUrl}${fullUrl}`;
-  } else if (fullUrl.includes('cloudinary.com') && fullUrl.includes('/raw/upload/')) {
-    // Transform Cloudinary raw download link to inline PDF view link
-    fullUrl = fullUrl.replace('/raw/upload/', '/image/upload/fl_inline/');
-  }
+    if (trimmed.startsWith('/')) {
+      return `${baseUrl}${trimmed}`;
+    }
+    return `${baseUrl}/${trimmed}`;
+  };
+
+  const fullUrl = getFullPdfUrl(rawUrl);
 
   // 2. Prepare Google Docs embed link for native mobile WebViews
-  const isLocalHost = fullUrl.includes('localhost') || fullUrl.includes('127.0.0.1') || fullUrl.includes('10.0.2.2');
-  const embedUrl = (!isLocalHost && (fullUrl.startsWith('http://') || fullUrl.startsWith('https://')))
-    ? `https://docs.google.com/viewer?url=${encodeURIComponent(fullUrl)}&embedded=true`
-    : fullUrl;
+  const isLocalHost =
+    fullUrl.includes('localhost') ||
+    fullUrl.includes('127.0.0.1') ||
+    fullUrl.includes('10.0.2.2') ||
+    fullUrl.includes('192.168.');
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+  const embedUrl =
+    !isLocalHost && (fullUrl.startsWith('http://') || fullUrl.startsWith('https://'))
+      ? `https://docs.google.com/viewer?url=${encodeURIComponent(fullUrl)}&embedded=true`
+      : fullUrl;
 
   const handleExternalOpen = async () => {
     try {
       if (Platform.OS === 'web') {
         window.open(fullUrl, '_blank');
       } else {
-        await Linking.openURL(fullUrl);
+        const canOpen = await Linking.canOpenURL(fullUrl);
+        if (canOpen) {
+          await Linking.openURL(fullUrl);
+        } else {
+          window.open(fullUrl, '_blank');
+        }
       }
     } catch (e) {
-      console.warn('Failed to open PDF:', e);
+      console.warn('Failed to open PDF externally:', e);
     }
   };
 
@@ -71,7 +82,7 @@ export default function PdfViewerScreen() {
           {title}
         </Text>
         <TouchableOpacity style={styles.externalBtn} onPress={handleExternalOpen}>
-          <Icon name="open-outline" size={20} color="#F58220" />
+          <Icon name="open-outline" size={22} color="#F58220" />
         </TouchableOpacity>
       </View>
 
@@ -80,41 +91,67 @@ export default function PdfViewerScreen() {
         {/* PDF Document Header Card */}
         <View style={styles.previewCard}>
           <View style={styles.pdfIconCircle}>
-            <Icon name="document-text" size={32} color="#F58220" />
+            <Icon name="document-text" size={28} color="#F58220" />
           </View>
           <View style={styles.cardDetails}>
             <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
-            <Text style={styles.cardSubtitle}>PDF Document Ready</Text>
+            <Text style={styles.cardSubtitle}>PDF Document</Text>
           </View>
 
           <TouchableOpacity style={styles.openButton} onPress={handleExternalOpen} activeOpacity={0.85}>
-            <Icon name="eye-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.openButtonText}>Open PDF</Text>
+            <Icon name="eye-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.openButtonText}>Open External</Text>
           </TouchableOpacity>
         </View>
 
         {/* Embedded Viewer Container */}
         <View style={styles.webviewFrame}>
-          {loading && (
+          {loading && !hasError && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color={COLORS.secondary} />
               <Text style={styles.loadingText}>Loading PDF Document...</Text>
             </View>
           )}
 
-          {Platform.OS === 'web' ? (
-            <iframe
-              src={fullUrl}
-              title={title}
+          {hasError ? (
+            <View style={styles.errorContainer}>
+              <Icon name="alert-circle-outline" size={48} color="#EF4444" />
+              <Text style={styles.errorTitle}>Unable to preview PDF directly</Text>
+              <Text style={styles.errorSubtitle}>
+                Tap below to open or download the PDF file using your system viewer.
+              </Text>
+              <TouchableOpacity style={styles.retryOpenButton} onPress={handleExternalOpen}>
+                <Icon name="download-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.retryOpenButtonText}>View / Download PDF</Text>
+              </TouchableOpacity>
+            </View>
+          ) : Platform.OS === 'web' ? (
+            <object
+              data={fullUrl}
+              type="application/pdf"
               style={{ width: '100%', height: '100%', border: 'none' }}
               onLoad={() => setLoading(false)}
-            />
+              onError={() => {
+                setLoading(false);
+                setHasError(true);
+              }}
+            >
+              <iframe
+                src={fullUrl}
+                title={title}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                onLoad={() => setLoading(false)}
+              />
+            </object>
           ) : (
             <WebView
               source={{ uri: embedUrl }}
               style={{ flex: 1 }}
               onLoadEnd={() => setLoading(false)}
-              onError={() => setLoading(false)}
+              onError={() => {
+                setLoading(false);
+                setHasError(true);
+              }}
               startInLoadingState={false}
               scalesPageToFit={true}
               javaScriptEnabled={true}
@@ -166,15 +203,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
     ...SHADOW.sm,
   },
   pdfIconCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 10,
     backgroundColor: '#FFF3E6',
     justifyContent: 'center',
     alignItems: 'center',
@@ -185,7 +222,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: 'bold',
     color: '#0F172A',
     marginBottom: 2,
@@ -197,15 +234,15 @@ const styles = StyleSheet.create({
   },
   openButton: {
     backgroundColor: '#F58220',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
   openButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: 'bold',
   },
   webviewFrame: {
@@ -225,5 +262,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     ...FONTS.medium,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: '#FFFFFF',
+  },
+  errorTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginTop: 12,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  retryOpenButton: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  retryOpenButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
