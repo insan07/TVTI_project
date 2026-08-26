@@ -5,6 +5,7 @@ import Video from '../models/Video';
 import Enrollment from '../models/Enrollment';
 import cloudinary from '../config/cloudinary';
 import { sendNotification } from '../services/notificationService';
+import { deleteGridFSFile, saveBufferToGridFS } from '../services/fileStorage';
 
 export const normalizeYouTubeUrl = (url: string): string => {
   if (!url) return '';
@@ -154,13 +155,20 @@ export const uploadVideo = async (req: Request, res: Response): Promise<void> =>
 
     // ── Optional: Notes/PDF attachment ────────────────────────────
     let notes_url: string | undefined;
+    let notesFileId: string | undefined;
     if (files?.notes?.length) {
       const notesFile = files.notes[0];
       if (!notesFile?.buffer) {
         res.status(400).json({ message: 'Notes file was not received correctly.' });
         return;
       }
-      notes_url = saveFileToDisk(notesFile.buffer, notesFile.originalname || 'notes.pdf', 'notes');
+      const notes_file_id = await saveBufferToGridFS(
+        notesFile.buffer,
+        notesFile.originalname || 'notes.pdf',
+        notesFile.mimetype || 'application/pdf'
+      );
+      notes_url = `/api/files/${notes_file_id}`;
+      notesFileId = notes_file_id;
     }
 
     const video = await Video.create({
@@ -170,6 +178,7 @@ export const uploadVideo = async (req: Request, res: Response): Promise<void> =>
       title,
       cloudinary_url,
       notes_url,
+      notes_file_id: notesFileId,
       content_type: 'video',
       order_index: Number(order_index) || 0,
     });
@@ -215,7 +224,7 @@ export const updateVideo = async (req: Request, res: Response): Promise<void> =>
 
 export const deleteVideo = async (req: Request, res: Response): Promise<void> => {
   try {
-    const video = await Video.findOneAndDelete({
+    const video = await Video.findOne({
       _id: req.params.id,
       instructor_id: (req as any).user._id,
     });
@@ -223,6 +232,13 @@ export const deleteVideo = async (req: Request, res: Response): Promise<void> =>
       res.status(404).json({ message: 'Video not found or access denied' });
       return;
     }
+
+    await Promise.allSettled([
+      deleteGridFSFile(video.file_id),
+      deleteGridFSFile(video.notes_file_id),
+    ]);
+    await video.deleteOne();
+
     res.json({ message: 'Video deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

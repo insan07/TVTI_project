@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Dimensions, Image, Linking, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
+import { API_URL } from '../../config/constants';
 import { COLORS, SHADOW } from '../../config/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -218,20 +219,42 @@ export default function InstructorHomeScreen() {
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollContent}>
           {stats.recentVideos.map((video) => (
-            <View key={video._id} style={styles.videoCard}>
+
+            <TouchableOpacity 
+              key={video._id} 
+              style={styles.videoCard}
+              onPress={() => {
+                let url = video.cloudinary_url || video.youtube_url;
+                if (!url && video.content_type === 'material') {
+                  url = video.cloudinary_url; // Materials use cloudinary_url
+                }
+                if (url) {
+                  if (url.startsWith('/uploads/') || url.startsWith('/api/files/')) {
+                    url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                  }
+                  if (Platform.OS === 'web') {
+                    window.open(url, '_blank');
+                  } else {
+                    Linking.openURL(url);
+                  }
+                }
+              }}
+            >
               <View style={styles.videoThumbnailContainer}>
                 {video.thumbnail ? (
                   <Image source={{ uri: video.thumbnail }} style={styles.videoThumbnail} />
                 ) : (
                   <View style={styles.videoThumbnailPlaceholder}>
-                    <Icon name="cloud-upload" size={28} color="#9CA3AF" />
+                    <Icon name={video.content_type === 'material' ? 'document-text' : 'videocam'} size={28} color="#9CA3AF" />
                   </View>
                 )}
-                <View style={styles.playOverlay}>
-                  <View style={styles.playCircle}>
-                    <Icon name="play" size={16} color="#000" style={{ marginLeft: 2 }} />
+                {video.content_type !== 'material' && (
+                  <View style={styles.playOverlay}>
+                    <View style={styles.playCircle}>
+                      <Icon name="play" size={16} color="#000" style={{ marginLeft: 2 }} />
+                    </View>
                   </View>
-                </View>
+                )}
               </View>
               <View style={styles.videoInfo}>
                 <Text style={styles.videoCategory} numberOfLines={1}>
@@ -240,7 +263,7 @@ export default function InstructorHomeScreen() {
                 <Text style={styles.videoTitle} numberOfLines={2}>{video.title}</Text>
                 {video.topic ? <Text style={styles.videoTopic} numberOfLines={1}>Topic: {video.topic}</Text> : null}
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </ScrollView>
       )}

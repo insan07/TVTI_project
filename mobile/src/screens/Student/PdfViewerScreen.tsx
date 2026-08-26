@@ -27,7 +27,7 @@ export default function PdfViewerScreen() {
 
   // 1. Resolve relative server URLs vs Cloudinary URLs
   let fullUrl = rawUrl.trim();
-  if (fullUrl.startsWith('/uploads/')) {
+  if (fullUrl.startsWith('/uploads/') || fullUrl.startsWith('/api/files/')) {
     const baseUrl = API_URL.replace(/\/api\/?$/, '');
     fullUrl = `${baseUrl}${fullUrl}`;
   } else if (fullUrl.includes('cloudinary.com') && fullUrl.includes('/raw/upload/')) {
