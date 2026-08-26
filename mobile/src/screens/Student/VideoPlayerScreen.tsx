@@ -89,13 +89,15 @@ export default function VideoPlayerScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={[styles.topHeaderBar, { paddingTop: insets.top + 8 }]}>
+      {/* Top Notification Bar */}
+      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={22} color="#FFFFFF" />
+          <Icon name="arrow-back" size={22} color="#1A1A1A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>TVTI</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.pageHeaderTitle}>Video Player</Text>
+        <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
+          <Icon name="notifications-outline" size={24} color="#1A1A1A" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
@@ -195,21 +197,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F5F6F8',
   },
-  topHeaderBar: {
-    backgroundColor: '#000000',
+  topNotificationBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.md,
+    paddingBottom: SPACING.xs,
   },
   backBtn: {
     padding: SPACING.xs,
   },
-  headerTitle: {
-    color: '#FFFFFF',
+  pageHeaderTitle: {
     fontSize: 18,
+    color: '#1A1A1A',
     ...FONTS.bold,
+  },
+  bellBtn: {
+    padding: SPACING.xs,
   },
   scrollContent: {
     flex: 1,

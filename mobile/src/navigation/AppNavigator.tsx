@@ -218,7 +218,7 @@ export const AppNavigator = () => {
                 <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
 
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
-                <Stack.Screen name="Results" component={ResultsScreen} options={{ ...headerOptions, headerShown: true, title: 'My Results' }} />
+                <Stack.Screen name="Results" component={ResultsScreen} options={{ headerShown: false }} />
               </>
             )}
             {userRole === 'instructor' && (

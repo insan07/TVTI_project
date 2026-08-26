@@ -3,6 +3,7 @@ import { getMySchedule, getHomeDashboard } from '../controllers/studentControlle
 import { getMyResults } from '../controllers/resultController';
 import { getEnrolledBatches, getBatchVideos, getBatchMaterials, getVideoStreamUrl, getNotesUrl } from '../controllers/studentVideoController';
 import { getOpenSlots, bookSlot, cancelBooking as cancelPracticeBooking, getMyBookings as getMyPracticeBookings } from '../controllers/studentPracticeController';
+import { getStudentAnnouncements } from '../controllers/announcementController';
 import { protect } from '../middleware/authMiddleware';
 import { checkRole } from '../middleware/roleMiddleware';
 
@@ -26,5 +27,8 @@ router.get('/my-practice-bookings', getMyPracticeBookings);
 
 // Results
 router.get('/my-results', getMyResults);
+
+// Announcements (batch-specific + global)
+router.get('/announcements', getStudentAnnouncements);
 
 export default router;

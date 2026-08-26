@@ -4,6 +4,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
+import { API_URL } from '../../config/constants';
 import { COLORS, SHADOW } from '../../config/theme';
 import { API_URL } from '../../config/constants';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -245,14 +246,16 @@ export default function InstructorHomeScreen() {
                   <Image source={{ uri: video.thumbnail }} style={styles.videoThumbnail} />
                 ) : (
                   <View style={styles.videoThumbnailPlaceholder}>
-                    <Icon name="cloud-upload" size={28} color="#9CA3AF" />
+                    <Icon name={video.content_type === 'material' ? 'document-text' : 'videocam'} size={28} color="#9CA3AF" />
                   </View>
                 )}
-                <View style={styles.playOverlay}>
-                  <View style={styles.playCircle}>
-                    <Icon name="play" size={16} color="#000" style={{ marginLeft: 2 }} />
+                {video.content_type !== 'material' && (
+                  <View style={styles.playOverlay}>
+                    <View style={styles.playCircle}>
+                      <Icon name="play" size={16} color="#000" style={{ marginLeft: 2 }} />
+                    </View>
                   </View>
-                </View>
+                )}
               </View>
               <View style={styles.videoInfo}>
                 <Text style={styles.videoCategory} numberOfLines={1}>
