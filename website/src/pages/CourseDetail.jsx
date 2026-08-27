@@ -203,7 +203,7 @@ export default function CourseDetail() {
     <div className="flex flex-col w-full overflow-hidden select-none">
       
       {/* 1. HERO BANNER */}
-      <section className="relative h-[300px] sm:h-[350px] lg:h-[400px] bg-brand-black overflow-hidden flex items-center">
+      <section className="relative h-[180px] sm:h-[220px] lg:h-[250px] bg-brand-black overflow-hidden flex items-center">
         {/* Background Image */}
         <img
           src={course.image}
@@ -215,15 +215,15 @@ export default function CourseDetail() {
         
         {/* Content */}
         <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 w-full text-left">
-          <div className="max-w-3xl space-y-4">
-            <span className="inline-block bg-brand-orange text-brand-white font-heading font-bold text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-md border border-brand-orange/30">
+          <div className="max-w-3xl space-y-2.5">
+            <span className="inline-block bg-brand-orange text-brand-white font-heading font-bold text-[10px] uppercase tracking-widest px-3 py-1 rounded-md border border-brand-orange/30">
               {course.category}
             </span>
-            <h1 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-brand-white leading-tight uppercase tracking-tight">
+            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl lg:text-4xl text-brand-white leading-tight tracking-tight">
               {course.title}
             </h1>
             {/* Breadcrumb */}
-            <div className="flex items-center space-x-2 text-xs font-sans uppercase tracking-widest text-brand-light/60 pt-2">
+            <div className="flex items-center space-x-2 text-xs font-sans uppercase tracking-widest text-brand-light/60 pt-1">
               <Link to="/" className="hover:text-brand-orange transition-colors">Home</Link>
               <span>&gt;</span>
               <Link to="/courses" className="hover:text-brand-orange transition-colors">Courses</Link>
@@ -235,15 +235,15 @@ export default function CourseDetail() {
       </section>
 
       {/* 2. DUAL COLUMN LAYOUT */}
-      <section className="py-16 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full">
+      <section className="py-8 sm:py-10 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* LEFT COLUMN: Main Info */}
-          <div className="lg:col-span-8 space-y-10 text-left">
+          <div className="lg:col-span-8 space-y-8 text-left">
             
             {/* Course Description */}
-            <div className="space-y-4">
-              <h2 className="font-heading font-bold text-xl uppercase tracking-wider text-brand-black border-b border-black/5 pb-2">
+            <div className="space-y-3">
+              <h2 className="font-heading font-bold text-lg sm:text-xl tracking-wider text-brand-black border-b border-black/5 pb-2">
                 Course Description
               </h2>
               <p className="font-sans text-brand-charcoal text-sm sm:text-base leading-relaxed">
@@ -252,8 +252,8 @@ export default function CourseDetail() {
             </div>
 
             {/* What You'll Learn (Syllabus) */}
-            <div className="space-y-4">
-              <h2 className="font-heading font-bold text-xl uppercase tracking-wider text-brand-black border-b border-black/5 pb-2">
+            <div className="space-y-3">
+              <h2 className="font-heading font-bold text-lg sm:text-xl tracking-wider text-brand-black border-b border-black/5 pb-2">
                 What You'll Learn
               </h2>
               <ul className="space-y-3 font-sans text-brand-charcoal text-sm sm:text-base">

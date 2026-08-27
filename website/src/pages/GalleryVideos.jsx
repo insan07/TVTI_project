@@ -73,9 +73,9 @@ export default function GalleryVideos() {
     <div className="flex flex-col w-full overflow-hidden select-none">
       
       {/* 1. PAGE HEADER BANNER */}
-      <section className="bg-brand-black text-brand-white py-12 px-5 sm:px-8 lg:px-12 xl:px-16 border-b border-brand-charcoal relative">
+      <section className="bg-brand-black text-brand-white py-6 sm:py-7 px-5 sm:px-8 lg:px-12 xl:px-16 border-b border-brand-charcoal relative">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="space-y-2 text-left">
+          <div className="space-y-1.5 text-left">
             {/* Breadcrumb */}
             <div className="flex items-center space-x-2 text-xs font-sans uppercase tracking-widest text-brand-light/50">
               <Link to="/" className="hover:text-brand-orange transition-colors">Home</Link>
@@ -84,7 +84,7 @@ export default function GalleryVideos() {
               <span>&gt;</span>
               <span className="text-brand-orange font-bold">Videos</span>
             </div>
-            <h1 className="font-heading font-extrabold text-3xl sm:text-4xl uppercase tracking-tight text-brand-white">
+            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight text-brand-white">
               Video Gallery
             </h1>
           </div>
@@ -97,18 +97,18 @@ export default function GalleryVideos() {
       </section>
 
       {/* 2. FILTER BAR & VIDEO GRID */}
-      <section className="py-16 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full space-y-12">
+      <section className="py-6 sm:py-8 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full space-y-4">
         
-        {/* Filter Pills */}
-        <div className="flex flex-wrap justify-center gap-3">
+        {/* Filter Pills (Matching reference bar design with TVTI brand colors) */}
+        <div className="flex flex-wrap items-center justify-start gap-2 overflow-x-auto pb-1">
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-5 py-2.5 rounded-full font-heading font-bold text-xs uppercase tracking-wider transition-all duration-300 min-h-[40px] ${
+              className={`px-4 py-2 font-heading font-semibold text-xs sm:text-sm tracking-wide transition-all cursor-pointer rounded-xs flex items-center ${
                 selectedCategory === cat
-                  ? 'bg-brand-orange text-brand-white shadow-sm scale-102'
-                  : 'bg-brand-light text-brand-charcoal hover:bg-brand-orange/10'
+                  ? 'bg-slate-900 text-white border-l-4 border-brand-orange shadow-xs'
+                  : 'bg-slate-100 text-slate-800 hover:bg-slate-200 hover:text-slate-950'
               }`}
             >
               {cat}
@@ -116,52 +116,58 @@ export default function GalleryVideos() {
           ))}
         </div>
 
-        {/* Videos Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
+        {/* Videos Grid (Tight 3-column edge-to-edge layout) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1 pt-1">
           {filteredVideos.map((video, idx) => (
-            <Card 
+            <div 
               key={idx} 
-              className="flex flex-col h-full justify-between p-0 overflow-hidden cursor-pointer group" 
-              hoverEffect={true}
+              className="relative group overflow-hidden aspect-[4/3] bg-slate-900 cursor-pointer shadow-xs"
               onClick={() => setActiveVideo(video)}
             >
-              <div>
-                {/* Video Thumbnail with Play Button */}
-                <div className="h-48 overflow-hidden bg-brand-black relative">
-                  <img
-                    src={`https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`}
-                    alt={video.title}
-                    className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                  />
-                  {/* Play Button Overlay */}
-                  <div className="absolute inset-0 bg-brand-black/35 group-hover:bg-brand-black/20 transition-colors flex items-center justify-center">
-                    <div className="bg-brand-orange hover:bg-brand-orange-dark text-brand-white rounded-full p-4 shadow-xl transform group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
-                      <svg className="h-6 w-6 fill-current pl-1" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </div>
-                  </div>
-                  {/* Duration tag */}
-                  <span className="absolute bottom-4 right-4 bg-brand-black/85 text-brand-white font-sans text-xs px-2 py-0.5 rounded border border-brand-charcoal">
-                    {video.duration}
-                  </span>
-                  {/* Category tag */}
-                  <span className="absolute top-4 left-4 bg-brand-black/85 text-brand-orange font-heading font-bold text-[10px] uppercase tracking-wider px-3 py-1 rounded-md border border-brand-orange/20">
+              {/* Video Thumbnail */}
+              <img
+                src={`https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`}
+                alt={video.title}
+                className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+              />
+
+              {/* Faint ambient title displayed at top right of card */}
+              <div className="absolute top-3 right-3 z-10 opacity-75 group-hover:opacity-0 transition-opacity">
+                <span className="text-[11px] font-sans font-medium text-white/90 drop-shadow-md bg-black/40 backdrop-blur-xs px-2 py-0.5 rounded-xs">
+                  {video.duration}
+                </span>
+              </div>
+
+              {/* Play Button Overlay (Center) */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-brand-orange text-white p-3.5 rounded-full shadow-xl transform scale-90 group-hover:scale-110 transition-transform duration-300 flex items-center justify-center border border-white/20">
+                <svg className="h-5 w-5 fill-current pl-0.5" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+
+              {/* Hover Dark Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-4 text-left">
+                {/* Category Pill Top Left */}
+                <div className="flex items-center justify-between">
+                  <span className="bg-brand-orange text-white font-heading font-bold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-xs shadow-xs">
                     {video.category}
                   </span>
+                  <span className="bg-black/60 text-white font-mono text-[10px] px-2 py-0.5 rounded-xs">
+                    {video.duration}
+                  </span>
                 </div>
-                
-                {/* Content */}
-                <div className="p-6 space-y-2 text-left">
-                  <h3 className="font-heading font-bold text-lg text-brand-black leading-snug">
+
+                {/* Title & Description at Bottom */}
+                <div className="space-y-1 z-10">
+                  <h3 className="font-heading font-bold text-sm sm:text-base text-white leading-snug drop-shadow-md">
                     {video.title}
                   </h3>
-                  <p className="font-sans text-brand-charcoal/70 text-sm leading-relaxed line-clamp-2">
+                  <p className="font-sans text-xs text-slate-300 line-clamp-2 leading-relaxed">
                     {video.description}
                   </p>
                 </div>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       </section>

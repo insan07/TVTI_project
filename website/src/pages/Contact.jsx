@@ -62,16 +62,16 @@ export default function Contact() {
     <div className="flex flex-col w-full overflow-hidden select-none bg-brand-white text-brand-black">
       
       {/* 1. PAGE HEADER BANNER */}
-      <section className="bg-brand-black text-brand-white py-12 px-5 sm:px-8 lg:px-12 xl:px-16 border-b border-brand-charcoal relative">
+      <section className="bg-brand-black text-brand-white py-6 sm:py-7 px-5 sm:px-8 lg:px-12 xl:px-16 border-b border-brand-charcoal relative">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="space-y-2 text-left">
+          <div className="space-y-1.5 text-left">
             {/* Breadcrumb */}
             <div className="flex items-center space-x-2 text-xs font-sans uppercase tracking-widest text-brand-light/50">
               <Link to="/" className="hover:text-brand-orange transition-colors">Home</Link>
               <span>&gt;</span>
               <span className="text-brand-orange font-bold">Contact Us</span>
             </div>
-            <h1 className="font-heading font-extrabold text-3xl sm:text-4xl uppercase tracking-tight text-brand-white">
+            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight text-brand-white">
               Contact & Location
             </h1>
           </div>
@@ -84,7 +84,7 @@ export default function Contact() {
       </section>
 
       {/* 2. DUAL COLUMN: FORM & INFO */}
-      <section className="py-16 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full">
+      <section className="py-8 sm:py-10 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           
           {/* LEFT: Contact details */}
@@ -216,9 +216,9 @@ export default function Contact() {
         </div>
 
         {/* 3. DEDICATED CONTACT FORM */}
-        <div className="mt-20 max-w-2xl mx-auto w-full space-y-6 text-left">
+        <div className="mt-10 max-w-2xl mx-auto w-full space-y-6 text-left">
           <div className="text-center space-y-2">
-            <h3 className="font-heading font-extrabold text-xl sm:text-3xl text-brand-black uppercase tracking-tight">
+            <h3 className="font-heading font-extrabold text-xl sm:text-3xl text-brand-black tracking-tight">
               Send Us a Message
             </h3>
             <p className="font-sans text-brand-charcoal/70 text-sm max-w-md mx-auto">
