@@ -86,14 +86,18 @@ h1, h2, h3, h4, h5, h6 {
   animation-play-state: paused;
 }
 
-/* Mobile Announcement Text Marquee */
+/* Mobile Announcement Text Marquee (Seamless Continuous Loop & Relaxed Pace) */
 @keyframes textMarquee {
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
 }
 
 .animate-text-marquee {
-  display: inline-block;
+  display: inline-flex;
   white-space: nowrap;
-  animation: textMarquee 12s linear infinite;
+  animation: textMarquee 22s linear infinite;
+}
+
+.animate-text-marquee:hover {
+  animation-play-state: paused;
 }

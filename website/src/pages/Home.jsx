@@ -17,21 +17,16 @@ import slideCert2 from '../assets/slide_cert_2.jpg'
 import slideCert3 from '../assets/slide_cert_3.jpg'
 import slideCert4 from '../assets/slide_cert_4.jpg'
 
-// Animated Stat Counter helper
-function StatCounter({ end, suffix = '', label, sublabel }) {
+// Animated Stat Counter helper (Sleek Compact Bar Item)
+function StatCounter({ end, suffix = '', label, showDivider = true }) {
   return (
-    <div className="space-y-1 text-center sm:text-left">
-      <div className="font-heading font-black text-3xl sm:text-4xl text-orange-500 tracking-tight">
+    <div className={`flex flex-col items-center justify-center text-center px-1 sm:px-3 py-1 ${showDivider ? 'border-r border-slate-200/80' : ''}`}>
+      <div className="font-heading font-extrabold text-xl sm:text-2xl lg:text-3xl text-brand-orange tracking-tight leading-none">
         {end}{suffix}
       </div>
-      <div className="font-heading font-bold text-xs uppercase tracking-wider text-slate-900">
+      <div className="font-heading font-bold text-[10px] sm:text-xs uppercase tracking-wider text-slate-900 mt-1">
         {label}
       </div>
-      {sublabel && (
-        <div className="text-[11px] font-sans text-slate-500 font-medium">
-          {sublabel}
-        </div>
-      )}
     </div>
   )
 }
@@ -308,10 +303,15 @@ export default function Home() {
                 </span>
                 <span>New Batch 2026</span>
               </div>
-              <div className="overflow-hidden whitespace-nowrap w-full sm:w-auto">
-                <p className="font-sans font-medium text-slate-100 text-xs inline-block sm:block animate-text-marquee sm:animate-none">
-                  Admissions open for Mobile Repair, CCTV, and Domestic Wiring courses. Speak with an admissions advisor today!
-                </p>
+              <div className="overflow-hidden whitespace-nowrap w-full">
+                <div className="inline-flex space-x-6 animate-text-marquee">
+                  <p className="font-sans font-medium text-slate-100 text-xs flex-shrink-0">
+                    Admissions open for Mobile Repair, CCTV, and Domestic Wiring courses. Speak with an admissions advisor today! &bull;
+                  </p>
+                  <p className="font-sans font-medium text-slate-100 text-xs flex-shrink-0">
+                    Admissions open for Mobile Repair, CCTV, and Domestic Wiring courses. Speak with an admissions advisor today! &bull;
+                  </p>
+                </div>
               </div>
             </div>
             <Link
@@ -355,10 +355,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Left Side Navigation Arrow (White low opacity & smaller size) */}
+        {/* Left Side Navigation Arrow (Low opacity translucent button) */}
         <button
           onClick={prevSlide}
-          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 h-8 w-8 sm:h-9 sm:w-9 bg-white/20 hover:bg-white/40 active:scale-95 text-white flex items-center justify-center transition-all duration-200 cursor-pointer backdrop-blur-md shadow-md rounded-full border border-white/30 group/arrow"
+          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 h-8 w-8 sm:h-9 sm:w-9 bg-black/25 hover:bg-black/50 active:scale-95 text-white/90 hover:text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs rounded-full border border-white/20 group/arrow"
           aria-label="Previous Slide"
         >
           <svg className="h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover/arrow:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -366,10 +366,10 @@ export default function Home() {
           </svg>
         </button>
 
-        {/* Right Side Navigation Arrow (White low opacity & smaller size) */}
+        {/* Right Side Navigation Arrow (Low opacity translucent button) */}
         <button
           onClick={nextSlide}
-          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 h-8 w-8 sm:h-9 sm:w-9 bg-white/20 hover:bg-white/40 active:scale-95 text-white flex items-center justify-center transition-all duration-200 cursor-pointer backdrop-blur-md shadow-md rounded-full border border-white/30 group/arrow"
+          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 h-8 w-8 sm:h-9 sm:w-9 bg-black/25 hover:bg-black/50 active:scale-95 text-white/90 hover:text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs rounded-full border border-white/20 group/arrow"
           aria-label="Next Slide"
         >
           <svg className="h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover/arrow:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -392,13 +392,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FLOATING STATS STRIP */}
-      <section className="relative z-30 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 -mt-10">
-        <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-xl border border-slate-200/80 grid grid-cols-2 md:grid-cols-4 gap-6">
-          <StatCounter end="100" suffix="%" label="Practical Training" sublabel="Hands-on Workshop Labs" />
-          <StatCounter end="200" suffix="+" label="Successful Students" sublabel="Completed TVTI Training" />
-          <StatCounter end="6" suffix="+" label="Technical Disciplines" sublabel="Mobile, Laptop, CCTV, Wiring" />
-          <StatCounter end="100" suffix="%" label="Certification Rate" sublabel="TVTI Practical Standard" />
+      {/* FLOATING STATS STRIP (Sleek Minimal Bar - 3 Columns Across All Screens) */}
+      <section className="relative z-30 max-w-3xl mx-auto px-3 sm:px-6 -mt-6 sm:-mt-8">
+        <div className="bg-white/95 backdrop-blur-md rounded-xl py-3 px-2 sm:py-4 sm:px-6 shadow-md border border-slate-200/90 grid grid-cols-3 items-center justify-center text-center">
+          <StatCounter end="100" suffix="%" label="Practical Training" showDivider={true} />
+          <StatCounter end="6" suffix="+" label="Technical Disciplines" showDivider={true} />
+          <StatCounter end="200" suffix="+" label="Successful Students" showDivider={false} />
         </div>
       </section>
 
@@ -487,20 +486,20 @@ export default function Home() {
       <section className="pt-4 pb-8 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full space-y-6">
         <SectionHeading
           title="Why Choose TVTI Puttalam?"
-          subtitle="Equipping Sri Lanka's next generation of technicians with world-class hands-on skills."
+          subtitle="Providing practical technical training to build real career skills in Puttalam."
           align="center"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 text-left space-y-4 hover-lift">
             <div className="h-12 w-12 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center font-bold">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
-            <h4 className="font-heading font-extrabold text-base text-slate-900">Modern Micro-Labs</h4>
+            <h4 className="font-heading font-extrabold text-base text-slate-900">100% Practical Training</h4>
             <p className="font-sans text-xs text-slate-600 leading-relaxed">
-              Equipped with oscilloscopes, hot-air rework stations, ultrasonic bath cleaners, and digital microscopes.
+              Hands-on practice in fully equipped technical labs with modern tools and diagnostic equipment.
             </p>
           </div>
 
@@ -510,9 +509,9 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
-            <h4 className="font-heading font-extrabold text-base text-slate-900">Industry Aligned Standards</h4>
+            <h4 className="font-heading font-extrabold text-base text-slate-900">Job-Oriented Courses</h4>
             <p className="font-sans text-xs text-slate-600 leading-relaxed">
-              Curricula built around national occupational standards, recognized by technical employers nationwide.
+              Short-term certificate programs designed to prepare students for technical jobs and self-employment.
             </p>
           </div>
 
@@ -522,21 +521,9 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             </div>
-            <h4 className="font-heading font-extrabold text-base text-slate-900">Master Faculty</h4>
+            <h4 className="font-heading font-extrabold text-base text-slate-900">Experienced Instructors</h4>
             <p className="font-sans text-xs text-slate-600 leading-relaxed">
-              Learn directly from senior certified engineers with extensive field experience in commercial electronics and wiring.
-            </p>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 text-left space-y-4 hover-lift">
-            <div className="h-12 w-12 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center font-bold">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h4 className="font-heading font-extrabold text-base text-slate-900">Verification Registry</h4>
-            <p className="font-sans text-xs text-slate-600 leading-relaxed">
-              All student certificates are backed by our central online database registry for instant employer verification.
+              Learn directly from skilled trainers with years of real-world technical and industry experience.
             </p>
           </div>
         </div>
