@@ -85,3 +85,15 @@ h1, h2, h3, h4, h5, h6 {
 .animate-marquee:hover {
   animation-play-state: paused;
 }
+
+/* Mobile Announcement Text Marquee */
+@keyframes textMarquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-text-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: textMarquee 12s linear infinite;
+}

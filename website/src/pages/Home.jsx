@@ -214,8 +214,10 @@ export default function Home() {
     return () => clearInterval(testimonialTimer)
   }, [testimonials.length])
 
-  // LATEST NEWS & ANNOUNCEMENTS
+  // LATEST NEWS & ANNOUNCEMENTS AUTOMATIC SCROLL TIMER
   const newsScrollRef = useRef(null)
+  const [activeNewsIndex, setActiveNewsIndex] = useState(0)
+
   const newsItems = [
     {
       title: '2026 Enrollment Has Started',
@@ -243,16 +245,32 @@ export default function Home() {
     }
   ]
 
-  const scrollNewsLeft = () => {
+  useEffect(() => {
+    const newsInterval = setInterval(() => {
+      setActiveNewsIndex((prev) => (prev + 1) % newsItems.length)
+    }, 4000)
+    return () => clearInterval(newsInterval)
+  }, [newsItems.length])
+
+  useEffect(() => {
     if (newsScrollRef.current) {
-      newsScrollRef.current.scrollBy({ left: -360, behavior: 'smooth' })
+      const firstNewsCard = newsScrollRef.current.querySelector('.news-card-item')
+      if (firstNewsCard) {
+        const cardStep = firstNewsCard.getBoundingClientRect().width + 24
+        newsScrollRef.current.scrollTo({
+          left: activeNewsIndex * cardStep,
+          behavior: activeNewsIndex === 0 ? 'auto' : 'smooth'
+        })
+      }
     }
+  }, [activeNewsIndex])
+
+  const scrollNewsLeft = () => {
+    setActiveNewsIndex((prev) => (prev - 1 + newsItems.length) % newsItems.length)
   }
 
   const scrollNewsRight = () => {
-    if (newsScrollRef.current) {
-      newsScrollRef.current.scrollBy({ left: 360, behavior: 'smooth' })
-    }
+    setActiveNewsIndex((prev) => (prev + 1) % newsItems.length)
   }
 
   return (
@@ -280,19 +298,21 @@ export default function Home() {
 
         {/* FLOATING ANNOUNCEMENT GLASS PILL (Orange Glowing Outline & Dynamic Pulsing Alert Beacon) */}
         <div className="absolute top-2.5 sm:top-3.5 left-0 right-0 z-30 px-4 pointer-events-none">
-          <div className="max-w-4xl mx-auto bg-slate-950/85 backdrop-blur-md text-slate-300 text-xs py-1.5 px-4 sm:px-6 rounded-full border border-brand-orange/60 shadow-[0_0_16px_rgba(242,112,28,0.4)] hover:shadow-[0_0_24px_rgba(242,112,28,0.6)] transition-all duration-300 flex items-center justify-between pointer-events-auto">
-            <div className="flex items-center space-x-3 overflow-hidden">
+          <div className="max-w-4xl mx-auto bg-slate-950/85 backdrop-blur-md text-slate-300 text-xs py-1.5 px-4 sm:px-6 rounded-full border border-brand-orange/60 shadow-[0_0_16px_rgba(242,112,28,0.4)] hover:shadow-[0_0_24px_rgba(242,112,28,0.6)] transition-all duration-300 flex items-center justify-between pointer-events-auto overflow-hidden">
+            <div className="flex items-center space-x-3 overflow-hidden w-full sm:w-auto">
               {/* Dynamic Live Pulsing Alert Badge */}
-              <div className="flex-shrink-0 flex items-center space-x-1.5 bg-brand-orange/20 text-orange-400 border border-brand-orange/50 font-heading font-bold text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-full backdrop-blur-xs">
+              <div className="flex-shrink-0 flex items-center space-x-1.5 bg-brand-orange/20 text-orange-400 border border-brand-orange/50 font-heading font-bold text-[9px] tracking-wider px-2.5 py-0.5 rounded-full backdrop-blur-xs">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-orange"></span>
                 </span>
-                <span>NEW BATCH 2026</span>
+                <span>New Batch 2026</span>
               </div>
-              <p className="font-sans font-medium truncate text-slate-100 text-xs">
-                Admissions open for Mobile Repair, CCTV, and Domestic Wiring courses.
-              </p>
+              <div className="overflow-hidden whitespace-nowrap w-full sm:w-auto">
+                <p className="font-sans font-medium text-slate-100 text-xs inline-block sm:block animate-text-marquee sm:animate-none">
+                  Admissions open for Mobile Repair, CCTV, and Domestic Wiring courses. Speak with an admissions advisor today!
+                </p>
+              </div>
             </div>
             <Link
               to="/inquiry"
@@ -335,24 +355,24 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Left Side Navigation Arrow (Overlaying middle left edge) */}
+        {/* Left Side Navigation Arrow (White low opacity & smaller size) */}
         <button
           onClick={prevSlide}
-          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 h-10 w-8 sm:h-12 sm:w-10 bg-slate-950/50 hover:bg-brand-orange text-white flex items-center justify-center transition-all duration-200 cursor-pointer backdrop-blur-sm shadow-lg rounded-r-xl border-y border-r border-white/20 active:scale-95 group/arrow"
+          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 h-8 w-8 sm:h-9 sm:w-9 bg-white/20 hover:bg-white/40 active:scale-95 text-white flex items-center justify-center transition-all duration-200 cursor-pointer backdrop-blur-md shadow-md rounded-full border border-white/30 group/arrow"
           aria-label="Previous Slide"
         >
-          <svg className="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover/arrow:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <svg className="h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover/arrow:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
 
-        {/* Right Side Navigation Arrow (Overlaying middle right edge) */}
+        {/* Right Side Navigation Arrow (White low opacity & smaller size) */}
         <button
           onClick={nextSlide}
-          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 h-10 w-8 sm:h-12 sm:w-10 bg-slate-950/50 hover:bg-brand-orange text-white flex items-center justify-center transition-all duration-200 cursor-pointer backdrop-blur-sm shadow-lg rounded-l-xl border-y border-l border-white/20 active:scale-95 group/arrow"
+          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 h-8 w-8 sm:h-9 sm:w-9 bg-white/20 hover:bg-white/40 active:scale-95 text-white flex items-center justify-center transition-all duration-200 cursor-pointer backdrop-blur-md shadow-md rounded-full border border-white/30 group/arrow"
           aria-label="Next Slide"
         >
-          <svg className="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover/arrow:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <svg className="h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover/arrow:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </button>
@@ -376,9 +396,9 @@ export default function Home() {
       <section className="relative z-30 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 -mt-10">
         <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-xl border border-slate-200/80 grid grid-cols-2 md:grid-cols-4 gap-6">
           <StatCounter end="100" suffix="%" label="Practical Training" sublabel="Hands-on Workshop Labs" />
-          <StatCounter end="100" suffix="%" label="Certified Programs" sublabel="TVTI Practical Standard" />
+          <StatCounter end="200" suffix="+" label="Successful Students" sublabel="Completed TVTI Training" />
           <StatCounter end="6" suffix="+" label="Technical Disciplines" sublabel="Mobile, Laptop, CCTV, Wiring" />
-          <StatCounter end="95" suffix="%" label="Graduate Placement" sublabel="Employment & Entrepreneurship" />
+          <StatCounter end="100" suffix="%" label="Certification Rate" sublabel="TVTI Practical Standard" />
         </div>
       </section>
 
@@ -566,7 +586,7 @@ export default function Home() {
           {newsItems.map((news, idx) => (
             <div
               key={idx}
-              className="flex-none w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] snap-start bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden group flex flex-col justify-between"
+              className="news-card-item flex-none w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] snap-start bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden group flex flex-col justify-between"
             >
               <div>
                 {/* Poster Image Area with Floating Date Badge on Bottom-Right */}
@@ -612,7 +632,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 5. GRADUATE SUCCESS STORIES (Compact & Sleek Design) */}
+      {/* 5. SUCCESS STORIES (Compact & Sleek Design) */}
       <section className="py-8 px-5 sm:px-8 max-w-3xl mx-auto w-full my-5 relative overflow-hidden rounded-2xl shadow-xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-slate-800/80 group">
         {/* Ambient Orange Spotlight & Decorative Background Elements */}
         <div className="absolute top-0 right-0 w-72 h-72 bg-brand-orange/15 rounded-full filter blur-3xl pointer-events-none -mr-16 -mt-16" />
@@ -623,8 +643,8 @@ export default function Home() {
 
         <div className="space-y-5 relative z-10">
           <SectionHeading
-            title="Graduate Success Stories"
-            subtitle="Real experiences from TVTI certificate graduates thriving in the industry."
+            title="Success Stories"
+            subtitle="Real experiences from TVTI certificate students thriving in the industry."
             align="center"
             dark={true}
           />
