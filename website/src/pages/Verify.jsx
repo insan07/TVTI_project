@@ -46,7 +46,8 @@ export default function Verify() {
     setSearchParams({ query: searchKey })
 
     try {
-      const response = await fetch(`http://localhost:5000/api/certificates/verify?query=${encodeURIComponent(searchKey.trim())}`)
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+      const response = await fetch(`${API_URL}/api/certificates/verify?query=${encodeURIComponent(searchKey.trim())}`)
       const data = await response.json()
 
       if (response.ok && data.verified) {
@@ -77,17 +78,17 @@ export default function Verify() {
   return (
     <div className="flex flex-col min-w-full font-sans select-none bg-brand-white text-brand-black">
       
-      {/* 1. HERO BANNER */}
-      <section className="bg-brand-black text-brand-white py-16 px-4 sm:px-6 lg:px-8 border-b border-brand-charcoal text-center relative overflow-hidden">
+      {/* 1. PAGE HEADER BANNER */}
+      <section className="bg-brand-black text-brand-white py-6 sm:py-8 px-5 sm:px-8 lg:px-12 xl:px-16 border-b border-brand-charcoal text-center relative overflow-hidden">
         <div className="max-w-4xl mx-auto space-y-4 relative z-10">
-          <span className="inline-block bg-brand-orange/20 text-brand-orange font-heading font-extrabold text-xs uppercase tracking-widest px-3 py-1 rounded-full border border-brand-orange/30">
-            TVTI Registry Verification System
+          <span className="inline-block bg-brand-orange text-brand-white font-heading font-extrabold text-[10px] uppercase tracking-widest px-3.5 py-1.5 rounded-full border border-brand-orange/30">
+            OFFICIAL REGISTRY &bull; TVTI SRI LANKA
           </span>
-          <h1 className="font-heading font-extrabold text-3xl sm:text-5xl uppercase tracking-tight leading-tight text-brand-white">
-            Certificate & Credential Verification
+          <h1 className="font-heading font-extrabold text-3xl sm:text-5xl tracking-tight text-brand-white">
+            Student Certificate Verification
           </h1>
-          <p className="font-sans text-brand-light/80 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
-            Verify official TVTI vocational diplomas, academic transcripts, and professional qualifications issued by Twintec Vocational Training Institute Puttalam.
+          <p className="font-sans text-brand-light/75 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
+            Enter a student Index Number (e.g. <span className="text-brand-orange font-bold font-mono">26T0001</span>) or Student NIC to verify official TVTI practical certificate credentials.
           </p>
 
           {/* SEARCH FORM */}
@@ -136,7 +137,7 @@ export default function Verify() {
       </section>
 
       {/* 2. RESULTS DISPLAY CONTAINER */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
+      <section className="py-16 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-5xl mx-auto w-full">
         
         {/* Loading State */}
         {loading && (

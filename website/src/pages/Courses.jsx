@@ -107,17 +107,17 @@ export default function Courses() {
     <div className="flex flex-col w-full overflow-hidden select-none">
       
       {/* 1. PAGE HEADER BANNER */}
-      <section className="bg-brand-black text-brand-white py-12 px-4 sm:px-6 lg:px-8 border-b border-brand-charcoal relative">
+      <section className="bg-brand-black text-brand-white py-6 sm:py-7 px-5 sm:px-8 lg:px-12 xl:px-16 border-b border-brand-charcoal relative">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="space-y-2 text-left">
+          <div className="space-y-1.5 text-left">
             {/* Breadcrumb */}
             <div className="flex items-center space-x-2 text-xs font-sans uppercase tracking-widest text-brand-light/50">
               <Link to="/" className="hover:text-brand-orange transition-colors">Home</Link>
               <span>&gt;</span>
               <span className="text-brand-orange font-bold">Courses</span>
             </div>
-            <h1 className="font-heading font-extrabold text-3xl sm:text-4xl uppercase tracking-tight text-brand-white">
-              Our Courses
+            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight text-brand-white">
+              Practical Vocational Certificate Courses
             </h1>
           </div>
           <div className="hidden sm:block text-right">
@@ -128,8 +128,8 @@ export default function Courses() {
         <div className="absolute inset-0 opacity-5 bg-[linear-gradient(to_right,#333_1px,transparent_1px),linear-gradient(to_bottom,#333_1px,transparent_1px)] bg-[size:2rem_2rem] pointer-events-none" />
       </section>
 
-      {/* 2. FILTER BAR & COURSE LISTING GRID */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-12">
+      {/* 2. FILTER BAR & COURSE CARDS GRID */}
+      <section className="py-8 sm:py-10 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full space-y-6">
         
         {/* Filter Pills */}
         <div className="flex flex-wrap justify-center gap-3">
@@ -205,9 +205,9 @@ export default function Courses() {
       </section>
 
       {/* 3. CTA BANNER */}
-      <section className="bg-brand-orange text-brand-white py-16 px-4 sm:px-6 lg:px-8 border-t border-brand-orange shadow-inner relative overflow-hidden">
+      <section className="bg-brand-orange text-brand-white py-16 px-5 sm:px-8 lg:px-12 xl:px-16 border-t border-brand-orange shadow-inner relative overflow-hidden">
         <div className="max-w-4xl mx-auto text-center space-y-6 relative z-10">
-          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl uppercase tracking-tight leading-none text-brand-white">
+          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl tracking-tight leading-none text-brand-white">
             Ready to Start Your Career?
           </h2>
           <p className="font-sans text-brand-white/90 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">

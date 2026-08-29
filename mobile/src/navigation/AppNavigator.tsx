@@ -193,6 +193,12 @@ export const AppNavigator = () => {
     headerBackTitleVisible: false,
   };
 
+  const normalizedRole = userRole
+    ? String(userRole).toLowerCase()
+    : context?.user?.role
+    ? String(context.user.role).toLowerCase()
+    : 'student';
+
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -208,20 +214,7 @@ export const AppNavigator = () => {
           <Stack.Screen name="ForceChangePassword" component={ForceChangePasswordScreen} />
         ) : (
           <>
-            {userRole === 'student' && (
-              <>
-                <Stack.Screen name="StudentApp">
-                  {props => <StudentTabs {...props} unreadCount={unreadCount} insets={insets} />}
-                </Stack.Screen>
-
-                <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
-
-                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
-                <Stack.Screen name="Results" component={ResultsScreen} options={{ headerShown: false }} />
-              </>
-            )}
-            {userRole === 'instructor' && (
+            {normalizedRole === 'instructor' ? (
               <>
                 <Stack.Screen name="InstructorApp">
                   {props => <InstructorTabs {...props} insets={insets} />}
@@ -230,14 +223,24 @@ export const AppNavigator = () => {
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
                 <Stack.Screen name="MyStudents" component={MyStudentsScreen} options={{ ...headerOptions, headerShown: true, title: 'My Students' }} />
               </>
-            )}
-            {userRole === 'admin' && (
+            ) : normalizedRole === 'admin' ? (
               <>
                 <Stack.Screen name="AdminApp">
                   {props => <AdminTabs {...props} insets={insets} />}
                 </Stack.Screen>
                 <Stack.Screen name="EnrollStudent" component={EnrollStudentScreen} options={{ ...headerOptions, headerShown: true, title: 'Enroll Students' }} />
                 <Stack.Screen name="PostAnnouncement" component={PostAnnouncementScreen} options={{ ...headerOptions, headerShown: true, title: 'New Announcement' }} />
+              </>
+            ) : (
+              <>
+                <Stack.Screen name="StudentApp">
+                  {props => <StudentTabs {...props} unreadCount={unreadCount} insets={insets} />}
+                </Stack.Screen>
+                <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
+
+                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
+                <Stack.Screen name="Results" component={ResultsScreen} options={{ headerShown: false }} />
               </>
             )}
           </>

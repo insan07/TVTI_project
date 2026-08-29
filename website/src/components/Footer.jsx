@@ -25,7 +25,7 @@ export default function Footer() {
 
   return (
     <footer className="bg-brand-black text-brand-white border-t border-brand-charcoal pt-16 pb-8 font-sans select-none">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16">
         
         {/* 4-Column Desktop Grid / Stacked Mobile Layout */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-12 mb-12 text-left">

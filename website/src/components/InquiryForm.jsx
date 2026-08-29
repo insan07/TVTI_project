@@ -49,7 +49,8 @@ export default function InquiryForm({ defaultCourse = null }) {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/courses/active')
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+        const response = await fetch(`${API_URL}/api/courses/active`)
         if (response.ok) {
           const data = await response.json()
           if (data && data.length > 0) {
@@ -151,7 +152,8 @@ export default function InquiryForm({ defaultCourse = null }) {
 
     try {
       // POST to backend applications API (same endpoint as mobile app)
-      const response = await fetch('http://localhost:5000/api/applications', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+      const response = await fetch(`${API_URL}/api/applications`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

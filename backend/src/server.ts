@@ -64,9 +64,11 @@ app.get('/api/files/:fileId', (req: Request, res: Response) => {
     const fileId = Array.isArray(req.params.fileId) ? req.params.fileId[0] : req.params.fileId;
     const downloadStream = getGridFSDownloadStream(fileId);
     downloadStream.on('file', (file) => {
-      const contentType = file.metadata?.contentType || 'application/octet-stream';
+      const contentType = file.metadata?.contentType || (file.filename?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', 'inline');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     });
     downloadStream.on('error', () => {
       if (!res.headersSent) res.status(404).json({ message: 'File not found' });

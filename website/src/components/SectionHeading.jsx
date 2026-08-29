@@ -19,7 +19,7 @@ export default function SectionHeading({
       className={`flex flex-col ${alignmentClasses[align]} ${className}`}
       {...props}
     >
-      <h2 className={`font-heading font-extrabold text-2xl sm:text-3xl md:text-4xl tracking-tight uppercase ${
+      <h2 className={`font-heading font-bold text-2xl sm:text-3xl md:text-4xl tracking-tight ${
         dark ? 'text-white' : 'text-slate-900'
       }`}>
         {title}

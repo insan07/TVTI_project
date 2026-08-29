@@ -123,6 +123,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
       <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
           <Icon name="notifications-outline" size={24} color="#1A1A1A" />
+          {unreadCount && unreadCount > 0 ? <View style={styles.badgeDot} /> : null}
         </TouchableOpacity>
       </View>
 
@@ -330,6 +331,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#EF4444',
   },
+
   scrollContent: {
     flex: 1,
   },

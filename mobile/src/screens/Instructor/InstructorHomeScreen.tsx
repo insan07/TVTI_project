@@ -6,7 +6,6 @@ import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
 import { API_URL } from '../../config/constants';
 import { COLORS, SHADOW } from '../../config/theme';
-import { API_URL } from '../../config/constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
