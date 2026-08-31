@@ -222,41 +222,31 @@ export default function PracticeSessionsScreen() {
                 </ScrollView>
               )}
 
-              {/* Week Picker */}
-              <View style={styles.weekPickerRow}>
-                <TouchableOpacity onPress={() => changeWeek(-1)}>
-                  <Icon name="chevron-back-outline" size={20} color="#1A1A1A" />
-                </TouchableOpacity>
-                <Text style={styles.weekText}>Week of {getLocalDateString(weekStart)}</Text>
-                <TouchableOpacity onPress={() => changeWeek(1)}>
-                  <Icon name="chevron-forward-outline" size={20} color="#1A1A1A" />
-                </TouchableOpacity>
-              </View>
-
               {loading ? (
                 <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 30 }} />
               ) : slots.length > 0 ? (
                 slots.map((slot) => {
                   const isFull = slot.seats_available <= 0;
                   const disabled = isFull || (hasBookedThisWeek && !slot.already_booked);
+                  const actualSlotDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
+                  const dateString = actualSlotDate.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
+
                   return (
                     <View key={slot._id} style={styles.sessionCard}>
                       <View style={styles.sessionCardAccentBar} />
                       <View style={styles.sessionCardContent}>
                         <View style={styles.pillTagsRow}>
+                          <View style={styles.practiceTypeTag}>
+                            <Text style={styles.practiceTypeTagText}>PRACTICE SLOT</Text>
+                          </View>
                           <View style={styles.coursePillTag}>
                             <Text style={styles.coursePillText}>
                               {slot.batch_id?.course_id?.title || 'Practice Session'}
                             </Text>
                           </View>
-                          <View style={styles.batchPillTag}>
-                            <Text style={styles.batchPillTagText}>
-                              {slot.batch_id?.name || 'Batch 01'}
-                            </Text>
-                          </View>
                         </View>
 
-                        <Text style={styles.sessionDateText}>{slot.day_of_week}</Text>
+                        <Text style={styles.sessionDateText}>{dateString}</Text>
                         <Text style={styles.sessionTimeText}>
                           {slot.start_time} – {slot.end_time}
                         </Text>
@@ -291,7 +281,7 @@ export default function PracticeSessionsScreen() {
                   );
                 })
               ) : (
-                <Text style={styles.emptyText}>No open practice slots for this week.</Text>
+                <Text style={styles.emptyText}>No open practice slots available.</Text>
               )}
             </View>
           )}
@@ -317,7 +307,7 @@ export default function PracticeSessionsScreen() {
                         <View style={styles.pillTagsRow}>
                           <View style={[styles.coursePillTag, !isFuture && styles.pastPillTag]}>
                             <Text style={[styles.coursePillText, !isFuture && styles.pastPillText]}>
-                              {slot.batch_id?.course_id?.title || 'Welding Basics'}
+                              {slot.batch_id?.course_id?.title || 'Practice Session'}
                             </Text>
                           </View>
                           <View style={[styles.batchPillTag, !isFuture && styles.pastPillTag]}>
@@ -519,6 +509,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#333333',
     ...FONTS.bold,
+  },
+  practiceTypeTag: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: RADIUS.sm,
+    marginRight: 8,
+  },
+  practiceTypeTagText: {
+    fontSize: 10.5,
+    color: '#D97706',
+    ...FONTS.bold,
+    letterSpacing: 0.5,
   },
   batchPillTag: {
     backgroundColor: '#F3F4F6',

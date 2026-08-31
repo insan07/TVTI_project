@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
 const parseUTCDate = (dateStr: string) => {
+  if (!dateStr) return new Date();
   const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (match) {
     const year = parseInt(match[1], 10);
@@ -24,6 +25,18 @@ const parseUTCDate = (dateStr: string) => {
     return new Date(year, month, day, 0, 0, 0, 0);
   }
   return new Date(dateStr);
+};
+
+const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
+  if (!weekStartDateStr) return new Date();
+  const weekStart = parseUTCDate(weekStartDateStr);
+  const daysArr = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const diff = daysArr.indexOf(dayOfWeek);
+  const slotDate = new Date(weekStart);
+  if (diff !== -1) {
+    slotDate.setDate(slotDate.getDate() + diff);
+  }
+  return slotDate;
 };
 
 export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: number }) {
@@ -121,19 +134,20 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
   const selectedDayName = getDayName(selectedDate);
 
   // Regular classes
-  const regularClasses =
-    selectedBatch?.schedule_json?.days?.includes(selectedDayName.substring(0, 3)) ||
-    selectedBatch?.schedule_json?.days?.includes(selectedDayName)
-      ? [
-          {
-            type: 'class',
-            title: selectedBatch?.course_id?.title || 'Automotive Mechatronics',
-            time: selectedBatch?.schedule_json?.time || '09:00 - 11:30',
-            room: selectedBatch?.room || 'Room 302',
-            instructor: selectedBatch?.instructor_ids?.[0]?.name || 'Dr. Alan Grant',
-          },
-        ]
-      : [];
+  const regularClasses = selectedBatch
+    ? [
+        {
+          type: 'class',
+          title: selectedBatch?.course_id?.title || 'Vocational Training Course',
+          days: Array.isArray(selectedBatch?.schedule_json?.days)
+            ? selectedBatch.schedule_json.days.join(', ')
+            : (selectedBatch?.schedule_json?.days || 'Mon, Wed, Fri'),
+          time: selectedBatch?.schedule_json?.time || '09:00 - 11:30',
+          room: selectedBatch?.room || 'Main Workshop',
+          instructor: selectedBatch?.instructor_ids?.[0]?.name || 'Instructor',
+        },
+      ]
+    : [];
 
   // Slots for selected date
   const selectedDateStr = getLocalDateString(selectedDate);
@@ -189,42 +203,13 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
           </ScrollView>
         )}
 
-        {/* Horizontal Calendar Strip */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.calendarStripContainer}
-        >
-          {calendarDays.map((date, idx) => {
-            const isSelected = getLocalDateString(date) === getLocalDateString(selectedDate);
-            const dayAbbr = getDayName(date).substring(0, 3).toUpperCase();
-            const dayNum = date.getDate();
-
-            return (
-              <TouchableOpacity
-                key={idx}
-                style={[styles.dateCard, isSelected && styles.dateCardActive]}
-                onPress={() => setSelectedDate(date)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.dateCardDay, isSelected && styles.dateCardDayActive]}>
-                  {dayAbbr}
-                </Text>
-                <Text style={[styles.dateCardNum, isSelected && styles.dateCardNumActive]}>
-                  {dayNum}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
         {/* Content Body */}
         {loading ? (
           <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 40 }} />
         ) : (
           <View style={styles.contentPadding}>
-            {/* Section 1: Classes */}
-            <Text style={styles.sectionTitle}>Classes</Text>
+            {/* Section 1: Regular Classes (Blue Theme) */}
+            <Text style={styles.sectionTitle}>Regular Classes</Text>
 
             {regularClasses.length > 0 ? (
               regularClasses.map((cls, i) => (
@@ -234,40 +219,47 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                     <View style={styles.classCardTopRow}>
                       <Text style={styles.classCourseTitle}>{cls.title}</Text>
                       <View style={styles.theoryBadge}>
-                        <Text style={styles.theoryBadgeText}>THEORY</Text>
+                        <Text style={styles.theoryBadgeText}>THEORY CLASS</Text>
                       </View>
                     </View>
                     <View style={styles.classCardInfoRow}>
-                      <Icon name="time-outline" size={15} color="#666" style={{ marginRight: 4 }} />
-                      <Text style={styles.classCardInfoText}>{cls.time}</Text>
+                      <Icon name="calendar-outline" size={15} color="#2563EB" style={{ marginRight: 4 }} />
+                      <Text style={[styles.classCardInfoText, { fontWeight: 'bold', color: '#1E40AF' }]}>
+                        {cls.days}
+                      </Text>
                       <Text style={styles.dotSeparator}>•</Text>
-                      <Icon name="location-outline" size={15} color="#666" style={{ marginRight: 4 }} />
-                      <Text style={styles.classCardInfoText}>{cls.room || 'Room 302'}</Text>
+                      <Icon name="time-outline" size={15} color="#2563EB" style={{ marginRight: 4 }} />
+                      <Text style={styles.classCardInfoText}>{cls.time}</Text>
                     </View>
                     <View style={styles.classCardInfoRow}>
+                      <Icon name="location-outline" size={15} color="#666" style={{ marginRight: 4 }} />
+                      <Text style={styles.classCardInfoText}>{cls.room || 'Main Workshop'}</Text>
+                      <Text style={styles.dotSeparator}>•</Text>
                       <Icon name="person-outline" size={15} color="#666" style={{ marginRight: 4 }} />
-                      <Text style={styles.classCardInfoText}>{cls.instructor || 'Dr. Alan Grant'}</Text>
+                      <Text style={styles.classCardInfoText}>Inst. {cls.instructor}</Text>
                     </View>
                   </View>
                 </View>
               ))
             ) : (
               <Text style={{ color: '#888888', ...FONTS.regular, marginVertical: SPACING.md }}>
-                No classes scheduled for this day.
+                No regular classes found for this batch.
               </Text>
             )}
 
-            {/* Section 2: Practice Sessions */}
-            <Text style={[styles.sectionTitle, { marginTop: SPACING.xl }]}>Practice Sessions</Text>
+            {/* Section 2: Practice Sessions (Orange Theme) */}
+            <Text style={[styles.sectionTitle, { marginTop: SPACING.xl }]}>Practice Sessions & Lab Slots</Text>
 
-            {daySlots.length > 0 ? (
-              daySlots.map((slot) => {
+            {slots.length > 0 ? (
+              slots.map((slot) => {
                 const isFull = slot.seats_available <= 0;
                 const bookedThisWeek = hasBookedInWeek(slot.week_start_date);
                 const disabled = isFull || (bookedThisWeek && !slot.already_booked);
                 const seatsLeft = slot.seats_available;
                 const maxSeats = slot.max_students || 10;
                 const fillRatio = Math.max(0, Math.min(1, (maxSeats - seatsLeft) / maxSeats));
+                const actualSlotDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
+                const dateString = actualSlotDate.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
 
                 return (
                   <View
@@ -275,9 +267,16 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                     style={[styles.practiceCard, isFull && styles.practiceCardFull]}
                   >
                     <View style={styles.practiceCardTopRow}>
-                      <Text style={[styles.practiceTitle, isFull && styles.dimmedText]}>
-                        {slot.batch_id?.course_id?.title || 'Practice Session'}
-                      </Text>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                          <View style={styles.practiceBadge}>
+                            <Text style={styles.practiceBadgeText}>PRACTICE SLOT</Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.practiceTitle, isFull && styles.dimmedText]}>
+                          {slot.batch_id?.course_id?.title || 'Practice Session'}
+                        </Text>
+                      </View>
 
                       {slot.already_booked ? (
                         <View style={styles.bookedBadge}>
@@ -307,17 +306,27 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
 
                     <View style={styles.practiceInfoRow}>
                       <Icon
+                        name="calendar-outline"
+                        size={15}
+                        color={isFull ? '#B0B0B0' : '#D97706'}
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={[styles.practiceDateText, isFull && styles.dimmedText]}>
+                        {dateString}
+                      </Text>
+                    </View>
+
+                    <View style={styles.practiceInfoRow}>
+                      <Icon
                         name="time-outline"
                         size={15}
                         color={isFull ? '#B0B0B0' : '#666'}
                         style={{ marginRight: 4 }}
                       />
                       <Text style={[styles.practiceInfoText, isFull && styles.dimmedText]}>
-                        {slot.day_of_week} | {slot.start_time} - {slot.end_time}
+                        {slot.start_time} - {slot.end_time}
                       </Text>
-                    </View>
-
-                    <View style={styles.practiceInfoRow}>
+                      <Text style={styles.dotSeparator}>•</Text>
                       <Icon
                         name="person-outline"
                         size={15}
@@ -357,7 +366,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
               })
             ) : (
               <Text style={{ color: '#888888', ...FONTS.regular, marginVertical: SPACING.md }}>
-                No practice sessions available for this day.
+                No practice sessions available.
               </Text>
             )}
           </View>
@@ -483,12 +492,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: SPACING.md,
     ...SHADOW.sm,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
+    borderWidth: 1.5,
+    borderColor: '#DBEAFE',
   },
   classCardAccentBar: {
-    width: 5,
-    backgroundColor: '#F58220',
+    width: 6,
+    backgroundColor: '#2563EB',
   },
   classCardContent: {
     flex: 1,
@@ -508,16 +517,37 @@ const styles = StyleSheet.create({
     marginRight: SPACING.xs,
   },
   theoryBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
     paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: RADIUS.full,
   },
   theoryBadgeText: {
-    color: '#10B981',
+    color: '#1D4ED8',
     fontSize: 10.5,
     ...FONTS.bold,
     letterSpacing: 0.5,
+  },
+  practiceBadge: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: RADIUS.full,
+  },
+  practiceBadgeText: {
+    color: '#D97706',
+    fontSize: 10.5,
+    ...FONTS.bold,
+    letterSpacing: 0.5,
+  },
+  practiceDateText: {
+    fontSize: 14.5,
+    color: '#D97706',
+    ...FONTS.bold,
   },
   classCardInfoRow: {
     flexDirection: 'row',

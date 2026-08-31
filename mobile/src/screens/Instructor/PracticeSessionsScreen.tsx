@@ -129,6 +129,26 @@ const PracticeSessionsScreen = () => {
     }
   };
 
+  const handleRemoveBooking = (bookingId: string, studentName: string) => {
+    Alert.alert('Remove Student', `Are you sure you want to cancel ${studentName}'s booking for this slot?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.delete(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}`);
+            Alert.alert('Success', 'Student booking removed');
+            openBookingsModal(selectedSlot);
+            fetchMySlots();
+          } catch (e) {
+            Alert.alert('Error', 'Failed to remove student booking');
+          }
+        }
+      }
+    ]);
+  };
+
   const openEditModal = (slot: any) => {
     setSelectedSlot(slot);
     setEditMaxStudents(slot.max_students.toString());
@@ -269,6 +289,7 @@ const PracticeSessionsScreen = () => {
                   {slot.batch_id?.name ? (
                     <Text style={styles.cardBatch}>📚 {slot.batch_id.name}</Text>
                   ) : null}
+                  <Text style={styles.cardBatch}>👨‍🏫 Inst. {slot.instructor_id?.name || 'Instructor'}</Text>
                   {slot.equipment_note ? (
                     <Text style={styles.cardNote}>Note: {slot.equipment_note}</Text>
                   ) : null}
@@ -458,13 +479,24 @@ const PracticeSessionsScreen = () => {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.bookingName}>{item.student_id?.name || 'Unknown Student'}</Text>
-                      <Text style={styles.bookingPhone}>{item.student_id?.phone || item.student_id?.email || 'N/A'}</Text>
-                    </View>
-                    <View style={[styles.badge, { backgroundColor: item.status === 'confirmed' ? '#D1FAE5' : '#FEE2E2' }]}>
-                      <Text style={[styles.badgeText, { color: item.status === 'confirmed' ? '#065F46' : '#991B1B' }]}>
-                        {item.status}
+                      <Text style={styles.bookingPhone}>
+                        {item.student_id?.phone || item.student_id?.email || 'N/A'}
+                        {item.student_id?.index_number ? ` • ${item.student_id.index_number}` : ''}
                       </Text>
                     </View>
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: '#FEF2F2',
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: '#FCA5A5'
+                      }}
+                      onPress={() => handleRemoveBooking(item._id, item.student_id?.name || 'Student')}
+                    >
+                      <Text style={{ color: '#DC2626', fontSize: 12, fontWeight: 'bold' }}>Remove</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               />

@@ -47,11 +47,8 @@ export default function PostAnnouncementScreen() {
       }
       setBatches(res.data || []);
     } catch (e) {
-      console.warn('Failed to fetch batches from server, setting mock fallback', e);
-      setBatches([
-        { _id: 'b1', name: 'Batch A - Morning', course_id: { title: 'Welding Tech' } },
-        { _id: 'b2', name: 'Batch B - Evening', course_id: { title: 'HVAC Basics' } }
-      ]);
+      console.warn('Failed to fetch batches from server', e);
+      setBatches([]);
     } finally {
       setBatchesLoading(false);
     }
@@ -63,23 +60,8 @@ export default function PostAnnouncementScreen() {
       const res = await api.get('/announcements/my');
       setAnnouncements(res.data || []);
     } catch (e) {
-      console.warn('Failed to fetch announcement history, using fallback', e);
-      setAnnouncements([
-        {
-          _id: 'a1',
-          title: 'Workshop Postponed',
-          message: 'The practical workshop scheduled for tomorrow morning has been postponed due to maintenance.',
-          batch_id: { name: 'Batch A - Morning' },
-          createdAt: new Date().toISOString()
-        },
-        {
-          _id: 'a2',
-          title: 'Exam Results Published',
-          message: 'The results for the mid-term examinations are now available on the student portal. Please review your grades.',
-          batch_id: null, // Target: All Batches
-          createdAt: new Date(Date.now() - 86400000).toISOString()
-        }
-      ]);
+      console.warn('Failed to fetch announcement history', e);
+      setAnnouncements([]);
     } finally {
       setLoadingHistory(false);
       setRefreshing(false);
