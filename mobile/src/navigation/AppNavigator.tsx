@@ -72,7 +72,7 @@ const StudentTabs = ({ unreadCount, insets }: { unreadCount: number, insets: any
     tabBarIcon: ({ color, size }) => {
       let iconName: any = 'home';
       if (route.name === 'Home') iconName = 'home';
-      else if (route.name === 'Videos') iconName = 'cloud-upload';
+      else if (route.name === 'Videos') iconName = 'folder-open';
       else if (route.name === 'Schedule') iconName = 'calendar';
       else if (route.name === 'Profile') iconName = 'person';
       return <Icon name={iconName} size={size} color={color} />;
@@ -240,8 +240,6 @@ export const AppNavigator = () => {
                   {props => <StudentTabs {...props} unreadCount={unreadCount} insets={insets} />}
                 </Stack.Screen>
                 <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
-
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
                 <Stack.Screen name="Results" component={ResultsScreen} options={{ headerShown: false }} />
               </>

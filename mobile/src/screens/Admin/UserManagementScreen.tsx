@@ -49,6 +49,44 @@ export default function UserManagementScreen() {
   const [credentialsModalVisible, setCredentialsModalVisible] = useState(false);
   const [approvedCredentials, setApprovedCredentials] = useState<any>(null);
 
+  // Custom Confirmation & Alert Dialog Popup State
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info' | 'lock';
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'success' | 'error' | 'info';
+    onOk?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (title: string, msg: string, onOk?: () => void, type: 'success' | 'error' | 'info' = 'info') => {
+    setAlertModal({
+      visible: true,
+      title,
+      message: msg,
+      type,
+      onOk
+    });
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchBatches();
@@ -92,7 +130,7 @@ export default function UserManagementScreen() {
       setUserDetails(res.data);
     } catch (e) {
       console.warn('Failed to load user details', e);
-      Alert.alert('Error', 'Failed to load user profile details');
+      showAlert('Error', 'Failed to load user profile details', undefined, 'error');
       setDetailsModalVisible(false);
     } finally {
       setLoadingDetails(false);
@@ -106,49 +144,35 @@ export default function UserManagementScreen() {
         setApprovedCredentials(res.data.credentials);
         setCredentialsModalVisible(true);
       } else {
-        if (Platform.OS === 'web') {
-          window.alert('User application approved successfully.');
-        } else {
-          Alert.alert('Approved', 'User application approved.');
-        }
+        showAlert('Approved', 'User application approved successfully.', undefined, 'success');
       }
       setDetailsModalVisible(false);
       fetchUsers();
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Approval failed';
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${msg}`);
-      } else {
-        Alert.alert('Error', msg);
-      }
+      showAlert('Error', msg, undefined, 'error');
     }
   };
 
-  const handleReject = async (id: string) => {
-    const doReject = async () => {
-      try {
-        await api.put(`/admin/users/${id}/reject`, { reason: 'Rejected by admin' });
-        setDetailsModalVisible(false);
-        fetchUsers();
-      } catch (e) {
-        if (Platform.OS === 'web') {
-          window.alert('Rejection failed');
-        } else {
-          Alert.alert('Error', 'Rejection failed');
+  const handleReject = (id: string, userName?: string) => {
+    setConfirmModal({
+      visible: true,
+      title: 'Reject Registration',
+      message: `Are you sure you want to reject registration for ${userName || 'this applicant'}?`,
+      type: 'danger',
+      confirmText: 'Reject',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await api.put(`/admin/users/${id}/reject`, { reason: 'Rejected by admin' });
+          setDetailsModalVisible(false);
+          fetchUsers();
+          showAlert('Success', 'Application rejected successfully.', undefined, 'success');
+        } catch (e) {
+          showAlert('Error', 'Rejection failed', undefined, 'error');
         }
       }
-    };
-
-    if (Platform.OS === 'web') {
-      if (window.confirm('Are you sure you want to reject this registration?')) {
-        doReject();
-      }
-    } else {
-      Alert.alert('Reject Application', 'Are you sure you want to reject this registration?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Reject', style: 'destructive', onPress: doReject }
-      ]);
-    }
+    });
   };
 
   const handleAssignBatch = async () => {
@@ -156,44 +180,53 @@ export default function UserManagementScreen() {
     setAssigning(true);
     try {
       await api.post(`/admin/batches/${assignBatchId}/enroll`, { studentIds: [assignStudentId] });
-      Alert.alert('Success', 'Student assigned to batch successfully');
+      showAlert('Success', 'Student assigned to batch successfully', undefined, 'success');
       setAssignModalVisible(false);
       if (detailsModalVisible && userDetails?.user?._id === assignStudentId) {
         handleOpenDetails(assignStudentId);
       }
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Assignment failed');
+      showAlert('Error', e.response?.data?.message || 'Assignment failed', undefined, 'error');
     } finally {
       setAssigning(false);
     }
   };
 
-  const handleToggleActive = async (id: string, currentStatus: boolean) => {
-    const actionText = currentStatus ? 'deactivate' : 'activate';
-    Alert.alert(`${currentStatus ? 'Deactivate' : 'Activate'} User`, `Are you sure you want to ${actionText} this user?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: currentStatus ? 'Deactivate' : 'Activate',
-        style: currentStatus ? 'destructive' : 'default',
-        onPress: async () => {
-          try {
-            await api.put(`/admin/users/${id}/deactivate`);
-            fetchUsers();
-            if (detailsModalVisible) {
-              handleOpenDetails(id);
-            }
-          } catch (e) {
-            Alert.alert('Error', 'Status update failed');
+  const handleToggleActive = (id: string, currentStatus: boolean, userName?: string) => {
+    const isDeactivating = currentStatus;
+    setConfirmModal({
+      visible: true,
+      title: isDeactivating ? 'Deactivate Account' : 'Activate Account',
+      message: isDeactivating
+        ? `Are you sure you want to deactivate ${userName || 'this user'}'s account? They will be locked out and unable to log in.`
+        : `Are you sure you want to reactivate ${userName || 'this user'}'s account?`,
+      type: isDeactivating ? 'danger' : 'info',
+      confirmText: isDeactivating ? 'Deactivate' : 'Activate',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await api.put(`/admin/users/${id}/deactivate`);
+          fetchUsers();
+          if (detailsModalVisible) {
+            handleOpenDetails(id);
           }
+          showAlert(
+            'Success',
+            `Account successfully ${isDeactivating ? 'deactivated' : 'activated'}.`,
+            undefined,
+            'success'
+          );
+        } catch (e: any) {
+          showAlert('Error', e.response?.data?.message || 'Status update failed', undefined, 'error');
         }
       }
-    ]);
+    });
   };
 
   const handleCreateInstructor = async () => {
     const { name, email, phone, nic } = instructorForm;
     if (!name.trim() || !email.trim() || !nic.trim()) {
-      Alert.alert('Error', 'Name, email, and NIC number are required');
+      showAlert('Error', 'Name, email, and NIC number are required', undefined, 'error');
       return;
     }
 
@@ -211,7 +244,7 @@ export default function UserManagementScreen() {
         });
         setCredentialsModalVisible(true);
       } else {
-        Alert.alert('Success', 'Instructor created successfully');
+        showAlert('Success', 'Instructor created successfully', undefined, 'success');
       }
 
       if (activeTab === 'instructors') {
@@ -220,7 +253,8 @@ export default function UserManagementScreen() {
         setActiveTab('instructors');
       }
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to create instructor');
+      const msg = e.response?.data?.message || 'Failed to create instructor';
+      showAlert('Error', msg, undefined, 'error');
     } finally {
       setCreatingInstructor(false);
     }
@@ -269,7 +303,7 @@ export default function UserManagementScreen() {
           <Text style={styles.viewProfileText}>View Profile →</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity style={styles.rejectOutlineBtn} onPress={() => handleReject(item._id)}>
+          <TouchableOpacity style={styles.rejectOutlineBtn} onPress={() => handleReject(item._id, item.name)}>
             <Text style={styles.rejectOutlineText}>Reject</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.approveDarkBtn} onPress={() => handleApprove(item._id)}>
@@ -303,7 +337,7 @@ export default function UserManagementScreen() {
           <Text style={styles.viewProfileText}>View Profile →</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity style={styles.deactivateBtn} onPress={() => handleToggleActive(item._id, item.is_active)}>
+          <TouchableOpacity style={styles.deactivateBtn} onPress={() => handleToggleActive(item._id, item.is_active, item.name)}>
             <Text style={styles.deactivateBtnText}>{item.is_active ? 'Deactivate' : 'Activate'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -342,7 +376,7 @@ export default function UserManagementScreen() {
         <TouchableOpacity style={styles.viewProfileBtn} onPress={() => handleOpenDetails(item._id)}>
           <Text style={styles.viewProfileText}>View Profile & Batches →</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.deactivateBtn} onPress={() => handleToggleActive(item._id, item.is_active)}>
+        <TouchableOpacity style={styles.deactivateBtn} onPress={() => handleToggleActive(item._id, item.is_active, item.name)}>
           <Text style={styles.deactivateBtnText}>{item.is_active ? 'Deactivate' : 'Activate'}</Text>
         </TouchableOpacity>
       </View>
@@ -635,7 +669,7 @@ export default function UserManagementScreen() {
                 <View style={styles.detailsFooter}>
                   {userDetails.user.role === 'student' && !userDetails.user.is_active ? (
                     <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
-                      <TouchableOpacity style={[styles.footerActionBtn, { backgroundColor: '#EF4444' }]} onPress={() => handleReject(userDetails.user._id)}>
+                      <TouchableOpacity style={[styles.footerActionBtn, { backgroundColor: '#EF4444' }]} onPress={() => handleReject(userDetails.user._id, userDetails.user.name)}>
                         <Text style={styles.footerActionText}>Reject Application</Text>
                       </TouchableOpacity>
                       <TouchableOpacity style={[styles.footerActionBtn, { backgroundColor: '#10B981' }]} onPress={() => handleApprove(userDetails.user._id)}>
@@ -657,7 +691,7 @@ export default function UserManagementScreen() {
                       )}
                       <TouchableOpacity
                         style={[styles.footerActionBtn, { backgroundColor: userDetails.user.is_active ? '#DC2626' : '#2563EB' }]}
-                        onPress={() => handleToggleActive(userDetails.user._id, userDetails.user.is_active)}
+                        onPress={() => handleToggleActive(userDetails.user._id, userDetails.user.is_active, userDetails.user.name)}
                       >
                         <Text style={styles.footerActionText}>
                           {userDetails.user.is_active ? 'Deactivate Account' : 'Activate Account'}
@@ -815,6 +849,114 @@ export default function UserManagementScreen() {
               onPress={() => setCredentialsModalVisible(false)}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CUSTOM IN-APP CONFIRMATION POPUP MODAL */}
+      <Modal
+        visible={confirmModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[
+              styles.popupIconCircle,
+              { backgroundColor: confirmModal.type === 'danger' ? '#FEE2E2' : confirmModal.type === 'lock' ? '#FEF3C7' : '#EFF6FF' }
+            ]}>
+              <Icon
+                name={
+                  confirmModal.type === 'danger'
+                    ? 'alert-circle-outline'
+                    : confirmModal.type === 'lock'
+                    ? 'lock-closed-outline'
+                    : 'information-circle-outline'
+                }
+                size={28}
+                color={
+                  confirmModal.type === 'danger'
+                    ? '#DC2626'
+                    : confirmModal.type === 'lock'
+                    ? '#D97706'
+                    : '#2563EB'
+                }
+              />
+            </View>
+            <Text style={styles.popupTitle}>{confirmModal.title}</Text>
+            <Text style={styles.popupMessage}>{confirmModal.message}</Text>
+            <View style={styles.popupBtnRow}>
+              <TouchableOpacity
+                style={styles.popupCancelBtn}
+                onPress={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+              >
+                <Text style={styles.popupCancelText}>{confirmModal.cancelText || 'Cancel'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.popupConfirmBtn,
+                  { backgroundColor: confirmModal.type === 'danger' ? '#DC2626' : confirmModal.type === 'lock' ? '#D97706' : '#2563EB' }
+                ]}
+                onPress={() => {
+                  const action = confirmModal.onConfirm;
+                  setConfirmModal(prev => ({ ...prev, visible: false }));
+                  if (action) action();
+                }}
+              >
+                <Text style={styles.popupConfirmText}>{confirmModal.confirmText || 'Confirm'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CUSTOM IN-APP ALERT POPUP MODAL */}
+      <Modal
+        visible={alertModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAlertModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[
+              styles.popupIconCircle,
+              { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
+            ]}>
+              <Icon
+                name={
+                  alertModal.type === 'success'
+                    ? 'checkmark-circle-outline'
+                    : alertModal.type === 'error'
+                    ? 'close-circle-outline'
+                    : 'information-circle-outline'
+                }
+                size={28}
+                color={
+                  alertModal.type === 'success'
+                    ? '#16A34A'
+                    : alertModal.type === 'error'
+                    ? '#DC2626'
+                    : '#2563EB'
+                }
+              />
+            </View>
+            <Text style={styles.popupTitle}>{alertModal.title}</Text>
+            <Text style={styles.popupMessage}>{alertModal.message}</Text>
+            <TouchableOpacity
+              style={[
+                styles.popupSingleBtn,
+                { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#000000' }
+              ]}
+              onPress={() => {
+                const action = alertModal.onOk;
+                setAlertModal(prev => ({ ...prev, visible: false }));
+                if (action) action();
+              }}
+            >
+              <Text style={styles.popupSingleBtnText}>OK</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1334,4 +1476,89 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
+
+  // Custom Popup Dialog Modal Styles
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  popupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10
+  },
+  popupIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  popupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8
+  },
+  popupMessage: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20
+  },
+  popupBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%'
+  },
+  popupCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1'
+  },
+  popupCancelText: {
+    color: '#475569',
+    fontWeight: 'bold',
+    fontSize: 14
+  },
+  popupConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  popupConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14
+  },
+  popupSingleBtn: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  popupSingleBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15
+  }
 });

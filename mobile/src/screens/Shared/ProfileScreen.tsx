@@ -36,6 +36,9 @@ export default function ProfileScreen() {
   const [passModalVisible, setPassModalVisible] = useState(false);
   const [passData, setPassData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
 
+  // Logout Confirmation Modal
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -101,24 +104,22 @@ export default function ProfileScreen() {
 
   const handleChangePassword = async () => {
     if (!passData.currentPassword || !passData.newPassword || !passData.confirmPassword) {
-      Alert.alert('Error', 'Please fill in all password fields');
-      return;
+      return Alert.alert('Error', 'Please fill all password fields');
     }
     if (passData.newPassword !== passData.confirmPassword) {
-      Alert.alert('Error', 'New passwords do not match');
-      return;
+      return Alert.alert('Error', 'New passwords do not match');
     }
     if (passData.newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
-      return;
+      return Alert.alert('Error', 'Password must be at least 6 characters');
     }
 
     setSaving(true);
     try {
       await api.put('/users/change-password', {
         currentPassword: passData.currentPassword,
-        newPassword: passData.newPassword
+        newPassword: passData.newPassword,
       });
+
       Alert.alert('Success', 'Password updated successfully!');
       setPassModalVisible(false);
       setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -130,20 +131,7 @@ export default function ProfileScreen() {
   };
 
   const handleLogoutPress = () => {
-    if (Platform.OS === 'web') {
-      if (window.confirm('Are you sure you want to log out of TVTI Project Portal?')) {
-        logout();
-      }
-    } else {
-      Alert.alert(
-        'Confirm Logout',
-        'Are you sure you want to log out of TVTI Project Portal?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Logout', style: 'destructive', onPress: logout }
-        ]
-      );
-    }
+    setLogoutModalVisible(true);
   };
 
   if (loading) {
@@ -383,6 +371,82 @@ export default function ProfileScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* LOGOUT CONFIRMATION MODAL */}
+      {/* ========================================================================= */}
+      <Modal visible={logoutModalVisible} animationType="fade" transparent={true} onRequestClose={() => setLogoutModalVisible(false)}>
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20
+        }}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 18,
+            padding: 24,
+            width: '100%',
+            maxWidth: 380,
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.25,
+            shadowRadius: 20,
+            elevation: 10
+          }}>
+            <View style={{
+              width: 60,
+              height: 60,
+              borderRadius: 30,
+              backgroundColor: '#FEE2E2',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 16
+            }}>
+              <Icon name="log-out-outline" size={28} color="#DC2626" />
+            </View>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A', textAlign: 'center', marginBottom: 8 }}>
+              Confirm Logout
+            </Text>
+            <Text style={{ fontSize: 14, color: '#475569', textAlign: 'center', lineHeight: 20, marginBottom: 20 }}>
+              Are you sure you want to log out of the TVTI Project Portal?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#F1F5F9',
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: '#CBD5E1'
+                }}
+                onPress={() => setLogoutModalVisible(false)}
+              >
+                <Text style={{ color: '#475569', fontWeight: 'bold', fontSize: 14 }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#DC2626',
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  alignItems: 'center'
+                }}
+                onPress={() => {
+                  setLogoutModalVisible(false);
+                  logout();
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
