@@ -19,7 +19,7 @@ import { COLORS } from '../../config/theme';
 
 type StatusTab = 'all' | 'pending' | 'contacted' | 'paid' | 'approved' | 'rejected';
 
-export default function ApplicationsManagementScreen() {
+export default function ApplicationsManagementScreen({ embedded }: { embedded?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<StatusTab>('pending');
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -29,6 +29,10 @@ export default function ApplicationsManagementScreen() {
   // Approval Credentials Modal
   const [credentialsModalVisible, setCredentialsModalVisible] = useState(false);
   const [approvedCredentials, setApprovedCredentials] = useState<any>(null);
+
+  // Full Application Details Modal State
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [selectedAppDetails, setSelectedAppDetails] = useState<any>(null);
 
   // Assign Courses Modal State
   const [assignCoursesModalVisible, setAssignCoursesModalVisible] = useState(false);
@@ -111,10 +115,14 @@ export default function ApplicationsManagementScreen() {
       if (targetStatus === 'approved' && res.data.credentials) {
         setApprovedCredentials(res.data.credentials);
         setCredentialsModalVisible(true);
-        setActiveTab('approved');
+        if (Platform.OS === 'web') {
+          window.alert(`🎉 APPLICATION APPROVED SUCCESSFULLY!\n\nStudent Registration No: ${res.data.credentials.index_number}\nTemporary Password: ${res.data.credentials.temp_password}`);
+        } else {
+          Alert.alert('🎉 APPLICATION APPROVED!', `Student Registration No: ${res.data.credentials.index_number}\nTemporary Password: ${res.data.credentials.temp_password}`);
+        }
       } else {
-        if (Platform.OS === 'web') window.alert(`Courses assigned successfully! Status: ${targetStatus.toUpperCase()}`);
-        else Alert.alert('Success', `Courses assigned successfully! Status: ${targetStatus.toUpperCase()}`);
+        if (Platform.OS === 'web') window.alert(`Success: Course assignments saved! Status set to ${targetStatus.toUpperCase()}`);
+        else Alert.alert('Success', `Course assignments saved! Status set to ${targetStatus.toUpperCase()}`);
       }
       fetchApplications();
     } catch (e: any) {
@@ -158,10 +166,14 @@ export default function ApplicationsManagementScreen() {
       if (newStatus === 'approved' && res.data.credentials) {
         setApprovedCredentials(res.data.credentials);
         setCredentialsModalVisible(true);
-        setActiveTab('approved');
+        if (Platform.OS === 'web') {
+          window.alert(`🎉 APPROVED SUCCESSFULLY!\n\nRegistration No: ${res.data.credentials.index_number}\nTemp Password: ${res.data.credentials.temp_password}`);
+        } else {
+          Alert.alert('🎉 APPROVED SUCCESSFULLY!', `Registration No: ${res.data.credentials.index_number}\nTemp Password: ${res.data.credentials.temp_password}`);
+        }
       } else {
         if (Platform.OS === 'web') {
-          window.alert(`Application status set to ${newStatus.toUpperCase()}`);
+          window.alert(`Success: Application status set to ${newStatus.toUpperCase()}`);
         } else {
           Alert.alert('Success', `Application status set to ${newStatus.toUpperCase()}`);
         }
@@ -237,7 +249,10 @@ export default function ApplicationsManagementScreen() {
           </View>
         </View>
 
-        <View style={styles.detailsBox}>
+        <TouchableOpacity style={styles.detailsBox} onPress={() => { setSelectedAppDetails(item); setDetailsModalVisible(true); }} activeOpacity={0.8}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#D97706' }}>Student Details (Click to expand) →</Text>
+          </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Reg No:</Text>
             <Text style={[styles.detailVal, { color: item.generated_index_number ? '#059669' : '#D97706', fontWeight: 'bold' }]}>
@@ -260,7 +275,7 @@ export default function ApplicationsManagementScreen() {
             <Text style={styles.detailLabel}>Submitted At:</Text>
             <Text style={styles.detailVal}>{new Date(item.submitted_at || item.createdAt).toLocaleString()}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Action Controls per Stage */}
         <View style={styles.actionsBar}>
@@ -336,13 +351,267 @@ export default function ApplicationsManagementScreen() {
     );
   };
 
+  if (embedded) {
+    return (
+      <View style={styles.container}>
+        {/* Tabs Filter Header */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsBar}>
+          {[
+            { id: 'pending', label: 'Pending' },
+            { id: 'contacted', label: 'Contacted' },
+            { id: 'paid', label: 'Fees Paid' },
+            { id: 'approved', label: 'Approved' },
+            { id: 'rejected', label: 'Rejected' },
+            { id: 'all', label: 'All Applications' }
+          ].map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[styles.tabItem, isActive && styles.tabItemActive]}
+                onPress={() => setActiveTab(tab.id as StatusTab)}
+              >
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Applications List */}
+        {loading ? (
+          <ActivityIndicator size="large" color="#000000" style={{ marginTop: 40 }} />
+        ) : (
+          <FlatList
+            data={applications}
+            keyExtractor={item => item._id}
+            renderItem={renderApplicationCard}
+            contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#000000']} />}
+            ListEmptyComponent={<Text style={styles.emptyText}>No applications found in "{activeTab}" status.</Text>}
+          />
+        )}
+
+        {/* Assign Courses Modal */}
+        <Modal visible={assignCoursesModalVisible} animationType="slide" transparent={true}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.assignModalCard}>
+              <View style={styles.assignModalHeader}>
+                <Text style={styles.assignModalTitle}>Assign Courses & Approve Fee</Text>
+                <TouchableOpacity onPress={() => setAssignCoursesModalVisible(false)}>
+                  <Icon name="close" size={22} color="#4B5563" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.assignModalSub}>
+                Select the course(s) to assign for student <Text style={{ fontWeight: 'bold', color: '#111827' }}>{selectedAppForAssignment?.full_name}</Text>:
+              </Text>
+
+              <ScrollView style={{ maxHeight: 280, marginVertical: 12 }}>
+                {allAvailableCourses.map(course => {
+                  const isSelected = assignedCourseIds.includes(course._id);
+                  return (
+                    <TouchableOpacity
+                      key={course._id}
+                      style={[styles.assignCourseItem, isSelected && styles.assignCourseItemActive]}
+                      onPress={() => toggleAssignedCourse(course._id)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.assignCheckbox, isSelected && styles.assignCheckboxActive]}>
+                        {isSelected && <Icon name="checkmark" size={14} color="#FFFFFF" />}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.assignCourseText, isSelected && styles.assignCourseTextActive]}>
+                          {course.title}
+                        </Text>
+                        {course.fee ? (
+                          <Text style={{ fontSize: 11, color: '#6B7280' }}>Fee: LKR {course.fee.toLocaleString()}</Text>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={styles.assignModalActions}>
+                <TouchableOpacity
+                  style={[styles.assignSaveBtn, { backgroundColor: '#374151' }]}
+                  onPress={() => handleSaveCourseAssignments(selectedAppForAssignment?.status)}
+                  disabled={assigningCourses}
+                >
+                  <Text style={styles.assignSaveBtnText}>Save Course Selection</Text>
+                </TouchableOpacity>
+
+                {selectedAppForAssignment?.status !== 'approved' && (
+                  <TouchableOpacity
+                    style={[styles.assignSaveBtn, { backgroundColor: '#10B981' }]}
+                    onPress={() => handleSaveCourseAssignments('approved')}
+                    disabled={assigningCourses}
+                  >
+                    {assigningCourses ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.assignSaveBtnText}>Assign & Approve Reg No.</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Generated Credentials Modal */}
+        <Modal visible={credentialsModalVisible} animationType="slide" transparent={true}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.successIconCircle}>
+                <Icon name="checkmark-circle" size={50} color="#10B981" />
+              </View>
+              <Text style={styles.modalTitle}>Application Approved! 🎉</Text>
+              <Text style={styles.modalSub}>
+                Student account created & registration number generated successfully.
+              </Text>
+
+              {approvedCredentials && (
+                <View style={styles.credentialsBox}>
+                  <View style={styles.credRow}>
+                    <Text style={styles.credLabel}>Registration No:</Text>
+                    <Text style={styles.credValue}>{approvedCredentials.index_number}</Text>
+                  </View>
+                  <View style={styles.credRow}>
+                    <Text style={styles.credLabel}>Temp Password:</Text>
+                    <Text style={styles.credValue}>{approvedCredentials.temp_password}</Text>
+                  </View>
+                  <View style={styles.credRow}>
+                    <Text style={styles.credLabel}>Student Email:</Text>
+                    <Text style={styles.credSubValue}>{approvedCredentials.email}</Text>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.expiryNoticeBox}>
+                <Icon name="time-outline" size={18} color="#92400E" style={{ marginRight: 8 }} />
+                <Text style={styles.expiryNoticeText}>
+                  Temporary password expires in 7 days. Upon first login, the student will be prompted to set a permanent password.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.closeCredModalBtn}
+                onPress={() => setCredentialsModalVisible(false)}
+              >
+                <Text style={styles.closeCredModalBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Full Application Details Modal */}
+        <Modal visible={detailsModalVisible} animationType="slide" transparent={true}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { height: '85%', padding: 0, overflow: 'hidden' }]}>
+              {selectedAppDetails && (
+                <View style={{ flex: 1 }}>
+                  {/* Modal Header */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#111827' }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>{selectedAppDetails.full_name}</Text>
+                      <Text style={{ fontSize: 13, color: '#9CA3AF' }}>{selectedAppDetails.email}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setDetailsModalVisible(false)} style={{ padding: 4 }}>
+                      <Icon name="close" size={24} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Details Scroll Content */}
+                  <ScrollView style={{ flex: 1, padding: 16 }}>
+                    <View style={styles.detailsBox}>
+                      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#111827', marginBottom: 8 }}>👤 Student Contact & Identity</Text>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Reg No Status:</Text>
+                        <Text style={[styles.detailVal, { color: selectedAppDetails.generated_index_number ? '#059669' : '#D97706', fontWeight: 'bold' }]}>
+                          {selectedAppDetails.generated_index_number || 'Pending Approval'}
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>NIC Number:</Text>
+                        <Text style={styles.detailVal}>{selectedAppDetails.nic_number || 'N/A'}</Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Phone:</Text>
+                        <Text style={styles.detailVal}>{selectedAppDetails.phone}</Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Email:</Text>
+                        <Text style={styles.detailVal}>{selectedAppDetails.email}</Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Application Stage:</Text>
+                        <Text style={[styles.detailVal, { fontWeight: 'bold' }]}>{selectedAppDetails.status?.toUpperCase()}</Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Date Submitted:</Text>
+                        <Text style={styles.detailVal}>{new Date(selectedAppDetails.submitted_at || selectedAppDetails.createdAt).toLocaleString()}</Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.detailsBox, { marginTop: 12 }]}>
+                      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#111827', marginBottom: 8 }}>📚 Requested Courses</Text>
+                      {selectedAppDetails.course_ids && selectedAppDetails.course_ids.length > 0 ? (
+                        selectedAppDetails.course_ids.map((c: any, i: number) => (
+                          <View key={c._id || i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                            <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>{c.title}</Text>
+                            {c.fee ? <Text style={{ fontSize: 12, color: '#059669', fontWeight: 'bold' }}>LKR {c.fee.toLocaleString()}</Text> : null}
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={{ fontSize: 13, color: '#6B7280' }}>{selectedAppDetails.course_id?.title || 'Vocational Course'}</Text>
+                      )}
+                    </View>
+                  </ScrollView>
+
+                  {/* Footer Actions */}
+                  <View style={{ padding: 14, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E5E7EB', flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                      style={[styles.stageBtn, { backgroundColor: '#F58220', flex: 1, paddingVertical: 12 }]}
+                      onPress={() => {
+                        setDetailsModalVisible(false);
+                        handleOpenAssignCoursesModal(selectedAppDetails);
+                      }}
+                    >
+                      <Icon name="create-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.stageBtnText}>Assign Courses & Approve</Text>
+                    </TouchableOpacity>
+
+                    {selectedAppDetails.status !== 'approved' && (
+                      <TouchableOpacity
+                        style={[styles.stageBtn, { backgroundColor: '#10B981', flex: 1, paddingVertical: 12 }]}
+                        onPress={() => {
+                          setDetailsModalVisible(false);
+                          handleUpdateStatus(selectedAppDetails._id, 'approved', selectedAppDetails.full_name);
+                        }}
+                      >
+                        <Icon name="checkmark-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                        <Text style={styles.stageBtnText}>Approve Student</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Title Header */}
-      <View style={styles.topHeader}>
-        <Text style={styles.pageTitle}>Student Applications</Text>
-        <Text style={styles.pageSubtitle}>Review registrations, track payment status, and issue registration numbers.</Text>
-      </View>
+      {!embedded && (
+        <View style={styles.topHeader}>
+          <Text style={styles.pageTitle}>Student Applications</Text>
+          <Text style={styles.pageSubtitle}>Review registrations, track payment status, and issue registration numbers.</Text>
+        </View>
+      )}
 
       {/* Tabs Filter Header */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsBar}>

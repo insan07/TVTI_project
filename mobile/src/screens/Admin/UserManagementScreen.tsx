@@ -17,12 +17,20 @@ import CustomDropdown from '../../components/shared/CustomDropdown';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
+import ApplicationsManagementScreen from './ApplicationsManagementScreen';
 
-type Tab = 'pending' | 'students' | 'instructors';
+type Tab = 'pending' | 'approved' | 'instructors';
 
 export default function UserManagementScreen() {
-  const route = useRoute<any>();
-  const [activeTab, setActiveTab] = useState<Tab>(route.params?.initialTab || 'pending');
+  let initialTab: Tab = 'pending';
+  try {
+    const route = useRoute<any>();
+    if (route?.params?.initialTab) {
+      initialTab = route.params.initialTab;
+    }
+  } catch (e) {}
+
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -50,8 +58,10 @@ export default function UserManagementScreen() {
   const [approvedCredentials, setApprovedCredentials] = useState<any>(null);
 
   useEffect(() => {
-    fetchUsers();
-    fetchBatches();
+    if (activeTab !== 'pending') {
+      fetchUsers();
+      fetchBatches();
+    }
   }, [activeTab]);
 
   const fetchBatches = async () => {
@@ -68,9 +78,7 @@ export default function UserManagementScreen() {
     setLoading(true);
     try {
       let url = '/admin/users';
-      if (activeTab === 'pending') {
-        url += '?role=student&status=pending';
-      } else if (activeTab === 'students') {
+      if (activeTab === 'approved') {
         url += '?role=student&status=active';
       } else if (activeTab === 'instructors') {
         url += '?role=instructor';
@@ -156,13 +164,23 @@ export default function UserManagementScreen() {
     setAssigning(true);
     try {
       await api.post(`/admin/batches/${assignBatchId}/enroll`, { studentIds: [assignStudentId] });
-      Alert.alert('Success', 'Student assigned to batch successfully');
+      const selectedBatch = batches.find(b => b._id === assignBatchId);
+      const batchName = selectedBatch?.name || 'Selected Batch';
+
+      if (Platform.OS === 'web') {
+        window.alert(`🎉 BATCH ASSIGNED SUCCESSFULLY!\n\nStudent has been enrolled into ${batchName}.`);
+      } else {
+        Alert.alert('🎉 BATCH ASSIGNED!', `Student has been enrolled into ${batchName}.`);
+      }
+
       setAssignModalVisible(false);
       if (detailsModalVisible && userDetails?.user?._id === assignStudentId) {
         handleOpenDetails(assignStudentId);
       }
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Assignment failed');
+      const msg = e.response?.data?.message || 'Assignment failed';
+      if (Platform.OS === 'web') window.alert(`Error: ${msg}`);
+      else Alert.alert('Error', msg);
     } finally {
       setAssigning(false);
     }
@@ -170,24 +188,39 @@ export default function UserManagementScreen() {
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     const actionText = currentStatus ? 'deactivate' : 'activate';
-    Alert.alert(`${currentStatus ? 'Deactivate' : 'Activate'} User`, `Are you sure you want to ${actionText} this user?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: currentStatus ? 'Deactivate' : 'Activate',
-        style: currentStatus ? 'destructive' : 'default',
-        onPress: async () => {
-          try {
-            await api.put(`/admin/users/${id}/deactivate`);
-            fetchUsers();
-            if (detailsModalVisible) {
-              handleOpenDetails(id);
-            }
-          } catch (e) {
-            Alert.alert('Error', 'Status update failed');
-          }
+    const doToggle = async () => {
+      try {
+        await api.put(`/admin/users/${id}/deactivate`);
+        const statusText = currentStatus ? 'Deactivated' : 'Activated';
+        if (Platform.OS === 'web') {
+          window.alert(`🎉 SUCCESS: Student account has been ${statusText} successfully!`);
+        } else {
+          Alert.alert('Success', `Student account has been ${statusText} successfully!`);
         }
+        fetchUsers();
+        if (detailsModalVisible) {
+          handleOpenDetails(id);
+        }
+      } catch (e) {
+        if (Platform.OS === 'web') window.alert('Error: Status update failed');
+        else Alert.alert('Error', 'Status update failed');
       }
-    ]);
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Are you sure you want to ${actionText} this user account?`)) {
+        doToggle();
+      }
+    } else {
+      Alert.alert(`${currentStatus ? 'Deactivate' : 'Activate'} User`, `Are you sure you want to ${actionText} this user account?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: currentStatus ? 'Deactivate' : 'Activate',
+          style: currentStatus ? 'destructive' : 'default',
+          onPress: doToggle
+        }
+      ]);
+    }
   };
 
   const handleCreateInstructor = async () => {
@@ -226,16 +259,16 @@ export default function UserManagementScreen() {
     }
   };
 
-  const filteredUsers = users.filter(
+  const filteredUsers = (users || []).filter(
     u =>
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
+      (u?.name || '').toLowerCase().includes((search || '').toLowerCase()) ||
+      (u?.email || '').toLowerCase().includes((search || '').toLowerCase())
   );
 
-  const getInitials = (name: string) => {
-    if (!name) return 'U';
+  const getInitials = (name?: string) => {
+    if (!name || typeof name !== 'string') return 'U';
     const parts = name.trim().split(' ');
-    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    if (parts.length >= 2 && parts[0][0] && parts[1][0]) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     return name.substring(0, 2).toUpperCase();
   };
 
@@ -353,87 +386,96 @@ export default function UserManagementScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Top Header */}
       <View style={styles.topHeaderContainer}>
-        <Text style={styles.title}>Users Management</Text>
-        <Text style={styles.subtitle}>Manage student profiles, instructor accounts, and pending approvals.</Text>
+        <Text style={styles.title}>Users & Applications</Text>
+        <Text style={styles.subtitle}>Manage pending student applications, approved students, and instructors.</Text>
       </View>
 
-      {/* Add Instructor Button */}
-      <View style={styles.actionButtonRow}>
-        <TouchableOpacity style={styles.addInstructorBtn} onPress={() => setInstructorModalVisible(true)}>
-          <Icon name="add" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-          <Text style={styles.addInstructorBtnText}>+ Add Instructor</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Search & Filters */}
-      <View style={styles.searchFilterRow}>
-        <View style={styles.searchBox}>
-          <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name or email..."
-            placeholderTextColor="#9CA3AF"
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
+      {/* 3 Main Options Tabs Header */}
+      <View style={{ flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
         <TouchableOpacity
-          style={[styles.filterBtn, showFilter && styles.filterBtnActive]}
-          onPress={() => setShowFilter(!showFilter)}
-        >
-          <Icon name="options-outline" size={18} color="#374151" style={{ marginRight: 6 }} />
-          <Text style={styles.filterBtnText}>Filters</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Tabs Header */}
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'pending' && styles.activeTabItem]}
+          style={[styles.tabItem, { flex: 1, alignItems: 'center', justifyContent: 'center' }, activeTab === 'pending' && styles.activeTabItem]}
           onPress={() => setActiveTab('pending')}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Icon name="time-outline" size={16} color={activeTab === 'pending' ? '#000000' : '#6B7280'} style={{ marginRight: 6 }} />
             <Text style={[styles.tabText, activeTab === 'pending' && styles.activeTabText]}>Pending</Text>
-            {activeTab === 'pending' && (
-              <View style={styles.tabBadge}>
-                <Text style={styles.tabBadgeText}>{filteredUsers.length}</Text>
-              </View>
-            )}
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'students' && styles.activeTabItem]}
-          onPress={() => setActiveTab('students')}
+          style={[styles.tabItem, { flex: 1, alignItems: 'center', justifyContent: 'center' }, activeTab === 'approved' && styles.activeTabItem]}
+          onPress={() => setActiveTab('approved')}
         >
-          <Text style={[styles.tabText, activeTab === 'students' && styles.activeTabText]}>Students</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Icon name="checkmark-circle-outline" size={16} color={activeTab === 'approved' ? '#000000' : '#6B7280'} style={{ marginRight: 6 }} />
+            <Text style={[styles.tabText, activeTab === 'approved' && styles.activeTabText]}>Approved</Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'instructors' && styles.activeTabItem]}
+          style={[styles.tabItem, { flex: 1, alignItems: 'center', justifyContent: 'center' }, activeTab === 'instructors' && styles.activeTabItem]}
           onPress={() => setActiveTab('instructors')}
         >
-          <Text style={[styles.tabText, activeTab === 'instructors' && styles.activeTabText]}>Instructors</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Icon name="school-outline" size={16} color={activeTab === 'instructors' ? '#000000' : '#6B7280'} style={{ marginRight: 6 }} />
+            <Text style={[styles.tabText, activeTab === 'instructors' && styles.activeTabText]}>Instructors</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
-      {/* Content List */}
-      {loading ? (
-        <ActivityIndicator size="large" color="#000000" style={{ marginTop: 40 }} />
+      {/* Content View */}
+      {activeTab === 'pending' ? (
+        <ApplicationsManagementScreen embedded={true} />
       ) : (
-        <FlatList
-          data={filteredUsers}
-          keyExtractor={item => item._id}
-          renderItem={
-            activeTab === 'pending'
-              ? renderPendingItem
-              : activeTab === 'students'
-              ? renderStudentItem
-              : renderInstructorItem
-          }
-          contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
-          ListEmptyComponent={<Text style={styles.emptyListText}>No users found in this tab.</Text>}
-        />
+        <>
+          {/* Add Instructor Button (only on instructors tab) */}
+          {activeTab === 'instructors' && (
+            <View style={styles.actionButtonRow}>
+              <TouchableOpacity style={styles.addInstructorBtn} onPress={() => setInstructorModalVisible(true)}>
+                <Icon name="add" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.addInstructorBtnText}>+ Add Instructor</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Search & Filters */}
+          <View style={styles.searchFilterRow}>
+            <View style={styles.searchBox}>
+              <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search by name or email..."
+                placeholderTextColor="#9CA3AF"
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.filterBtn, showFilter && styles.filterBtnActive]}
+              onPress={() => setShowFilter(!showFilter)}
+            >
+              <Icon name="options-outline" size={18} color="#374151" style={{ marginRight: 6 }} />
+              <Text style={styles.filterBtnText}>Filters</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Content List */}
+          {loading ? (
+            <ActivityIndicator size="large" color="#000000" style={{ marginTop: 40 }} />
+          ) : (
+            <FlatList
+              data={filteredUsers}
+              keyExtractor={item => item._id}
+              renderItem={
+                activeTab === 'approved'
+                  ? renderStudentItem
+                  : renderInstructorItem
+              }
+              contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
+              ListEmptyComponent={<Text style={styles.emptyListText}>No users found in this tab.</Text>}
+            />
+          )}
+        </>
       )}
 
       {/* ========================================================================= */}

@@ -122,7 +122,6 @@ const AdminTabs = ({ insets }: { insets: any }) => (
     tabBarIcon: ({ color, size }) => {
       let iconName: any = 'grid';
       if (route.name === 'Home') iconName = 'grid';
-      else if (route.name === 'Applications') iconName = 'document-text';
       else if (route.name === 'Users') iconName = 'people';
       else if (route.name === 'Courses') iconName = 'book';
       else if (route.name === 'Practice') iconName = 'calendar';
@@ -132,8 +131,7 @@ const AdminTabs = ({ insets }: { insets: any }) => (
     },
   })}>
     <Tab.Screen name="Home" component={AdminDashboardScreen} options={{ tabBarLabel: 'Dashboard' }} />
-    <Tab.Screen name="Applications" component={ApplicationsManagementScreen} options={{ tabBarLabel: 'Applications' }} />
-    <Tab.Screen name="Users" component={UserManagementScreen} />
+    <Tab.Screen name="Users" component={UserManagementScreen} options={{ tabBarLabel: 'Users & Apps' }} />
     <Tab.Screen name="Courses" component={AdminCoursesStack} />
     <Tab.Screen name="Practice" component={AdminSlotManagementScreen} options={{ tabBarLabel: 'Slots' }} />
     <Tab.Screen name="Results" component={ManageResultsScreen} />
