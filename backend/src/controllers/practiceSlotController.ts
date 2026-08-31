@@ -97,11 +97,13 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
       }
     }
 
+    const targetInstructorId = (req.user?.role === 'admin' && req.body.instructor_id) ? req.body.instructor_id : req.user?._id;
+
     const created = await PracticeSlot.insertMany(
       slots.map((s: any) => ({
         ...s,
         batch_id,
-        instructor_id: req.user?._id,
+        instructor_id: s.instructor_id || targetInstructorId,
         week_start_date: normalizedWeekStart,
         is_open: true,
       }))
@@ -125,16 +127,21 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
 // GET /api/instructor/practice-slots?batchId=&weekStart=
 export const getMySlots = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { batchId, weekStart } = req.query;
-    const query: any = { instructor_id: req.user?._id };
+    const { batchId, weekStart, instructorId } = req.query;
+    const query: any = req.user?.role === 'admin' ? {} : { instructor_id: req.user?._id };
     if (batchId) query.batch_id = batchId;
+    if (instructorId && req.user?.role === 'admin') query.instructor_id = instructorId;
     if (weekStart) {
       const normalized = new Date(weekStart as string);
       normalized.setUTCHours(0, 0, 0, 0);
       query.week_start_date = normalized;
     }
 
-    const slots = await PracticeSlot.find(query).sort({ week_start_date: 1, day_of_week: 1, start_time: 1 });
+    const slots = await PracticeSlot.find(query)
+      .populate('batch_id', 'name course_id')
+      .populate({ path: 'batch_id', populate: { path: 'course_id', select: 'title' } })
+      .populate('instructor_id', 'name email phone')
+      .sort({ week_start_date: 1, day_of_week: 1, start_time: 1 });
 
     const slotIds = slots.map(s => s._id);
     const counts = await SlotBooking.aggregate([
@@ -157,7 +164,7 @@ export const getMySlots = async (req: AuthRequest, res: Response): Promise<void>
 export const getSlotBookings = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const bookings = await SlotBooking.find({ slot_id: req.params.slotId, status: 'confirmed' })
-      .populate('student_id', 'name email phone');
+      .populate('student_id', 'name email phone index_number nic');
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -168,13 +175,15 @@ export const getSlotBookings = async (req: AuthRequest, res: Response): Promise<
 // Body: { max_students?, equipment_note?, is_open?, start_time?, end_time?, day_of_week? }
 export const updateSlot = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const slot = await PracticeSlot.findOne({ _id: req.params.slotId, instructor_id: req.user?._id });
+    const slot = req.user?.role === 'admin'
+      ? await PracticeSlot.findById(req.params.slotId)
+      : await PracticeSlot.findOne({ _id: req.params.slotId, instructor_id: req.user?._id });
     if (!slot) {
       res.status(404).json({ message: 'Slot not found' });
       return;
     }
 
-    const { max_students, equipment_note, is_open, start_time, end_time, day_of_week } = req.body;
+    const { max_students, equipment_note, is_open, start_time, end_time, day_of_week, instructor_id } = req.body;
 
     if (typeof max_students === 'number') {
       const confirmed = await SlotBooking.countDocuments({ slot_id: slot._id, status: 'confirmed' });
@@ -194,7 +203,7 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
       const proposed = [{
         start_time: targetStart,
         end_time: targetEnd,
-        instructor_id: String(req.user?._id),
+        instructor_id: String(instructor_id || slot.instructor_id),
         excludeSlotId: String(slot._id)
       }];
       const ok = await checkSlotInstructorLimit(targetWeekStart, targetDay, proposed);
@@ -212,9 +221,73 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
     if (start_time !== undefined) slot.start_time = start_time;
     if (end_time !== undefined) slot.end_time = end_time;
     if (day_of_week !== undefined) slot.day_of_week = day_of_week;
+    if (instructor_id !== undefined && req.user?.role === 'admin') slot.instructor_id = instructor_id;
 
     await slot.save();
     res.json(slot);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// DELETE /api/instructors/practice-slots/:slotId/bookings/:bookingId
+export const cancelBookingByAdmin = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const booking = await SlotBooking.findByIdAndDelete(req.params.bookingId);
+    if (!booking) {
+      res.status(404).json({ message: 'Booking not found' });
+      return;
+    }
+    res.json({ message: 'Booking removed successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// DELETE /api/instructors/practice-slots/:slotId
+export const deleteSlot = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const slot = req.user?.role === 'admin'
+      ? await PracticeSlot.findById(req.params.slotId)
+      : await PracticeSlot.findOne({ _id: req.params.slotId, instructor_id: req.user?._id });
+
+    if (!slot) {
+      res.status(404).json({ message: 'Slot not found' });
+      return;
+    }
+
+    await SlotBooking.deleteMany({ slot_id: slot._id });
+    await PracticeSlot.findByIdAndDelete(slot._id);
+
+    res.json({ message: 'Slot deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /api/instructors/practice-slots/:slotId/bookings
+export const addStudentBookingByAdmin = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { student_id } = req.body;
+    const slot = await PracticeSlot.findById(req.params.slotId);
+    if (!slot) {
+      res.status(404).json({ message: 'Slot not found' });
+      return;
+    }
+
+    const existing = await SlotBooking.findOne({ slot_id: slot._id, student_id, status: 'confirmed' });
+    if (existing) {
+      res.status(400).json({ message: 'Student is already booked in this slot' });
+      return;
+    }
+
+    const booking = await SlotBooking.create({
+      slot_id: slot._id,
+      student_id,
+      status: 'confirmed'
+    });
+
+    res.status(201).json(booking);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

@@ -49,37 +49,8 @@ export default function CourseManagementScreen() {
       const res = await api.get('/admin/courses');
       setCourses(res.data);
     } catch (e: any) {
-      console.warn('Failed to fetch courses, loading mock data if available', e);
-      // Fallback mock data matching provided screenshots for design demo
-      setCourses([
-        {
-          _id: 'c1',
-          title: 'Automotive Diagnostics Level 1',
-          description: 'Introduction to OBD-II systems and basic electrical fault finding.',
-          enrollment_count: 42,
-          duration_weeks: 8,
-          fee: 25000,
-          is_active: true
-        },
-        {
-          _id: 'c2',
-          title: 'Advanced Welding Techniques',
-          description: 'TIG/MIG welding certification preparation for industrial applications.',
-          enrollment_count: 18,
-          duration_weeks: 12,
-          fee: 35000,
-          is_active: true
-        },
-        {
-          _id: 'c3',
-          title: 'Basic Plumbing Systems',
-          description: 'Legacy course material. Replaced by Residential Water Systems V2.',
-          enrollment_count: 0,
-          duration_weeks: 4,
-          fee: 15000,
-          is_active: false
-        }
-      ]);
+      console.warn('Failed to fetch courses from server', e);
+      setCourses([]);
     } finally {
       setLoading(false);
     }

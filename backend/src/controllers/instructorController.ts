@@ -9,7 +9,8 @@ import SlotBooking from '../models/SlotBooking';
 
 export const getMySchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const batches = await Batch.find({ instructor_ids: req.user._id })
+    const query = req.user?.role === 'admin' ? { status: 'active' } : { instructor_ids: req.user._id };
+    const batches = await Batch.find(query)
       .populate('course_id', 'title')
       .lean();
 

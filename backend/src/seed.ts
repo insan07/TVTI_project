@@ -2,9 +2,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import dns from 'dns';
-// Dynamically configure DNS: Check if Google DNS is reachable.
-// On some networks, Google DNS is blocked, causing ECONNREFUSED.
-// On other networks, default DNS fails to resolve MongoDB Atlas SRV records, causing ETIMEOUT.
+
 const setupDNS = () => {
   return new Promise<void>((resolve) => {
     const resolver = new dns.Resolver();
@@ -48,7 +46,7 @@ const seedDatabase = async () => {
     await Video.deleteMany({});
     await Announcement.deleteMany({});
     await Result.deleteMany({});
-    console.log('Cleared all old dummy data.');
+    console.log('Cleared all old database records.');
 
     const commonPassword = await bcrypt.hash('password123', 10);
 
@@ -63,7 +61,7 @@ const seedDatabase = async () => {
       phone: '+94 77 000 0000'
     });
 
-    // 2. Create 3 Real Instructors
+    // 2. Create 3 Real TVTI Instructors
     const instructor1 = await User.create({
       name: 'Inst. James Miller',
       email: 'james.miller@tvti.edu',
@@ -94,7 +92,7 @@ const seedDatabase = async () => {
       phone: '+94 77 333 4455'
     });
 
-    // 3. Create 5 Real Students (4 Active, 1 Pending approval)
+    // 3. Create Real TVTI Students
     const student1 = await User.create({
       name: 'John Doe',
       email: 'john.doe@student.tvti.edu',
@@ -127,6 +125,7 @@ const seedDatabase = async () => {
       is_approved: true,
       is_active: true,
       nic: '200034567890',
+      index_number: '26T0003',
       phone: '+94 77 666 7788'
     });
 
@@ -138,6 +137,7 @@ const seedDatabase = async () => {
       is_approved: true,
       is_active: true,
       nic: '200345678901',
+      index_number: '26T0004',
       phone: '+94 77 777 8899'
     });
 
@@ -147,14 +147,14 @@ const seedDatabase = async () => {
       password_hash: commonPassword,
       role: 'student',
       is_approved: false,
-      is_active: false, // Pending Approval for testing Admin Approve/Reject flow!
+      is_active: false,
       nic: '200156789012',
       phone: '+94 77 888 9900'
     });
 
-    console.log('Created Users: 1 Admin, 3 Instructors, 5 Students (4 Active, 1 Pending).');
+    console.log('Created Users: 1 Admin, 3 Instructors, 5 Students.');
 
-    // 4. Create All 6 Website Vocational Courses
+    // 4. Create Official TVTI Vocational Courses
     const course1 = await Course.create({
       title: 'Mobile Phone Repairing (Hardware)',
       description: 'Master micro-soldering, SMD component replacement, screen lamination, water damage recovery, and hardware diagnostics for modern smartphones.',
@@ -203,9 +203,9 @@ const seedDatabase = async () => {
       is_active: true
     });
 
-    console.log('Created 6 Website Vocational Courses.');
+    console.log('Created 6 Official Vocational Courses.');
 
-    // 5. Create Batches for all courses
+    // 5. Create Active Batches
     const batch1 = await Batch.create({
       name: 'Mobile Hardware - Morning Batch 2026',
       course_id: course1._id,
@@ -214,7 +214,7 @@ const seedDatabase = async () => {
       instructor_ids: [instructor1._id],
       capacity: 25,
       status: 'active',
-      schedule_json: { days: ['Mon', 'Wed', 'Fri'] }
+      schedule_json: { days: ['Mon', 'Wed', 'Fri'], time: '09:00 - 12:00' }
     });
 
     const batch2 = await Batch.create({
@@ -225,7 +225,7 @@ const seedDatabase = async () => {
       instructor_ids: [instructor1._id],
       capacity: 20,
       status: 'active',
-      schedule_json: { days: ['Tue', 'Thu', 'Sat'] }
+      schedule_json: { days: ['Tue', 'Thu', 'Sat'], time: '13:00 - 16:00' }
     });
 
     const batch3 = await Batch.create({
@@ -236,7 +236,7 @@ const seedDatabase = async () => {
       instructor_ids: [instructor2._id],
       capacity: 15,
       status: 'active',
-      schedule_json: { days: ['Sat', 'Sun'] }
+      schedule_json: { days: ['Sat', 'Sun'], time: '09:00 - 13:00' }
     });
 
     const batch4 = await Batch.create({
@@ -247,18 +247,18 @@ const seedDatabase = async () => {
       instructor_ids: [instructor3._id],
       capacity: 20,
       status: 'active',
-      schedule_json: { days: ['Mon', 'Wed'] }
+      schedule_json: { days: ['Mon', 'Wed'], time: '14:00 - 17:00' }
     });
 
     const batch5 = await Batch.create({
-      name: 'CCTV & Security Camera Installation',
+      name: 'CCTV Security Camera Installation',
       course_id: course5._id,
       start_date: new Date(),
       end_date: new Date(Date.now() + 60 * 86400000),
       instructor_ids: [instructor2._id],
       capacity: 25,
       status: 'active',
-      schedule_json: { days: ['Sat'] }
+      schedule_json: { days: ['Sat'], time: '09:00 - 15:00' }
     });
 
     const batch6 = await Batch.create({
@@ -269,12 +269,12 @@ const seedDatabase = async () => {
       instructor_ids: [instructor3._id],
       capacity: 20,
       status: 'active',
-      schedule_json: { days: ['Tue', 'Thu'] }
+      schedule_json: { days: ['Tue', 'Thu'], time: '13:00 - 16:30' }
     });
 
-    console.log('Created 6 Active Batches with schedules.');
+    console.log('Created 6 Active Batches.');
 
-    // 6. Enroll Active Students into Batches
+    // 6. Enroll Students
     await Enrollment.create({ student_id: student1._id, batch_id: batch1._id, status: 'active' });
     await Enrollment.create({ student_id: student2._id, batch_id: batch1._id, status: 'active' });
     await Enrollment.create({ student_id: student2._id, batch_id: batch2._id, status: 'active' });
@@ -283,11 +283,11 @@ const seedDatabase = async () => {
 
     console.log('Enrolled students into batches.');
 
-    // 7. Create Student Assessment Results
+    // 7. Assessment Results
     await Result.create({
       student_id: student1._id,
       batch_id: batch1._id,
-      assessment_name: 'OBD-II Fault Diagnostics Practical',
+      assessment_name: 'Micro-soldering & Power IC Rework Exam',
       marks: 92.5,
       grade: 'A+'
     });
@@ -295,98 +295,83 @@ const seedDatabase = async () => {
     await Result.create({
       student_id: student2._id,
       batch_id: batch1._id,
-      assessment_name: 'OBD-II Fault Diagnostics Practical',
+      assessment_name: 'SMD Component Testing & Short Isolation',
       marks: 85.0,
-      grade: 'A'
-    });
-
-    await Result.create({
-      student_id: student2._id,
-      batch_id: batch2._id,
-      assessment_name: 'TIG Welding Joint Safety Assessment',
-      marks: 88.0,
       grade: 'A'
     });
 
     await Result.create({
       student_id: student3._id,
       batch_id: batch3._id,
-      assessment_name: 'Refrigerant Pressure Testing',
-      marks: 78.5,
-      grade: 'B+'
+      assessment_name: 'Laptop Power Rail & Schematic Diagnostic Test',
+      marks: 88.0,
+      grade: 'A'
     });
 
     await Result.create({
       student_id: student4._id,
       batch_id: batch4._id,
-      assessment_name: 'PLC Motor Logic Control Quiz',
+      assessment_name: 'Inverter Compressor & Refrigerator PCB Repair',
       marks: 95.0,
       grade: 'A+'
     });
 
-    console.log('Created Student Results.');
+    console.log('Created Student Assessment Results.');
 
-    // 8. Create Course Video Lessons
+    // 8. Practical Video Lessons
     await Video.create({
-      title: 'Introduction to OBD-II Scanners & CAN-Bus',
-      description: 'Comprehensive overview of reading fault codes and live data streams.',
+      title: 'Micro-Soldering & SMD Hot Air Station Rework',
+      description: 'Step-by-step techniques for replacing SMD capacitors, resistors, and charging ICs.',
       batch_id: batch1._id,
       instructor_id: instructor1._id,
       cloudinary_url: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-      topic: 'OBD-II Systems',
+      topic: 'Micro-Soldering',
       order: 1
     });
 
     await Video.create({
-      title: 'TIG Welding Electrode Selection & Shielding Gas',
-      description: 'Proper tungsten electrode prep and argon gas flow rates.',
+      title: 'Firmware Flashing & Bootloop Unbricking',
+      description: 'Using software dongles to flash stock ROMs and unbrick Qualcomm and MediaTek devices.',
       batch_id: batch2._id,
-      instructor_id: instructor2._id,
+      instructor_id: instructor1._id,
       cloudinary_url: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-      topic: 'TIG Welding Fundamentals',
+      topic: 'Software Flashing',
       order: 1
     });
 
     await Video.create({
-      title: 'Commercial HVAC Airflow Calibration',
-      description: 'Balancing supply air ducts and measuring CFM pressures.',
+      title: 'Laptop Boardview & Schematic Tracing',
+      description: 'How to read laptop schematics and trace 19V main power rails.',
       batch_id: batch3._id,
-      instructor_id: instructor3._id,
+      instructor_id: instructor2._id,
       cloudinary_url: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-      topic: 'Airflow Balancing',
+      topic: 'Laptop Schematics',
       order: 1
     });
 
-    console.log('Created Video Lessons.');
+    console.log('Created Practical Video Lessons.');
 
-    // 9. Create Announcements
+    // 9. Announcements
     await Announcement.create({
-      title: 'Practical Workshop Rescheduled',
-      message: 'The upcoming Monday practical workshop for Auto Diagnostics has been rescheduled to Wednesday 10:00 AM.',
+      title: 'Practical Workshop Schedule Update',
+      message: 'The upcoming practical session for Mobile Micro-soldering will take place in Electronics Lab 1.',
       posted_by: instructor1._id,
       batch_id: batch1._id
     });
 
     await Announcement.create({
-      title: 'Safety Gear Inspection Notice',
-      message: 'All students in Advanced Welding must bring certified leather gloves and auto-darkening helmets for Sunday lab.',
-      posted_by: instructor2._id,
-      batch_id: batch2._id
-    });
-
-    await Announcement.create({
-      title: 'Mid-Term Assessment Results Published',
-      message: 'Results for the first round of vocational assessments are now published. Check the Results tab in your app.',
+      title: 'Vocational Examination Results Published',
+      message: 'Practical marks for all course modules are now published. Check the Results tab in your mobile app.',
       posted_by: admin._id,
-      batch_id: null // Global
+      batch_id: null
     });
 
     console.log('Created Announcements.');
 
-    // 10. Practice Slots & Bookings
+    // 10. Open Practice Slots & Bookings
     function getMonday(d: Date) {
       d = new Date(d);
-      var day = d.getDay(), diff = d.getDate() - day + (day === 0 ? -6 : 1); 
+      var day = d.getDay(), diff = d.getDate() - day + (day === 0 ? -6 : 1);
       return new Date(d.setDate(diff));
     }
     const thisMonday = getMonday(new Date());
@@ -399,7 +384,31 @@ const seedDatabase = async () => {
       start_time: '09:00',
       end_time: '12:00',
       max_students: 5,
-      equipment_note: 'Engine Diagnostic Bay 3',
+      equipment_note: 'Micro-soldering Lab Station 1',
+      is_open: true
+    });
+
+    const slot2 = await PracticeSlot.create({
+      batch_id: batch1._id,
+      instructor_id: instructor1._id,
+      week_start_date: thisMonday,
+      day_of_week: 'Wednesday',
+      start_time: '13:00',
+      end_time: '16:00',
+      max_students: 5,
+      equipment_note: 'Screen OCA Lamination Lab',
+      is_open: true
+    });
+
+    const slot3 = await PracticeSlot.create({
+      batch_id: batch3._id,
+      instructor_id: instructor2._id,
+      week_start_date: thisMonday,
+      day_of_week: 'Saturday',
+      start_time: '10:00',
+      end_time: '13:00',
+      max_students: 6,
+      equipment_note: 'BGA Reballing Rework Bench',
       is_open: true
     });
 
@@ -409,21 +418,10 @@ const seedDatabase = async () => {
       status: 'confirmed'
     });
 
-    console.log('Created Practice Slots & Bookings.');
+    console.log('Created Practical Slots & Bookings.');
 
     console.log('----------------------------------------------------');
     console.log('DATABASE SEEDING COMPLETED SUCCESSFULLY!');
-    console.log('----------------------------------------------------');
-    console.log('LOGIN CREDENTIALS:');
-    console.log('1. Admin:      admin@tvti.edu / password123');
-    console.log('2. Instructor: james.miller@tvti.edu / password123');
-    console.log('   Instructor: sarah.connor@tvti.edu / password123');
-    console.log('   Instructor: kamal.perera@tvti.edu / password123');
-    console.log('3. Student 1:  john.doe@student.tvti.edu / password123');
-    console.log('   Student 2:  alice.smith@student.tvti.edu / password123');
-    console.log('   Student 3:  robert.chen@student.tvti.edu / password123');
-    console.log('   Student 4:  fatima.perera@student.tvti.edu / password123');
-    console.log('   Student 5:  david.kumar@student.tvti.edu / password123 (Pending Approval)');
     console.log('----------------------------------------------------');
 
     process.exit(0);

@@ -34,6 +34,7 @@ import ResultsScreen from '../screens/Student/ResultsScreen';
 import ManageResultsScreen from '../screens/Admin/ManageResultsScreen';
 import MyStudentsScreen from '../screens/Instructor/MyStudentsScreen';
 import ForceChangePasswordScreen from '../screens/Auth/ForceChangePasswordScreen';
+import AdminSlotManagementScreen from '../screens/Admin/AdminSlotManagementScreen';
 import ApplicationsManagementScreen from '../screens/Admin/ApplicationsManagementScreen';
 import PdfViewerScreen from '../screens/Student/PdfViewerScreen';
 
@@ -124,6 +125,7 @@ const AdminTabs = ({ insets }: { insets: any }) => (
       else if (route.name === 'Applications') iconName = 'document-text';
       else if (route.name === 'Users') iconName = 'people';
       else if (route.name === 'Courses') iconName = 'book';
+      else if (route.name === 'Practice') iconName = 'calendar';
       else if (route.name === 'Results') iconName = 'bar-chart';
       else if (route.name === 'Profile') iconName = 'person';
       return <Icon name={iconName} size={size} color={color} />;
@@ -133,6 +135,7 @@ const AdminTabs = ({ insets }: { insets: any }) => (
     <Tab.Screen name="Applications" component={ApplicationsManagementScreen} options={{ tabBarLabel: 'Applications' }} />
     <Tab.Screen name="Users" component={UserManagementScreen} />
     <Tab.Screen name="Courses" component={AdminCoursesStack} />
+    <Tab.Screen name="Practice" component={AdminSlotManagementScreen} options={{ tabBarLabel: 'Slots' }} />
     <Tab.Screen name="Results" component={ManageResultsScreen} />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>

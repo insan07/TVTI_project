@@ -50,16 +50,11 @@ export default function RegisterScreen() {
           setCourses(res.data);
           setFormData(prev => ({ ...prev, desired_courses: [res.data[0]._id] }));
         } else {
-          const mock = [
-            { _id: '60c72b2f9b1d8e1f88c88c81', title: 'Mobile Phone Repairing' },
-            { _id: '60c72b2f9b1d8e1f88c88c82', title: 'Laptop & Desktop Repairing' },
-            { _id: '60c72b2f9b1d8e1f88c88c83', title: 'CCTV Installation & Networking' }
-          ];
-          setCourses(mock);
-          setFormData(prev => ({ ...prev, desired_courses: [mock[0]._id] }));
+          setCourses([]);
         }
       } catch (e) {
         console.warn('Failed to fetch courses', e);
+        setCourses([]);
       } finally {
         setFetchingCourses(false);
       }

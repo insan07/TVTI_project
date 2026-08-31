@@ -13,7 +13,7 @@ export default function InquiryForm({ defaultCourse = null }) {
     nic: '',
     email: '',
     phone: '',
-    course_id: '',
+    desired_courses: [],
   })
 
   const [courses, setCourses] = useState([])
@@ -27,7 +27,7 @@ export default function InquiryForm({ defaultCourse = null }) {
     nic: '',
     phone: '',
     email: '',
-    course_id: '',
+    desired_courses: '',
     terms: '',
   })
 
@@ -37,12 +37,12 @@ export default function InquiryForm({ defaultCourse = null }) {
 
   // Default fallback courses list in case backend API is offline
   const fallbackCourses = [
-    { _id: '60c72b2f9b1d8e1f88c88c81', title: 'Mobile Phone Repairing (Hardware)', slug: 'mobile-phone-repairing-hardware' },
-    { _id: '60c72b2f9b1d8e1f88c88c82', title: 'Mobile Phone Repairing (Hardware + Software)', slug: 'mobile-phone-repairing-hardware-software' },
-    { _id: '60c72b2f9b1d8e1f88c88c83', title: 'Laptop & Desktop Repairing', slug: 'laptop-desktop-repairing' },
-    { _id: '60c72b2f9b1d8e1f88c88c84', title: 'Home Appliances Repairing', slug: 'home-appliances-repairing' },
-    { _id: '60c72b2f9b1d8e1f88c88c85', title: 'CCTV Installation', slug: 'cctv-installation' },
-    { _id: '60c72b2f9b1d8e1f88c88c86', title: 'Home Wiring', slug: 'home-wiring' },
+    { _id: '60c72b2f9b1d8e1f88c88c81', title: 'Mobile Phone Repairing (Hardware)', slug: 'mobile-phone-repairing-hardware', fee: 'LKR 25,000', duration: '3 Months' },
+    { _id: '60c72b2f9b1d8e1f88c88c82', title: 'Mobile Phone Repairing (Hardware + Software)', slug: 'mobile-phone-repairing-hardware-software', fee: 'LKR 35,000', duration: '4 Months' },
+    { _id: '60c72b2f9b1d8e1f88c88c83', title: 'Laptop & Desktop Repairing', slug: 'laptop-desktop-repairing', fee: 'LKR 30,000', duration: '3 Months' },
+    { _id: '60c72b2f9b1d8e1f88c88c84', title: 'Home Appliances Repairing', slug: 'home-appliances-repairing', fee: 'LKR 28,000', duration: '3 Months' },
+    { _id: '60c72b2f9b1d8e1f88c88c85', title: 'CCTV Installation', slug: 'cctv-installation', fee: 'LKR 18,000', duration: '2 Months' },
+    { _id: '60c72b2f9b1d8e1f88c88c86', title: 'Home Wiring', slug: 'home-wiring', fee: 'LKR 22,000', duration: '3 Months' },
   ]
 
   // Fetch active courses from Backend API (same endpoint as Mobile App)
@@ -57,7 +57,10 @@ export default function InquiryForm({ defaultCourse = null }) {
             setCourses(data)
             // Pre-select course based on slug param or select first
             const matched = data.find((c) => c.slug === courseParam || c._id === courseParam)
-            setFormData((prev) => ({ ...prev, course_id: matched ? matched._id : data[0]._id }))
+            setFormData((prev) => ({
+              ...prev,
+              desired_courses: matched ? [matched._id] : [data[0]._id],
+            }))
             return
           }
         }
@@ -70,7 +73,10 @@ export default function InquiryForm({ defaultCourse = null }) {
       // Fallback
       setCourses(fallbackCourses)
       const matchedFallback = fallbackCourses.find((c) => c.slug === courseParam || c._id === courseParam)
-      setFormData((prev) => ({ ...prev, course_id: matchedFallback ? matchedFallback._id : fallbackCourses[0]._id }))
+      setFormData((prev) => ({
+        ...prev,
+        desired_courses: matchedFallback ? [matchedFallback._id] : [fallbackCourses[0]._id],
+      }))
     }
 
     fetchCourses()
@@ -85,10 +91,28 @@ export default function InquiryForm({ defaultCourse = null }) {
     if (apiError) setApiError('')
   }
 
+  const toggleCourse = (courseId) => {
+    setFormData((prev) => {
+      const exists = prev.desired_courses.includes(courseId)
+      let updated
+      if (exists) {
+        if (prev.desired_courses.length === 1) return prev // Keep at least one selected
+        updated = prev.desired_courses.filter((id) => id !== courseId)
+      } else {
+        updated = [...prev.desired_courses, courseId]
+      }
+      return { ...prev, desired_courses: updated }
+    })
+    if (errors.desired_courses) {
+      setErrors((prev) => ({ ...prev, desired_courses: '' }))
+    }
+    if (apiError) setApiError('')
+  }
+
   // Form Validation matching mobile requirements
   const validateForm = () => {
     let isValid = true
-    const newErrors = { name: '', nic: '', phone: '', email: '', course_id: '', terms: '' }
+    const newErrors = { name: '', nic: '', phone: '', email: '', desired_courses: '', terms: '' }
 
     if (!formData.name.trim()) {
       newErrors.name = 'Full name is required'
@@ -118,8 +142,8 @@ export default function InquiryForm({ defaultCourse = null }) {
       isValid = false
     }
 
-    if (!formData.course_id) {
-      newErrors.course_id = 'Please select a vocational course'
+    if (!formData.desired_courses || formData.desired_courses.length === 0) {
+      newErrors.desired_courses = 'Please select at least one vocational course'
       isValid = false
     }
 
@@ -146,7 +170,8 @@ export default function InquiryForm({ defaultCourse = null }) {
       nic_number: formData.nic.trim(),
       email: formData.email.trim().toLowerCase(),
       phone: formData.phone.trim(),
-      course_id: formData.course_id,
+      course_id: formData.desired_courses[0],
+      course_ids: formData.desired_courses,
       terms_accepted: true,
     }
 
@@ -283,33 +308,59 @@ export default function InquiryForm({ defaultCourse = null }) {
             {errors.phone && <p className="text-red-500 text-xs font-semibold">{errors.phone}</p>}
           </div>
 
-          {/* Desired Course Selection */}
+          {/* Desired Course Selection (Multiple Select like Mobile App) */}
           <div className="space-y-2 text-left">
-            <label htmlFor="course_id" className="block text-xs uppercase tracking-wider font-heading font-bold text-brand-charcoal">
-              Desired Vocational Course <span className="text-brand-orange font-bold">*</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs uppercase tracking-wider font-heading font-bold text-brand-charcoal">
+                Desired Vocational Course(s) <span className="text-brand-orange font-bold">*</span>
+              </label>
+              <span className="text-[11px] font-sans font-semibold text-brand-orange bg-brand-orange/10 px-2.5 py-0.5 rounded-full border border-brand-orange/20">
+                Select one or more ({formData.desired_courses.length} selected)
+              </span>
+            </div>
+
             {fetchingCourses ? (
               <div className="py-3 text-center text-xs text-brand-charcoal/60 bg-brand-light rounded-lg border border-black/10">
                 Loading available database courses...
               </div>
             ) : (
-              <select
-                name="course_id"
-                id="course_id"
-                value={formData.course_id}
-                onChange={handleChange}
-                className={`w-full bg-brand-light border rounded-lg px-4 py-3 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-brand-orange/50 transition-all min-h-[44px] ${
-                  errors.course_id ? 'border-red-500 ring-1 ring-red-500' : 'border-black/10 focus:border-brand-orange'
-                }`}
-              >
-                {courses.map((opt) => (
-                  <option key={opt._id} value={opt._id}>
-                    {opt.title}
-                  </option>
-                ))}
-              </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                {courses.map((c) => {
+                  const isSelected = formData.desired_courses.includes(c._id)
+                  return (
+                    <div
+                      key={c._id}
+                      onClick={() => toggleCourse(c._id)}
+                      className={`flex items-start space-x-3 p-3.5 rounded-xl border-2 transition-all cursor-pointer select-none ${
+                        isSelected
+                          ? 'border-brand-orange bg-amber-50/80 shadow-sm ring-1 ring-brand-orange/30'
+                          : 'border-black/10 bg-brand-light hover:border-black/20 hover:bg-white'
+                      }`}
+                    >
+                      <div
+                        className={`h-5 w-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
+                          isSelected
+                            ? 'border-brand-orange bg-brand-orange text-white'
+                            : 'border-black/30 bg-white'
+                        }`}
+                      >
+                        {isSelected && (
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className={`text-xs font-heading font-bold leading-snug ${isSelected ? 'text-brand-orange' : 'text-brand-black'}`}>
+                          {c.title}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             )}
-            {errors.course_id && <p className="text-red-500 text-xs font-semibold">{errors.course_id}</p>}
+            {errors.desired_courses && <p className="text-red-500 text-xs font-semibold">{errors.desired_courses}</p>}
           </div>
 
           {/* Terms & Conditions Checkbox (matching Mobile App) */}

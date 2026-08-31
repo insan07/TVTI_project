@@ -157,6 +157,48 @@ export default function AdminDashboardScreen() {
               </View>
             </View>
 
+            {/* Quick Management Actions Section */}
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Quick Management</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    minWidth: '45%',
+                    backgroundColor: '#FFF7ED',
+                    borderWidth: 1,
+                    borderColor: '#FDBA74',
+                    padding: 12,
+                    borderRadius: 10,
+                    flexDirection: 'row',
+                    alignItems: 'center'
+                  }}
+                  onPress={() => navigation.navigate('PostAnnouncement')}
+                >
+                  <Icon name="megaphone-outline" size={20} color="#D97706" style={{ marginRight: 8 }} />
+                  <Text style={{ fontWeight: 'bold', color: '#92400E', fontSize: 13 }}>Announcement</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    minWidth: '45%',
+                    backgroundColor: '#EFF6FF',
+                    borderWidth: 1,
+                    borderColor: '#BFDBFE',
+                    padding: 12,
+                    borderRadius: 10,
+                    flexDirection: 'row',
+                    alignItems: 'center'
+                  }}
+                  onPress={() => navigation.navigate('Practice')}
+                >
+                  <Icon name="calendar-outline" size={20} color="#2563EB" style={{ marginRight: 8 }} />
+                  <Text style={{ fontWeight: 'bold', color: '#1E40AF', fontSize: 13 }}>Practical Slots</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {/* Pending Approvals Section */}
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
