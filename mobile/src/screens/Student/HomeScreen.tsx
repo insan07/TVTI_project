@@ -211,9 +211,9 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
               onPress={() => navigation.navigate('Videos')}
             >
               <View style={styles.actionIconCircle}>
-                <Icon name="play-circle" size={26} color={COLORS.secondary} />
+                <Icon name="folder-open" size={26} color={COLORS.secondary} />
               </View>
-              <Text style={styles.actionLabel}>Videos</Text>
+              <Text style={styles.actionLabel}>Uploads</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
