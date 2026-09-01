@@ -28,9 +28,13 @@ import Result from './models/Result';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/twintec_lms';
+const MONGO_URI = process.env.MONGO_URI;
 
 const seedDatabase = async () => {
+  if (!MONGO_URI) {
+    console.error('CRITICAL ERROR: MONGO_URI is not defined in backend/.env!');
+    process.exit(1);
+  }
   try {
     await setupDNS();
     await mongoose.connect(MONGO_URI);
