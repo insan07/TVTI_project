@@ -9,13 +9,23 @@ import {
   Linking,
   Alert,
   Platform,
+  Image,
+  LayoutAnimation,
+  UIManager
 } from 'react-native';
 import api from '../../services/api';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config/constants';
+
+if (Platform.OS === 'android') {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
 
 export default function VideosScreen({ unreadCount }: { unreadCount?: number }) {
   const navigation = useNavigation<any>();
@@ -92,6 +102,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
   };
 
   const toggleModule = (modKey: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedModules((prev) => ({
       ...prev,
       [modKey]: !prev[modKey],
@@ -247,9 +258,61 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                               activeOpacity={0.8}
                               onPress={() => navigation.navigate('VideoPlayer', { videoId: v._id, batchId: activeBatchId })}
                             >
-                              <View style={styles.thumbnailBox}>
-                                <Icon name="play-circle" size={24} color="#FFFFFF" />
-                              </View>
+                              {v.youtube_url || v.cloudinary_url ? (() => {
+                                let thumbUrl = null;
+                                let isLocalVideo = false;
+                                let localVideoUrl = '';
+
+                                if (v.youtube_url) {
+                                  const match = v.youtube_url.match(/[?&]v=([^&]+)/) || v.youtube_url.match(/youtu\.be\/([^?]+)/);
+                                  if (match && match[1]) {
+                                    thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+                                  }
+                                } else if (v.cloudinary_url) {
+                                  if (v.cloudinary_url.includes('cloudinary.com')) {
+                                    thumbUrl = v.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
+                                  } else if (v.cloudinary_url.startsWith('/uploads/')) {
+                                    isLocalVideo = true;
+                                    localVideoUrl = `${API_URL.replace(/\/api\/?$/, '')}${v.cloudinary_url}`;
+                                  }
+                                }
+                                
+                                if (thumbUrl) {
+                                  return (
+                                    <View style={styles.thumbnailBox}>
+                                      <Image source={{ uri: thumbUrl }} style={styles.thumbnailImage} resizeMode="cover" />
+                                      <View style={styles.thumbnailOverlay}>
+                                        <Icon name="play-circle" size={24} color="#FFFFFF" />
+                                      </View>
+                                    </View>
+                                  );
+                                } else if (isLocalVideo && Platform.OS === 'web') {
+                                  const VideoElement = 'video' as any;
+                                  return (
+                                    <View style={styles.thumbnailBox}>
+                                      <VideoElement 
+                                        src={localVideoUrl} 
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} 
+                                        preload="metadata" 
+                                        muted 
+                                      />
+                                      <View style={styles.thumbnailOverlay}>
+                                        <Icon name="play-circle" size={24} color="#FFFFFF" />
+                                      </View>
+                                    </View>
+                                  );
+                                }
+                                
+                                return (
+                                  <View style={styles.thumbnailBox}>
+                                    <Icon name="play-circle" size={24} color="#FFFFFF" />
+                                  </View>
+                                );
+                              })() : (
+                                <View style={styles.thumbnailBox}>
+                                  <Icon name="play-circle" size={24} color="#FFFFFF" />
+                                </View>
+                              )}
 
                               <View style={styles.videoItemDetails}>
                                 <Text style={styles.videoItemTitle}>{v.title}</Text>
@@ -291,12 +354,19 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                     </View>
 
                     <TouchableOpacity
-                      style={styles.openPdfBtn}
+                      style={styles.openPdfBtnWrapper}
                       activeOpacity={0.8}
                       onPress={() => openPdfDocument(mat.cloudinary_url, mat.title)}
                     >
-                      <Icon name="arrow-down-circle" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
-                      <Text style={styles.openPdfBtnText}>Open PDF</Text>
+                      <LinearGradient
+                        colors={['#F58220', '#D97706']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.openPdfBtn}
+                      >
+                        <Icon name="arrow-down-circle" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
+                        <Text style={styles.openPdfBtnText}>Open PDF</Text>
+                      </LinearGradient>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -483,6 +553,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
+    overflow: 'hidden',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  thumbnailOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   videoItemDetails: {
     flex: 1,
@@ -542,11 +624,13 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     marginTop: 2,
   },
+  openPdfBtnWrapper: {
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
   openPdfBtn: {
-    backgroundColor: '#F58220',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
   },

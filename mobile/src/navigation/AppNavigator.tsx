@@ -42,14 +42,18 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const getCommonTabOptions = (insets: any) => ({
-  tabBarStyle: { 
-    backgroundColor: COLORS.tabBar, 
+  tabBarStyle: {
+    backgroundColor: COLORS.tabBar,
     borderTopWidth: 0,
     minHeight: 60 + (Platform.OS === 'ios' ? insets.bottom : 0),
     paddingBottom: Platform.OS === 'ios' ? insets.bottom : 10,
     paddingTop: 6,
     boxShadow: '0px -4px 12px rgba(0, 0, 0, 0.08)',
     elevation: 8,
+  },
+  tabBarItemStyle: {
+    maxWidth: 150,
+    marginHorizontal: 'auto',
   },
   tabBarActiveTintColor: COLORS.tabBarActive,
   tabBarInactiveTintColor: COLORS.tabBarInactive,
@@ -105,14 +109,70 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
         iconName = isActive ? 'calendar' : 'calendar-outline';
       } else if (route.name === 'Profile') {
         iconName = isActive ? 'person' : 'person-outline';
+      } else if (route.name === 'PostAnnouncement') {
+        iconName = isActive ? 'megaphone' : 'megaphone-outline';
       }
       return <Icon name={iconName} size={size} color={color} />;
     },
   })}>
     <Tab.Screen name="Home" component={InstructorHomeScreen} />
-    <Tab.Screen name="Uploads" component={UploadVideoScreen} options={{ tabBarLabel: 'Uploads' }} />
-    <Tab.Screen name="Practice" component={InstructorPracticeScreen} options={{ tabBarLabel: 'Schedule' }} />
-    <Tab.Screen name="Profile" component={ProfileScreen} />
+    <Tab.Screen
+      name="Uploads"
+      component={UploadVideoScreen}
+      options={{
+        tabBarLabel: 'Uploads',
+        headerShown: true,
+        title: 'Upload Portal',
+        headerStyle: { backgroundColor: COLORS.primary },
+        headerTintColor: COLORS.secondary,
+        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 }
+      }}
+    />
+    <Tab.Screen
+      name="Practice"
+      component={InstructorPracticeScreen}
+      options={{
+        tabBarLabel: 'Schedule',
+        headerShown: true,
+        title: 'Practical Slots',
+        headerStyle: { backgroundColor: COLORS.primary },
+        headerTintColor: COLORS.secondary,
+        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 }
+      }}
+    />
+    <Tab.Screen
+      name="MyStudents"
+      component={MyStudentsScreen}
+      options={{
+        tabBarButton: () => null,
+        tabBarItemStyle: { display: 'none' },
+        headerShown: true,
+        title: 'My Students',
+        headerStyle: { backgroundColor: COLORS.primary },
+        headerTintColor: COLORS.secondary,
+        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 }
+      }}
+    />
+    <Tab.Screen
+      name="PostAnnouncement"
+      component={PostAnnouncementScreen}
+      options={{
+        tabBarLabel: 'Notices',
+        headerShown: true,
+        title: 'Announcements',
+        headerStyle: { backgroundColor: COLORS.primary },
+        headerTintColor: COLORS.secondary,
+        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 }
+      }}
+    />
+    <Tab.Screen
+      name="Profile"
+      component={ProfileScreen}
+      options={{
+        tabBarButton: () => null,
+        tabBarItemStyle: { display: 'none' },
+      }}
+    />
   </Tab.Navigator>
 );
 
@@ -127,6 +187,7 @@ const AdminTabs = ({ insets }: { insets: any }) => (
       else if (route.name === 'Practice') iconName = 'calendar';
       else if (route.name === 'Results') iconName = 'bar-chart';
       else if (route.name === 'Profile') iconName = 'person';
+      else if (route.name === 'PostAnnouncement') iconName = 'megaphone';
       return <Icon name={iconName} size={size} color={color} />;
     },
   })}>
@@ -135,6 +196,18 @@ const AdminTabs = ({ insets }: { insets: any }) => (
     <Tab.Screen name="Courses" component={AdminCoursesStack} />
     <Tab.Screen name="Practice" component={AdminSlotManagementScreen} options={{ tabBarLabel: 'Slots' }} />
     <Tab.Screen name="Results" component={ManageResultsScreen} />
+    <Tab.Screen
+      name="PostAnnouncement"
+      component={PostAnnouncementScreen}
+      options={{
+        tabBarLabel: 'Notices',
+        headerShown: true,
+        title: 'Announcements',
+        headerStyle: { backgroundColor: COLORS.primary },
+        headerTintColor: COLORS.secondary,
+        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17, color: '#fff' }
+      }}
+    />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>
 );
@@ -164,7 +237,7 @@ export const AppNavigator = () => {
         try {
           const res = await api.get('/notifications/unread-count');
           setUnreadCount(res.data.unread_count);
-        } catch (e) {}
+        } catch (e) { }
       };
       fetchUnread(); // Initial fetch
       interval = setInterval(fetchUnread, 10000); // Poll every 10s
@@ -197,8 +270,8 @@ export const AppNavigator = () => {
   const normalizedRole = userRole
     ? String(userRole).toLowerCase()
     : context?.user?.role
-    ? String(context.user.role).toLowerCase()
-    : 'student';
+      ? String(context.user.role).toLowerCase()
+      : 'student';
 
   return (
     <NavigationContainer ref={navigationRef}>
@@ -220,9 +293,7 @@ export const AppNavigator = () => {
                 <Stack.Screen name="InstructorApp">
                   {props => <InstructorTabs {...props} insets={insets} />}
                 </Stack.Screen>
-                <Stack.Screen name="PostAnnouncement" component={PostAnnouncementScreen} options={{ ...headerOptions, headerShown: true, title: 'New Announcement' }} />
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
-                <Stack.Screen name="MyStudents" component={MyStudentsScreen} options={{ ...headerOptions, headerShown: true, title: 'My Students' }} />
               </>
             ) : normalizedRole === 'admin' ? (
               <>
@@ -230,7 +301,6 @@ export const AppNavigator = () => {
                   {props => <AdminTabs {...props} insets={insets} />}
                 </Stack.Screen>
                 <Stack.Screen name="EnrollStudent" component={EnrollStudentScreen} options={{ ...headerOptions, headerShown: true, title: 'Enroll Students' }} />
-                <Stack.Screen name="PostAnnouncement" component={PostAnnouncementScreen} options={{ ...headerOptions, headerShown: true, title: 'New Announcement' }} />
               </>
             ) : (
               <>

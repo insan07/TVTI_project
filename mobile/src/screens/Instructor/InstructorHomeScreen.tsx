@@ -366,8 +366,8 @@ const styles = StyleSheet.create({
   sectionTitleNoMargin: { fontSize: 16, fontWeight: 'bold', color: '#111827' },
   viewAllText: { color: '#F58220', fontWeight: 'bold', fontSize: 13 },
 
-  actionsContainer: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12 },
-  actionBtn: { width: (width - 24) / 4 - 8, alignItems: 'center' },
+  actionsContainer: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, gap: 8 },
+  actionBtn: { flex: 1, alignItems: 'center' },
   actionIconBg: {
     width: 54, height: 54, borderRadius: 27, backgroundColor: '#FFF7ED',
     borderWidth: 1, borderColor: '#FED7AA', justifyContent: 'center', alignItems: 'center',

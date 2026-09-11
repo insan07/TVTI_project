@@ -13,11 +13,25 @@ export default function App() {
       const styleEl = document.createElement('style');
       styleEl.id = 'expo-web-root-fix';
       styleEl.textContent = `
-        html, body, #root, #root > div {
+        html, body {
+          background-color: #ffffff !important;
           height: 100% !important;
           width: 100% !important;
           margin: 0 !important;
           padding: 0 !important;
+          display: flex !important;
+        }
+        #root {
+          height: 100% !important;
+          width: 100% !important;
+          display: flex !important;
+          flex-direction: column !important;
+          flex: 1 !important;
+          background-color: #ffffff;
+        }
+        #root > div {
+          height: 100% !important;
+          width: 100% !important;
           display: flex !important;
           flex-direction: column !important;
           flex: 1 !important;

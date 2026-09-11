@@ -294,12 +294,12 @@ export default function PracticeSessionsScreen() {
   const handleAssignStudent = async (studentId: string, studentName: string) => {
     try {
       await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings`, { student_id: studentId });
-      Alert.alert('Success', `${studentName} assigned to slot!`);
+      showAlert('Success', `${studentName} assigned to slot!`, undefined, 'success');
       setAddStudentModalVisible(false);
       openBookingsModal(selectedSlot);
       fetchSlots();
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to assign student');
+      showAlert('Error', e.response?.data?.message || 'Failed to assign student', undefined, 'error');
     }
   };
 
@@ -312,32 +312,32 @@ export default function PracticeSessionsScreen() {
 
   const handleSaveEdit = async () => {
     const maxN = parseInt(editMaxStudents, 10);
-    if (!maxN || maxN < 1) return Alert.alert('Validation Error', 'Max students must be at least 1');
+    if (!maxN || maxN < 1) return showAlert('Validation Error', 'Max students must be at least 1', undefined, 'error');
     setEditSaving(true);
     try {
       await updatePracticeSlot(selectedSlot._id, {
         max_students: maxN,
         equipment_note: editEquipmentNote.trim()
       });
-      Alert.alert('Success', 'Practical slot updated!');
+      showAlert('Success', 'Practical slot updated!', undefined, 'success');
       setEditModalVisible(false);
       fetchSlots();
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to update slot');
+      showAlert('Error', e.response?.data?.message || 'Failed to update slot', undefined, 'error');
     } finally {
       setEditSaving(false);
     }
   };
 
   const handleCreateSlots = async () => {
-    if (!createBatchId) return Alert.alert('Validation Error', 'Please select a target batch');
+    if (!createBatchId) return showAlert('Validation Error', 'Please select a target batch', undefined, 'error');
 
     for (const s of newSlots) {
       if (!s.day_of_week || !s.start_time || !s.end_time) {
-        return Alert.alert('Validation Error', 'Please complete day and time for all slots');
+        return showAlert('Validation Error', 'Please complete day and time for all slots', undefined, 'error');
       }
       const maxN = parseInt(s.max_students, 10);
-      if (!maxN || maxN < 1) return Alert.alert('Validation Error', 'Max capacity must be at least 1');
+      if (!maxN || maxN < 1) return showAlert('Validation Error', 'Max capacity must be at least 1', undefined, 'error');
     }
 
     setCreating(true);
@@ -350,17 +350,12 @@ export default function PracticeSessionsScreen() {
           max_students: parseInt(s.max_students, 10)
         }))
       });
-      Alert.alert('Success', `${newSlots.length} practical slot(s) created successfully!`, [
-        {
-          text: 'View My Slots',
-          onPress: () => {
-            setActiveTab('slots');
-            setNewSlots([{ day_of_week: 'Monday', start_time: '09:00', end_time: '12:00', max_students: '10', equipment_note: '' }]);
-          }
-        }
-      ]);
+      showAlert('Success', `${newSlots.length} practical slot(s) created successfully!`, () => {
+        setActiveTab('slots');
+        setNewSlots([{ day_of_week: 'Monday', start_time: '09:00', end_time: '12:00', max_students: '10', equipment_note: '' }]);
+      }, 'success');
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to create practical slots');
+      showAlert('Error', e.response?.data?.message || 'Failed to create practical slots', undefined, 'error');
     } finally {
       setCreating(false);
     }
@@ -380,15 +375,7 @@ export default function PracticeSessionsScreen() {
   const openCount = slots.filter(s => s.is_open).length;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Top Header */}
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.headerTitle}>Practical Slots Control</Text>
-          <Text style={styles.headerSubtitle}>Manage lab stations, weekly schedules, & student bookings.</Text>
-        </View>
-      </View>
-
+    <SafeAreaView style={styles.container} edges={[]}>
       {/* Main Mode Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -1093,10 +1080,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
+    boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.25)',
     elevation: 10
   },
   popupIconCircle: {

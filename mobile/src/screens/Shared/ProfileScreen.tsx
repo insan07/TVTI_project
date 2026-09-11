@@ -7,10 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Modal,
   KeyboardAvoidingView,
-  Platform
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,14 +29,33 @@ export default function ProfileScreen() {
   // Edit Profile Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '' });
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoAsset, setPhotoAsset] = useState<any>(null);
 
   // Change Password Modal
   const [passModalVisible, setPassModalVisible] = useState(false);
   const [passData, setPassData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
 
   // Logout Confirmation Modal
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+
+  // Ack / Alert Popup
+  const [ackModal, setAckModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
+    onOk?: () => void;
+  }>({ visible: false, title: '', message: '', type: 'info' });
+
+  const showAck = (
+    title: string,
+    message: string,
+    type: 'success' | 'error' | 'info' = 'info',
+    onOk?: () => void
+  ) => setAckModal({ visible: true, title, message, type, onOk });
 
   useEffect(() => {
     fetchProfile();
@@ -51,7 +69,7 @@ export default function ProfileScreen() {
       setFormData({ name: res.data.name || '', phone: res.data.phone || '' });
     } catch (error) {
       console.warn('Failed to fetch profile', error);
-      Alert.alert('Error', 'Failed to fetch profile');
+      showAck('Error', 'Failed to fetch profile', 'error');
     } finally {
       setLoading(false);
     }
@@ -59,19 +77,19 @@ export default function ProfileScreen() {
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPhotoUri(result.assets[0].uri);
+      setPhotoAsset(result.assets[0]);
     }
   };
 
   const saveProfile = async () => {
-    if (!formData.name.trim()) return Alert.alert('Error', 'Name is required');
+    if (!formData.name.trim()) return showAck('Error', 'Name is required', 'error');
 
     setSaving(true);
     try {
@@ -79,24 +97,28 @@ export default function ProfileScreen() {
       data.append('name', formData.name.trim());
       data.append('phone', formData.phone.trim());
 
-      if (photoUri) {
-        const localUri = photoUri;
-        const filename = localUri.split('/').pop() || 'photo.jpg';
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : `image/jpeg`;
-        data.append('profile_photo', { uri: localUri, name: filename, type } as any);
+      if (photoAsset) {
+        if (Platform.OS === 'web' && photoAsset.file instanceof File) {
+          // On web, append the actual File object so Axios can serialize it correctly
+          data.append('profile_photo', photoAsset.file, photoAsset.fileName || 'photo.jpg');
+        } else {
+          // On native, use the {uri, name, type} approach that React Native's fetch understands
+          const localUri = photoAsset.uri;
+          const filename = (photoAsset.fileName || localUri.split('/').pop() || 'photo.jpg');
+          const type = photoAsset.mimeType || 'image/jpeg';
+          data.append('profile_photo', { uri: localUri, name: filename, type } as any);
+        }
       }
 
-      await api.put('/users/profile', data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await api.put('/users/profile', data);
 
-      Alert.alert('Success', 'Profile updated successfully!');
-      setEditModalVisible(false);
-      setPhotoUri(null);
-      fetchProfile();
+      showAck('Profile Updated', 'Your profile has been updated successfully!', 'success', () => {
+        setEditModalVisible(false);
+        setPhotoAsset(null);
+        fetchProfile();
+      });
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to update profile');
+      showAck('Error', e.response?.data?.message || 'Failed to update profile', 'error');
     } finally {
       setSaving(false);
     }
@@ -104,13 +126,13 @@ export default function ProfileScreen() {
 
   const handleChangePassword = async () => {
     if (!passData.currentPassword || !passData.newPassword || !passData.confirmPassword) {
-      return Alert.alert('Error', 'Please fill all password fields');
+      return showAck('Error', 'Please fill all password fields', 'error');
     }
     if (passData.newPassword !== passData.confirmPassword) {
-      return Alert.alert('Error', 'New passwords do not match');
+      return showAck('Error', 'New passwords do not match', 'error');
     }
     if (passData.newPassword.length < 6) {
-      return Alert.alert('Error', 'Password must be at least 6 characters');
+      return showAck('Error', 'Password must be at least 6 characters', 'error');
     }
 
     setSaving(true);
@@ -120,11 +142,12 @@ export default function ProfileScreen() {
         newPassword: passData.newPassword,
       });
 
-      Alert.alert('Success', 'Password updated successfully!');
-      setPassModalVisible(false);
-      setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      showAck('Password Updated', 'Your password has been changed successfully!', 'success', () => {
+        setPassModalVisible(false);
+        setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      });
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to change password');
+      showAck('Error', e.response?.data?.message || 'Failed to change password', 'error');
     } finally {
       setSaving(false);
     }
@@ -170,9 +193,9 @@ export default function ProfileScreen() {
         <View style={styles.darkHeaderCard}>
           {/* Avatar Ring */}
           <View style={styles.avatarContainer}>
-            {(photoUri || profile.profile_photo) ? (
+            {(photoAsset?.uri || profile.profile_photo) ? (
               <Image
-                source={photoUri || profile.profile_photo}
+                source={photoAsset?.uri || profile.profile_photo}
                 style={styles.avatarImage}
                 contentFit="cover"
                 transition={200}
@@ -274,8 +297,8 @@ export default function ProfileScreen() {
 
             {/* Photo Avatar Upload Touch */}
             <TouchableOpacity onPress={pickImage} style={styles.photoUploadBox}>
-              {(photoUri || profile.profile_photo) ? (
-                <Image source={photoUri || profile.profile_photo} style={styles.modalAvatarImg} />
+              {(photoAsset?.uri || profile.profile_photo) ? (
+                <Image source={photoAsset?.uri || profile.profile_photo} style={styles.modalAvatarImg} />
               ) : (
                 <View style={styles.modalAvatarPlaceholder}>
                   <Text style={styles.avatarInitials}>{getInitials(formData.name)}</Text>
@@ -332,34 +355,49 @@ export default function ProfileScreen() {
             </View>
 
             <Text style={styles.inputLabel}>Current Password *</Text>
-            <TextInput
-              style={styles.modalInput}
-              secureTextEntry
-              value={passData.currentPassword}
-              onChangeText={t => setPassData({ ...passData, currentPassword: t })}
-              placeholder="Enter current password"
-              placeholderTextColor="#9CA3AF"
-            />
+            <View style={styles.passwordRow}>
+              <TextInput
+                style={styles.passwordInput}
+                secureTextEntry={!showCurrentPass}
+                value={passData.currentPassword}
+                onChangeText={t => setPassData({ ...passData, currentPassword: t })}
+                placeholder="Enter current password"
+                placeholderTextColor="#9CA3AF"
+              />
+              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowCurrentPass(v => !v)}>
+                <Icon name={showCurrentPass ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.inputLabel}>New Password *</Text>
-            <TextInput
-              style={styles.modalInput}
-              secureTextEntry
-              value={passData.newPassword}
-              onChangeText={t => setPassData({ ...passData, newPassword: t })}
-              placeholder="At least 6 characters"
-              placeholderTextColor="#9CA3AF"
-            />
+            <View style={styles.passwordRow}>
+              <TextInput
+                style={styles.passwordInput}
+                secureTextEntry={!showNewPass}
+                value={passData.newPassword}
+                onChangeText={t => setPassData({ ...passData, newPassword: t })}
+                placeholder="At least 6 characters"
+                placeholderTextColor="#9CA3AF"
+              />
+              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowNewPass(v => !v)}>
+                <Icon name={showNewPass ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.inputLabel}>Confirm New Password *</Text>
-            <TextInput
-              style={styles.modalInput}
-              secureTextEntry
-              value={passData.confirmPassword}
-              onChangeText={t => setPassData({ ...passData, confirmPassword: t })}
-              placeholder="Re-enter new password"
-              placeholderTextColor="#9CA3AF"
-            />
+            <View style={styles.passwordRow}>
+              <TextInput
+                style={styles.passwordInput}
+                secureTextEntry={!showConfirmPass}
+                value={passData.confirmPassword}
+                onChangeText={t => setPassData({ ...passData, confirmPassword: t })}
+                placeholder="Re-enter new password"
+                placeholderTextColor="#9CA3AF"
+              />
+              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowConfirmPass(v => !v)}>
+                <Icon name={showConfirmPass ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setPassModalVisible(false)}>
@@ -391,10 +429,7 @@ export default function ProfileScreen() {
             width: '100%',
             maxWidth: 380,
             alignItems: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.25,
-            shadowRadius: 20,
+            boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.25)',
             elevation: 10
           }}>
             <View style={{
@@ -445,6 +480,56 @@ export default function ProfileScreen() {
                 <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Logout</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* ACK / ALERT POPUP MODAL */}
+      {/* ========================================================================= */}
+      <Modal visible={ackModal.visible} animationType="fade" transparent onRequestClose={() => setAckModal(p => ({ ...p, visible: false }))}>
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[
+              styles.popupIconCircle,
+              {
+                backgroundColor:
+                  ackModal.type === 'success' ? '#DCFCE7' :
+                  ackModal.type === 'error'   ? '#FEE2E2' : '#EFF6FF'
+              }
+            ]}>
+              <Icon
+                name={
+                  ackModal.type === 'success' ? 'checkmark-circle-outline' :
+                  ackModal.type === 'error'   ? 'close-circle-outline' :
+                  'information-circle-outline'
+                }
+                size={28}
+                color={
+                  ackModal.type === 'success' ? '#16A34A' :
+                  ackModal.type === 'error'   ? '#DC2626' : '#2563EB'
+                }
+              />
+            </View>
+            <Text style={styles.popupTitle}>{ackModal.title}</Text>
+            <Text style={styles.popupMessage}>{ackModal.message}</Text>
+            <TouchableOpacity
+              style={[
+                styles.popupOkBtn,
+                {
+                  backgroundColor:
+                    ackModal.type === 'success' ? '#16A34A' :
+                    ackModal.type === 'error'   ? '#DC2626' : '#2563EB'
+                }
+              ]}
+              onPress={() => {
+                const onOk = ackModal.onOk;
+                setAckModal(p => ({ ...p, visible: false }));
+                if (onOk) onOk();
+              }}
+            >
+              <Text style={styles.popupOkBtnText}>OK</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -729,5 +814,79 @@ const styles = StyleSheet.create({
   submitModalText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+  },
+
+  // Password field with eye toggle
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    marginBottom: 4,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+  },
+  eyeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+
+  // Ack Popup Styles
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  popupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 28,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.2)',
+    elevation: 10,
+  },
+  popupIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  popupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  popupMessage: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  popupOkBtn: {
+    width: '100%',
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  popupOkBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
 });

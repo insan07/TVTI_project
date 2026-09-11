@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
-  TextInput, TouchableOpacity, RefreshControl, Alert
+  TextInput, TouchableOpacity, RefreshControl, Modal
 } from 'react-native';
 import api from '../../services/api';
 import { COLORS } from '../../config/theme';
@@ -14,6 +14,29 @@ export default function MyStudentsScreen() {
   const [search, setSearch] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('all');
   const [batches, setBatches] = useState<string[]>([]);
+
+  // Custom Alert Popup State
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'success' | 'error' | 'info';
+    onOk?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (title: string, msg: string, onOk?: () => void, type: 'success' | 'error' | 'info' = 'info') => {
+    setAlertModal({
+      visible: true,
+      title,
+      message: msg,
+      type,
+      onOk
+    });
+  };
 
   useEffect(() => {
     fetchStudents();
@@ -30,7 +53,7 @@ export default function MyStudentsScreen() {
       setBatches(batchNames);
     } catch (e) {
       console.warn('Failed to load students', e);
-      Alert.alert('Error', 'Failed to load students. Please try again.');
+      showAlert('Error', 'Failed to load students. Please try again.', undefined, 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -174,6 +197,57 @@ export default function MyStudentsScreen() {
           </View>
         )}
       />
+
+      {/* CUSTOM IN-APP ALERT POPUP MODAL */}
+      <Modal
+        visible={alertModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAlertModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[
+              styles.popupIconCircle,
+              { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
+            ]}>
+              <Icon
+                name={
+                  alertModal.type === 'success'
+                    ? 'checkmark-circle-outline'
+                    : alertModal.type === 'error'
+                    ? 'close-circle-outline'
+                    : 'information-circle-outline'
+                }
+                size={28}
+                color={
+                  alertModal.type === 'success'
+                    ? '#16A34A'
+                    : alertModal.type === 'error'
+                    ? '#DC2626'
+                    : '#2563EB'
+                }
+              />
+            </View>
+            <Text style={styles.popupTitle}>{alertModal.title}</Text>
+            <Text style={styles.popupMessage}>{alertModal.message}</Text>
+            <TouchableOpacity
+              style={[
+                styles.popupSingleBtn,
+                { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#F58220' }
+              ]}
+              onPress={() => {
+                const action = alertModal.onOk;
+                setAlertModal(prev => ({ ...prev, visible: false }));
+                if (action) action();
+              }}
+            >
+              <Text style={styles.popupSingleBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -210,7 +284,7 @@ const styles = StyleSheet.create({
   emptyContainer: { alignItems: 'center', marginTop: 60 },
   emptyTitle: { color: '#374151', fontSize: 18, fontWeight: 'bold', marginTop: 15 },
   emptySubtitle: { color: '#9CA3AF', fontSize: 14, marginTop: 6, textAlign: 'center', paddingHorizontal: 40 },
-  card: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 14, padding: 15, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4 },
+  card: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 14, padding: 15, elevation: 2, boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)' },
   cardHeader: { flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   avatarText: { fontSize: 20, fontWeight: 'bold', color: '#1E3A8A' },
@@ -226,4 +300,56 @@ const styles = StyleSheet.create({
   badgeText: { color: '#92400E', fontSize: 12, fontWeight: 'bold' },
   batchDetail: { flexDirection: 'row', alignItems: 'center' },
   batchName: { color: '#6B7280', fontSize: 13 },
+  
+  // Custom Popup Dialog Modal Styles
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  popupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.25)',
+    elevation: 10
+  },
+  popupIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  popupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8
+  },
+  popupMessage: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20
+  },
+  popupSingleBtn: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  popupSingleBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15
+  }
 });

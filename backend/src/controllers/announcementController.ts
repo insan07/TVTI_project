@@ -76,3 +76,24 @@ export const getStudentAnnouncements = async (req: AuthRequest, res: Response): 
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+export const deleteAnnouncement = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const announcement = await Announcement.findById(req.params.id);
+    
+    if (!announcement) {
+      res.status(404).json({ message: 'Announcement not found' });
+      return;
+    }
+
+    if (announcement.posted_by.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      res.status(403).json({ message: 'Not authorized to delete this announcement' });
+      return;
+    }
+
+    await announcement.deleteOne();
+    res.json({ message: 'Announcement removed' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
