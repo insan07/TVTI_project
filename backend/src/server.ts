@@ -93,7 +93,11 @@ let isConnected = false;
 const connectDB = async () => {
   if (isConnected) return;
   try {
-    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/twintec_lms';
+    const mongoURI = process.env.MONGO_URI;
+    if (!mongoURI) {
+      console.error('CRITICAL ERROR: MONGO_URI is not defined in your .env file! Please set MONGO_URI in backend/.env');
+      process.exit(1);
+    }
     await mongoose.connect(mongoURI);
     isConnected = true;
     console.log('MongoDB Connected successfully.');
@@ -160,13 +164,18 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Connect Database
-connectDB();
+// Connect Database & Start Server
+const startServer = async () => {
+  await connectDB();
 
-if (process.env.NODE_ENV !== 'production') {
-  server.listen(PORT, () => {
-    console.log(`Server & Socket.io running on port ${PORT}`);
-  });
-}
+  if (process.env.NODE_ENV !== 'production') {
+    server.listen(PORT, () => {
+      console.log(`Server & Socket.io running on port ${PORT}`);
+    });
+  }
+};
+
+startServer();
 
 export default app;
+

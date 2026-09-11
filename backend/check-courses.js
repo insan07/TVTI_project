@@ -3,7 +3,7 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/twintec_lms';
+const MONGO_URI = process.env.MONGO_URI;
 
 // Define Course Schema matching models/Course
 const courseSchema = new mongoose.Schema({
@@ -17,6 +17,10 @@ const courseSchema = new mongoose.Schema({
 const Course = mongoose.model('Course', courseSchema);
 
 async function checkCourses() {
+  if (!MONGO_URI) {
+    console.error('CRITICAL ERROR: MONGO_URI is not defined in backend/.env!');
+    process.exit(1);
+  }
   try {
     await mongoose.connect(MONGO_URI);
     console.log('MongoDB Connected successfully.');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, FlatList, RefreshControl, Platform, Linking, Modal
+  TextInput, ActivityIndicator, FlatList, RefreshControl, Platform, Linking, Modal, Image
 } from 'react-native';
 import api from '../../services/api';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { useRoute } from '@react-navigation/native';
 import { API_URL } from '../../config/constants';
 import { storage } from '../../utils/storage';
 import { COLORS } from '../../config/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500MB
 
@@ -296,6 +297,7 @@ export default function UploadVideoScreen() {
       await api.delete(`/instructors/videos/${videoId}`);
       setMyVideos(prev => prev.filter(v => v._id !== videoId));
       setMyMaterials(prev => prev.filter(v => v._id !== videoId));
+      showAlert('Deleted', 'Upload successfully removed.', undefined, 'success');
     } catch (e: any) {
       showAlert('Error', e.response?.data?.message || 'Failed to delete upload', undefined, 'error');
     }
@@ -482,17 +484,24 @@ export default function UploadVideoScreen() {
             )}
 
             <TouchableOpacity
-              style={[styles.btn, (uploading || batches.length === 0) && styles.btnDisabled]}
+              style={[styles.btnWrapper, (uploading || batches.length === 0) && styles.btnDisabled]}
               onPress={submit}
               disabled={uploading || batches.length === 0}
             >
-              {uploading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.btnText}>
-                  {uploadMode === 'video' ? '🚀 Post Video to Students' : '📑 Upload Material'}
-                </Text>
-              )}
+              <LinearGradient
+                colors={[COLORS.primary, '#1E3A8A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.btn}
+              >
+                {uploading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.btnText}>
+                    {uploadMode === 'video' ? '🚀 Post Video to Students' : '📑 Upload Material'}
+                  </Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -553,11 +562,66 @@ export default function UploadVideoScreen() {
                     }}
                   >
                     <View style={styles.videoIcon}>
-                      <Icon
-                        name={item.content_type === 'material' ? 'document-text' : item.youtube_url ? 'logo-youtube' : 'videocam'}
-                        size={22}
-                        color={item.content_type === 'material' ? '#10B981' : item.youtube_url ? '#EF4444' : COLORS.primary}
-                      />
+                      {(() => {
+                        let thumbUrl = null;
+                        let isLocalVideo = false;
+                        let localVideoUrl = '';
+
+                        if (item.youtube_url) {
+                          const match = item.youtube_url.match(/[?&]v=([^&]+)/) || item.youtube_url.match(/youtu\.be\/([^?]+)/);
+                          if (match && match[1]) {
+                            thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+                          }
+                        } else if (item.cloudinary_url && item.content_type !== 'material') {
+                          if (item.cloudinary_url.includes('cloudinary.com')) {
+                            thumbUrl = item.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
+                          } else if (item.cloudinary_url.startsWith('/uploads/')) {
+                            isLocalVideo = true;
+                            localVideoUrl = `${API_URL.replace(/\/api\/?$/, '')}${item.cloudinary_url}`;
+                          }
+                        }
+                        
+                        if (thumbUrl) {
+                          return (
+                            <>
+                              <Image source={{ uri: thumbUrl }} style={styles.thumbnailImage} resizeMode="cover" />
+                              <View style={styles.thumbnailOverlay}>
+                                <Icon
+                                  name={item.youtube_url ? 'logo-youtube' : 'videocam'}
+                                  size={22}
+                                  color="#FFFFFF"
+                                />
+                              </View>
+                            </>
+                          );
+                        } else if (isLocalVideo && Platform.OS === 'web') {
+                          const VideoElement = 'video' as any;
+                          return (
+                            <>
+                              <VideoElement 
+                                src={localVideoUrl} 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} 
+                                preload="metadata" 
+                                muted 
+                              />
+                              <View style={styles.thumbnailOverlay}>
+                                <Icon
+                                  name="videocam"
+                                  size={22}
+                                  color="#FFFFFF"
+                                />
+                              </View>
+                            </>
+                          );
+                        }
+                        return (
+                          <Icon
+                            name={item.content_type === 'material' ? 'document-text' : item.youtube_url ? 'logo-youtube' : 'videocam'}
+                            size={22}
+                            color={item.content_type === 'material' ? '#10B981' : item.youtube_url ? '#EF4444' : COLORS.primary}
+                          />
+                        );
+                      })()}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.videoTitle} numberOfLines={2}>{item.title}</Text>
@@ -696,7 +760,8 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 12, fontSize: 14, color: '#1F2937', marginBottom: 4 },
   uploadBox: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: COLORS.primary, backgroundColor: '#EFF6FF', padding: 16, borderRadius: 8, marginBottom: 4, gap: 8 },
   uploadBoxText: { fontSize: 13, fontWeight: 'bold', flex: 1 },
-  btn: { flexDirection: 'row', backgroundColor: COLORS.primary, padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 22 },
+  btnWrapper: { borderRadius: 10, marginTop: 22, overflow: 'hidden' },
+  btn: { flexDirection: 'row', padding: 15, alignItems: 'center', justifyContent: 'center' },
   btnDisabled: { opacity: 0.5 },
   btnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -708,7 +773,9 @@ const styles = StyleSheet.create({
   emptyBtnText: { color: '#fff', fontWeight: 'bold' },
   videoCard: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 12, padding: 14, elevation: 1, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: '#F3F4F6' },
   videoCardLeft: { flex: 1, flexDirection: 'row', gap: 12 },
-  videoIcon: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' },
+  videoIcon: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  thumbnailImage: { width: '100%', height: '100%', position: 'absolute' },
+  thumbnailOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
   videoTitle: { fontSize: 15, fontWeight: 'bold', color: '#1F2937', marginBottom: 4 },
   videoMeta: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   videoDate: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
@@ -729,10 +796,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
+    boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.25)',
     elevation: 10
   },
   popupIconCircle: {

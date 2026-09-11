@@ -478,9 +478,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowOffset: { width: 0, height: 3 },
+    boxShadow: '0px 3px 6px rgba(0, 0, 0, 0.25)',
   },
   emptyText: {
     textAlign: 'center',
