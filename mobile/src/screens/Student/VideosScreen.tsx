@@ -103,7 +103,17 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
       Alert.alert('Error', 'PDF URL not found');
       return;
     }
-    navigation.navigate('PdfViewer', { pdfUrl: rawUrl, title });
+    let url = rawUrl;
+    if (url.startsWith('/uploads/') || url.startsWith('/api/files/')) {
+      url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+    }
+    if (Platform.OS === 'web') {
+      window.open(url, '_blank');
+    } else {
+      Linking.openURL(url).catch(() => {
+        Alert.alert('Error', 'Unable to open PDF document');
+      });
+    }
   };
 
   const currentBatch = batches.find((b) => b._id === activeBatchId);

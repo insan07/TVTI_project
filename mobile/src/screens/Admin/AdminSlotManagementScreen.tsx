@@ -89,6 +89,34 @@ export default function AdminSlotManagementScreen() {
   const [editEquipmentNote, setEditEquipmentNote] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
+  // Custom Confirmation & Alert Dialog Popup State
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info' | 'lock';
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'success' | 'error' | 'info';
+    onOk?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
   // Create Form State
   const [createBatchId, setCreateBatchId] = useState('');
   const [createInstructorId, setCreateInstructorId] = useState('');
@@ -96,6 +124,16 @@ export default function AdminSlotManagementScreen() {
     { day_of_week: 'Monday', start_time: '09:00', end_time: '12:00', max_students: '10', equipment_note: '' }
   ]);
   const [creating, setCreating] = useState(false);
+
+  const showAlert = (title: string, msg: string, onOk?: () => void, type: 'success' | 'error' | 'info' = 'info') => {
+    setAlertModal({
+      visible: true,
+      title,
+      message: msg,
+      type,
+      onOk
+    });
+  };
 
   useEffect(() => {
     fetchMasterData();
@@ -164,48 +202,44 @@ export default function AdminSlotManagementScreen() {
     setWeekStart(nd);
   };
 
-  const toggleSlotStatus = async (slot: any) => {
-    Alert.alert(
-      slot.is_open ? 'Lock Practical Slot?' : 'Reopen Practical Slot?',
-      `This will ${slot.is_open ? 'close' : 'allow'} student bookings for this slot.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            try {
-              await api.patch(`/instructors/practice-slots/${slot._id}`, { is_open: !slot.is_open });
-              fetchSlots();
-            } catch (e: any) {
-              Alert.alert('Error', e.response?.data?.message || 'Failed to update slot status');
-            }
-          }
+  const toggleSlotStatus = (slot: any) => {
+    setConfirmModal({
+      visible: true,
+      title: slot.is_open ? 'Lock Practical Slot?' : 'Reopen Practical Slot?',
+      message: `This will ${slot.is_open ? 'close' : 'allow'} student bookings for this slot.`,
+      type: slot.is_open ? 'lock' : 'info',
+      confirmText: slot.is_open ? 'Lock Slot' : 'Reopen Slot',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await api.patch(`/instructors/practice-slots/${slot._id}`, { is_open: !slot.is_open });
+          fetchSlots();
+          showAlert('Success', `Practical slot ${slot.is_open ? 'locked' : 'reopened'} successfully!`, undefined, 'success');
+        } catch (e: any) {
+          showAlert('Error', e.response?.data?.message || 'Failed to update slot status', undefined, 'error');
         }
-      ]
-    );
+      }
+    });
   };
 
-  const handleDeleteSlot = async (slotId: string) => {
-    Alert.alert(
-      'Delete Practical Slot',
-      'Are you sure you want to permanently remove this slot? All student bookings for this slot will be canceled.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await api.delete(`/instructors/practice-slots/${slotId}`);
-              Alert.alert('Deleted', 'Slot removed successfully');
-              fetchSlots();
-            } catch (e: any) {
-              Alert.alert('Error', e.response?.data?.message || 'Failed to delete slot');
-            }
-          }
+  const handleDeleteSlot = (slotId: string) => {
+    setConfirmModal({
+      visible: true,
+      title: 'Delete Practical Slot',
+      message: 'Are you sure you want to permanently remove this slot? All student bookings for this slot will be canceled.',
+      type: 'danger',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/instructors/practice-slots/${slotId}`);
+          fetchSlots();
+          showAlert('Deleted', 'Slot removed successfully', undefined, 'success');
+        } catch (e: any) {
+          showAlert('Error', e.response?.data?.message || 'Failed to delete slot', undefined, 'error');
         }
-      ]
-    );
+      }
+    });
   };
 
   const openBookingsModal = async (slot: any) => {
@@ -216,30 +250,31 @@ export default function AdminSlotManagementScreen() {
       const res = await api.get(`/instructors/practice-slots/${slot._id}/bookings`);
       setSlotBookings(res.data || []);
     } catch (e) {
-      Alert.alert('Error', 'Failed to fetch slot bookings');
+      showAlert('Error', 'Failed to fetch slot bookings', undefined, 'error');
     } finally {
       setBookingsLoading(false);
     }
   };
 
   const handleRemoveBooking = (bookingId: string, studentName: string) => {
-    Alert.alert('Cancel Booking', `Remove ${studentName} from this practical slot?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}`);
-            Alert.alert('Success', 'Student removed from slot');
-            openBookingsModal(selectedSlot);
-            fetchSlots();
-          } catch (e) {
-            Alert.alert('Error', 'Failed to remove booking');
-          }
+    setConfirmModal({
+      visible: true,
+      title: 'Cancel Booking',
+      message: `Remove ${studentName} from this practical slot?`,
+      type: 'danger',
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}`);
+          showAlert('Success', 'Student removed from slot', undefined, 'success');
+          openBookingsModal(selectedSlot);
+          fetchSlots();
+        } catch (e) {
+          showAlert('Error', 'Failed to remove booking', undefined, 'error');
         }
       }
-    ]);
+    });
   };
 
   const openAddStudentModal = async () => {
@@ -864,6 +899,114 @@ export default function AdminSlotManagementScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* CUSTOM IN-APP CONFIRMATION POPUP MODAL */}
+      <Modal
+        visible={confirmModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[
+              styles.popupIconCircle,
+              { backgroundColor: confirmModal.type === 'danger' ? '#FEE2E2' : confirmModal.type === 'lock' ? '#FEF3C7' : '#EFF6FF' }
+            ]}>
+              <Icon
+                name={
+                  confirmModal.type === 'danger'
+                    ? 'trash-outline'
+                    : confirmModal.type === 'lock'
+                    ? 'lock-closed-outline'
+                    : 'alert-circle-outline'
+                }
+                size={28}
+                color={
+                  confirmModal.type === 'danger'
+                    ? '#DC2626'
+                    : confirmModal.type === 'lock'
+                    ? '#D97706'
+                    : '#2563EB'
+                }
+              />
+            </View>
+            <Text style={styles.popupTitle}>{confirmModal.title}</Text>
+            <Text style={styles.popupMessage}>{confirmModal.message}</Text>
+            <View style={styles.popupBtnRow}>
+              <TouchableOpacity
+                style={styles.popupCancelBtn}
+                onPress={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+              >
+                <Text style={styles.popupCancelText}>{confirmModal.cancelText || 'Cancel'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.popupConfirmBtn,
+                  { backgroundColor: confirmModal.type === 'danger' ? '#DC2626' : confirmModal.type === 'lock' ? '#D97706' : '#2563EB' }
+                ]}
+                onPress={() => {
+                  const action = confirmModal.onConfirm;
+                  setConfirmModal(prev => ({ ...prev, visible: false }));
+                  if (action) action();
+                }}
+              >
+                <Text style={styles.popupConfirmText}>{confirmModal.confirmText || 'Confirm'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CUSTOM IN-APP ALERT POPUP MODAL */}
+      <Modal
+        visible={alertModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAlertModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[
+              styles.popupIconCircle,
+              { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
+            ]}>
+              <Icon
+                name={
+                  alertModal.type === 'success'
+                    ? 'checkmark-circle-outline'
+                    : alertModal.type === 'error'
+                    ? 'close-circle-outline'
+                    : 'information-circle-outline'
+                }
+                size={28}
+                color={
+                  alertModal.type === 'success'
+                    ? '#16A34A'
+                    : alertModal.type === 'error'
+                    ? '#DC2626'
+                    : '#2563EB'
+                }
+              />
+            </View>
+            <Text style={styles.popupTitle}>{alertModal.title}</Text>
+            <Text style={styles.popupMessage}>{alertModal.message}</Text>
+            <TouchableOpacity
+              style={[
+                styles.popupSingleBtn,
+                { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#D97706' }
+              ]}
+              onPress={() => {
+                const action = alertModal.onOk;
+                setAlertModal(prev => ({ ...prev, visible: false }));
+                if (action) action();
+              }}
+            >
+              <Text style={styles.popupSingleBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -958,5 +1101,90 @@ const styles = StyleSheet.create({
   studentMeta: { fontSize: 12, color: '#64748B', marginTop: 2 },
   removeBookingBtn: { backgroundColor: '#FEF2F2', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: '#FCA5A5' },
   removeBookingText: { color: '#DC2626', fontSize: 12, fontWeight: 'bold' },
-  assignStudentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }
+  assignStudentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+
+  // Custom Popup Dialog Modal Styles
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  popupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10
+  },
+  popupIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  popupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8
+  },
+  popupMessage: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20
+  },
+  popupBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%'
+  },
+  popupCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1'
+  },
+  popupCancelText: {
+    color: '#475569',
+    fontWeight: 'bold',
+    fontSize: 14
+  },
+  popupConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  popupConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14
+  },
+  popupSingleBtn: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  popupSingleBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15
+  }
 });

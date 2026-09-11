@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  TextInput, ActivityIndicator, Alert, Modal, FlatList, RefreshControl
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  FlatList,
+  RefreshControl
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { getMyPracticeSlots, createPracticeSlots, updatePracticeSlot, getSlotBookings } from '../../services/practiceService';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../services/api';
+import { getMyPracticeSlots, updatePracticeSlot, getSlotBookings } from '../../services/practiceService';
 import { COLORS } from '../../config/theme';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -21,55 +31,155 @@ function getLocalDateString(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const PracticeSessionsScreen = () => {
-  const [activeTab, setActiveTab] = useState<'my_slots' | 'create'>('my_slots');
+const parseUTCDate = (dateStr: string) => {
+  if (!dateStr) return new Date();
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1;
+    const day = parseInt(match[3], 10);
+    return new Date(year, month, day, 0, 0, 0, 0);
+  }
+  return new Date(dateStr);
+};
+
+const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
+  if (!weekStartDateStr) return new Date();
+  const weekStart = parseUTCDate(weekStartDateStr);
+  const daysArr = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const diff = daysArr.indexOf(dayOfWeek);
+  const slotDate = new Date(weekStart);
+  if (diff !== -1) {
+    slotDate.setDate(slotDate.getDate() + diff);
+  }
+  return slotDate;
+};
+
+export default function PracticeSessionsScreen() {
+  const [activeTab, setActiveTab] = useState<'slots' | 'create'>('slots');
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Bookings modal
+  // Filters
+  const [selectedBatchFilter, setSelectedBatchFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed'>('all');
+
+  // Master Data
+  const [batches, setBatches] = useState<any[]>([]);
+  const [masterLoading, setMasterLoading] = useState(true);
+
+  // Bookings Modal
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
   const [bookingsModalVisible, setBookingsModalVisible] = useState(false);
   const [slotBookings, setSlotBookings] = useState<any[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
 
-  // Edit modal
+  // Assign Student to Slot Sub-Modal
+  const [addStudentModalVisible, setAddStudentModalVisible] = useState(false);
+  const [batchStudents, setBatchStudents] = useState<any[]>([]);
+  const [loadingBatchStudents, setLoadingBatchStudents] = useState(false);
+
+  // Edit Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editMaxStudents, setEditMaxStudents] = useState('');
   const [editEquipmentNote, setEditEquipmentNote] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
-  // Create tab
-  const [batches, setBatches] = useState<any[]>([]);
-  const [batchesLoading, setBatchesLoading] = useState(false);
-  const [selectedBatch, setSelectedBatch] = useState('');
+  // Custom Confirmation & Alert Dialog Popup State
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info' | 'lock';
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'success' | 'error' | 'info';
+    onOk?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  // Create Form State
+  const [createBatchId, setCreateBatchId] = useState('');
   const [newSlots, setNewSlots] = useState([
-    { day_of_week: 'Monday', start_time: '09:00', end_time: '11:00', max_students: '10', equipment_note: '' }
+    { day_of_week: 'Monday', start_time: '09:00', end_time: '12:00', max_students: '10', equipment_note: '' }
   ]);
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    if (activeTab === 'my_slots') {
-      fetchMySlots();
-    } else {
-      fetchBatches();
-    }
-  }, [activeTab, weekStart]);
-
-  const changeWeek = (offset: number) => {
-    const nd = new Date(weekStart);
-    nd.setDate(nd.getDate() + offset * 7);
-    setWeekStart(nd);
+  const showAlert = (title: string, msg: string, onOk?: () => void, type: 'success' | 'error' | 'info' = 'info') => {
+    setAlertModal({
+      visible: true,
+      title,
+      message: msg,
+      type,
+      onOk
+    });
   };
 
-  const fetchMySlots = async () => {
+  useEffect(() => {
+    fetchMasterData();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'slots') {
+      fetchSlots();
+    }
+  }, [activeTab, weekStart, selectedBatchFilter, statusFilter]);
+
+  const fetchMasterData = async () => {
+    setMasterLoading(true);
+    try {
+      const res = await api.get('/instructors/my-schedule');
+      const bList = res.data || [];
+      setBatches(bList);
+      if (bList.length > 0 && !createBatchId) {
+        setCreateBatchId(bList[0]._id);
+      }
+    } catch (e) {
+      console.log('Error fetching instructor batches', e);
+    } finally {
+      setMasterLoading(false);
+    }
+  };
+
+  const fetchSlots = async () => {
     setLoading(true);
     try {
-      const data = await getMyPracticeSlots({ weekStart: getLocalDateString(weekStart) });
+      const params: any = {
+        weekStart: getLocalDateString(weekStart)
+      };
+      if (selectedBatchFilter !== 'all') {
+        params.batchId = selectedBatchFilter;
+      }
+
+      const res = await api.get('/instructors/practice-slots', { params });
+      let data = res.data || [];
+
+      if (statusFilter === 'open') {
+        data = data.filter((s: any) => s.is_open);
+      } else if (statusFilter === 'closed') {
+        data = data.filter((s: any) => !s.is_open);
+      }
+
       setSlots(data);
     } catch (e) {
-      Alert.alert('Error', 'Failed to load practice slots');
+      console.log('Error fetching practice slots', e);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -78,41 +188,53 @@ const PracticeSessionsScreen = () => {
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchMySlots();
+    fetchSlots();
   };
 
-  const fetchBatches = async () => {
-    setBatchesLoading(true);
-    try {
-      const res = await api.get('/instructors/my-schedule');
-      setBatches(res.data);
-      if (res.data.length > 0 && !selectedBatch) setSelectedBatch(res.data[0]._id);
-    } catch (e) {
-      console.warn('Error fetching batches', e);
-    } finally {
-      setBatchesLoading(false);
-    }
+  const changeWeek = (offset: number) => {
+    const nd = new Date(weekStart);
+    nd.setDate(nd.getDate() + offset * 7);
+    setWeekStart(nd);
   };
 
-  const toggleSlotStatus = async (slot: any) => {
-    Alert.alert(
-      slot.is_open ? 'Close Slot?' : 'Reopen Slot?',
-      `This will ${slot.is_open ? 'prevent' : 'allow'} new bookings for this slot.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            try {
-              await updatePracticeSlot(slot._id, { is_open: !slot.is_open });
-              fetchMySlots();
-            } catch (e) {
-              Alert.alert('Error', 'Failed to update slot status');
-            }
-          }
+  const toggleSlotStatus = (slot: any) => {
+    setConfirmModal({
+      visible: true,
+      title: slot.is_open ? 'Lock Practical Slot?' : 'Reopen Practical Slot?',
+      message: `This will ${slot.is_open ? 'close' : 'allow'} student bookings for this slot.`,
+      type: slot.is_open ? 'lock' : 'info',
+      confirmText: slot.is_open ? 'Lock Slot' : 'Reopen Slot',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await updatePracticeSlot(slot._id, { is_open: !slot.is_open });
+          fetchSlots();
+          showAlert('Success', `Practical slot ${slot.is_open ? 'locked' : 'reopened'} successfully!`, undefined, 'success');
+        } catch (e: any) {
+          showAlert('Error', e.response?.data?.message || 'Failed to update slot status', undefined, 'error');
         }
-      ]
-    );
+      }
+    });
+  };
+
+  const handleDeleteSlot = (slotId: string) => {
+    setConfirmModal({
+      visible: true,
+      title: 'Delete Practical Slot',
+      message: 'Are you sure you want to permanently remove this slot? All student bookings for this slot will be canceled.',
+      type: 'danger',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/instructors/practice-slots/${slotId}`);
+          fetchSlots();
+          showAlert('Deleted', 'Slot removed successfully', undefined, 'success');
+        } catch (e: any) {
+          showAlert('Error', e.response?.data?.message || 'Failed to delete slot', undefined, 'error');
+        }
+      }
+    });
   };
 
   const openBookingsModal = async (slot: any) => {
@@ -121,52 +243,85 @@ const PracticeSessionsScreen = () => {
     setBookingsLoading(true);
     try {
       const data = await getSlotBookings(slot._id);
-      setSlotBookings(data);
+      setSlotBookings(data || []);
     } catch (e) {
-      Alert.alert('Error', 'Failed to fetch bookings');
+      showAlert('Error', 'Failed to fetch slot bookings', undefined, 'error');
     } finally {
       setBookingsLoading(false);
     }
   };
 
   const handleRemoveBooking = (bookingId: string, studentName: string) => {
-    Alert.alert('Remove Student', `Are you sure you want to cancel ${studentName}'s booking for this slot?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}`);
-            Alert.alert('Success', 'Student booking removed');
-            openBookingsModal(selectedSlot);
-            fetchMySlots();
-          } catch (e) {
-            Alert.alert('Error', 'Failed to remove student booking');
-          }
+    setConfirmModal({
+      visible: true,
+      title: 'Cancel Booking',
+      message: `Remove ${studentName} from this practical slot?`,
+      type: 'danger',
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}`);
+          showAlert('Success', 'Student removed from slot', undefined, 'success');
+          openBookingsModal(selectedSlot);
+          fetchSlots();
+        } catch (e) {
+          showAlert('Error', 'Failed to remove booking', undefined, 'error');
         }
       }
-    ]);
+    });
+  };
+
+  const openAddStudentModal = async () => {
+    if (!selectedSlot?.batch_id?._id && !selectedSlot?.batch_id) return;
+    const currentBatchId = selectedSlot.batch_id?._id || selectedSlot.batch_id;
+    setAddStudentModalVisible(true);
+    setLoadingBatchStudents(true);
+    try {
+      const res = await api.get('/instructors/my-students');
+      const bStudents = (res.data || [])
+        .filter((e: any) => String(e.batch_id?._id || e.batch_id) === String(currentBatchId))
+        .map((e: any) => e.student_id)
+        .filter(Boolean);
+      setBatchStudents(bStudents);
+    } catch (e) {
+      console.log('Error loading batch students', e);
+    } finally {
+      setLoadingBatchStudents(false);
+    }
+  };
+
+  const handleAssignStudent = async (studentId: string, studentName: string) => {
+    try {
+      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings`, { student_id: studentId });
+      Alert.alert('Success', `${studentName} assigned to slot!`);
+      setAddStudentModalVisible(false);
+      openBookingsModal(selectedSlot);
+      fetchSlots();
+    } catch (e: any) {
+      Alert.alert('Error', e.response?.data?.message || 'Failed to assign student');
+    }
   };
 
   const openEditModal = (slot: any) => {
     setSelectedSlot(slot);
-    setEditMaxStudents(slot.max_students.toString());
+    setEditMaxStudents(String(slot.max_students || 10));
     setEditEquipmentNote(slot.equipment_note || '');
     setEditModalVisible(true);
   };
 
-  const handleEditSlot = async () => {
-    const max = parseInt(editMaxStudents, 10);
-    if (!max || max < 1) return Alert.alert('Error', 'Max students must be at least 1');
+  const handleSaveEdit = async () => {
+    const maxN = parseInt(editMaxStudents, 10);
+    if (!maxN || maxN < 1) return Alert.alert('Validation Error', 'Max students must be at least 1');
     setEditSaving(true);
     try {
       await updatePracticeSlot(selectedSlot._id, {
-        max_students: max,
-        equipment_note: editEquipmentNote.trim(),
+        max_students: maxN,
+        equipment_note: editEquipmentNote.trim()
       });
+      Alert.alert('Success', 'Practical slot updated!');
       setEditModalVisible(false);
-      fetchMySlots();
+      fetchSlots();
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to update slot');
     } finally {
@@ -175,36 +330,37 @@ const PracticeSessionsScreen = () => {
   };
 
   const handleCreateSlots = async () => {
-    if (!selectedBatch) return Alert.alert('Error', 'Please select a batch first');
+    if (!createBatchId) return Alert.alert('Validation Error', 'Please select a target batch');
+
     for (const s of newSlots) {
       if (!s.day_of_week || !s.start_time || !s.end_time) {
-        return Alert.alert('Error', 'Please fill in all required slot fields');
+        return Alert.alert('Validation Error', 'Please complete day and time for all slots');
       }
       const maxN = parseInt(s.max_students, 10);
-      if (!maxN || maxN < 1) return Alert.alert('Error', 'Max students must be at least 1');
+      if (!maxN || maxN < 1) return Alert.alert('Validation Error', 'Max capacity must be at least 1');
     }
+
     setCreating(true);
     try {
-      await createPracticeSlots({
-        batch_id: selectedBatch,
+      await api.post('/instructors/practice-slots', {
+        batch_id: createBatchId,
         week_start_date: getLocalDateString(weekStart),
-        slots: newSlots.map(s => ({ ...s, max_students: parseInt(s.max_students, 10) })) as any
+        slots: newSlots.map(s => ({
+          ...s,
+          max_students: parseInt(s.max_students, 10)
+        }))
       });
-      Alert.alert('Success', `${newSlots.length} slot(s) created successfully!`, [
+      Alert.alert('Success', `${newSlots.length} practical slot(s) created successfully!`, [
         {
-          text: 'View Slots',
+          text: 'View My Slots',
           onPress: () => {
-            setActiveTab('my_slots');
-            setNewSlots([{ day_of_week: 'Monday', start_time: '09:00', end_time: '11:00', max_students: '10', equipment_note: '' }]);
+            setActiveTab('slots');
+            setNewSlots([{ day_of_week: 'Monday', start_time: '09:00', end_time: '12:00', max_students: '10', equipment_note: '' }]);
           }
-        },
-        {
-          text: 'Create More', style: 'cancel',
-          onPress: () => setNewSlots([{ day_of_week: 'Monday', start_time: '09:00', end_time: '11:00', max_students: '10', equipment_note: '' }])
         }
       ]);
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to create slots');
+      Alert.alert('Error', e.response?.data?.message || 'Failed to create practical slots');
     } finally {
       setCreating(false);
     }
@@ -216,221 +372,335 @@ const PracticeSessionsScreen = () => {
     setNewSlots(updated);
   };
 
-  const removeSlot = (index: number) => {
+  const removeNewSlotRow = (index: number) => {
     setNewSlots(newSlots.filter((_, i) => i !== index));
   };
 
+  const totalBooked = slots.reduce((sum, s) => sum + (s.booked_count || 0), 0);
+  const openCount = slots.filter(s => s.is_open).length;
+
   return (
-    <View style={styles.container}>
-      {/* Tabs */}
-      <View style={styles.tabHeader}>
-        <TouchableOpacity style={[styles.tab, activeTab === 'my_slots' && styles.activeTab]} onPress={() => setActiveTab('my_slots')}>
-          <Icon name="list-outline" size={16} color={activeTab === 'my_slots' ? COLORS.primary : '#6B7280'} style={{ marginRight: 4 }} />
-          <Text style={[styles.tabText, activeTab === 'my_slots' && styles.activeTabText]}>My Slots</Text>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Top Header */}
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={styles.headerTitle}>Practical Slots Control</Text>
+          <Text style={styles.headerSubtitle}>Manage lab stations, weekly schedules, & student bookings.</Text>
+        </View>
+      </View>
+
+      {/* Main Mode Tabs */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'slots' && styles.activeTabItem]}
+          onPress={() => setActiveTab('slots')}
+        >
+          <Icon name="calendar" size={17} color={activeTab === 'slots' ? '#D97706' : '#6B7280'} style={{ marginRight: 6 }} />
+          <Text style={[styles.tabText, activeTab === 'slots' && styles.activeTabText]}>My Practical Slots ({slots.length})</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, activeTab === 'create' && styles.activeTab]} onPress={() => setActiveTab('create')}>
-          <Icon name="add-circle-outline" size={16} color={activeTab === 'create' ? COLORS.primary : '#6B7280'} style={{ marginRight: 4 }} />
-          <Text style={[styles.tabText, activeTab === 'create' && styles.activeTabText]}>Create Slots</Text>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'create' && styles.activeTabItem]}
+          onPress={() => setActiveTab('create')}
+        >
+          <Icon name="add-circle" size={17} color={activeTab === 'create' ? '#D97706' : '#6B7280'} style={{ marginRight: 6 }} />
+          <Text style={[styles.tabText, activeTab === 'create' && styles.activeTabText]}>+ Create Slots</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Week Picker */}
+      {/* Week Navigator */}
       <View style={styles.weekPicker}>
         <TouchableOpacity onPress={() => changeWeek(-1)} style={styles.weekArrow}>
-          <Icon name="chevron-back" size={22} color={COLORS.primary} />
+          <Icon name="chevron-back" size={20} color="#D97706" />
         </TouchableOpacity>
-        <Text style={styles.weekText}>Week of {getLocalDateString(weekStart)}</Text>
+        <View style={styles.weekDateBadge}>
+          <Icon name="calendar-outline" size={14} color="#D97706" style={{ marginRight: 6 }} />
+          <Text style={styles.weekText}>Week of {getLocalDateString(weekStart)}</Text>
+        </View>
         <TouchableOpacity onPress={() => changeWeek(1)} style={styles.weekArrow}>
-          <Icon name="chevron-forward" size={22} color={COLORS.primary} />
+          <Icon name="chevron-forward" size={20} color="#D97706" />
         </TouchableOpacity>
       </View>
 
-      {/* MY SLOTS TAB */}
-      {activeTab === 'my_slots' ? (
-        loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Loading slots...</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={slots}
-            keyExtractor={item => item._id}
-            contentContainerStyle={{ padding: 15, paddingBottom: 40 }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Icon name="calendar-outline" size={64} color="#D1D5DB" />
-                <Text style={styles.emptyTitle}>No slots this week</Text>
-                <Text style={styles.emptySubtitle}>Create practice slots for the week of {getLocalDateString(weekStart)}</Text>
-                <TouchableOpacity style={styles.emptyBtn} onPress={() => setActiveTab('create')}>
-                  <Text style={styles.emptyBtnText}>Create Slots</Text>
-                </TouchableOpacity>
-              </View>
-            }
-            renderItem={({ item: slot }) => {
-              const booked = slot.booked_count || 0;
-              const max = slot.max_students || 1;
-              const pct = Math.min((booked / max) * 100, 100);
-              return (
-                <View style={styles.card}>
-                  <View style={styles.cardHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>{slot.day_of_week}</Text>
-                      <Text style={styles.cardTime}>{slot.start_time} - {slot.end_time}</Text>
-                    </View>
-                    <View style={[styles.badge, { backgroundColor: slot.is_open ? '#D1FAE5' : '#FEE2E2' }]}>
-                      <Text style={[styles.badgeText, { color: slot.is_open ? '#065F46' : '#991B1B' }]}>
-                        {slot.is_open ? 'OPEN' : 'CLOSED'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {slot.batch_id?.name ? (
-                    <Text style={styles.cardBatch}>📚 {slot.batch_id.name}</Text>
-                  ) : null}
-                  <Text style={styles.cardBatch}>👨‍🏫 Inst. {slot.instructor_id?.name || 'Instructor'}</Text>
-                  {slot.equipment_note ? (
-                    <Text style={styles.cardNote}>Note: {slot.equipment_note}</Text>
-                  ) : null}
-
-                  <View style={styles.bookingRow}>
-                    <Text style={styles.bookingText}>Booked: {booked} / {max}</Text>
-                    <View style={styles.progressBar}>
-                      <View style={[styles.progressFill, { width: `${pct}%` as any }]} />
-                    </View>
-                  </View>
-
-                  <View style={styles.cardActions}>
-                    <TouchableOpacity style={styles.actionBtn} onPress={() => openBookingsModal(slot)}>
-                      <Icon name="people-outline" size={14} color={COLORS.primary} />
-                      <Text style={styles.actionText}>Bookings ({booked})</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionBtn} onPress={() => openEditModal(slot)}>
-                      <Icon name="create-outline" size={14} color={COLORS.primary} />
-                      <Text style={styles.actionText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionBtn} onPress={() => toggleSlotStatus(slot)}>
-                      <Icon name={slot.is_open ? 'lock-closed-outline' : 'lock-open-outline'} size={14} color={slot.is_open ? '#EF4444' : '#10B981'} />
-                      <Text style={[styles.actionText, { color: slot.is_open ? '#EF4444' : '#10B981' }]}>
-                        {slot.is_open ? 'Close' : 'Reopen'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            }}
-          />
-        )
-      ) : (
-        /* CREATE TAB */
-        <ScrollView style={styles.createScroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.sectionLabel}>Select Batch</Text>
-          {batchesLoading ? (
-            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 10 }} />
-          ) : batches.length === 0 ? (
-            <View style={styles.noBatchBox}>
-              <Icon name="warning-outline" size={20} color="#F59E0B" />
-              <Text style={styles.noBatchText}>No batches assigned to you.</Text>
+      {activeTab === 'slots' ? (
+        <ScrollView contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#D97706']} />}>
+          {/* Quick Metrics Bar */}
+          <View style={styles.metricsRow}>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricNumber}>{slots.length}</Text>
+              <Text style={styles.metricLabel}>Total Slots</Text>
             </View>
-          ) : (
-            <View style={styles.batchPills}>
+            <View style={styles.metricCard}>
+              <Text style={[styles.metricNumber, { color: '#10B981' }]}>{openCount}</Text>
+              <Text style={styles.metricLabel}>Open Slots</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={[styles.metricNumber, { color: '#2563EB' }]}>{totalBooked}</Text>
+              <Text style={styles.metricLabel}>Booked Seats</Text>
+            </View>
+          </View>
+
+          {/* Filter Bar Section */}
+          <View style={styles.filterSection}>
+            {/* Batch Filter */}
+            <Text style={styles.filterGroupLabel}>FILTER BY ASSIGNED BATCH</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+              <TouchableOpacity
+                style={[styles.filterPill, selectedBatchFilter === 'all' && styles.filterPillActive]}
+                onPress={() => setSelectedBatchFilter('all')}
+              >
+                <Text style={selectedBatchFilter === 'all' ? styles.filterPillTextActive : styles.filterPillText}>All Batches</Text>
+              </TouchableOpacity>
               {batches.map(b => (
                 <TouchableOpacity
                   key={b._id}
-                  style={[styles.batchPill, selectedBatch === b._id && styles.batchPillActive]}
-                  onPress={() => setSelectedBatch(b._id)}
+                  style={[styles.filterPill, selectedBatchFilter === b._id && styles.filterPillActive]}
+                  onPress={() => setSelectedBatchFilter(b._id)}
                 >
-                  <Text style={[styles.batchPillText, selectedBatch === b._id && styles.batchPillTextActive]}>
-                    {b.name || b.course_id?.title || 'Batch'}
+                  <Text style={selectedBatchFilter === b._id ? styles.filterPillTextActive : styles.filterPillText}>
+                    {b.name || 'Batch'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Status Filter */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+              <TouchableOpacity
+                style={[styles.statusPill, statusFilter === 'all' && styles.statusPillActive]}
+                onPress={() => setStatusFilter('all')}
+              >
+                <Text style={statusFilter === 'all' ? styles.statusPillTextActive : styles.statusPillText}>All Status</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.statusPill, statusFilter === 'open' && styles.statusPillActive]}
+                onPress={() => setStatusFilter('open')}
+              >
+                <Text style={statusFilter === 'open' ? styles.statusPillTextActive : styles.statusPillText}>Open Only</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.statusPill, statusFilter === 'closed' && styles.statusPillActive]}
+                onPress={() => setStatusFilter('closed')}
+              >
+                <Text style={statusFilter === 'closed' ? styles.statusPillTextActive : styles.statusPillText}>Closed Only</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Slot Cards List */}
+          {loading ? (
+            <ActivityIndicator size="large" color="#D97706" style={{ marginTop: 30 }} />
+          ) : slots.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Icon name="calendar-outline" size={54} color="#D1D5DB" />
+              <Text style={styles.emptyTitle}>No practical slots found for this week.</Text>
+              <Text style={styles.emptySubtitle}>Adjust your filters or tap "+ Create Slots" to schedule practical sessions.</Text>
+              <TouchableOpacity style={styles.createNowBtn} onPress={() => setActiveTab('create')}>
+                <Icon name="add-circle" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.createNowBtnText}>Create Practical Slots</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            slots.map(slot => {
+              const booked = slot.booked_count || 0;
+              const max = slot.max_students || 1;
+              const fillRatio = Math.min(1, booked / max);
+              const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
+              const formattedDate = actualDate.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+
+              return (
+                <View key={slot._id} style={styles.slotCard}>
+                  <View style={styles.cardAccentBar} />
+                  <View style={styles.cardMain}>
+                    {/* Header Row */}
+                    <View style={styles.cardHeader}>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                          <View style={styles.slotBadge}>
+                            <Text style={styles.slotBadgeText}>PRACTICAL SLOT</Text>
+                          </View>
+                          <View style={[styles.statusBadge, slot.is_open ? styles.statusBadgeOpen : styles.statusBadgeClosed]}>
+                            <Text style={[styles.statusBadgeText, slot.is_open ? styles.statusTextOpen : styles.statusTextClosed]}>
+                              {slot.is_open ? 'OPEN' : 'LOCKED'}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.courseTitle}>
+                          {slot.batch_id?.course_id?.title || slot.batch_id?.name || 'Practical Session'}
+                        </Text>
+                        <Text style={styles.batchSubtext}>Batch: {slot.batch_id?.name || 'N/A'}</Text>
+                      </View>
+                    </View>
+
+                    {/* Date & Time Info */}
+                    <View style={styles.infoRow}>
+                      <Icon name="calendar-outline" size={15} color="#D97706" style={{ marginRight: 6 }} />
+                      <Text style={styles.infoDateText}>{formattedDate}</Text>
+                      <Text style={styles.dotSeparator}>•</Text>
+                      <Icon name="time-outline" size={15} color="#666" style={{ marginRight: 4 }} />
+                      <Text style={styles.infoText}>{slot.start_time} – {slot.end_time}</Text>
+                    </View>
+
+                    {slot.instructor_id?.name ? (
+                      <View style={styles.infoRow}>
+                        <Icon name="person-outline" size={15} color="#2563EB" style={{ marginRight: 6 }} />
+                        <Text style={[styles.infoText, { color: '#1E40AF', fontWeight: 'bold' }]}>
+                          Inst. {slot.instructor_id.name}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {slot.equipment_note ? (
+                      <View style={styles.noteBox}>
+                        <Icon name="hardware-chip-outline" size={14} color="#64748B" style={{ marginRight: 6 }} />
+                        <Text style={styles.noteText}>{slot.equipment_note}</Text>
+                      </View>
+                    ) : null}
+
+                    {/* Seats Capacity Progress Bar */}
+                    <View style={styles.seatsContainer}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={styles.seatsText}>Capacity: {booked} / {max} Booked</Text>
+                        <Text style={styles.seatsPct}>{Math.round(fillRatio * 100)}%</Text>
+                      </View>
+                      <View style={styles.progressTrack}>
+                        <View style={[styles.progressFillBar, { width: `${fillRatio * 100}%`, backgroundColor: fillRatio >= 1 ? '#EF4444' : '#F97316' }]} />
+                      </View>
+                    </View>
+
+                    {/* Card Actions Bar */}
+                    <View style={styles.cardActionsRow}>
+                      <TouchableOpacity style={styles.actionBtnOutline} onPress={() => openBookingsModal(slot)}>
+                        <Icon name="people" size={15} color="#2563EB" style={{ marginRight: 4 }} />
+                        <Text style={[styles.actionBtnText, { color: '#2563EB' }]}>Students ({booked})</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={styles.actionBtnOutline} onPress={() => openEditModal(slot)}>
+                        <Icon name="create-outline" size={15} color="#4B5563" style={{ marginRight: 4 }} />
+                        <Text style={styles.actionBtnText}>Edit</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={styles.actionBtnOutline} onPress={() => toggleSlotStatus(slot)}>
+                        <Icon name={slot.is_open ? 'lock-closed-outline' : 'lock-open-outline'} size={15} color={slot.is_open ? '#DC2626' : '#16A34A'} style={{ marginRight: 4 }} />
+                        <Text style={[styles.actionBtnText, { color: slot.is_open ? '#DC2626' : '#16A34A' }]}>
+                          {slot.is_open ? 'Lock' : 'Open'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={styles.actionBtnDanger} onPress={() => handleDeleteSlot(slot._id)}>
+                        <Icon name="trash-outline" size={15} color="#DC2626" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      ) : (
+        /* CREATE NEW SLOTS TAB */
+        <ScrollView style={styles.createScroll} keyboardShouldPersistTaps="handled">
+          <Text style={styles.formSectionTitle}>1. Target Assigned Batch</Text>
+
+          <Text style={styles.fieldLabel}>SELECT BATCH *</Text>
+          {batches.length === 0 ? (
+            <View style={styles.noBatchBox}>
+              <Icon name="warning-outline" size={20} color="#F59E0B" />
+              <Text style={styles.noBatchText}>No batches currently assigned to you.</Text>
+            </View>
+          ) : (
+            <View style={styles.pillsWrap}>
+              {batches.map(b => (
+                <TouchableOpacity
+                  key={b._id}
+                  style={[styles.selectPill, createBatchId === b._id && styles.selectPillActive]}
+                  onPress={() => setCreateBatchId(b._id)}
+                >
+                  <Text style={createBatchId === b._id ? styles.selectPillTextActive : styles.selectPillText}>
+                    {b.name || 'Batch'}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
           )}
 
-          <Text style={styles.sectionLabel}>Slots for Week of {getLocalDateString(weekStart)}</Text>
+          <Text style={styles.formSectionTitle}>2. Slot Details & Schedule</Text>
 
-          {newSlots.map((slot, index) => (
-            <View key={index} style={styles.newSlotCard}>
+          {newSlots.map((slot, idx) => (
+            <View key={idx} style={styles.newSlotCard}>
               <View style={styles.newSlotHeader}>
-                <Text style={styles.newSlotTitle}>Slot {index + 1}</Text>
+                <Text style={styles.newSlotTitle}>Practical Slot #{idx + 1}</Text>
                 {newSlots.length > 1 && (
-                  <TouchableOpacity onPress={() => removeSlot(index)}>
+                  <TouchableOpacity onPress={() => removeNewSlotRow(idx)}>
                     <Icon name="trash-outline" size={18} color="#EF4444" />
                   </TouchableOpacity>
                 )}
               </View>
 
-              <Text style={styles.label}>Day of Week *</Text>
-              <View style={styles.dayPills}>
+              <Text style={styles.fieldLabel}>DAY OF WEEK *</Text>
+              <View style={styles.daysWrap}>
                 {DAYS.map(d => (
                   <TouchableOpacity
                     key={d}
                     style={[styles.dayPill, slot.day_of_week === d && styles.dayPillActive]}
-                    onPress={() => updateNewSlot(index, 'day_of_week', d)}
+                    onPress={() => updateNewSlot(idx, 'day_of_week', d)}
                   >
-                    <Text style={[styles.dayPillText, slot.day_of_week === d && styles.dayPillTextActive]}>
+                    <Text style={slot.day_of_week === d ? styles.dayPillTextActive : styles.dayPillText}>
                       {d.slice(0, 3)}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <View style={styles.timeRow}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={styles.label}>Start Time *</Text>
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.fieldLabel}>START TIME *</Text>
                   <TextInput
-                    style={styles.input}
-                    value={slot.start_time}
-                    onChangeText={t => updateNewSlot(index, 'start_time', t)}
+                    style={styles.textInput}
                     placeholder="09:00"
-                    placeholderTextColor="#9CA3AF"
+                    value={slot.start_time}
+                    onChangeText={t => updateNewSlot(idx, 'start_time', t)}
                   />
                 </View>
-                <View style={{ flex: 1, marginLeft: 8 }}>
-                  <Text style={styles.label}>End Time *</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.fieldLabel}>END TIME *</Text>
                   <TextInput
-                    style={styles.input}
+                    style={styles.textInput}
+                    placeholder="12:00"
                     value={slot.end_time}
-                    onChangeText={t => updateNewSlot(index, 'end_time', t)}
-                    placeholder="11:00"
-                    placeholderTextColor="#9CA3AF"
+                    onChangeText={t => updateNewSlot(idx, 'end_time', t)}
                   />
                 </View>
               </View>
 
-              <Text style={styles.label}>Max Students *</Text>
+              <Text style={styles.fieldLabel}>MAX CAPACITY (STUDENTS) *</Text>
               <TextInput
-                style={styles.input}
-                value={slot.max_students}
-                onChangeText={t => updateNewSlot(index, 'max_students', t)}
-                keyboardType="numeric"
+                style={styles.textInput}
                 placeholder="10"
-                placeholderTextColor="#9CA3AF"
+                keyboardType="numeric"
+                value={slot.max_students}
+                onChangeText={t => updateNewSlot(idx, 'max_students', t)}
               />
 
-              <Text style={styles.label}>Equipment Note (Optional)</Text>
+              <Text style={styles.fieldLabel}>EQUIPMENT / LAB STATION NOTE</Text>
               <TextInput
-                style={styles.input}
+                style={styles.textInput}
+                placeholder="e.g. Micro-soldering Workstation Bay 1"
                 value={slot.equipment_note}
-                onChangeText={t => updateNewSlot(index, 'equipment_note', t)}
-                placeholder="e.g. Bring safety goggles"
-                placeholderTextColor="#9CA3AF"
+                onChangeText={t => updateNewSlot(idx, 'equipment_note', t)}
               />
             </View>
           ))}
 
           <TouchableOpacity
             style={styles.addMoreBtn}
-            onPress={() => setNewSlots([...newSlots, { day_of_week: 'Monday', start_time: '09:00', end_time: '11:00', max_students: '10', equipment_note: '' }])}
+            onPress={() => setNewSlots([...newSlots, { day_of_week: 'Monday', start_time: '09:00', end_time: '12:00', max_students: '10', equipment_note: '' }])}
           >
-            <Icon name="add-circle-outline" size={18} color={COLORS.primary} style={{ marginRight: 6 }} />
-            <Text style={styles.addMoreText}>Add Another Slot</Text>
+            <Icon name="add-circle-outline" size={18} color="#D97706" style={{ marginRight: 6 }} />
+            <Text style={styles.addMoreText}>Add Another Slot Row</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.submitBtn, (creating || batches.length === 0) && styles.submitBtnDisabled]}
+            style={[styles.submitCreateBtn, (creating || batches.length === 0) && { opacity: 0.6 }]}
             onPress={handleCreateSlots}
             disabled={creating || batches.length === 0}
           >
@@ -438,64 +708,83 @@ const PracticeSessionsScreen = () => {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Icon name="checkmark-circle-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.submitBtnText}>Create {newSlots.length} Slot{newSlots.length > 1 ? 's' : ''}</Text>
+                <Icon name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.submitCreateBtnText}>Create {newSlots.length} Practical Slot{newSlots.length > 1 ? 's' : ''}</Text>
               </>
             )}
           </TouchableOpacity>
         </ScrollView>
       )}
 
-      {/* Bookings Modal */}
+      {/* STUDENT BOOKINGS MODAL */}
       <Modal visible={bookingsModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Bookings — {selectedSlot?.day_of_week} {selectedSlot?.start_time}-{selectedSlot?.end_time}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Slot Bookings</Text>
+                <Text style={styles.modalSubtitle}>
+                  {selectedSlot?.day_of_week} ({selectedSlot?.start_time} - {selectedSlot?.end_time})
+                </Text>
+              </View>
               <TouchableOpacity onPress={() => setBookingsModalVisible(false)}>
-                <Icon name="close" size={22} color="#6B7280" />
+                <Icon name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
+
+            {/* Action Bar inside Modal */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={{ fontWeight: 'bold', color: '#1F2937', fontSize: 14 }}>
+                Booked Students ({slotBookings.length})
+              </Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#EFF6FF',
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: '#BFDBFE'
+                }}
+                onPress={openAddStudentModal}
+              >
+                <Icon name="person-add" size={14} color="#2563EB" style={{ marginRight: 4 }} />
+                <Text style={{ color: '#2563EB', fontWeight: 'bold', fontSize: 12 }}>+ Assign Student</Text>
+              </TouchableOpacity>
+            </View>
+
             {bookingsLoading ? (
-              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+              <ActivityIndicator size="large" color="#D97706" style={{ marginTop: 20 }} />
             ) : (
               <FlatList
                 data={slotBookings}
                 keyExtractor={item => item._id}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
-                    <Icon name="people-outline" size={40} color="#D1D5DB" />
-                    <Text style={styles.emptyTitle}>No bookings yet</Text>
+                    <Icon name="people-outline" size={44} color="#D1D5DB" />
+                    <Text style={styles.emptyTitle}>No students booked yet.</Text>
                   </View>
                 }
                 renderItem={({ item }) => (
-                  <View style={styles.bookingItem}>
-                    <View style={styles.bookingAvatar}>
-                      <Text style={styles.bookingAvatarText}>
+                  <View style={styles.bookingRowItem}>
+                    <View style={styles.studentAvatar}>
+                      <Text style={styles.studentAvatarText}>
                         {item.student_id?.name?.charAt(0)?.toUpperCase() || 'S'}
                       </Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.bookingName}>{item.student_id?.name || 'Unknown Student'}</Text>
-                      <Text style={styles.bookingPhone}>
-                        {item.student_id?.phone || item.student_id?.email || 'N/A'}
-                        {item.student_id?.index_number ? ` • ${item.student_id.index_number}` : ''}
+                      <Text style={styles.studentName}>{item.student_id?.name || 'Student'}</Text>
+                      <Text style={styles.studentMeta}>
+                        Index: {item.student_id?.index_number || 'N/A'} • {item.student_id?.phone || item.student_id?.email || ''}
                       </Text>
                     </View>
                     <TouchableOpacity
-                      style={{
-                        backgroundColor: '#FEF2F2',
-                        paddingHorizontal: 10,
-                        paddingVertical: 5,
-                        borderRadius: 6,
-                        borderWidth: 1,
-                        borderColor: '#FCA5A5'
-                      }}
+                      style={styles.removeBookingBtn}
                       onPress={() => handleRemoveBooking(item._id, item.student_id?.name || 'Student')}
                     >
-                      <Text style={{ color: '#DC2626', fontSize: 12, fontWeight: 'bold' }}>Remove</Text>
+                      <Text style={styles.removeBookingText}>Remove</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -505,107 +794,372 @@ const PracticeSessionsScreen = () => {
         </View>
       </Modal>
 
-      {/* Edit Modal */}
+      {/* ASSIGN STUDENT SUB-MODAL */}
+      <Modal visible={addStudentModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '75%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Assign Student to Slot</Text>
+              <TouchableOpacity onPress={() => setAddStudentModalVisible(false)}>
+                <Icon name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            {loadingBatchStudents ? (
+              <ActivityIndicator size="large" color="#D97706" style={{ marginTop: 20 }} />
+            ) : (
+              <FlatList
+                data={batchStudents}
+                keyExtractor={item => item._id}
+                ListEmptyComponent={<Text style={styles.emptyTitle}>No enrolled students found in this batch.</Text>}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.assignStudentRow}
+                    onPress={() => handleAssignStudent(item._id, item.name)}
+                  >
+                    <View style={styles.studentAvatar}>
+                      <Text style={styles.studentAvatarText}>{item.name?.charAt(0) || 'S'}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.studentName}>{item.name}</Text>
+                      <Text style={styles.studentMeta}>{item.index_number || item.phone || item.email}</Text>
+                    </View>
+                    <Text style={{ color: '#2563EB', fontWeight: 'bold' }}>Assign +</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* EDIT SLOT MODAL */}
       <Modal visible={editModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Slot</Text>
+              <Text style={styles.modalTitle}>Edit Practical Slot</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <Icon name="close" size={22} color="#6B7280" />
+                <Icon name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.label}>Max Students</Text>
+
+            <Text style={styles.fieldLabel}>MAX CAPACITY (STUDENTS)</Text>
             <TextInput
-              style={styles.input}
+              style={styles.textInput}
+              keyboardType="numeric"
               value={editMaxStudents}
               onChangeText={setEditMaxStudents}
-              keyboardType="numeric"
             />
-            <Text style={styles.label}>Equipment Note</Text>
+
+            <Text style={styles.fieldLabel}>EQUIPMENT NOTE</Text>
             <TextInput
-              style={[styles.input, { marginBottom: 20 }]}
+              style={[styles.textInput, { marginBottom: 20 }]}
               value={editEquipmentNote}
               onChangeText={setEditEquipmentNote}
-              placeholder="e.g. Bring safety goggles"
+              placeholder="e.g. Bring soldering kit"
             />
-            <TouchableOpacity style={styles.submitBtn} onPress={handleEditSlot} disabled={editSaving}>
-              {editSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Save Changes</Text>}
+
+            <TouchableOpacity style={styles.submitCreateBtn} onPress={handleSaveEdit} disabled={editSaving}>
+              {editSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitCreateBtnText}>Save Changes</Text>}
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </View>
+
+      {/* CUSTOM IN-APP CONFIRMATION POPUP MODAL */}
+      <Modal
+        visible={confirmModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[
+              styles.popupIconCircle,
+              { backgroundColor: confirmModal.type === 'danger' ? '#FEE2E2' : confirmModal.type === 'lock' ? '#FEF3C7' : '#EFF6FF' }
+            ]}>
+              <Icon
+                name={
+                  confirmModal.type === 'danger'
+                    ? 'trash-outline'
+                    : confirmModal.type === 'lock'
+                    ? 'lock-closed-outline'
+                    : 'alert-circle-outline'
+                }
+                size={28}
+                color={
+                  confirmModal.type === 'danger'
+                    ? '#DC2626'
+                    : confirmModal.type === 'lock'
+                    ? '#D97706'
+                    : '#2563EB'
+                }
+              />
+            </View>
+            <Text style={styles.popupTitle}>{confirmModal.title}</Text>
+            <Text style={styles.popupMessage}>{confirmModal.message}</Text>
+            <View style={styles.popupBtnRow}>
+              <TouchableOpacity
+                style={styles.popupCancelBtn}
+                onPress={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+              >
+                <Text style={styles.popupCancelText}>{confirmModal.cancelText || 'Cancel'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.popupConfirmBtn,
+                  { backgroundColor: confirmModal.type === 'danger' ? '#DC2626' : confirmModal.type === 'lock' ? '#D97706' : '#2563EB' }
+                ]}
+                onPress={() => {
+                  const action = confirmModal.onConfirm;
+                  setConfirmModal(prev => ({ ...prev, visible: false }));
+                  if (action) action();
+                }}
+              >
+                <Text style={styles.popupConfirmText}>{confirmModal.confirmText || 'Confirm'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CUSTOM IN-APP ALERT POPUP MODAL */}
+      <Modal
+        visible={alertModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAlertModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[
+              styles.popupIconCircle,
+              { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
+            ]}>
+              <Icon
+                name={
+                  alertModal.type === 'success'
+                    ? 'checkmark-circle-outline'
+                    : alertModal.type === 'error'
+                    ? 'close-circle-outline'
+                    : 'information-circle-outline'
+                }
+                size={28}
+                color={
+                  alertModal.type === 'success'
+                    ? '#16A34A'
+                    : alertModal.type === 'error'
+                    ? '#DC2626'
+                    : '#2563EB'
+                }
+              />
+            </View>
+            <Text style={styles.popupTitle}>{alertModal.title}</Text>
+            <Text style={styles.popupMessage}>{alertModal.message}</Text>
+            <TouchableOpacity
+              style={[
+                styles.popupSingleBtn,
+                { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#D97706' }
+              ]}
+              onPress={() => {
+                const action = alertModal.onOk;
+                setAlertModal(prev => ({ ...prev, visible: false }));
+                if (action) action();
+              }}
+            >
+              <Text style={styles.popupSingleBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  tabHeader: { flexDirection: 'row', backgroundColor: '#fff', elevation: 2, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  tab: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 14, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  activeTab: { borderBottomColor: COLORS.primary },
-  tabText: { fontWeight: 'bold', color: '#6B7280', fontSize: 14 },
-  activeTabText: { color: COLORS.primary },
-  weekPicker: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  weekArrow: { padding: 6 },
-  weekText: { fontSize: 14, fontWeight: 'bold', color: '#1F2937' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 10, color: '#9CA3AF' },
-  emptyContainer: { alignItems: 'center', marginTop: 50 },
-  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: '#374151', marginTop: 12 },
-  emptySubtitle: { color: '#9CA3AF', fontSize: 13, marginTop: 6, textAlign: 'center', paddingHorizontal: 30 },
-  emptyBtn: { marginTop: 14, backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
-  emptyBtnText: { color: '#fff', fontWeight: 'bold' },
-  card: { backgroundColor: '#fff', padding: 15, borderRadius: 12, marginBottom: 12, elevation: 2, borderLeftWidth: 4, borderLeftColor: COLORS.primary },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
-  cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#1F2937' },
-  cardTime: { fontSize: 13, color: '#6B7280', marginTop: 2 },
-  cardBatch: { fontSize: 13, color: '#374151', marginBottom: 4 },
-  cardNote: { fontSize: 12, color: '#6B7280', marginBottom: 6 },
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  badgeText: { fontSize: 11, fontWeight: 'bold' },
-  bookingRow: { marginTop: 8, marginBottom: 4 },
-  bookingText: { fontSize: 12, color: '#374151', marginBottom: 4, fontWeight: '500' },
-  progressBar: { height: 5, backgroundColor: '#E5E7EB', borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: 5, backgroundColor: COLORS.primary, borderRadius: 3 },
-  cardActions: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4 },
-  actionText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 12 },
-  createScroll: { flex: 1, padding: 15 },
-  sectionLabel: { fontSize: 15, fontWeight: 'bold', color: '#1F2937', marginTop: 8, marginBottom: 10 },
-  batchPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  batchPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#fff' },
-  batchPillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  batchPillText: { color: '#374151', fontWeight: '500', fontSize: 13 },
-  batchPillTextActive: { color: '#fff', fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  headerRow: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10 },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#0F172A' },
+  headerSubtitle: { fontSize: 13, color: '#64748B', marginTop: 2 },
+  tabContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  tabItem: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  activeTabItem: { borderBottomColor: '#D97706' },
+  tabText: { fontSize: 13.5, fontWeight: 'bold', color: '#64748B' },
+  activeTabText: { color: '#D97706' },
+  weekPicker: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', paddingVertical: 8, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  weekArrow: { padding: 6, borderRadius: 8, backgroundColor: '#FFFBEB' },
+  weekDateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14 },
+  weekText: { fontSize: 13, fontWeight: 'bold', color: '#92400E' },
+  scrollContent: { padding: 16, paddingBottom: 60 },
+  metricsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  metricCard: { backgroundColor: '#FFFFFF', flex: 1, marginHorizontal: 4, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 },
+  metricNumber: { fontSize: 22, fontWeight: 'bold', color: '#0F172A' },
+  metricLabel: { fontSize: 11, color: '#64748B', marginTop: 2, fontWeight: '600' },
+  filterSection: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterGroupLabel: { fontSize: 11, fontWeight: 'bold', color: '#475569', marginBottom: 6, letterSpacing: 0.5 },
+  filterPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC', marginRight: 8 },
+  filterPillActive: { backgroundColor: '#D97706', borderColor: '#D97706' },
+  filterPillText: { fontSize: 12, color: '#475569', fontWeight: '500' },
+  filterPillTextActive: { fontSize: 12, color: '#FFFFFF', fontWeight: 'bold' },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F1F5F9', marginRight: 8 },
+  statusPillActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
+  statusPillText: { fontSize: 11.5, color: '#475569', fontWeight: '500' },
+  statusPillTextActive: { fontSize: 11.5, color: '#FFFFFF', fontWeight: 'bold' },
+  slotCard: { backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 14, flexDirection: 'row', overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0', elevation: 2 },
+  cardAccentBar: { width: 6, backgroundColor: '#F58220' },
+  cardMain: { flex: 1, padding: 14 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  slotBadge: { backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FDBA74', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 6 },
+  slotBadgeText: { fontSize: 10, fontWeight: 'bold', color: '#D97706' },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  statusBadgeOpen: { backgroundColor: '#DCFCE7' },
+  statusBadgeClosed: { backgroundColor: '#FEE2E2' },
+  statusBadgeText: { fontSize: 10, fontWeight: 'bold' },
+  statusTextOpen: { color: '#15803D' },
+  statusTextClosed: { color: '#B91C1C' },
+  courseTitle: { fontSize: 16, fontWeight: 'bold', color: '#0F172A', marginTop: 4 },
+  batchSubtext: { fontSize: 12.5, color: '#64748B', marginTop: 2 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  infoDateText: { fontSize: 13.5, fontWeight: 'bold', color: '#D97706' },
+  infoText: { fontSize: 13, color: '#475569' },
+  dotSeparator: { color: '#CBD5E1', marginHorizontal: 6, fontSize: 12 },
+  noteBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 8, borderRadius: 8, marginTop: 8, borderWidth: 1, borderColor: '#F1F5F9' },
+  noteText: { fontSize: 12, color: '#475569', fontStyle: 'italic' },
+  seatsContainer: { marginTop: 10 },
+  seatsText: { fontSize: 12, fontWeight: 'bold', color: '#334155' },
+  seatsPct: { fontSize: 12, fontWeight: 'bold', color: '#64748B' },
+  progressTrack: { height: 6, backgroundColor: '#E2E8F0', borderRadius: 3, overflow: 'hidden' },
+  progressFillBar: { height: 6, borderRadius: 3 },
+  cardActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  actionBtnOutline: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, flex: 1, justifyContent: 'center' },
+  actionBtnText: { fontSize: 11.5, fontWeight: 'bold', color: '#475569' },
+  actionBtnDanger: { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  createScroll: { flex: 1, padding: 16 },
+  formSectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#0F172A', marginTop: 8, marginBottom: 10 },
+  fieldLabel: { fontSize: 11, fontWeight: 'bold', color: '#475569', marginTop: 10, marginBottom: 6, letterSpacing: 0.5 },
   noBatchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFBEB', padding: 12, borderRadius: 8, marginBottom: 16 },
   noBatchText: { color: '#92400E', fontSize: 13, marginLeft: 8 },
-  newSlotCard: { backgroundColor: '#fff', padding: 15, borderRadius: 12, marginBottom: 12, elevation: 1 },
-  newSlotHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  newSlotTitle: { fontSize: 15, fontWeight: 'bold', color: '#1F2937' },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginTop: 10, marginBottom: 5 },
-  input: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 10, fontSize: 14, color: '#1F2937' },
-  dayPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
-  dayPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#F9FAFB' },
-  dayPillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  dayPillText: { color: '#374151', fontSize: 12, fontWeight: '500' },
-  dayPillTextActive: { color: '#fff', fontWeight: 'bold' },
-  timeRow: { flexDirection: 'row' },
-  addMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: COLORS.primary, borderRadius: 10, marginBottom: 12 },
-  addMoreText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 14 },
-  submitBtn: { flexDirection: 'row', backgroundColor: COLORS.primary, padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 40 },
-  submitBtnDisabled: { opacity: 0.5 },
-  submitBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  pillsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  selectPill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#FFFFFF' },
+  selectPillActive: { backgroundColor: '#D97706', borderColor: '#D97706' },
+  selectPillText: { fontSize: 12.5, color: '#334155', fontWeight: '500' },
+  selectPillTextActive: { fontSize: 12.5, color: '#FFFFFF', fontWeight: 'bold' },
+  newSlotCard: { backgroundColor: '#FFFFFF', padding: 14, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0' },
+  newSlotHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  newSlotTitle: { fontSize: 14.5, fontWeight: 'bold', color: '#0F172A' },
+  daysWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  dayPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC' },
+  dayPillActive: { backgroundColor: '#D97706', borderColor: '#D97706' },
+  dayPillText: { fontSize: 12, color: '#475569', fontWeight: '500' },
+  dayPillTextActive: { fontSize: 12, color: '#FFFFFF', fontWeight: 'bold' },
+  textInput: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#0F172A' },
+  addMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: '#D97706', borderRadius: 10, marginBottom: 16 },
+  addMoreText: { color: '#D97706', fontWeight: 'bold', fontSize: 14 },
+  submitCreateBtn: { backgroundColor: '#D97706', paddingVertical: 14, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 40 },
+  submitCreateBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  emptyContainer: { alignItems: 'center', marginVertical: 30, paddingHorizontal: 20 },
+  emptyTitle: { fontSize: 16, fontWeight: 'bold', color: '#475569', marginTop: 10, textAlign: 'center' },
+  emptySubtitle: { fontSize: 13, color: '#94A3B8', textAlign: 'center', marginTop: 4 },
+  createNowBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#D97706', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, marginTop: 16 },
+  createNowBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '80%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#1F2937', flex: 1, marginRight: 10 },
-  bookingItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  bookingAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#DBEAFE', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  bookingAvatarText: { fontWeight: 'bold', color: '#1E3A8A' },
-  bookingName: { fontWeight: 'bold', color: '#1F2937' },
-  bookingPhone: { color: '#6B7280', fontSize: 12 },
+  modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 18, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#0F172A' },
+  modalSubtitle: { fontSize: 13, color: '#64748B', marginTop: 2 },
+  bookingRowItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  studentAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#DBEAFE', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  studentAvatarText: { fontWeight: 'bold', color: '#1E40AF', fontSize: 15 },
+  studentName: { fontSize: 14.5, fontWeight: 'bold', color: '#0F172A' },
+  studentMeta: { fontSize: 12, color: '#64748B', marginTop: 2 },
+  removeBookingBtn: { backgroundColor: '#FEF2F2', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: '#FCA5A5' },
+  removeBookingText: { color: '#DC2626', fontSize: 12, fontWeight: 'bold' },
+  assignStudentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+
+  // Custom Popup Dialog Modal Styles
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  popupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10
+  },
+  popupIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  popupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8
+  },
+  popupMessage: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20
+  },
+  popupBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%'
+  },
+  popupCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1'
+  },
+  popupCancelText: {
+    color: '#475569',
+    fontWeight: 'bold',
+    fontSize: 14
+  },
+  popupConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  popupConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14
+  },
+  popupSingleBtn: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  popupSingleBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15
+  }
 });
-
-export default PracticeSessionsScreen;
-

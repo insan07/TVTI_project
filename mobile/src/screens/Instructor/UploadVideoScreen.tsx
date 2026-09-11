@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, Alert, FlatList, RefreshControl, Platform, Linking
+  TextInput, ActivityIndicator, FlatList, RefreshControl, Platform, Linking, Modal
 } from 'react-native';
 import api from '../../services/api';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -31,6 +31,34 @@ export default function UploadVideoScreen() {
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Custom Confirmation & Alert Dialog Popup State
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info';
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'success' | 'error' | 'info';
+    onOk?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   const [formData, setFormData] = useState({
     batch_id: '',
@@ -103,7 +131,7 @@ export default function UploadVideoScreen() {
       }
     } catch (e) {
       console.warn('Failed to load batches', e);
-      Alert.alert('Error', 'Could not load your batches.');
+      showAlert('Error', 'Could not load your batches.', undefined, 'error');
     } finally {
       setBatchesLoading(false);
     }
@@ -175,15 +203,14 @@ export default function UploadVideoScreen() {
     setMaterialFile(null);
   };
 
-  const showAlert = (title: string, msg: string, onOk?: () => void) => {
-    if (Platform.OS === 'web') {
-      window.alert(`${title}\n\n${msg}`);
-      if (onOk) onOk();
-    } else {
-      Alert.alert(title, msg, [
-        { text: 'OK', onPress: onOk }
-      ]);
-    }
+  const showAlert = (title: string, msg: string, onOk?: () => void, type: 'success' | 'error' | 'info' = 'info') => {
+    setAlertModal({
+      visible: true,
+      title,
+      message: msg,
+      type,
+      onOk
+    });
   };
 
   const appendFileToFormData = (formData: FormData, fieldName: string, fileAsset: any) => {
@@ -207,18 +234,18 @@ export default function UploadVideoScreen() {
 
   const submit = async () => {
     const finalTopic = formData.new_topic.trim() || formData.topic;
-    if (!formData.batch_id) return showAlert('Error', 'Please select a target batch');
-    if (!finalTopic) return showAlert('Error', 'Please select or enter a topic name');
-    if (!formData.title.trim()) return showAlert('Error', `Please enter a ${uploadMode === 'video' ? 'video' : 'material'} title`);
+    if (!formData.batch_id) return showAlert('Error', 'Please select a target batch', undefined, 'error');
+    if (!finalTopic) return showAlert('Error', 'Please select or enter a topic name', undefined, 'error');
+    if (!formData.title.trim()) return showAlert('Error', `Please enter a ${uploadMode === 'video' ? 'video' : 'material'} title`, undefined, 'error');
 
     if (uploadMode === 'video') {
       if (videoSource === 'youtube') {
-        if (!formData.youtube_url.trim()) return showAlert('Error', 'Please enter a YouTube video URL');
+        if (!formData.youtube_url.trim()) return showAlert('Error', 'Please enter a YouTube video URL', undefined, 'error');
       } else {
-        if (!videoFile) return showAlert('Error', 'Please select a video file (MP4, MOV)');
+        if (!videoFile) return showAlert('Error', 'Please select a video file (MP4, MOV)', undefined, 'error');
       }
     } else {
-      if (!materialFile) return showAlert('Error', 'Please select a document file (PDF, DOC)');
+      if (!materialFile) return showAlert('Error', 'Please select a document file (PDF, DOC)', undefined, 'error');
     }
 
     setUploading(true);
@@ -248,17 +275,17 @@ export default function UploadVideoScreen() {
       }
 
       const successMsg = uploadMode === 'video'
-        ? '🎉 Video uploaded successfully to Cloudinary!\nInstant notification sent to all enrolled students.'
-        : '🎉 Study material uploaded successfully!\nInstant notification sent to all enrolled students.';
+        ? 'Video uploaded successfully! Instant notification sent to all enrolled students.'
+        : 'Study material uploaded successfully! Instant notification sent to all enrolled students.';
 
       showAlert('SUCCESSFUL UPLOAD ✨', successMsg, () => {
         resetForm();
         setActiveTab('my_videos');
-      });
+      }, 'success');
     } catch (e: any) {
       const backendMessage = e.response?.data?.message;
       const nativeMessage = e.message;
-      showAlert('Upload Error', backendMessage || nativeMessage || 'Failed to upload content');
+      showAlert('Upload Error', backendMessage || nativeMessage || 'Failed to upload content', undefined, 'error');
     } finally {
       setUploading(false);
     }
@@ -270,21 +297,20 @@ export default function UploadVideoScreen() {
       setMyVideos(prev => prev.filter(v => v._id !== videoId));
       setMyMaterials(prev => prev.filter(v => v._id !== videoId));
     } catch (e: any) {
-      showAlert('Error', e.response?.data?.message || 'Failed to delete upload');
+      showAlert('Error', e.response?.data?.message || 'Failed to delete upload', undefined, 'error');
     }
   };
 
   const handleDeleteVideo = (videoId: string, title: string) => {
-    const message = `Delete "${title}"? This cannot be undone.`;
-    if (Platform.OS === 'web') {
-      if (window.confirm(message)) void deleteUpload(videoId);
-      return;
-    }
-
-    Alert.alert('Delete Upload', message, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => void deleteUpload(videoId) },
-    ]);
+    setConfirmModal({
+      visible: true,
+      title: 'Delete Upload',
+      message: `Are you sure you want to delete "${title}"? This cannot be undone.`,
+      type: 'danger',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: () => void deleteUpload(videoId)
+    });
   };
 
   const currentList = listMode === 'video' ? myVideos : myMaterials;
@@ -323,8 +349,9 @@ export default function UploadVideoScreen() {
               </TouchableOpacity>
             </View>
 
+            <Text style={styles.label}>Select Target Batch *</Text>
             {batchesLoading ? (
-              <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 10 }} />
+              <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 8 }} />
             ) : batches.length === 0 ? (
               <View style={styles.noBatchBox}>
                 <Icon name="warning-outline" size={20} color="#F59E0B" />
@@ -332,9 +359,8 @@ export default function UploadVideoScreen() {
               </View>
             ) : (
               <CustomDropdown
-                label="Select Target Batch *"
-                placeholder="Select assigned batch..."
-                iconName="layers-outline"
+                placeholder="Choose batch..."
+                iconName="school-outline"
                 items={batches.map(b => ({
                   label: b.name || b.course_id?.title || 'Batch',
                   value: b._id,
@@ -342,58 +368,71 @@ export default function UploadVideoScreen() {
                 }))}
                 selectedValue={formData.batch_id}
                 onValueChange={handleBatchChange}
+                containerStyle={{ marginBottom: 12 }}
               />
             )}
 
-            {topics.length > 0 ? (
+            <Text style={styles.label}>Topic / Chapter *</Text>
+            {topics.length > 0 && (
               <CustomDropdown
-                label="Select Existing Topic"
                 placeholder="Choose existing topic..."
-                iconName="bookmarks-outline"
+                iconName="bookmark-outline"
                 items={[
-                  { label: '-- Select existing topic --', value: '' },
-                  ...topics.map(t => ({ label: t, value: t }))
+                  ...topics.map(t => ({ label: t, value: t })),
+                  { label: '➕ Create New Topic...', value: '__new__' }
                 ]}
-                selectedValue={formData.topic}
-                onValueChange={v => setFormData({ ...formData, topic: v, new_topic: '' })}
+                selectedValue={formData.new_topic ? '__new__' : formData.topic}
+                onValueChange={val => {
+                  if (val === '__new__') {
+                    setFormData(prev => ({ ...prev, topic: '', new_topic: ' ' }));
+                  } else {
+                    setFormData(prev => ({ ...prev, topic: val, new_topic: '' }));
+                  }
+                }}
+                containerStyle={{ marginBottom: 12 }}
               />
-            ) : null}
+            )}
 
+            {(topics.length === 0 || formData.new_topic !== '') && (
+              <TextInput
+                style={styles.input}
+                placeholder="Enter new topic / chapter name"
+                placeholderTextColor="#9CA3AF"
+                value={formData.new_topic.trimStart()}
+                onChangeText={t => setFormData(prev => ({ ...prev, new_topic: t }))}
+              />
+            )}
+
+            <Text style={styles.label}>{uploadMode === 'video' ? 'Video' : 'Document'} Title *</Text>
             <TextInput
               style={styles.input}
-              placeholder={topics.length > 0 ? 'Or enter a new topic name' : 'Enter topic name (e.g. Engine Diagnostics)'}
-              value={formData.new_topic}
-              onChangeText={t => setFormData({ ...formData, new_topic: t, topic: '' })}
+              placeholder={uploadMode === 'video' ? 'e.g. Introduction to Engine Overhaul' : 'e.g. Chapter 1 Summary Notes'}
               placeholderTextColor="#9CA3AF"
-            />
-
-            <Text style={styles.label}>{uploadMode === 'video' ? 'Video Lecture Title *' : 'Material Title *'}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={uploadMode === 'video' ? 'e.g. Engine Repair Demonstration Part 1' : 'e.g. Wiring Diagram Manual'}
               value={formData.title}
-              onChangeText={t => setFormData({ ...formData, title: t })}
-              placeholderTextColor="#9CA3AF"
+              onChangeText={t => setFormData(prev => ({ ...prev, title: t }))}
             />
 
-            {uploadMode === 'video' ? (
+            {uploadMode === 'video' && (
               <>
-                <Text style={styles.label}>Select Video Source:</Text>
+                <Text style={styles.label}>Video Source *</Text>
                 <View style={styles.sourceSelectorRow}>
                   <TouchableOpacity
                     style={[styles.sourceBtn, videoSource === 'youtube' && styles.sourceBtnActive]}
                     onPress={() => setVideoSource('youtube')}
                   >
                     <Icon name="logo-youtube" size={16} color={videoSource === 'youtube' ? '#EF4444' : '#6B7280'} />
-                    <Text style={[styles.sourceBtnText, videoSource === 'youtube' && styles.sourceBtnTextActive]}>YouTube Link</Text>
+                    <Text style={[styles.sourceBtnText, videoSource === 'youtube' && styles.sourceBtnTextActive]}>
+                      YouTube Link
+                    </Text>
                   </TouchableOpacity>
-
                   <TouchableOpacity
                     style={[styles.sourceBtn, videoSource === 'file' && styles.sourceBtnActive]}
                     onPress={() => setVideoSource('file')}
                   >
-                    <Icon name="cloud-upload" size={16} color={videoSource === 'file' ? COLORS.primary : '#6B7280'} />
-                    <Text style={[styles.sourceBtnText, videoSource === 'file' && styles.sourceBtnTextActive]}>Video File (Cloudinary)</Text>
+                    <Icon name="folder-open" size={16} color={videoSource === 'file' ? COLORS.primary : '#6B7280'} />
+                    <Text style={[styles.sourceBtnText, videoSource === 'file' && styles.sourceBtnTextActive]}>
+                      Upload File
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
@@ -402,69 +441,45 @@ export default function UploadVideoScreen() {
                     <Text style={styles.label}>YouTube Video URL *</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="https://youtube.com/watch?v=..."
-                      value={formData.youtube_url}
-                      onChangeText={t => setFormData({ ...formData, youtube_url: t })}
-                      autoCapitalize="none"
+                      placeholder="https://www.youtube.com/watch?v=..."
                       placeholderTextColor="#9CA3AF"
+                      value={formData.youtube_url}
+                      onChangeText={t => setFormData(prev => ({ ...prev, youtube_url: t }))}
                     />
                   </>
                 ) : (
                   <>
-                    <Text style={styles.label}>Pick Video File (MP4 / MOV) *</Text>
+                    <Text style={styles.label}>Video File *</Text>
                     <TouchableOpacity style={styles.uploadBox} onPress={pickVideoFile}>
-                      <Icon name={videoFile ? 'checkmark-circle' : 'videocam-outline'} size={24} color={videoFile ? '#10B981' : COLORS.primary} />
-                      <Text style={[styles.uploadBoxText, { color: videoFile ? '#10B981' : COLORS.primary }]}>
-                        {videoFile ? videoFile.name : '+ Select Video File from Storage'}
+                      <Icon name="videocam-outline" size={24} color={COLORS.primary} />
+                      <Text style={[styles.uploadBoxText, { color: videoFile ? '#1E3A8A' : '#6B7280' }]} numberOfLines={1}>
+                        {videoFile ? `Selected: ${videoFile.name}` : 'Tap to select video file (MP4, MOV)'}
                       </Text>
-                      {videoFile && (
-                        <TouchableOpacity onPress={() => setVideoFile(null)} style={{ marginLeft: 8 }}>
-                          <Icon name="close-circle" size={20} color="#EF4444" />
-                        </TouchableOpacity>
-                      )}
                     </TouchableOpacity>
                   </>
                 )}
 
-                <Text style={styles.label}>Optional Attached PDF Notes:</Text>
-                <TouchableOpacity style={[styles.uploadBox, { backgroundColor: '#F8FAFC' }]} onPress={pickNotesFile}>
-                  <Icon name={notesFile ? 'checkmark-circle' : 'document-attach-outline'} size={20} color={notesFile ? '#10B981' : '#64748B'} />
-                  <Text style={[styles.uploadBoxText, { color: notesFile ? '#10B981' : '#64748B' }]}>
-                    {notesFile ? notesFile.name : '+ Attach Study Notes PDF'}
+                <Text style={styles.label}>Attach PDF Notes (Optional)</Text>
+                <TouchableOpacity style={styles.uploadBox} onPress={pickNotesFile}>
+                  <Icon name="document-text-outline" size={24} color={COLORS.primary} />
+                  <Text style={[styles.uploadBoxText, { color: notesFile ? '#1E3A8A' : '#6B7280' }]} numberOfLines={1}>
+                    {notesFile ? `Selected: ${notesFile.name}` : 'Tap to select PDF notes'}
                   </Text>
-                  {notesFile && (
-                    <TouchableOpacity onPress={() => setNotesFile(null)} style={{ marginLeft: 8 }}>
-                      <Icon name="close-circle" size={18} color="#EF4444" />
-                    </TouchableOpacity>
-                  )}
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <Text style={styles.label}>Select Study Document *</Text>
-                <TouchableOpacity style={styles.uploadBox} onPress={pickMaterial}>
-                  <Icon name={materialFile ? 'checkmark-circle' : 'document-attach-outline'} size={22} color={materialFile ? '#10B981' : COLORS.primary} />
-                  <Text style={[styles.uploadBoxText, { color: materialFile ? '#10B981' : COLORS.primary }]}>
-                    {materialFile ? materialFile.name : '+ Select PDF / DOC File'}
-                  </Text>
-                  {materialFile && (
-                    <TouchableOpacity onPress={() => setMaterialFile(null)} style={{ marginLeft: 8 }}>
-                      <Icon name="close-circle" size={18} color="#EF4444" />
-                    </TouchableOpacity>
-                  )}
                 </TouchableOpacity>
               </>
             )}
 
-            <Text style={styles.label}>Sort Order Index</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType="numeric"
-              value={formData.order_index}
-              onChangeText={t => setFormData({ ...formData, order_index: t })}
-              placeholder="0"
-              placeholderTextColor="#9CA3AF"
-            />
+            {uploadMode === 'material' && (
+              <>
+                <Text style={styles.label}>Select Document File (PDF, Word) *</Text>
+                <TouchableOpacity style={styles.uploadBox} onPress={pickMaterial}>
+                  <Icon name="document-attach-outline" size={24} color={COLORS.primary} />
+                  <Text style={[styles.uploadBoxText, { color: materialFile ? '#1E3A8A' : '#6B7280' }]} numberOfLines={1}>
+                    {materialFile ? `Selected: ${materialFile.name}` : 'Tap to select file (PDF, DOC, DOCX)'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
 
             <TouchableOpacity
               style={[styles.btn, (uploading || batches.length === 0) && styles.btnDisabled]}
@@ -474,12 +489,9 @@ export default function UploadVideoScreen() {
               {uploading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <>
-                  <Icon name="cloud-upload-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.btnText}>
-                    {uploadMode === 'video' ? 'Upload Video to Cloudinary' : 'Upload Material Document'}
-                  </Text>
-                </>
+                <Text style={styles.btnText}>
+                  {uploadMode === 'video' ? '🚀 Post Video to Students' : '📑 Upload Material'}
+                </Text>
               )}
             </TouchableOpacity>
           </View>
@@ -487,11 +499,17 @@ export default function UploadVideoScreen() {
       ) : (
         <View style={{ flex: 1 }}>
           <View style={styles.modeRowList}>
-            <TouchableOpacity style={[styles.modeBtn, listMode === 'video' && styles.modeBtnActive]} onPress={() => setListMode('video')}>
-              <Text style={[styles.modeBtnText, listMode === 'video' && styles.modeBtnTextActive]}>Videos</Text>
+            <TouchableOpacity
+              style={[styles.modeBtn, listMode === 'video' && styles.modeBtnActive]}
+              onPress={() => setListMode('video')}
+            >
+              <Text style={[styles.modeBtnText, listMode === 'video' && styles.modeBtnTextActive]}>🎥 Video Lectures ({myVideos.length})</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.modeBtn, listMode === 'material' && styles.modeBtnActive]} onPress={() => setListMode('material')}>
-              <Text style={[styles.modeBtnText, listMode === 'material' && styles.modeBtnTextActive]}>Materials</Text>
+            <TouchableOpacity
+              style={[styles.modeBtn, listMode === 'material' && styles.modeBtnActive]}
+              onPress={() => setListMode('material')}
+            >
+              <Text style={[styles.modeBtnText, listMode === 'material' && styles.modeBtnTextActive]}>📄 Documents ({myMaterials.length})</Text>
             </TouchableOpacity>
           </View>
 
@@ -518,25 +536,14 @@ export default function UploadVideoScreen() {
               }
               renderItem={({ item }) => (
                 <View style={styles.videoCard}>
-
                   <TouchableOpacity 
                     style={styles.videoCardLeft}
                     onPress={() => {
-                      if (item.content_type === 'material') {
-                        let url = item.cloudinary_url;
-                        if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
-                          url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
-                        }
-                        if (Platform.OS === 'web') {
-                          window.open(url, '_blank');
-                        } else {
-                          Linking.openURL(url);
-                        }
-                      } else {
-                        let url = item.cloudinary_url || item.youtube_url;
-                        if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
-                          url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
-                        }
+                      let url = item.content_type === 'material' ? item.cloudinary_url : (item.cloudinary_url || item.youtube_url);
+                      if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
+                        url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                      }
+                      if (url) {
                         if (Platform.OS === 'web') {
                           window.open(url, '_blank');
                         } else {
@@ -567,8 +574,98 @@ export default function UploadVideoScreen() {
               )}
             />
           )}  
-      </View>
+        </View>
       )}
+
+      {/* CUSTOM IN-APP CONFIRMATION POPUP MODAL */}
+      <Modal
+        visible={confirmModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[styles.popupIconCircle, { backgroundColor: confirmModal.type === 'danger' ? '#FEE2E2' : '#FEF3C7' }]}>
+              <Icon
+                name={confirmModal.type === 'danger' ? 'trash-outline' : 'alert-circle-outline'}
+                size={28}
+                color={confirmModal.type === 'danger' ? '#DC2626' : '#D97706'}
+              />
+            </View>
+            <Text style={styles.popupTitle}>{confirmModal.title}</Text>
+            <Text style={styles.popupMessage}>{confirmModal.message}</Text>
+            <View style={styles.popupBtnRow}>
+              <TouchableOpacity
+                style={styles.popupCancelBtn}
+                onPress={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+              >
+                <Text style={styles.popupCancelText}>{confirmModal.cancelText || 'Cancel'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.popupConfirmBtn, { backgroundColor: confirmModal.type === 'danger' ? '#DC2626' : '#F58220' }]}
+                onPress={() => {
+                  const action = confirmModal.onConfirm;
+                  setConfirmModal(prev => ({ ...prev, visible: false }));
+                  if (action) action();
+                }}
+              >
+                <Text style={styles.popupConfirmText}>{confirmModal.confirmText || 'Confirm'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CUSTOM IN-APP ALERT POPUP MODAL */}
+      <Modal
+        visible={alertModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAlertModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[
+              styles.popupIconCircle,
+              { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
+            ]}>
+              <Icon
+                name={
+                  alertModal.type === 'success'
+                    ? 'checkmark-circle-outline'
+                    : alertModal.type === 'error'
+                    ? 'close-circle-outline'
+                    : 'information-circle-outline'
+                }
+                size={28}
+                color={
+                  alertModal.type === 'success'
+                    ? '#16A34A'
+                    : alertModal.type === 'error'
+                    ? '#DC2626'
+                    : '#2563EB'
+                }
+              />
+            </View>
+            <Text style={styles.popupTitle}>{alertModal.title}</Text>
+            <Text style={styles.popupMessage}>{alertModal.message}</Text>
+            <TouchableOpacity
+              style={[
+                styles.popupSingleBtn,
+                { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#F58220' }
+              ]}
+              onPress={() => {
+                const action = alertModal.onOk;
+                setAlertModal(prev => ({ ...prev, visible: false }));
+                if (action) action();
+              }}
+            >
+              <Text style={styles.popupSingleBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -616,4 +713,89 @@ const styles = StyleSheet.create({
   videoMeta: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   videoDate: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
   deleteBtn: { padding: 6, marginLeft: 8 },
+
+  // Custom Popup Dialog Modal Styles
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  popupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10
+  },
+  popupIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  popupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8
+  },
+  popupMessage: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20
+  },
+  popupBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%'
+  },
+  popupCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1'
+  },
+  popupCancelText: {
+    color: '#475569',
+    fontWeight: 'bold',
+    fontSize: 14
+  },
+  popupConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  popupConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14
+  },
+  popupSingleBtn: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  popupSingleBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15
+  }
 });

@@ -165,7 +165,17 @@ export default function VideoPlayerScreen() {
                 activeOpacity={0.8}
                 onPress={() => {
                   if (notesUrl) {
-                    navigation.navigate('PdfViewer', { pdfUrl: notesUrl, title: `${videoData?.title || 'Lecture'} - Notes` });
+                    let url = notesUrl;
+                    if (url.startsWith('/uploads/') || url.startsWith('/api/files/')) {
+                      url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                    }
+                    if (Platform.OS === 'web') {
+                      window.open(url, '_blank');
+                    } else {
+                      Linking.openURL(url).catch(() => {
+                        Alert.alert('Error', 'Unable to open PDF notes');
+                      });
+                    }
                   }
                 }}
               >
