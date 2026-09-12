@@ -21,6 +21,16 @@ export default function InquiryForm({ defaultCourse = null }) {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [termsModalOpen, setTermsModalOpen] = useState(false)
 
+  // Email OTP States
+  const [emailVerified, setEmailVerified] = useState(false)
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [sendingOtp, setSendingOtp] = useState(false)
+  const [verifyingOtp, setVerifyingOtp] = useState(false)
+  const [otpError, setOtpError] = useState('')
+  const [otpSuccessMsg, setOtpSuccessMsg] = useState('')
+  const [resendCooldown, setResendCooldown] = useState(0)
+
   // Validation & Submission States
   const [errors, setErrors] = useState({
     name: '',
@@ -34,6 +44,15 @@ export default function InquiryForm({ defaultCourse = null }) {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [apiError, setApiError] = useState('')
+
+  // Cooldown countdown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [resendCooldown])
 
   // Default fallback courses list in case backend API is offline
   const fallbackCourses = [
@@ -89,9 +108,95 @@ export default function InquiryForm({ defaultCourse = null }) {
       setErrors((prev) => ({ ...prev, [name]: '' }))
     }
     if (apiError) setApiError('')
+    if (name === 'email' && emailVerified) {
+      handleResetEmail()
+    }
+  }
+
+  const handleSendOtp = async () => {
+    setOtpError('')
+    setOtpSuccessMsg('')
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!formData.email.trim() || !emailRegex.test(formData.email.trim())) {
+      setOtpError('Please enter a valid email address before requesting an OTP.')
+      return
+    }
+
+    try {
+      setSendingOtp(true)
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+      const response = await fetch(`${API_URL}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email.trim().toLowerCase() }),
+      })
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setOtpSent(true)
+        setOtpSuccessMsg(data.message || 'A 6-digit verification code has been sent to your email.')
+        if (data.devOtp) {
+          setOtpCode(data.devOtp)
+        }
+        setResendCooldown(60)
+      } else {
+        setOtpError(data.message || 'Failed to send OTP. Please try again.')
+      }
+    } catch (err) {
+      console.error('Send OTP error:', err)
+      setOtpError('Unable to send OTP. Please check your connection.')
+    } finally {
+      setSendingOtp(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    setOtpError('')
+    setOtpSuccessMsg('')
+    if (!otpCode.trim() || otpCode.trim().length !== 6) {
+      setOtpError('Please enter the 6-digit OTP code.')
+      return
+    }
+
+    try {
+      setVerifyingOtp(true)
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+      const response = await fetch(`${API_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email.trim().toLowerCase(),
+          otp: otpCode.trim(),
+        }),
+      })
+      const data = await response.json()
+
+      if (response.ok && (data.verified || data.success)) {
+        setEmailVerified(true)
+        setOtpSent(false)
+        setOtpCode('')
+        setOtpSuccessMsg('✓ Email verified successfully!')
+      } else {
+        setOtpError(data.message || 'Invalid OTP. Please try again.')
+      }
+    } catch (err) {
+      console.error('Verify OTP error:', err)
+      setOtpError('Verification failed. Please try again.')
+    } finally {
+      setVerifyingOtp(false)
+    }
+  }
+
+  const handleResetEmail = () => {
+    setEmailVerified(false)
+    setOtpSent(false)
+    setOtpCode('')
+    setOtpError('')
+    setOtpSuccessMsg('')
   }
 
   const toggleCourse = (courseId) => {
+    if (!emailVerified) return
     setFormData((prev) => {
       const exists = prev.desired_courses.includes(courseId)
       let updated
@@ -140,6 +245,9 @@ export default function InquiryForm({ defaultCourse = null }) {
     } else if (!emailRegex.test(formData.email.trim())) {
       newErrors.email = 'Please enter a valid email address'
       isValid = false
+    } else if (!emailVerified) {
+      newErrors.email = 'Please verify your email address via OTP before submitting'
+      isValid = false
     }
 
     if (!formData.desired_courses || formData.desired_courses.length === 0) {
@@ -162,6 +270,11 @@ export default function InquiryForm({ defaultCourse = null }) {
     setApiError('')
 
     if (!validateForm()) return
+
+    if (!emailVerified) {
+      setApiError('Please verify your email address with OTP before submitting.')
+      return
+    }
 
     setIsLoading(true)
 
@@ -279,14 +392,109 @@ export default function InquiryForm({ defaultCourse = null }) {
               type="email"
               name="email"
               id="email"
+              readOnly={emailVerified}
               value={formData.email}
               onChange={handleChange}
-              className={`w-full bg-brand-light border rounded-lg px-4 py-3 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-brand-orange/50 transition-all ${
-                errors.email ? 'border-red-500 ring-1 ring-red-500' : 'border-black/10 focus:border-brand-orange'
+              className={`w-full border rounded-lg px-4 py-3 text-sm font-sans focus:outline-none transition-all ${
+                emailVerified
+                  ? 'bg-slate-100 text-slate-600 border-slate-300 cursor-not-allowed'
+                  : errors.email
+                  ? 'bg-brand-light border-red-500 ring-1 ring-red-500'
+                  : 'bg-brand-light border-black/10 focus:ring-2 focus:ring-brand-orange/50 focus:border-brand-orange'
               }`}
               placeholder="e.g. john@student.tvti.edu"
             />
             {errors.email && <p className="text-red-500 text-xs font-semibold">{errors.email}</p>}
+
+            {/* Email OTP Verification Section */}
+            {emailVerified ? (
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 mt-2">
+                <div className="flex items-center space-x-2 text-emerald-700 font-bold text-xs sm:text-sm">
+                  <svg className="h-5 w-5 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>✓ Email Verified</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetEmail}
+                  className="text-xs text-emerald-700 hover:text-emerald-900 underline font-semibold cursor-pointer"
+                >
+                  Change Email
+                </button>
+              </div>
+            ) : (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mt-2 space-y-3">
+                {!otpSent ? (
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={sendingOtp || !formData.email.trim()}
+                    className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-heading font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <svg className="h-4 w-4 text-brand-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span>{sendingOtp ? 'Sending OTP Code...' : 'Send OTP Verification Code'}</span>
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-brand-charcoal/80 leading-relaxed">
+                      Enter the 6-digit verification code sent to <strong className="text-brand-black">{formData.email}</strong>:
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        placeholder="000000"
+                        value={otpCode}
+                        onChange={(e) => {
+                          setOtpCode(e.target.value.replace(/[^0-9]/g, ''))
+                          if (otpError) setOtpError('')
+                        }}
+                        className="w-36 tracking-[0.4em] text-center font-mono font-bold text-base px-3 py-2 bg-white border border-brand-orange/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-orange/50 text-brand-black"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyOtp}
+                        disabled={verifyingOtp || otpCode.trim().length !== 6}
+                        className="bg-brand-orange hover:bg-brand-orange/90 disabled:opacity-50 text-white font-heading font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        {verifyingOtp ? 'Verifying...' : 'Verify OTP'}
+                      </button>
+                    </div>
+
+                    <div className="text-[11px] text-brand-charcoal/70">
+                      {resendCooldown > 0 ? (
+                        <span>Didn't receive the code? Resend available in <strong>{resendCooldown}s</strong></span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleSendOtp}
+                          disabled={sendingOtp}
+                          className="text-brand-orange hover:underline font-semibold cursor-pointer"
+                        >
+                          {sendingOtp ? 'Sending...' : "Didn't receive the OTP? [ Resend OTP ]"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {otpError && (
+                  <p className="text-red-500 text-xs font-semibold flex items-center space-x-1">
+                    <span>⚠</span>
+                    <span>{otpError}</span>
+                  </p>
+                )}
+                {otpSuccessMsg && !emailVerified && (
+                  <p className="text-emerald-600 text-xs font-semibold flex items-center space-x-1">
+                    <span>ℹ</span>
+                    <span>{otpSuccessMsg}</span>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Phone Number field */}
@@ -314,12 +522,28 @@ export default function InquiryForm({ defaultCourse = null }) {
               <label className="block text-xs uppercase tracking-wider font-heading font-bold text-brand-charcoal">
                 Desired Vocational Course(s) <span className="text-brand-orange font-bold">*</span>
               </label>
-              <span className="text-[11px] font-sans font-semibold text-brand-orange bg-brand-orange/10 px-2.5 py-0.5 rounded-full border border-brand-orange/20">
-                Select one or more ({formData.desired_courses.length} selected)
-              </span>
+              {emailVerified && (
+                <span className="text-[11px] font-sans font-semibold text-brand-orange bg-brand-orange/10 px-2.5 py-0.5 rounded-full border border-brand-orange/20">
+                  Select one or more ({formData.desired_courses.length} selected)
+                </span>
+              )}
             </div>
 
-            {fetchingCourses ? (
+            {!emailVerified ? (
+              <div className="p-6 bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl text-center space-y-1.5 select-none">
+                <div className="inline-flex p-2.5 bg-slate-200/80 rounded-full text-slate-600 mb-1">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <p className="text-xs font-heading font-bold text-slate-700 uppercase tracking-wide">
+                  Course Selection Locked
+                </p>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Please verify your email address above to unlock and select vocational courses.
+                </p>
+              </div>
+            ) : fetchingCourses ? (
               <div className="py-3 text-center text-xs text-brand-charcoal/60 bg-brand-light rounded-lg border border-black/10">
                 Loading available database courses...
               </div>
@@ -395,8 +619,8 @@ export default function InquiryForm({ defaultCourse = null }) {
             <Button
               type="submit"
               variant="primary"
-              className="w-full min-h-[48px] text-sm uppercase tracking-widest font-heading font-extrabold shadow-md hover:shadow-lg"
-              disabled={isLoading}
+              className="w-full min-h-[48px] text-sm uppercase tracking-widest font-heading font-extrabold shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+              disabled={isLoading || !emailVerified || !agreedToTerms}
             >
               {isLoading ? (
                 <span className="flex items-center justify-center space-x-2">

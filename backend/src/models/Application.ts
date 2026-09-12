@@ -14,6 +14,7 @@ export interface IApplication extends Document {
   terms_accepted_at: Date;
   submitted_at: Date;
   generated_index_number?: string;
+  email_verified?: boolean;
 }
 
 const applicationSchema = new Schema<IApplication>(
@@ -32,7 +33,8 @@ const applicationSchema = new Schema<IApplication>(
     terms_accepted: { type: Boolean, required: true, default: true },
     terms_accepted_at: { type: Date, default: Date.now },
     submitted_at: { type: Date, default: Date.now },
-    generated_index_number: { type: String }
+    generated_index_number: { type: String },
+    email_verified: { type: Boolean, default: false }
   },
   { timestamps: true }
 );

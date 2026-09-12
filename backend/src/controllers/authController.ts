@@ -3,6 +3,7 @@ import User from '../models/User';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import { sendOtp, verifyOtp, isEmailVerified, consumeEmailVerification } from '../services/otpService';
 
 const generateToken = (id: string, expiresIn: any = '7d') => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
@@ -133,10 +134,63 @@ export const forceChangePassword = async (req: Request, res: Response): Promise<
   }
 };
 
+export const sendOtpHandler = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ success: false, message: 'Email address is required' });
+      return;
+    }
+
+    const result = await sendOtp(email);
+    if (!result.success) {
+      res.status(400).json(result);
+      return;
+    }
+
+    res.status(200).json(result);
+  } catch (error: any) {
+    console.error('Send OTP error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error sending OTP' });
+  }
+};
+
+export const verifyOtpHandler = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      res.status(400).json({ success: false, message: 'Email and OTP are required' });
+      return;
+    }
+
+    const result = await verifyOtp(email, otp);
+    if (!result.success) {
+      res.status(400).json(result);
+      return;
+    }
+
+    res.status(200).json(result);
+  } catch (error: any) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error verifying OTP' });
+  }
+};
+
 export const register = async (req: Request, res: Response): Promise<void> => {
   const { name, email, password, phone, nic, desired_course } = req.body;
   try {
-    const userExists = await User.findOne({ email });
+    if (!email) {
+      res.status(400).json({ message: 'Email is required' });
+      return;
+    }
+
+    const verified = await isEmailVerified(email);
+    if (!verified) {
+      res.status(400).json({ message: 'Email address must be verified via OTP before registering.' });
+      return;
+    }
+
+    const userExists = await User.findOne({ email: email.toLowerCase().trim() });
     if (userExists) {
       res.status(400).json({ message: 'User already exists' });
       return;
@@ -147,7 +201,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     const user = await User.create({
       name,
-      email,
+      email: email.toLowerCase().trim(),
       password_hash,
       role: 'student', // default self-registration role
       phone,
@@ -155,6 +209,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       desired_course,
       is_active: false, // pending admin approval
     });
+
+    await consumeEmailVerification(email);
 
     res.status(201).json({
       message: 'Registration successful. Waiting for admin approval.',

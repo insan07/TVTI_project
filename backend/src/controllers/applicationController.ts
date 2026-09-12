@@ -7,6 +7,7 @@ import Course from '../models/Course';
 import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
 import { sendNotification } from '../services/notificationService';
+import { isEmailVerified, consumeEmailVerification } from '../services/otpService';
 
 export const generateUniqueIndexNumber = async (): Promise<string> => {
   const fullYear = new Date().getFullYear();
@@ -51,6 +52,15 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
       return;
     }
 
+    // Verify email was verified through OTP before allowing application submission
+    const verified = await isEmailVerified(email);
+    if (!verified) {
+      res.status(400).json({
+        message: 'Email address must be verified via OTP before submitting the application.'
+      });
+      return;
+    }
+
     // Check if application already submitted with this email or NIC for pending status
     const existingApp = await Application.findOne({
       $or: [{ email: email.toLowerCase().trim() }, { nic_number: nic_number.trim() }],
@@ -80,8 +90,12 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
       status: 'pending',
       terms_accepted: true,
       terms_accepted_at: new Date(),
-      submitted_at: new Date()
+      submitted_at: new Date(),
+      email_verified: true
     });
+
+    // Consume the OTP verification record so it cannot be reused
+    await consumeEmailVerification(email);
 
     res.status(201).json({
       message: 'Application submitted successfully. Awaiting TVTI admin review.',
