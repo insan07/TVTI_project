@@ -22,9 +22,11 @@ export default function ProfileScreen() {
   const context = useContext(AuthContext);
   if (!context) return null;
   const { logout } = context as any;
+
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showSystemDetails, setShowSystemDetails] = useState(false);
 
   // Edit Profile Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -37,6 +39,9 @@ export default function ProfileScreen() {
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
+
+  // Help & Support Modal
+  const [helpModalVisible, setHelpModalVisible] = useState(false);
 
   // Logout Confirmation Modal
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
@@ -99,12 +104,10 @@ export default function ProfileScreen() {
 
       if (photoAsset) {
         if (Platform.OS === 'web' && photoAsset.file instanceof File) {
-          // On web, append the actual File object so Axios can serialize it correctly
           data.append('profile_photo', photoAsset.file, photoAsset.fileName || 'photo.jpg');
         } else {
-          // On native, use the {uri, name, type} approach that React Native's fetch understands
           const localUri = photoAsset.uri;
-          const filename = (photoAsset.fileName || localUri.split('/').pop() || 'photo.jpg');
+          const filename = photoAsset.fileName || localUri.split('/').pop() || 'photo.jpg';
           const type = photoAsset.mimeType || 'image/jpeg';
           data.append('profile_photo', { uri: localUri, name: filename, type } as any);
         }
@@ -153,14 +156,10 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogoutPress = () => {
-    setLogoutModalVisible(true);
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingScreen}>
-        <ActivityIndicator size="large" color="#000000" />
+        <ActivityIndicator size="large" color="#F58220" />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
@@ -184,14 +183,25 @@ export default function ProfileScreen() {
     return name.substring(0, 2).toUpperCase();
   };
 
+  const isStudent = (profile.role || 'student').toLowerCase() === 'student';
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ========================================================================= */}
-        {/* DARK HERO BANNER CARD (EXACT UI MATCH FROM DESIGN IMAGE) */}
+        {/* PAGE HEADER */}
         {/* ========================================================================= */}
-        <View style={styles.darkHeaderCard}>
-          {/* Avatar Ring */}
+        <Text style={styles.categoryHeader}>Account</Text>
+        <Text style={styles.mainTitle}>Profile</Text>
+
+        {/* ========================================================================= */}
+        {/* TOP MAIN PROFILE CARD (EXACT MATCH TO DESIGN SCREENSHOT) */}
+        {/* ========================================================================= */}
+        <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             {(photoAsset?.uri || profile.profile_photo) ? (
               <Image
@@ -207,78 +217,143 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          {/* User Name */}
-          <Text style={styles.userName}>{profile.name}</Text>
-
-          {/* Role Pill Badge */}
-          <View style={styles.roleBadgePill}>
-            <Text style={styles.roleBadgeText}>{(profile.role || 'STUDENT').toUpperCase()}</Text>
-          </View>
-
-          {/* Email Address */}
-          <Text style={styles.userEmail}>{profile.email}</Text>
-        </View>
-
-        {/* ========================================================================= */}
-        {/* ACTION BUTTONS (EXACT DESIGN MATCH) */}
-        {/* ========================================================================= */}
-        <View style={styles.actionButtonsContainer}>
-          {/* Edit Profile Button */}
-          <TouchableOpacity
-            style={styles.darkPrimaryBtn}
-            onPress={() => setEditModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Icon name="pencil" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={styles.darkPrimaryBtnText}>Edit Profile</Text>
-          </TouchableOpacity>
-
-          {/* Change Password Button */}
-          <TouchableOpacity
-            style={styles.outlineSecondaryBtn}
-            onPress={() => setPassModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Icon name="lock-closed-outline" size={18} color="#18181B" style={{ marginRight: 8 }} />
-            <Text style={styles.outlineSecondaryBtnText}>Change Password</Text>
-          </TouchableOpacity>
-
-          {/* Logout Button */}
-          <TouchableOpacity
-            style={styles.dangerLogoutBtn}
-            onPress={handleLogoutPress}
-            activeOpacity={0.8}
-          >
-            <Icon name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 8 }} />
-            <Text style={styles.dangerLogoutBtnText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Extra Account Info Card */}
-        <View style={styles.accountInfoCard}>
-          <Text style={styles.accountInfoTitle}>System Details</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>{profile.role === 'student' ? 'Reg No:' : 'Reg No / User ID:'}</Text>
-            <Text style={[styles.infoVal, { fontWeight: 'bold', color: '#111827' }]} numberOfLines={1}>
-              {profile.index_number || profile._id}
+          <View style={styles.profileMetaContainer}>
+            <Text style={styles.userName} numberOfLines={1}>
+              {profile.name}
             </Text>
-          </View>
-          {profile.phone ? (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Phone Number:</Text>
-              <Text style={styles.infoVal}>{profile.phone}</Text>
+            <Text style={styles.userEmail} numberOfLines={1}>
+              {profile.email}
+            </Text>
+            <View style={styles.roleBadgePill}>
+              <Text style={styles.roleBadgeText}>
+                {(profile.role || 'STUDENT').toUpperCase()}
+              </Text>
             </View>
-          ) : null}
-          {profile.nic ? (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>NIC Number:</Text>
-              <Text style={styles.infoVal}>{profile.nic}</Text>
-            </View>
-          ) : null}
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Account Status:</Text>
-            <Text style={[styles.infoVal, { color: '#059669', fontWeight: 'bold' }]}>Active & Verified</Text>
           </View>
+
+          {/* Quick Edit Arrow Circle Button */}
+          <TouchableOpacity
+            style={styles.editCircleBtn}
+            onPress={() => setEditModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Icon name="arrow-forward-outline" size={16} color="#52525B" />
+          </TouchableOpacity>
+        </View>
+
+
+
+        {/* ========================================================================= */}
+        {/* MENU ACTION LIST CARDS (EXACT MATCH TO DESIGN SCREENSHOT) */}
+        {/* ========================================================================= */}
+        <View style={styles.menuListSection}>
+          {/* Edit Profile Item */}
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={() => setEditModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name="pencil-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Edit Profile</Text>
+            </View>
+            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+          </TouchableOpacity>
+
+          {/* Change Password Item */}
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={() => setPassModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name="lock-closed-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Change Password</Text>
+            </View>
+            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+          </TouchableOpacity>
+
+          {/* System Details Item */}
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={() => setShowSystemDetails(v => !v)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name="information-circle-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>System Details</Text>
+            </View>
+            <Icon name={showSystemDetails ? "chevron-down" : "chevron-forward"} size={18} color="#A1A1AA" />
+          </TouchableOpacity>
+
+          {/* Expandable System Details Content */}
+          {showSystemDetails && (
+            <View style={styles.expandableDetailsCard}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Registration / User ID:</Text>
+                <Text style={styles.infoVal}>{profile.index_number || profile._id}</Text>
+              </View>
+              {profile.phone ? (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Phone Number:</Text>
+                  <Text style={styles.infoVal}>{profile.phone}</Text>
+                </View>
+              ) : null}
+              {profile.nic ? (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>NIC Number:</Text>
+                  <Text style={styles.infoVal}>{profile.nic}</Text>
+                </View>
+              ) : null}
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Account Status:</Text>
+                <Text style={[styles.infoVal, { color: '#10B981', fontWeight: 'bold' }]}>
+                  Active & Verified
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Notifications Item */}
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={() => showAck('Notifications', 'Notification preferences are enabled for your TVTI account.', 'info')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name="notifications-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Notifications</Text>
+            </View>
+            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+          </TouchableOpacity>
+
+          {/* Help & Support Item */}
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={() => setHelpModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name="help-circle-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Help & Support</Text>
+            </View>
+            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+          </TouchableOpacity>
+
+          {/* Logout Item */}
+          <TouchableOpacity
+            style={[styles.menuCard, styles.logoutMenuCard]}
+            onPress={() => setLogoutModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name="log-out-outline" size={20} color="#EF4444" style={styles.menuIcon} />
+              <Text style={[styles.menuText, { color: '#EF4444', fontWeight: '700' }]}>
+                Logout
+              </Text>
+            </View>
+            <Icon name="chevron-forward" size={18} color="#FCA5A5" />
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -286,7 +361,10 @@ export default function ProfileScreen() {
       {/* EDIT PROFILE MODAL */}
       {/* ========================================================================= */}
       <Modal visible={editModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Profile</Text>
@@ -295,10 +373,12 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Photo Avatar Upload Touch */}
             <TouchableOpacity onPress={pickImage} style={styles.photoUploadBox}>
               {(photoAsset?.uri || profile.profile_photo) ? (
-                <Image source={photoAsset?.uri || profile.profile_photo} style={styles.modalAvatarImg} />
+                <Image
+                  source={photoAsset?.uri || profile.profile_photo}
+                  style={styles.modalAvatarImg}
+                />
               ) : (
                 <View style={styles.modalAvatarPlaceholder}>
                   <Text style={styles.avatarInitials}>{getInitials(formData.name)}</Text>
@@ -330,11 +410,22 @@ export default function ProfileScreen() {
             />
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setEditModalVisible(false)}>
+              <TouchableOpacity
+                style={styles.cancelModalBtn}
+                onPress={() => setEditModalVisible(false)}
+              >
                 <Text style={styles.cancelModalText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.submitModalBtn} onPress={saveProfile} disabled={saving}>
-                {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitModalText}>Save Changes</Text>}
+              <TouchableOpacity
+                style={styles.submitModalBtn}
+                onPress={saveProfile}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitModalText}>Save Changes</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -345,7 +436,10 @@ export default function ProfileScreen() {
       {/* CHANGE PASSWORD MODAL */}
       {/* ========================================================================= */}
       <Modal visible={passModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Change Password</Text>
@@ -364,8 +458,15 @@ export default function ProfileScreen() {
                 placeholder="Enter current password"
                 placeholderTextColor="#9CA3AF"
               />
-              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowCurrentPass(v => !v)}>
-                <Icon name={showCurrentPass ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowCurrentPass(v => !v)}
+              >
+                <Icon
+                  name={showCurrentPass ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color="#9CA3AF"
+                />
               </TouchableOpacity>
             </View>
 
@@ -379,8 +480,15 @@ export default function ProfileScreen() {
                 placeholder="At least 6 characters"
                 placeholderTextColor="#9CA3AF"
               />
-              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowNewPass(v => !v)}>
-                <Icon name={showNewPass ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowNewPass(v => !v)}
+              >
+                <Icon
+                  name={showNewPass ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color="#9CA3AF"
+                />
               </TouchableOpacity>
             </View>
 
@@ -394,17 +502,35 @@ export default function ProfileScreen() {
                 placeholder="Re-enter new password"
                 placeholderTextColor="#9CA3AF"
               />
-              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowConfirmPass(v => !v)}>
-                <Icon name={showConfirmPass ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowConfirmPass(v => !v)}
+              >
+                <Icon
+                  name={showConfirmPass ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color="#9CA3AF"
+                />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setPassModalVisible(false)}>
+              <TouchableOpacity
+                style={styles.cancelModalBtn}
+                onPress={() => setPassModalVisible(false)}
+              >
                 <Text style={styles.cancelModalText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.submitModalBtn} onPress={handleChangePassword} disabled={saving}>
-                {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitModalText}>Update Password</Text>}
+              <TouchableOpacity
+                style={styles.submitModalBtn}
+                onPress={handleChangePassword}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitModalText}>Update Password</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -412,44 +538,50 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* ========================================================================= */}
+      {/* HELP & SUPPORT MODAL */}
+      {/* ========================================================================= */}
+      <Modal visible={helpModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[styles.popupIconCircle, { backgroundColor: '#FEF3C7' }]}>
+              <Icon name="headset-outline" size={28} color="#D97706" />
+            </View>
+            <Text style={styles.popupTitle}>TVTI Support</Text>
+            <Text style={styles.popupMessage}>
+              Need assistance with your courses, timetable, or student account? Contact the TVTI Student Support Desk.
+              {'\n\n'}
+              📧 Email: support@tvti.edu{'\n'}
+              📞 Phone: +94 11 234 5678
+            </Text>
+            <TouchableOpacity
+              style={[styles.popupOkBtn, { backgroundColor: '#18181B' }]}
+              onPress={() => setHelpModalVisible(false)}
+            >
+              <Text style={styles.popupOkBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ========================================================================= */}
       {/* LOGOUT CONFIRMATION MODAL */}
       {/* ========================================================================= */}
-      <Modal visible={logoutModalVisible} animationType="fade" transparent={true} onRequestClose={() => setLogoutModalVisible(false)}>
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 20
-        }}>
-          <View style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 18,
-            padding: 24,
-            width: '100%',
-            maxWidth: 380,
-            alignItems: 'center',
-            boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.25)',
-            elevation: 10
-          }}>
-            <View style={{
-              width: 60,
-              height: 60,
-              borderRadius: 30,
-              backgroundColor: '#FEE2E2',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginBottom: 16
-            }}>
+      <Modal
+        visible={logoutModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setLogoutModalVisible(false)}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[styles.popupIconCircle, { backgroundColor: '#FEE2E2' }]}>
               <Icon name="log-out-outline" size={28} color="#DC2626" />
             </View>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A', textAlign: 'center', marginBottom: 8 }}>
-              Confirm Logout
+            <Text style={styles.popupTitle}>Confirm Logout</Text>
+            <Text style={styles.popupMessage}>
+              Are you sure you want to log out of your TVTI account?
             </Text>
-            <Text style={{ fontSize: 14, color: '#475569', textAlign: 'center', lineHeight: 20, marginBottom: 20 }}>
-              Are you sure you want to log out of the TVTI Project Portal?
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+            <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginTop: 16 }}>
               <TouchableOpacity
                 style={{
                   flex: 1,
@@ -458,11 +590,13 @@ export default function ProfileScreen() {
                   borderRadius: 10,
                   alignItems: 'center',
                   borderWidth: 1,
-                  borderColor: '#CBD5E1'
+                  borderColor: '#CBD5E1',
                 }}
                 onPress={() => setLogoutModalVisible(false)}
               >
-                <Text style={{ color: '#475569', fontWeight: 'bold', fontSize: 14 }}>Cancel</Text>
+                <Text style={{ color: '#475569', fontWeight: 'bold', fontSize: 14 }}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{
@@ -470,14 +604,16 @@ export default function ProfileScreen() {
                   backgroundColor: '#DC2626',
                   paddingVertical: 12,
                   borderRadius: 10,
-                  alignItems: 'center'
+                  alignItems: 'center',
                 }}
                 onPress={() => {
                   setLogoutModalVisible(false);
                   logout();
                 }}
               >
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Logout</Text>
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>
+                  Logout
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -487,27 +623,42 @@ export default function ProfileScreen() {
       {/* ========================================================================= */}
       {/* ACK / ALERT POPUP MODAL */}
       {/* ========================================================================= */}
-      <Modal visible={ackModal.visible} animationType="fade" transparent onRequestClose={() => setAckModal(p => ({ ...p, visible: false }))}>
+      <Modal
+        visible={ackModal.visible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setAckModal(p => ({ ...p, visible: false }))}
+      >
         <View style={styles.popupOverlay}>
           <View style={styles.popupCard}>
-            <View style={[
-              styles.popupIconCircle,
-              {
-                backgroundColor:
-                  ackModal.type === 'success' ? '#DCFCE7' :
-                  ackModal.type === 'error'   ? '#FEE2E2' : '#EFF6FF'
-              }
-            ]}>
+            <View
+              style={[
+                styles.popupIconCircle,
+                {
+                  backgroundColor:
+                    ackModal.type === 'success'
+                      ? '#DCFCE7'
+                      : ackModal.type === 'error'
+                      ? '#FEE2E2'
+                      : '#EFF6FF',
+                },
+              ]}
+            >
               <Icon
                 name={
-                  ackModal.type === 'success' ? 'checkmark-circle-outline' :
-                  ackModal.type === 'error'   ? 'close-circle-outline' :
-                  'information-circle-outline'
+                  ackModal.type === 'success'
+                    ? 'checkmark-circle-outline'
+                    : ackModal.type === 'error'
+                    ? 'close-circle-outline'
+                    : 'information-circle-outline'
                 }
                 size={28}
                 color={
-                  ackModal.type === 'success' ? '#16A34A' :
-                  ackModal.type === 'error'   ? '#DC2626' : '#2563EB'
+                  ackModal.type === 'success'
+                    ? '#16A34A'
+                    : ackModal.type === 'error'
+                    ? '#DC2626'
+                    : '#2563EB'
                 }
               />
             </View>
@@ -518,9 +669,12 @@ export default function ProfileScreen() {
                 styles.popupOkBtn,
                 {
                   backgroundColor:
-                    ackModal.type === 'success' ? '#16A34A' :
-                    ackModal.type === 'error'   ? '#DC2626' : '#2563EB'
-                }
+                    ackModal.type === 'success'
+                      ? '#16A34A'
+                      : ackModal.type === 'error'
+                      ? '#DC2626'
+                      : '#2563EB',
+                },
               ]}
               onPress={() => {
                 const onOk = ackModal.onOk;
@@ -540,7 +694,12 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F4F6',
+    backgroundColor: '#F4F4F6', // Light clean gray matching design screenshot
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 100, // Space so floating bottom navbar never overlaps content
   },
   loadingScreen: {
     flex: 1,
@@ -550,12 +709,12 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: '#6B7280',
+    color: '#71717A',
     fontSize: 14,
   },
   retryBtn: {
     marginTop: 16,
-    backgroundColor: '#000000',
+    backgroundColor: '#18181B',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -565,29 +724,41 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  /* DARK HEADER CARD (MATCHING USER DESIGN EXACTLY) */
-  darkHeaderCard: {
-    backgroundColor: '#121214',
-    paddingTop: 36,
-    paddingBottom: 28,
-    paddingHorizontal: 20,
+  /* HEADER */
+  categoryHeader: {
+    fontSize: 13,
+    color: '#71717A',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  mainTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 20,
+  },
+
+  /* MAIN PROFILE CARD (EXACT MATCH TO DESIGN SCREENSHOT) */
+  profileCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    elevation: 4,
-    boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.3)',
+    marginBottom: 16,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+    }),
   },
   avatarContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 4,
-    borderColor: '#9CA3AF',
+    width: 64,
+    height: 64,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 16,
+    backgroundColor: '#FFC83B', // Warm yellow/orange backdrop matching screenshot
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#27272A',
   },
   avatarImage: {
     width: '100%',
@@ -596,110 +767,130 @@ const styles = StyleSheet.create({
   avatarPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#3F3F46',
+    backgroundColor: '#F58220',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarInitials: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
+  profileMetaContainer: {
+    flex: 1,
+    marginLeft: 14,
+    marginRight: 8,
+  },
   userName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#18181B',
+  },
+  userEmail: {
+    fontSize: 13,
+    color: '#71717A',
+    marginTop: 2,
     marginBottom: 6,
   },
   roleBadgePill: {
-    borderWidth: 1,
-    borderColor: '#7C2D12',
-    backgroundColor: 'rgba(124, 45, 18, 0.25)',
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    borderRadius: 20,
-    marginBottom: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   roleBadgeText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#F97316',
-    letterSpacing: 1,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-  },
-
-  /* ACTION BUTTONS (MATCHING DESIGN LAYOUT) */
-  actionButtonsContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 28,
-    paddingBottom: 16,
-    gap: 14,
-  },
-  darkPrimaryBtn: {
-    backgroundColor: '#1E1E22',
-    height: 54,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-  },
-  darkPrimaryBtnText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  outlineSecondaryBtn: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#1E1E22',
-    height: 54,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outlineSecondaryBtnText: {
-    color: '#1E1E22',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  dangerLogoutBtn: {
-    backgroundColor: '#FEE2E2',
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-    height: 54,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dangerLogoutBtnText: {
+    fontSize: 10,
+    fontWeight: '800',
     color: '#EF4444',
-    fontWeight: 'bold',
-    fontSize: 16,
+    letterSpacing: 0.5,
+  },
+  editCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
 
-  /* EXTRA SYSTEM INFO CARD */
-  accountInfoCard: {
+  /* METRICS GRID ROW (EXACT MATCH TO DESIGN SCREENSHOT) */
+  statsGridRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 },
+    }),
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#71717A',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+
+  /* MENU ACTION LIST CARDS (EXACT MATCH TO DESIGN SCREENSHOT) */
+  menuListSection: {
+    gap: 10,
+  },
+  menuCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 18,
-    marginHorizontal: 20,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 },
+    }),
   },
-  accountInfoTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 12,
+  logoutMenuCard: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  menuLeftContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuIcon: {
+    marginRight: 14,
+  },
+  menuText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#18181B',
+  },
+
+  /* EXPANDABLE SYSTEM DETAILS */
+  expandableDetailsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: -4,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
   },
   infoRow: {
     flexDirection: 'row',
@@ -708,16 +899,15 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#71717A',
   },
   infoVal: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#111827',
-    maxWidth: '60%',
+    color: '#18181B',
   },
 
-  /* MODALS STYLES */
+  /* MODALS */
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -729,6 +919,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     width: '88%',
+    maxWidth: 420,
     elevation: 5,
   },
   modalHeader: {
@@ -740,7 +931,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#18181B',
   },
   photoUploadBox: {
     alignSelf: 'center',
@@ -756,7 +947,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#3F3F46',
+    backgroundColor: '#F58220',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -764,84 +955,85 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
     padding: 6,
     borderRadius: 12,
   },
   photoUploadHint: {
     textAlign: 'center',
     fontSize: 12,
-    color: '#6B7280',
+    color: '#71717A',
     marginBottom: 14,
   },
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: '#3F3F46',
     marginBottom: 6,
     marginTop: 10,
   },
   modalInput: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F4F6',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#E4E4E7',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#111827',
+    color: '#18181B',
   },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 20,
-  },
-  cancelModalBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginRight: 8,
-  },
-  cancelModalText: {
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  submitModalBtn: {
-    backgroundColor: '#1E1E22',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-  },
-  submitModalText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-
-  // Password field with eye toggle
   passwordRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F4F6',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#E4E4E7',
     borderRadius: 10,
-    marginBottom: 4,
+    paddingRight: 10,
   },
   passwordInput: {
     flex: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#111827',
+    color: '#18181B',
   },
   eyeBtn: {
-    paddingHorizontal: 12,
+    padding: 4,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+    gap: 10,
+  },
+  cancelModalBtn: {
     paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: '#F4F4F6',
+  },
+  cancelModalText: {
+    color: '#71717A',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  submitModalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: '#18181B',
+  },
+  submitModalText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 
-  // Ack Popup Styles
+  /* POPUP OVERLAYS */
   popupOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -849,44 +1041,46 @@ const styles = StyleSheet.create({
   popupCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 28,
+    padding: 24,
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 380,
     alignItems: 'center',
-    boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.2)',
-    elevation: 10,
+    ...Platform.select({
+      web: { boxShadow: '0px 10px 25px rgba(0, 0, 0, 0.2)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 8 },
+    }),
   },
   popupIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   popupTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#0F172A',
+    color: '#18181B',
     textAlign: 'center',
     marginBottom: 8,
   },
   popupMessage: {
     fontSize: 14,
-    color: '#475569',
+    color: '#71717A',
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
+    lineHeight: 20,
+    marginBottom: 16,
   },
   popupOkBtn: {
     width: '100%',
-    paddingVertical: 13,
+    paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
   },
   popupOkBtnText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 15,
+    fontSize: 14,
   },
 });

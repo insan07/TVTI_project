@@ -70,52 +70,32 @@ const AdminCoursesStack = () => (
 
 
 
-const StudentTabs = ({ unreadCount, insets }: { unreadCount: number, insets: any }) => (
-  <Tab.Navigator screenOptions={({ route }) => ({
-    ...getCommonTabOptions(insets),
-    tabBarIcon: ({ color, size }) => {
-      let iconName: any = 'home';
-      if (route.name === 'Home') iconName = 'home';
-      else if (route.name === 'Videos') iconName = 'folder-open';
-      else if (route.name === 'Schedule') iconName = 'calendar';
-      else if (route.name === 'Profile') iconName = 'person';
-      return <Icon name={iconName} size={size} color={color} />;
-    },
-  })}>
-    <Tab.Screen name="Home">
-      {props => <HomeScreen {...props} unreadCount={unreadCount} />}
+import { CustomFloatingTabBar } from '../components/navigation/CustomFloatingTabBar';
+
+const StudentTabs = ({ unreadCount }: { unreadCount: number; insets: any }) => (
+  <Tab.Navigator
+    tabBar={(props) => <CustomFloatingTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
+  >
+    <Tab.Screen name="Home" options={{ tabBarLabel: 'Home' }}>
+      {(props) => <HomeScreen {...props} unreadCount={unreadCount} />}
     </Tab.Screen>
     <Tab.Screen name="Videos" options={{ tabBarLabel: 'Uploads' }}>
-      {props => <VideosScreen {...props} unreadCount={unreadCount} />}
+      {(props) => <VideosScreen {...props} unreadCount={unreadCount} />}
     </Tab.Screen>
-    <Tab.Screen name="Schedule">
-      {props => <StudentScheduleScreen {...props} unreadCount={unreadCount} />}
+    <Tab.Screen name="Schedule" options={{ tabBarLabel: 'Schedule' }}>
+      {(props) => <StudentScheduleScreen {...props} unreadCount={unreadCount} />}
     </Tab.Screen>
-    <Tab.Screen name="Profile" component={ProfileScreen} />
+    <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
 );
 
 const InstructorTabs = ({ insets }: { insets: any }) => (
-  <Tab.Navigator screenOptions={({ route }) => ({
-    ...getCommonTabOptions(insets),
-    tabBarIcon: ({ color, size }) => {
-      let iconName: any = 'home';
-      const isActive = color === COLORS.tabBarActive;
-      if (route.name === 'Home') {
-        iconName = isActive ? 'home' : 'home-outline';
-      } else if (route.name === 'Uploads') {
-        iconName = isActive ? 'cloud-upload' : 'cloud-upload-outline';
-      } else if (route.name === 'Practice') {
-        iconName = isActive ? 'calendar' : 'calendar-outline';
-      } else if (route.name === 'Profile') {
-        iconName = isActive ? 'person' : 'person-outline';
-      } else if (route.name === 'PostAnnouncement') {
-        iconName = isActive ? 'megaphone' : 'megaphone-outline';
-      }
-      return <Icon name={iconName} size={size} color={color} />;
-    },
-  })}>
-    <Tab.Screen name="Home" component={InstructorHomeScreen} />
+  <Tab.Navigator
+    tabBar={(props) => <CustomFloatingTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
+  >
+    <Tab.Screen name="Home" component={InstructorHomeScreen} options={{ tabBarLabel: 'Home' }} />
     <Tab.Screen
       name="Uploads"
       component={UploadVideoScreen}
@@ -125,7 +105,7 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
         title: 'Upload Portal',
         headerStyle: { backgroundColor: COLORS.primary },
         headerTintColor: COLORS.secondary,
-        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 }
+        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 },
       }}
     />
     <Tab.Screen
@@ -137,7 +117,26 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
         title: 'Practical Slots',
         headerStyle: { backgroundColor: COLORS.primary },
         headerTintColor: COLORS.secondary,
-        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 }
+        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 },
+      }}
+    />
+    <Tab.Screen
+      name="PostAnnouncement"
+      component={PostAnnouncementScreen}
+      options={{
+        tabBarLabel: 'Notices',
+        headerShown: true,
+        title: 'Announcements',
+        headerStyle: { backgroundColor: COLORS.primary },
+        headerTintColor: COLORS.secondary,
+        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 },
+      }}
+    />
+    <Tab.Screen
+      name="Profile"
+      component={ProfileScreen}
+      options={{
+        tabBarLabel: 'Profile',
       }}
     />
     <Tab.Screen
@@ -150,52 +149,22 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
         title: 'My Students',
         headerStyle: { backgroundColor: COLORS.primary },
         headerTintColor: COLORS.secondary,
-        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 }
-      }}
-    />
-    <Tab.Screen
-      name="PostAnnouncement"
-      component={PostAnnouncementScreen}
-      options={{
-        tabBarLabel: 'Notices',
-        headerShown: true,
-        title: 'Announcements',
-        headerStyle: { backgroundColor: COLORS.primary },
-        headerTintColor: COLORS.secondary,
-        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 }
-      }}
-    />
-    <Tab.Screen
-      name="Profile"
-      component={ProfileScreen}
-      options={{
-        tabBarButton: () => null,
-        tabBarItemStyle: { display: 'none' },
+        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 },
       }}
     />
   </Tab.Navigator>
 );
 
 const AdminTabs = ({ insets }: { insets: any }) => (
-  <Tab.Navigator screenOptions={({ route }) => ({
-    ...getCommonTabOptions(insets),
-    tabBarIcon: ({ color, size }) => {
-      let iconName: any = 'grid';
-      if (route.name === 'Home') iconName = 'grid';
-      else if (route.name === 'Users') iconName = 'people';
-      else if (route.name === 'Courses') iconName = 'book';
-      else if (route.name === 'Practice') iconName = 'calendar';
-      else if (route.name === 'Results') iconName = 'bar-chart';
-      else if (route.name === 'Profile') iconName = 'person';
-      else if (route.name === 'PostAnnouncement') iconName = 'megaphone';
-      return <Icon name={iconName} size={size} color={color} />;
-    },
-  })}>
+  <Tab.Navigator
+    tabBar={(props) => <CustomFloatingTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
+  >
     <Tab.Screen name="Home" component={AdminDashboardScreen} options={{ tabBarLabel: 'Dashboard' }} />
-    <Tab.Screen name="Users" component={UserManagementScreen} options={{ tabBarLabel: 'Users & Apps' }} />
-    <Tab.Screen name="Courses" component={AdminCoursesStack} />
+    <Tab.Screen name="Users" component={UserManagementScreen} options={{ tabBarLabel: 'Users' }} />
+    <Tab.Screen name="Courses" component={AdminCoursesStack} options={{ tabBarLabel: 'Courses' }} />
     <Tab.Screen name="Practice" component={AdminSlotManagementScreen} options={{ tabBarLabel: 'Slots' }} />
-    <Tab.Screen name="Results" component={ManageResultsScreen} />
+    <Tab.Screen name="Results" component={ManageResultsScreen} options={{ tabBarLabel: 'Results' }} />
     <Tab.Screen
       name="PostAnnouncement"
       component={PostAnnouncementScreen}
@@ -205,10 +174,10 @@ const AdminTabs = ({ insets }: { insets: any }) => (
         title: 'Announcements',
         headerStyle: { backgroundColor: COLORS.primary },
         headerTintColor: COLORS.secondary,
-        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17, color: '#fff' }
+        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17, color: '#fff' },
       }}
     />
-    <Tab.Screen name="Profile" component={ProfileScreen} />
+    <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
 );
 
@@ -294,6 +263,7 @@ export const AppNavigator = () => {
                   {props => <InstructorTabs {...props} insets={insets} />}
                 </Stack.Screen>
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
+                <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>
             ) : normalizedRole === 'admin' ? (
               <>
@@ -301,6 +271,7 @@ export const AppNavigator = () => {
                   {props => <AdminTabs {...props} insets={insets} />}
                 </Stack.Screen>
                 <Stack.Screen name="EnrollStudent" component={EnrollStudentScreen} options={{ ...headerOptions, headerShown: true, title: 'Enroll Students' }} />
+                <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>
             ) : (
               <>
@@ -310,6 +281,7 @@ export const AppNavigator = () => {
                 <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
                 <Stack.Screen name="Results" component={ResultsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>
             )}
           </>

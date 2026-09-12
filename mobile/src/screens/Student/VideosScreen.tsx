@@ -11,7 +11,9 @@ import {
   Platform,
   Image,
   LayoutAnimation,
-  UIManager
+  UIManager,
+  Modal,
+  TouchableWithoutFeedback
 } from 'react-native';
 import api from '../../services/api';
 import { useNavigation } from '@react-navigation/native';
@@ -31,9 +33,10 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
 
-  const [activeTab, setActiveTab] = useState<'videos' | 'materials'>('videos');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'videos' | 'pdf'>('all');
   const [batches, setBatches] = useState<any[]>([]);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+  const [courseModalVisible, setCourseModalVisible] = useState(false);
   
   const [videos, setVideos] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
@@ -118,13 +121,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
     if (url.startsWith('/uploads/') || url.startsWith('/api/files/')) {
       url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
     }
-    if (Platform.OS === 'web') {
-      window.open(url, '_blank');
-    } else {
-      Linking.openURL(url).catch(() => {
-        Alert.alert('Error', 'Unable to open PDF document');
-      });
-    }
+    navigation.navigate('PdfViewer', { pdfUrl: url, title });
   };
 
   const currentBatch = batches.find((b) => b._id === activeBatchId);
@@ -138,250 +135,396 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
     return acc;
   }, {});
 
+  const showVideos = activeFilter === 'all' || activeFilter === 'videos';
+  const showPdfs = activeFilter === 'all' || activeFilter === 'pdf';
+
   return (
     <View style={styles.container}>
-      {/* Top Notification Bar */}
-      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
-          <Icon name="notifications-outline" size={24} color="#1A1A1A" />
-          {unreadCount && unreadCount > 0 ? <View style={styles.badgeDot} /> : null}
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
-        <View style={styles.contentPadding}>
-          {/* Select Course Section */}
-          <Text style={styles.selectLabel}>Select Course</Text>
-          <TouchableOpacity
-            style={styles.courseSelectBox}
-            activeOpacity={0.8}
-            onPress={() => {
-              if (batches.length > 1) {
-                const currIdx = batches.findIndex((b) => b._id === activeBatchId);
-                const nextBatch = batches[(currIdx + 1) % batches.length];
-                if (nextBatch) handleBatchSelect(nextBatch._id);
-              }
-            }}
-          >
-            <Text style={styles.courseSelectTitle}>{courseTitle}</Text>
-            <Icon name="chevron-down-outline" size={20} color="#555" />
-          </TouchableOpacity>
-
-          {/* Select Batch Section */}
-          <Text style={styles.selectLabel}>Select Batch</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.batchPillsContainer}
-          >
-            {batches.length > 0 ? (
-              batches.map((b, idx) => {
-                const isActive = activeBatchId === b._id;
-                return (
-                  <TouchableOpacity
-                    key={b._id}
-                    style={[styles.batchPill, isActive ? styles.batchPillActive : styles.batchPillInactive]}
-                    onPress={() => handleBatchSelect(b._id)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.batchPillText, isActive ? styles.batchPillTextActive : styles.batchPillTextInactive]}>
-                      {b.name || `Batch 0${idx + 1}`}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })
-            ) : (
-              <Text style={{ color: '#888888', ...FONTS.regular, paddingVertical: 4 }}>
-                No batches assigned.
-              </Text>
-            )}
-          </ScrollView>
-
-          {/* Main Content Tabs: Videos vs Study Materials (PDFs) */}
-          <View style={styles.tabToggleBar}>
+      <ScrollView
+        style={styles.scrollContent}
+        contentContainerStyle={styles.contentContainerStyle}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.contentPadding, { paddingTop: Math.max(insets.top + 8, 16) }]}>
+          {/* SLEEK COMPACT HEADER CONTROL BAR */}
+          <View style={styles.compactHeaderCard}>
+            {/* Course Selector Dropdown Row (No course icon, triggers dropdown modal) */}
             <TouchableOpacity
-              style={[styles.toggleBtn, activeTab === 'videos' && styles.toggleBtnActive]}
-              onPress={() => setActiveTab('videos')}
+              style={styles.compactCourseSelect}
               activeOpacity={0.8}
+              onPress={() => setCourseModalVisible(true)}
             >
-              <Icon name="play-circle" size={18} color={activeTab === 'videos' ? '#FFFFFF' : '#64748B'} style={{ marginRight: 6 }} />
-              <Text style={[styles.toggleBtnText, activeTab === 'videos' && styles.toggleBtnTextActive]}>
-                Videos ({videos.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.toggleBtn, activeTab === 'materials' && styles.toggleBtnActive]}
-              onPress={() => setActiveTab('materials')}
-              activeOpacity={0.8}
-            >
-              <Icon name="document-text" size={18} color={activeTab === 'materials' ? '#FFFFFF' : '#64748B'} style={{ marginRight: 6 }} />
-              <Text style={[styles.toggleBtnText, activeTab === 'materials' && styles.toggleBtnTextActive]}>
-                PDF Notes ({materials.length})
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Tab 1: Video Lectures */}
-          {activeTab === 'videos' ? (
-            loadingVideos ? (
-              <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 40 }} />
-            ) : Object.keys(groupedVideos).length > 0 ? (
-              Object.keys(groupedVideos).map((topic, idx) => {
-                const isExpanded = expandedModules[topic] !== false;
-                return (
-                  <View key={topic} style={styles.moduleAccordionCard}>
-                    <TouchableOpacity
-                      style={styles.moduleHeader}
-                      activeOpacity={0.8}
-                      onPress={() => toggleModule(topic)}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.moduleTag}>MODULE {idx + 1}</Text>
-                        <Text style={styles.moduleTitle}>{topic}</Text>
-                      </View>
-                      <Icon
-                        name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
-                        size={20}
-                        color="#1A1A1A"
-                      />
-                    </TouchableOpacity>
-
-                    {isExpanded && (
-                      <View style={styles.moduleContent}>
-                        {groupedVideos[topic].map((v: any, vIdx: number) => {
-                          const isLast = vIdx === groupedVideos[topic].length - 1;
-                          return (
-                            <TouchableOpacity
-                              key={v._id || vIdx}
-                              style={[styles.videoItemRow, !isLast && styles.videoItemBorder]}
-                              activeOpacity={0.8}
-                              onPress={() => navigation.navigate('VideoPlayer', { videoId: v._id, batchId: activeBatchId })}
-                            >
-                              {v.youtube_url || v.cloudinary_url ? (() => {
-                                let thumbUrl = null;
-                                let isLocalVideo = false;
-                                let localVideoUrl = '';
-
-                                if (v.youtube_url) {
-                                  const match = v.youtube_url.match(/[?&]v=([^&]+)/) || v.youtube_url.match(/youtu\.be\/([^?]+)/);
-                                  if (match && match[1]) {
-                                    thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
-                                  }
-                                } else if (v.cloudinary_url) {
-                                  if (v.cloudinary_url.includes('cloudinary.com')) {
-                                    thumbUrl = v.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
-                                  } else if (v.cloudinary_url.startsWith('/uploads/')) {
-                                    isLocalVideo = true;
-                                    localVideoUrl = `${API_URL.replace(/\/api\/?$/, '')}${v.cloudinary_url}`;
-                                  }
-                                }
-                                
-                                if (thumbUrl) {
-                                  return (
-                                    <View style={styles.thumbnailBox}>
-                                      <Image source={{ uri: thumbUrl }} style={styles.thumbnailImage} resizeMode="cover" />
-                                      <View style={styles.thumbnailOverlay}>
-                                        <Icon name="play-circle" size={24} color="#FFFFFF" />
-                                      </View>
-                                    </View>
-                                  );
-                                } else if (isLocalVideo && Platform.OS === 'web') {
-                                  const VideoElement = 'video' as any;
-                                  return (
-                                    <View style={styles.thumbnailBox}>
-                                      <VideoElement 
-                                        src={localVideoUrl} 
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} 
-                                        preload="metadata" 
-                                        muted 
-                                      />
-                                      <View style={styles.thumbnailOverlay}>
-                                        <Icon name="play-circle" size={24} color="#FFFFFF" />
-                                      </View>
-                                    </View>
-                                  );
-                                }
-                                
-                                return (
-                                  <View style={styles.thumbnailBox}>
-                                    <Icon name="play-circle" size={24} color="#FFFFFF" />
-                                  </View>
-                                );
-                              })() : (
-                                <View style={styles.thumbnailBox}>
-                                  <Icon name="play-circle" size={24} color="#FFFFFF" />
-                                </View>
-                              )}
-
-                              <View style={styles.videoItemDetails}>
-                                <Text style={styles.videoItemTitle}>{v.title}</Text>
-                                {v.notes_url ? (
-                                  <Text style={styles.hasPdfTag}>📄 Includes PDF Study Notes</Text>
-                                ) : null}
-                              </View>
-                              <Icon name="chevron-forward" size={18} color="#94A3B8" />
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
-                  </View>
-                );
-              })
-            ) : (
-              <Text style={styles.emptyStateText}>
-                No video lectures available for this batch.
-              </Text>
-            )
-          ) : (
-            /* Tab 2: PDF Study Materials */
-            loadingMaterials ? (
-              <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 40 }} />
-            ) : materials.length > 0 ? (
-              <View style={styles.materialsListContainer}>
-                {materials.map((mat) => (
-                  <View key={mat._id} style={styles.materialCard}>
-                    <View style={styles.materialIconCircle}>
-                      <Icon name="document-text" size={26} color="#F58220" />
-                    </View>
-                    <View style={styles.materialInfo}>
-                      <Text style={styles.materialTitle}>{mat.title}</Text>
-                      <Text style={styles.materialTopic}>Topic: {mat.topic || 'General'}</Text>
-                      <Text style={styles.materialDate}>
-                        Posted: {new Date(mat.createdAt).toLocaleDateString()}
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.openPdfBtnWrapper}
-                      activeOpacity={0.8}
-                      onPress={() => openPdfDocument(mat.cloudinary_url, mat.title)}
-                    >
-                      <LinearGradient
-                        colors={['#F58220', '#D97706']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.openPdfBtn}
-                      >
-                        <Icon name="arrow-down-circle" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
-                        <Text style={styles.openPdfBtnText}>Open PDF</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyMaterialsBox}>
-                <Icon name="document-text-outline" size={48} color="#CBD5E1" />
-                <Text style={styles.emptyStateText}>
-                  No PDF study materials posted yet for this batch.
+              <View style={styles.courseSelectLeft}>
+                <Text style={styles.compactCourseTitle} numberOfLines={1}>
+                  {courseTitle}
                 </Text>
               </View>
-            )
+              <Icon name="chevron-down" size={18} color="#71717A" />
+            </TouchableOpacity>
+
+            {/* Filter Bar */}
+            <View style={styles.compactFilterRow}>
+              <TouchableOpacity
+                style={[styles.compactFilterPill, activeFilter === 'all' && styles.compactFilterPillActive]}
+                onPress={() => setActiveFilter('all')}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name="grid-outline"
+                  size={13}
+                  color={activeFilter === 'all' ? '#FFFFFF' : '#52525B'}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.compactFilterText, activeFilter === 'all' && styles.compactFilterTextActive]}>
+                  All ({videos.length + materials.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.compactFilterPill, activeFilter === 'videos' && styles.compactFilterPillActive]}
+                onPress={() => setActiveFilter('videos')}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name="play-circle-outline"
+                  size={13}
+                  color={activeFilter === 'videos' ? '#FFFFFF' : '#52525B'}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.compactFilterText, activeFilter === 'videos' && styles.compactFilterTextActive]}>
+                  Videos ({videos.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.compactFilterPill, activeFilter === 'pdf' && styles.compactFilterPillActive]}
+                onPress={() => setActiveFilter('pdf')}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name="document-text-outline"
+                  size={13}
+                  color={activeFilter === 'pdf' ? '#FFFFFF' : '#52525B'}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.compactFilterText, activeFilter === 'pdf' && styles.compactFilterTextActive]}>
+                  PDFs ({materials.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* SECTION 1: VIDEO LECTURES (YOUTUBE WIDESCREEN THUMBNAILS) */}
+          {showVideos && (
+            <View style={styles.contentSectionGroup}>
+              {activeFilter === 'all' && (
+                <Text style={styles.sectionHeadingTitle}>Video Lectures</Text>
+              )}
+
+              {loadingVideos ? (
+                <ActivityIndicator size="large" color="#F58220" style={{ marginVertical: 30 }} />
+              ) : Object.keys(groupedVideos).length > 0 ? (
+                Object.keys(groupedVideos).map((topic, idx) => {
+                  const isExpanded = expandedModules[topic] !== false;
+                  return (
+                    <View key={topic} style={styles.moduleSectionBox}>
+                      <TouchableOpacity
+                        style={styles.moduleHeader}
+                        activeOpacity={0.8}
+                        onPress={() => toggleModule(topic)}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.moduleTag}>MODULE {idx + 1}</Text>
+                          <Text style={styles.moduleTitle}>{topic}</Text>
+                        </View>
+                        <Icon
+                          name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+                          size={20}
+                          color="#1A1A1A"
+                        />
+                      </TouchableOpacity>
+
+                      {isExpanded && (
+                        <View style={styles.moduleVideosContainer}>
+                          {groupedVideos[topic].map((v: any, vIdx: number) => {
+                            let thumbUrl: string | null = null;
+                            let isLocalVideo = false;
+                            let localVideoUrl = '';
+
+                            if (v.youtube_url) {
+                              const match =
+                                v.youtube_url.match(/[?&]v=([^&]+)/) ||
+                                v.youtube_url.match(/youtu\.be\/([^?]+)/);
+                              if (match && match[1]) {
+                                thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+                              }
+                            } else if (v.cloudinary_url) {
+                              if (v.cloudinary_url.includes('cloudinary.com')) {
+                                thumbUrl = v.cloudinary_url.replace(/\.[^/.]+$/, '.jpg');
+                              } else if (v.cloudinary_url.startsWith('/uploads/')) {
+                                isLocalVideo = true;
+                                localVideoUrl = `${API_URL.replace(/\/api\/?$/, '')}${v.cloudinary_url}`;
+                              }
+                            }
+
+                            if (!thumbUrl && !isLocalVideo) {
+                              const sampleThumbs = [
+                                'https://images.unsplash.com/photo-1581092160607-ee22621dd758?q=80&w=600&auto=format&fit=crop',
+                                'https://images.unsplash.com/photo-1581092335397-9583fe92d232?q=80&w=600&auto=format&fit=crop',
+                                'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=600&auto=format&fit=crop',
+                              ];
+                              thumbUrl = sampleThumbs[vIdx % sampleThumbs.length];
+                            }
+
+                            return (
+                              <TouchableOpacity
+                                key={v._id || vIdx}
+                                style={styles.youtubeVideoCard}
+                                activeOpacity={0.88}
+                                onPress={() =>
+                                  navigation.navigate('VideoPlayer', {
+                                    videoId: v._id,
+                                    batchId: activeBatchId,
+                                  })
+                                }
+                              >
+                                {/* Widescreen 16:9 Thumbnail Header */}
+                                <View style={styles.widescreenThumbWrapper}>
+                                  {thumbUrl ? (
+                                    <Image
+                                      source={{ uri: thumbUrl }}
+                                      style={styles.widescreenThumbImage}
+                                      resizeMode="cover"
+                                    />
+                                  ) : isLocalVideo && Platform.OS === 'web' ? (
+                                    (() => {
+                                      const VideoElement = 'video' as any;
+                                      return (
+                                        <VideoElement
+                                          src={localVideoUrl}
+                                          style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                          }}
+                                          preload="metadata"
+                                          muted
+                                        />
+                                      );
+                                    })()
+                                  ) : (
+                                    <View style={styles.placeholderThumbBox}>
+                                      <Icon name="logo-youtube" size={48} color="#FF0000" />
+                                    </View>
+                                  )}
+
+                                  {/* Central Play Button */}
+                                  <View style={styles.thumbPlayOverlay}>
+                                    <View style={styles.youtubePlayCircle}>
+                                      <Icon name="play" size={24} color="#FFFFFF" style={{ marginLeft: 3 }} />
+                                    </View>
+                                  </View>
+
+                                  {/* Duration Badge */}
+                                  <View style={styles.durationPill}>
+                                    <Text style={styles.durationPillText}>
+                                      {v.duration || '15:30'}
+                                    </Text>
+                                  </View>
+                                </View>
+
+                                {/* Video Meta Info */}
+                                <View style={styles.youtubeVideoMeta}>
+                                  <View style={styles.metaHeaderRow}>
+                                    <View style={styles.topicBadgePill}>
+                                      <Text style={styles.topicBadgeText}>
+                                        {(v.topic || 'LECTURE').toUpperCase()}
+                                      </Text>
+                                    </View>
+
+                                    {v.notes_url ? (
+                                      <View style={styles.pdfBadgePill}>
+                                        <Icon
+                                          name="document-text"
+                                          size={12}
+                                          color="#B45309"
+                                          style={{ marginRight: 4 }}
+                                        />
+                                        <Text style={styles.pdfBadgeText}>PDF Notes</Text>
+                                      </View>
+                                    ) : null}
+                                  </View>
+
+                                  <Text style={styles.youtubeVideoTitle} numberOfLines={2}>
+                                    {v.title}
+                                  </Text>
+
+                                  <View style={styles.youtubeChannelRow}>
+                                    <Icon
+                                      name="play-circle-outline"
+                                      size={14}
+                                      color="#71717A"
+                                      style={{ marginRight: 4 }}
+                                    />
+                                    <Text style={styles.youtubeChannelText}>
+                                      TVTI Video Portal • Tap to watch lecture
+                                    </Text>
+                                  </View>
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })
+              ) : (
+                <View style={styles.emptyMaterialsBox}>
+                  <Icon name="play-circle-outline" size={44} color="#CBD5E1" />
+                  <Text style={styles.emptyStateText}>
+                    No video lectures available for this course.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* SECTION 2: PDF STUDY MATERIALS */}
+          {showPdfs && (
+            <View style={styles.contentSectionGroup}>
+              {activeFilter === 'all' && (
+                <Text style={[styles.sectionHeadingTitle, { marginTop: showVideos ? 24 : 0 }]}>
+                  PDF Study Notes
+                </Text>
+              )}
+
+              {loadingMaterials ? (
+                <ActivityIndicator size="large" color="#F58220" style={{ marginVertical: 30 }} />
+              ) : materials.length > 0 ? (
+                <View style={styles.materialsListContainer}>
+                  {materials.map((mat) => (
+                    <View key={mat._id} style={styles.materialCard}>
+                      <View style={styles.materialIconCircle}>
+                        <Icon name="document-text" size={26} color="#F58220" />
+                      </View>
+                      <View style={styles.materialInfo}>
+                        <Text style={styles.materialTitle}>{mat.title}</Text>
+                        <Text style={styles.materialTopic}>Topic: {mat.topic || 'General'}</Text>
+                        <Text style={styles.materialDate}>
+                          Posted: {new Date(mat.createdAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.openPdfBtnWrapper}
+                        activeOpacity={0.8}
+                        onPress={() => openPdfDocument(mat.cloudinary_url, mat.title)}
+                      >
+                        <LinearGradient
+                          colors={['#F58220', '#D97706']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.openPdfBtn}
+                        >
+                          <Icon name="arrow-down-circle" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
+                          <Text style={styles.openPdfBtnText}>Open PDF</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.emptyMaterialsBox}>
+                  <Icon name="document-text-outline" size={44} color="#CBD5E1" />
+                  <Text style={styles.emptyStateText}>
+                    No PDF study materials posted yet for this course.
+                  </Text>
+                </View>
+              )}
+            </View>
           )}
         </View>
       </ScrollView>
+
+      {/* Course Selection Dropdown Modal */}
+      <Modal
+        visible={courseModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setCourseModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setCourseModalVisible(false)}
+        >
+          <TouchableWithoutFeedback>
+            <View style={styles.dropdownModalCard}>
+              <View style={styles.dropdownHeader}>
+                <Text style={styles.dropdownTitle}>Select Course</Text>
+                <TouchableOpacity
+                  onPress={() => setCourseModalVisible(false)}
+                  style={styles.closeBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Icon name="close" size={20} color="#71717A" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+                {batches.length > 0 ? (
+                  batches.map((batch) => {
+                    const isSelected = batch._id === activeBatchId;
+                    const title = batch.course_id?.title || batch.name || 'Course';
+                    const batchCode = batch.batch_code || batch.code || '';
+                    return (
+                      <TouchableOpacity
+                        key={batch._id}
+                        style={[
+                          styles.courseOptionItem,
+                          isSelected && styles.courseOptionItemSelected,
+                        ]}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          handleBatchSelect(batch._id);
+                          setCourseModalVisible(false);
+                        }}
+                      >
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text
+                            style={[
+                              styles.courseOptionText,
+                              isSelected && styles.courseOptionTextSelected,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {title}
+                          </Text>
+                          {batchCode ? (
+                            <Text style={styles.courseOptionSub}>Batch: {batchCode}</Text>
+                          ) : null}
+                        </View>
+                        {isSelected ? (
+                          <View style={styles.activeCheckCircle}>
+                            <Icon name="checkmark" size={14} color="#FFFFFF" />
+                          </View>
+                        ) : (
+                          <Icon name="chevron-forward" size={16} color="#D4D4D8" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                    <Text style={{ color: '#71717A', fontSize: 14 }}>No courses available</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          </TouchableWithoutFeedback>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -389,7 +532,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F6F8',
+    backgroundColor: '#F8F9FA',
   },
   topNotificationBar: {
     flexDirection: 'row',
@@ -415,110 +558,194 @@ const styles = StyleSheet.create({
   scrollContent: {
     flex: 1,
   },
+  contentContainerStyle: {
+    paddingBottom: 110,
+  },
   contentPadding: {
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.xxxl,
+    paddingTop: 8,
   },
-  selectLabel: {
-    fontSize: 12.5,
-    color: '#666666',
-    ...FONTS.medium,
-    marginBottom: 6,
+
+  /* SLEEK COMPACT HEADER CARD */
+  compactHeaderCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+    }),
   },
-  courseSelectBox: {
+  compactCourseSelect: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: RADIUS.lg,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.lg,
-    marginBottom: SPACING.lg,
-    ...SHADOW.sm,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#E4E4E7',
   },
-  courseSelectTitle: {
-    fontSize: 16,
-    color: '#1A1A1A',
-    ...FONTS.bold,
+  courseSelectLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
-    marginRight: SPACING.sm,
-    lineHeight: 22,
+    marginRight: 8,
   },
-  batchPillsContainer: {
-    paddingBottom: SPACING.lg,
+  compactCourseTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#18181B',
   },
-  batchPill: {
-    paddingHorizontal: 20,
-    paddingVertical: 9,
-    borderRadius: RADIUS.full,
-    marginRight: 10,
+  compactFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  filterIconPill: {
+    backgroundColor: '#FFF3E6',
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  batchPillActive: {
-    backgroundColor: '#000000',
-  },
-  batchPillInactive: {
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#FFE4D6',
   },
-  batchPillText: {
-    fontSize: 13.5,
-  },
-  batchPillTextActive: {
-    color: '#FFFFFF',
-    ...FONTS.bold,
-  },
-  batchPillTextInactive: {
-    color: '#555555',
-    ...FONTS.medium,
-  },
-  tabToggleBar: {
-    flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: SPACING.xl,
-  },
-  toggleBtn: {
+  compactFilterPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    backgroundColor: '#F4F4F6',
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     borderRadius: 10,
   },
-  toggleBtnActive: {
-    backgroundColor: '#0F172A',
+  compactFilterPillActive: {
+    backgroundColor: '#18181B',
   },
-  toggleBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748B',
+  compactFilterText: {
+    fontSize: 12,
+    ...FONTS.medium,
+    color: '#52525B',
   },
-  toggleBtnTextActive: {
+  compactFilterTextActive: {
     color: '#FFFFFF',
+    ...FONTS.bold,
   },
-  moduleAccordionCard: {
+
+  /* DROPDOWN MODAL STYLES (MATCHING DESIGN SCREENSHOT EXACTLY) */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 22,
+  },
+  dropdownModalCard: {
+    width: '100%',
+    maxWidth: 420,
     backgroundColor: '#FFFFFF',
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING.lg,
-    overflow: 'hidden',
-    ...SHADOW.sm,
+    borderRadius: 28,
+    padding: 22,
     borderWidth: 1,
-    borderColor: '#EFEFEF',
+    borderColor: '#E4E4E7',
+    ...Platform.select({
+      web: { boxShadow: '0px 12px 36px rgba(0, 0, 0, 0.16)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.16, shadowRadius: 24, elevation: 10 },
+    }),
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F4F4F6',
+  },
+  dropdownTitle: {
+    fontSize: 18,
+    ...FONTS.extraBold,
+    color: '#18181B',
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  courseOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 18,
+    marginBottom: 10,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1.5,
+    borderColor: '#F3F4F6',
+  },
+  courseOptionItemSelected: {
+    backgroundColor: '#FFF5EB',
+    borderColor: '#F58220',
+  },
+  courseOptionText: {
+    fontSize: 14.5,
+    ...FONTS.bold,
+    color: '#374151',
+  },
+  courseOptionTextSelected: {
+    color: '#F58220',
+  },
+  courseOptionSub: {
+    fontSize: 12,
+    ...FONTS.medium,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  activeCheckCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F58220',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  contentSectionGroup: {
+    marginBottom: 10,
+  },
+  sectionHeadingTitle: {
+    fontSize: 18,
+    ...FONTS.extraBold,
+    color: '#18181B',
+    marginBottom: 14,
+  },
+
+  /* MODULE SECTION & ACCORDION */
+  moduleSectionBox: {
+    marginBottom: SPACING.lg,
   },
   moduleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FAF8F5',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.lg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    marginBottom: 12,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 },
+    }),
   },
   moduleTag: {
     fontSize: 11.5,
@@ -530,58 +757,128 @@ const styles = StyleSheet.create({
   moduleTitle: {
     fontSize: 17.5,
     color: '#1A1A1A',
-    ...FONTS.bold,
+    ...FONTS.extraBold,
   },
-  moduleContent: {
+  moduleVideosContainer: {
+    paddingTop: 4,
+  },
+
+  /* YOUTUBE STYLE FULL THUMBNAIL VIDEO CARDS */
+  youtubeVideoCard: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: SPACING.lg,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.06)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
+    }),
   },
-  videoItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.lg,
-  },
-  videoItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  thumbnailBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    backgroundColor: '#0F172A',
+  widescreenThumbWrapper: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#18181B',
+    position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SPACING.md,
-    overflow: 'hidden',
   },
-  thumbnailImage: {
+  widescreenThumbImage: {
     width: '100%',
     height: '100%',
-    position: 'absolute',
   },
-  thumbnailOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+  placeholderThumbBox: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#27272A',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  videoItemDetails: {
-    flex: 1,
+  thumbPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  videoItemTitle: {
-    fontSize: 15,
-    color: '#1A1A1A',
+  youtubePlayCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F58220',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(245, 130, 32, 0.5)' },
+      default: { shadowColor: '#F58220', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 8, elevation: 4 },
+    }),
+  },
+  durationPill: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  durationPillText: {
+    color: '#FFFFFF',
+    fontSize: 11,
     ...FONTS.bold,
-    marginBottom: 2,
   },
-  hasPdfTag: {
-    fontSize: 11.5,
+  youtubeVideoMeta: {
+    padding: 16,
+  },
+  metaHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  topicBadgePill: {
+    backgroundColor: '#FFF3E6',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  topicBadgeText: {
+    fontSize: 10,
+    ...FONTS.extraBold,
     color: '#F58220',
-    ...FONTS.semiBold,
-    marginTop: 2,
+    letterSpacing: 0.5,
   },
+  pdfBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  pdfBadgeText: {
+    fontSize: 11,
+    ...FONTS.bold,
+    color: '#B45309',
+  },
+  youtubeVideoTitle: {
+    fontSize: 16.5,
+    ...FONTS.extraBold,
+    color: '#18181B',
+    lineHeight: 23,
+    marginBottom: 6,
+  },
+  youtubeChannelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  youtubeChannelText: {
+    fontSize: 12,
+    color: '#71717A',
+    ...FONTS.medium,
+  },
+
+  /* MATERIALS LIST */
   materialsListContainer: {
     gap: 12,
   },
@@ -609,15 +906,15 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   materialTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
+    fontSize: 15.5,
+    ...FONTS.bold,
     color: '#0F172A',
     marginBottom: 2,
   },
   materialTopic: {
     fontSize: 12,
     color: '#64748B',
-    fontWeight: '500',
+    ...FONTS.medium,
   },
   materialDate: {
     fontSize: 11,
@@ -636,8 +933,8 @@ const styles = StyleSheet.create({
   },
   openPdfBtnText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 12.5,
+    ...FONTS.bold,
   },
   emptyMaterialsBox: {
     alignItems: 'center',

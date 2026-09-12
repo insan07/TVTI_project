@@ -7,12 +7,48 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import Toast from './src/components/shared/Toast';
 import OfflineBanner from './src/components/shared/OfflineBanner';
 
+import {
+  useFonts,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
+import { Ionicons } from '@expo/vector-icons';
+
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    ...Ionicons.font,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const styleEl = document.createElement('style');
       styleEl.id = 'expo-web-root-fix';
       styleEl.textContent = `
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap');
+
+        html, body, #root, input, button, select, textarea, div, p, span, h1, h2, h3, h4, h5, h6 {
+          font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          text-rendering: optimizeLegibility;
+        }
+
+        /* Protect vector icons from being overwritten by global fonts */
+        [style*="Ionicons"],
+        [style*="ionic"],
+        .Ionicons,
+        [class*="Ionicons"] {
+          font-family: 'Ionicons' !important;
+        }
+
         html, body {
           background-color: #ffffff !important;
           height: 100% !important;
@@ -42,6 +78,10 @@ export default function App() {
       }
     }
   }, []);
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
     <SafeAreaProvider style={{ flex: 1 }}>
