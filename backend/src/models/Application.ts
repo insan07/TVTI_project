@@ -14,7 +14,11 @@ export interface IApplication extends Document {
   terms_accepted_at: Date;
   submitted_at: Date;
   generated_index_number?: string;
+  registration_number?: string;
   email_verified?: boolean;
+  approval_email_sent?: boolean;
+  approval_email_sent_at?: Date;
+  approval_email_error?: string;
 }
 
 const applicationSchema = new Schema<IApplication>(
@@ -34,7 +38,11 @@ const applicationSchema = new Schema<IApplication>(
     terms_accepted_at: { type: Date, default: Date.now },
     submitted_at: { type: Date, default: Date.now },
     generated_index_number: { type: String },
-    email_verified: { type: Boolean, default: false }
+    registration_number: { type: String },
+    email_verified: { type: Boolean, default: false },
+    approval_email_sent: { type: Boolean, default: false },
+    approval_email_sent_at: { type: Date },
+    approval_email_error: { type: String }
   },
   { timestamps: true }
 );

@@ -17,7 +17,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
   try {
     if (!loginId || !password) {
-      res.status(400).json({ message: 'Index Number/Email and Password are required' });
+      res.status(400).json({ message: 'Registration Number / Email and Password are required' });
       return;
     }
 
@@ -26,12 +26,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         { email: loginId.toLowerCase() },
         { index_number: loginId },
         { index_number: loginId.toUpperCase() },
-        { index_number: new RegExp(`^${loginId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') }
+        { index_number: new RegExp(`^${loginId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') },
+        { registration_number: loginId },
+        { registration_number: loginId.toUpperCase() },
+        { registration_number: new RegExp(`^${loginId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') }
       ]
     });
 
     if (!user) {
-      res.status(401).json({ message: 'Invalid Index Number/Email or Password' });
+      res.status(401).json({ message: 'Invalid Registration Number/Email or Password' });
       return;
     }
 
@@ -41,13 +44,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     if (!user.password_hash) {
-      res.status(401).json({ message: 'Invalid Index Number/Email or Password' });
+      res.status(401).json({ message: 'Invalid Registration Number/Email or Password' });
       return;
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      res.status(401).json({ message: 'Invalid Index Number/Email or Password' });
+      res.status(401).json({ message: 'Invalid Registration Number/Email or Password' });
       return;
     }
 
@@ -67,6 +70,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       email: user.email,
       role: user.role,
       index_number: user.index_number,
+      registration_number: user.registration_number,
       must_change_password: user.must_change_password || false,
       token: generateToken(String(user._id)),
     });

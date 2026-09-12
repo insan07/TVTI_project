@@ -13,6 +13,7 @@ export interface IUser extends Document {
   expo_push_token?: string;
   fcm_token?: string;
   index_number?: string;
+  registration_number?: string;
   must_change_password?: boolean;
   temp_password_expires_at?: Date;
   password_set_at?: Date;
@@ -34,6 +35,7 @@ const userSchema = new Schema<IUser>(
     expo_push_token: { type: String },
     fcm_token: { type: String },
     index_number: { type: String, unique: true, sparse: true },
+    registration_number: { type: String, unique: true, sparse: true },
     must_change_password: { type: Boolean, default: false },
     temp_password_expires_at: { type: Date },
     password_set_at: { type: Date },
