@@ -17,6 +17,7 @@ import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { FONTS, COLORS, SPACING } from '../../config/theme';
 
 export default function ProfileScreen() {
   const context = useContext(AuthContext);
@@ -187,16 +188,16 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* FIXED STICKY TOP HEADER */}
+      <View style={styles.stickyHeader}>
+        <Text style={styles.mainTitle}>Profile</Text>
+      </View>
+
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ========================================================================= */}
-        {/* PAGE HEADER */}
-        {/* ========================================================================= */}
-        <Text style={styles.categoryHeader}>Account</Text>
-        <Text style={styles.mainTitle}>Profile</Text>
 
         {/* ========================================================================= */}
         {/* TOP MAIN PROFILE CARD (EXACT MATCH TO DESIGN SCREENSHOT) */}
@@ -224,20 +225,18 @@ export default function ProfileScreen() {
             <Text style={styles.userEmail} numberOfLines={1}>
               {profile.email}
             </Text>
-            <View style={styles.roleBadgePill}>
-              <Text style={styles.roleBadgeText}>
-                {(profile.role || 'STUDENT').toUpperCase()}
-              </Text>
-            </View>
+            <Text style={styles.regNumberText}>
+              REG NO : {profile.index_number || profile.nic || 'TVTI/2026/001'}
+            </Text>
           </View>
 
-          {/* Quick Edit Arrow Circle Button */}
+          {/* Quick Edit Pencil Circle Button */}
           <TouchableOpacity
             style={styles.editCircleBtn}
             onPress={() => setEditModalVisible(true)}
             activeOpacity={0.7}
           >
-            <Icon name="arrow-forward-outline" size={16} color="#52525B" />
+            <Icon name="pencil-outline" size={16} color="#52525B" />
           </TouchableOpacity>
         </View>
 
@@ -247,46 +246,20 @@ export default function ProfileScreen() {
         {/* MENU ACTION LIST CARDS (EXACT MATCH TO DESIGN SCREENSHOT) */}
         {/* ========================================================================= */}
         <View style={styles.menuListSection}>
-          {/* Edit Profile Item */}
-          <TouchableOpacity
-            style={styles.menuCard}
-            onPress={() => setEditModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuLeftContent}>
-              <Icon name="pencil-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Edit Profile</Text>
-            </View>
-            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
-          </TouchableOpacity>
-
-          {/* Change Password Item */}
-          <TouchableOpacity
-            style={styles.menuCard}
-            onPress={() => setPassModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuLeftContent}>
-              <Icon name="lock-closed-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Change Password</Text>
-            </View>
-            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
-          </TouchableOpacity>
-
-          {/* System Details Item */}
+          {/* My Details Item */}
           <TouchableOpacity
             style={styles.menuCard}
             onPress={() => setShowSystemDetails(v => !v)}
             activeOpacity={0.7}
           >
             <View style={styles.menuLeftContent}>
-              <Icon name="information-circle-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>System Details</Text>
+              <Icon name="person-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>My Details</Text>
             </View>
             <Icon name={showSystemDetails ? "chevron-down" : "chevron-forward"} size={18} color="#A1A1AA" />
           </TouchableOpacity>
 
-          {/* Expandable System Details Content */}
+          {/* Expandable My Details Content */}
           {showSystemDetails && (
             <View style={styles.expandableDetailsCard}>
               <View style={styles.infoRow}>
@@ -314,15 +287,15 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          {/* Notifications Item */}
+          {/* Change Password Item */}
           <TouchableOpacity
             style={styles.menuCard}
-            onPress={() => showAck('Notifications', 'Notification preferences are enabled for your TVTI account.', 'info')}
+            onPress={() => setPassModalVisible(true)}
             activeOpacity={0.7}
           >
             <View style={styles.menuLeftContent}>
-              <Icon name="notifications-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Notifications</Text>
+              <Icon name="lock-closed-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Change Password</Text>
             </View>
             <Icon name="chevron-forward" size={18} color="#A1A1AA" />
           </TouchableOpacity>
@@ -731,11 +704,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 2,
   },
+  stickyHeader: {
+    backgroundColor: '#F4F4F6',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+    zIndex: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
   mainTitle: {
     fontSize: 28,
-    fontWeight: '800',
     color: '#18181B',
-    marginBottom: 20,
+    ...FONTS.extraBold,
+    marginBottom: 8,
   },
 
   /* MAIN PROFILE CARD (EXACT MATCH TO DESIGN SCREENSHOT) */
@@ -752,11 +734,11 @@ const styles = StyleSheet.create({
     }),
   },
   avatarContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     overflow: 'hidden',
-    backgroundColor: '#FFC83B', // Warm yellow/orange backdrop matching screenshot
+    backgroundColor: '#F58220',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -773,7 +755,7 @@ const styles = StyleSheet.create({
   },
   avatarInitials: {
     fontSize: 22,
-    fontWeight: '800',
+    ...FONTS.extraBold,
     color: '#FFFFFF',
   },
   profileMetaContainer: {
@@ -783,14 +765,21 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 17,
-    fontWeight: '700',
+    ...FONTS.extraBold,
     color: '#18181B',
   },
   userEmail: {
     fontSize: 13,
     color: '#71717A',
     marginTop: 2,
+    marginBottom: 4,
+  },
+  regNumberText: {
+    color: '#F58220',
+    fontSize: 12.5,
+    ...FONTS.extraBold,
     marginBottom: 6,
+    letterSpacing: 0.4,
   },
   roleBadgePill: {
     alignSelf: 'flex-start',

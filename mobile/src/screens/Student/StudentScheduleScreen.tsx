@@ -174,9 +174,10 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
+      {/* FIXED STICKY TOP HEADER */}
+      <View style={[styles.stickyHeader, { paddingTop: Math.max(insets.top + 8, 16) }]}>
         {/* Main Title */}
-        <View style={[styles.pageTitleContainer, { paddingTop: Math.max(insets.top + 12, 20) }]}>
+        <View style={styles.pageTitleContainer}>
           <Text style={styles.pageTitle}>Schedule</Text>
         </View>
 
@@ -184,7 +185,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
         <View style={styles.courseSelectContainer}>
           <TouchableOpacity
             style={styles.compactCourseSelect}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
             onPress={() => setCourseModalVisible(true)}
           >
             <View style={styles.courseSelectLeft}>
@@ -195,6 +196,10 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
             <Icon name="chevron-down" size={18} color="#71717A" />
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* SCROLLABLE CONTENT */}
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
 
         {/* Content Body */}
         {loading ? (
@@ -456,15 +461,22 @@ const styles = StyleSheet.create({
   scrollContent: {
     flex: 1,
   },
+  stickyHeader: {
+    backgroundColor: '#F5F6F8',
+    zIndex: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
   pageTitleContainer: {
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl,
-    paddingBottom: 6,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   pageTitle: {
-    fontSize: 26,
-    color: '#000000',
-    ...FONTS.bold,
+    fontSize: 28,
+    color: '#18181B',
+    ...FONTS.extraBold,
+    marginBottom: 12,
   },
   courseSelectContainer: {
     paddingHorizontal: SPACING.lg,
