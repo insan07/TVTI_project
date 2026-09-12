@@ -7,6 +7,9 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
+  TouchableWithoutFeedback,
+  Platform,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getOpenPracticeSlots, bookPracticeSlot, cancelPracticeBooking } from '../../services/practiceService';
@@ -44,6 +47,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
   const insets = useSafeAreaInsets();
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
+  const [courseModalVisible, setCourseModalVisible] = useState(false);
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -166,42 +170,31 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
     return slots.some((s) => s.already_booked && s.week_start_date === weekStartDateStr);
   };
 
+  const courseTitle = selectedBatch?.course_id?.title || selectedBatch?.name || 'Select Course';
+
   return (
     <View style={styles.container}>
-      {/* Top Notification Bar */}
-      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
-          <Icon name="notifications-outline" size={24} color="#1A1A1A" />
-          {unreadCount && unreadCount > 0 ? <View style={styles.badgeDot} /> : null}
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         {/* Main Title */}
-        <View style={styles.pageTitleContainer}>
+        <View style={[styles.pageTitleContainer, { paddingTop: Math.max(insets.top + 12, 20) }]}>
           <Text style={styles.pageTitle}>Schedule</Text>
         </View>
 
-        {/* Batch Pills (if multiple batches) */}
-        {batches.length > 1 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.batchContainer}
+        {/* Sleek Compact Course Selector Header Bar */}
+        <View style={styles.courseSelectContainer}>
+          <TouchableOpacity
+            style={styles.compactCourseSelect}
+            activeOpacity={0.8}
+            onPress={() => setCourseModalVisible(true)}
           >
-            {batches.map((b) => (
-              <TouchableOpacity
-                key={b._id}
-                style={[styles.batchBtn, selectedBatch?._id === b._id && styles.activeBatchBtn]}
-                onPress={() => setSelectedBatch(b)}
-              >
-                <Text style={selectedBatch?._id === b._id ? styles.activeTabText : styles.tabText}>
-                  {b.name || 'Batch'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
+            <View style={styles.courseSelectLeft}>
+              <Text style={styles.compactCourseTitle} numberOfLines={1}>
+                {courseTitle}
+              </Text>
+            </View>
+            <Icon name="chevron-down" size={18} color="#71717A" />
+          </TouchableOpacity>
+        </View>
 
         {/* Content Body */}
         {loading ? (
@@ -372,6 +365,85 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
           </View>
         )}
       </ScrollView>
+
+      {/* Course Selection Dropdown Modal */}
+      <Modal
+        visible={courseModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setCourseModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setCourseModalVisible(false)}
+        >
+          <TouchableWithoutFeedback>
+            <View style={styles.dropdownModalCard}>
+              <View style={styles.dropdownHeader}>
+                <Text style={styles.dropdownTitle}>Select Course</Text>
+                <TouchableOpacity
+                  onPress={() => setCourseModalVisible(false)}
+                  style={styles.closeBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Icon name="close" size={20} color="#71717A" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+                {batches.length > 0 ? (
+                  batches.map((batch) => {
+                    const isSelected = batch._id === selectedBatch?._id;
+                    const title = batch.course_id?.title || batch.name || 'Course';
+                    const batchCode = batch.batch_code || batch.name || '';
+                    return (
+                      <TouchableOpacity
+                        key={batch._id}
+                        style={[
+                          styles.courseOptionItem,
+                          isSelected && styles.courseOptionItemSelected,
+                        ]}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setSelectedBatch(batch);
+                          setCourseModalVisible(false);
+                        }}
+                      >
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text
+                            style={[
+                              styles.courseOptionText,
+                              isSelected && styles.courseOptionTextSelected,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {title}
+                          </Text>
+                          {batchCode ? (
+                            <Text style={styles.courseOptionSub}>Batch: {batchCode}</Text>
+                          ) : null}
+                        </View>
+                        {isSelected ? (
+                          <View style={styles.activeCheckCircle}>
+                            <Icon name="checkmark" size={14} color="#FFFFFF" />
+                          </View>
+                        ) : (
+                          <Icon name="chevron-forward" size={16} color="#D4D4D8" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                    <Text style={{ color: '#71717A', fontSize: 14 }}>No courses available</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          </TouchableWithoutFeedback>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -381,52 +453,125 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F6F8',
   },
-  topNotificationBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xs,
-  },
-  bellBtn: {
-    padding: SPACING.xs,
-    position: 'relative',
-  },
-  badgeDot: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-  },
   scrollContent: {
     flex: 1,
   },
   pageTitleContainer: {
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.xl,
-    paddingBottom: SPACING.md,
+    paddingBottom: 6,
   },
   pageTitle: {
     fontSize: 26,
     color: '#000000',
     ...FONTS.bold,
   },
-  batchContainer: {
+  courseSelectContainer: {
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
   },
-  batchBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: RADIUS.full,
-    backgroundColor: '#EAEAEA',
-    marginRight: 10,
+  compactCourseSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+    }),
   },
-  activeBatchBtn: {
-    backgroundColor: COLORS.secondary,
+  courseSelectLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  compactCourseTitle: {
+    fontSize: 14.5,
+    ...FONTS.bold,
+    color: '#18181B',
+  },
+
+  /* DROPDOWN MODAL STYLES */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 22,
+  },
+  dropdownModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    ...Platform.select({
+      web: { boxShadow: '0px 12px 36px rgba(0, 0, 0, 0.16)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.16, shadowRadius: 24, elevation: 10 },
+    }),
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F4F4F6',
+  },
+  dropdownTitle: {
+    fontSize: 18,
+    ...FONTS.extraBold,
+    color: '#18181B',
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  courseOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 18,
+    marginBottom: 10,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1.5,
+    borderColor: '#F3F4F6',
+  },
+  courseOptionItemSelected: {
+    backgroundColor: '#FFF5EB',
+    borderColor: '#F58220',
+  },
+  courseOptionText: {
+    fontSize: 14.5,
+    ...FONTS.bold,
+    color: '#374151',
+  },
+  courseOptionTextSelected: {
+    color: '#F58220',
+  },
+  courseOptionSub: {
+    fontSize: 12,
+    ...FONTS.medium,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  activeCheckCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F58220',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tabText: {
     color: '#555555',

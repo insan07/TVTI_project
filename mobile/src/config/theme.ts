@@ -26,12 +26,47 @@ export const COLORS = {
   tabBarInactive: '#999999',
 };
 
+export const FONT_FAMILY = Platform.select({
+  web: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  default: 'PlusJakartaSans_500Medium',
+});
+
 export const FONTS = {
-  regular: { fontWeight: '400' as const },
-  medium: { fontWeight: '500' as const },
-  semiBold: { fontWeight: '600' as const },
-  bold: { fontWeight: '700' as const },
-  extraBold: { fontWeight: '800' as const },
+  regular: {
+    fontFamily: Platform.select({
+      web: "'Plus Jakarta Sans', sans-serif",
+      default: 'PlusJakartaSans_400Regular',
+    }),
+    fontWeight: '400' as const,
+  },
+  medium: {
+    fontFamily: Platform.select({
+      web: "'Plus Jakarta Sans', sans-serif",
+      default: 'PlusJakartaSans_500Medium',
+    }),
+    fontWeight: '500' as const,
+  },
+  semiBold: {
+    fontFamily: Platform.select({
+      web: "'Plus Jakarta Sans', sans-serif",
+      default: 'PlusJakartaSans_600SemiBold',
+    }),
+    fontWeight: '600' as const,
+  },
+  bold: {
+    fontFamily: Platform.select({
+      web: "'Plus Jakarta Sans', sans-serif",
+      default: 'PlusJakartaSans_700Bold',
+    }),
+    fontWeight: '700' as const,
+  },
+  extraBold: {
+    fontFamily: Platform.select({
+      web: "'Plus Jakarta Sans', sans-serif",
+      default: 'PlusJakartaSans_800ExtraBold',
+    }),
+    fontWeight: '800' as const,
+  },
 };
 
 export const SPACING = {

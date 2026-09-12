@@ -27,6 +27,9 @@ const getTransporter = () => {
         user,
         pass,
       },
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
     });
   }
 
@@ -42,6 +45,9 @@ const getTransporter = () => {
       user,
       pass,
     },
+    connectionTimeout: 10000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
     tls: {
       rejectUnauthorized: false, // Prevents self-signed cert or local TLS handshake issues
     },

@@ -157,15 +157,8 @@ export default function PracticeSessionsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Notification Bar */}
-      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
-          <Icon name="notifications-outline" size={24} color="#1A1A1A" />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
-        <View style={styles.contentPadding}>
+        <View style={[styles.contentPadding, { paddingTop: Math.max(insets.top + 12, 20) }]}>
           {/* Main Title */}
           <Text style={styles.pageTitle}>Practice Sessions</Text>
 

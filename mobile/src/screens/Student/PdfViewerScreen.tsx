@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -41,6 +41,16 @@ export default function PdfViewerScreen() {
   };
 
   const fullUrl = getFullPdfUrl(rawUrl);
+
+  // Auto-dismiss loading overlay after 1.2s so it never blocks PDF interaction
+  useEffect(() => {
+    setLoading(true);
+    setHasError(false);
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [fullUrl]);
 
   // 2. Prepare Google Docs embed link for native mobile WebViews
   const isLocalHost =
@@ -126,23 +136,12 @@ export default function PdfViewerScreen() {
               </TouchableOpacity>
             </View>
           ) : Platform.OS === 'web' ? (
-            <object
-              data={fullUrl}
-              type="application/pdf"
+            <iframe
+              src={fullUrl}
+              title={title}
               style={{ width: '100%', height: '100%', border: 'none' }}
               onLoad={() => setLoading(false)}
-              onError={() => {
-                setLoading(false);
-                setHasError(true);
-              }}
-            >
-              <iframe
-                src={fullUrl}
-                title={title}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                onLoad={() => setLoading(false)}
-              />
-            </object>
+            />
           ) : (
             <WebView
               source={{ uri: embedUrl }}
