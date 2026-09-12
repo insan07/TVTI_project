@@ -29,6 +29,23 @@ if (Platform.OS === 'android') {
   }
 }
 
+const formatUploadedTime = (dateStr?: string) => {
+  if (!dateStr) return 'Uploaded 2 days ago';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return 'Uploaded recently';
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffHours < 1) return 'Uploaded just now';
+  if (diffHours < 24) return `Uploaded ${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+  if (diffDays < 7) return `Uploaded ${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+  
+  return `Uploaded on ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+};
+
 export default function VideosScreen({ unreadCount }: { unreadCount?: number }) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -75,11 +92,8 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
       const res = await api.get(`/students/batches/${batchId}/videos`);
       setVideos(res.data || []);
       
-      // Auto-expand first topic
-      if (res.data && res.data.length > 0) {
-        const firstTopic = res.data[0].topic || 'General Module';
-        setExpandedModules((prev) => ({ ...prev, [firstTopic]: true }));
-      }
+      // Modules remain collapsed by default until user taps to expand
+      setExpandedModules({});
     } catch (e) {
       console.warn('Failed to load videos:', e);
     } finally {
@@ -140,79 +154,84 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
 
   return (
     <View style={styles.container}>
+      {/* FIXED STICKY TOP HEADER */}
+      <View style={[styles.stickyHeader, { paddingTop: Math.max(insets.top + 8, 16) }]}>
+        {/* Main Heading */}
+        <Text style={styles.mainTitle}>Uploads</Text>
+
+        {/* Course Selector Dropdown Pill */}
+        <TouchableOpacity
+          style={styles.compactCourseSelect}
+          activeOpacity={0.85}
+          onPress={() => setCourseModalVisible(true)}
+        >
+          <View style={styles.courseSelectLeft}>
+            <Text style={styles.compactCourseTitle} numberOfLines={1}>
+              {courseTitle}
+            </Text>
+          </View>
+          <Icon name="chevron-down" size={18} color="#71717A" />
+        </TouchableOpacity>
+
+        {/* Filter Bar Pills */}
+        <View style={styles.compactFilterRow}>
+          <TouchableOpacity
+            style={[styles.compactFilterPill, activeFilter === 'all' && styles.compactFilterPillActive]}
+            onPress={() => setActiveFilter('all')}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name="grid-outline"
+              size={13}
+              color={activeFilter === 'all' ? '#FFFFFF' : '#52525B'}
+              style={{ marginRight: 4 }}
+            />
+            <Text style={[styles.compactFilterText, activeFilter === 'all' && styles.compactFilterTextActive]}>
+              All ({videos.length + materials.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.compactFilterPill, activeFilter === 'videos' && styles.compactFilterPillActive]}
+            onPress={() => setActiveFilter('videos')}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name="play-circle-outline"
+              size={13}
+              color={activeFilter === 'videos' ? '#FFFFFF' : '#52525B'}
+              style={{ marginRight: 4 }}
+            />
+            <Text style={[styles.compactFilterText, activeFilter === 'videos' && styles.compactFilterTextActive]}>
+              Videos ({videos.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.compactFilterPill, activeFilter === 'pdf' && styles.compactFilterPillActive]}
+            onPress={() => setActiveFilter('pdf')}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name="document-text-outline"
+              size={13}
+              color={activeFilter === 'pdf' ? '#FFFFFF' : '#52525B'}
+              style={{ marginRight: 4 }}
+            />
+            <Text style={[styles.compactFilterText, activeFilter === 'pdf' && styles.compactFilterTextActive]}>
+              PDFs ({materials.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* SCROLLABLE CONTENT */}
       <ScrollView
         style={styles.scrollContent}
         contentContainerStyle={styles.contentContainerStyle}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.contentPadding, { paddingTop: Math.max(insets.top + 8, 16) }]}>
-          {/* SLEEK COMPACT HEADER CONTROL BAR */}
-          <View style={styles.compactHeaderCard}>
-            {/* Course Selector Dropdown Row (No course icon, triggers dropdown modal) */}
-            <TouchableOpacity
-              style={styles.compactCourseSelect}
-              activeOpacity={0.8}
-              onPress={() => setCourseModalVisible(true)}
-            >
-              <View style={styles.courseSelectLeft}>
-                <Text style={styles.compactCourseTitle} numberOfLines={1}>
-                  {courseTitle}
-                </Text>
-              </View>
-              <Icon name="chevron-down" size={18} color="#71717A" />
-            </TouchableOpacity>
-
-            {/* Filter Bar */}
-            <View style={styles.compactFilterRow}>
-              <TouchableOpacity
-                style={[styles.compactFilterPill, activeFilter === 'all' && styles.compactFilterPillActive]}
-                onPress={() => setActiveFilter('all')}
-                activeOpacity={0.8}
-              >
-                <Icon
-                  name="grid-outline"
-                  size={13}
-                  color={activeFilter === 'all' ? '#FFFFFF' : '#52525B'}
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={[styles.compactFilterText, activeFilter === 'all' && styles.compactFilterTextActive]}>
-                  All ({videos.length + materials.length})
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.compactFilterPill, activeFilter === 'videos' && styles.compactFilterPillActive]}
-                onPress={() => setActiveFilter('videos')}
-                activeOpacity={0.8}
-              >
-                <Icon
-                  name="play-circle-outline"
-                  size={13}
-                  color={activeFilter === 'videos' ? '#FFFFFF' : '#52525B'}
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={[styles.compactFilterText, activeFilter === 'videos' && styles.compactFilterTextActive]}>
-                  Videos ({videos.length})
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.compactFilterPill, activeFilter === 'pdf' && styles.compactFilterPillActive]}
-                onPress={() => setActiveFilter('pdf')}
-                activeOpacity={0.8}
-              >
-                <Icon
-                  name="document-text-outline"
-                  size={13}
-                  color={activeFilter === 'pdf' ? '#FFFFFF' : '#52525B'}
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={[styles.compactFilterText, activeFilter === 'pdf' && styles.compactFilterTextActive]}>
-                  PDFs ({materials.length})
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+        <View style={styles.contentPadding}>
 
           {/* SECTION 1: VIDEO LECTURES (YOUTUBE WIDESCREEN THUMBNAILS) */}
           {showVideos && (
@@ -225,11 +244,11 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                 <ActivityIndicator size="large" color="#F58220" style={{ marginVertical: 30 }} />
               ) : Object.keys(groupedVideos).length > 0 ? (
                 Object.keys(groupedVideos).map((topic, idx) => {
-                  const isExpanded = expandedModules[topic] !== false;
+                  const isExpanded = !!expandedModules[topic];
                   return (
                     <View key={topic} style={styles.moduleSectionBox}>
                       <TouchableOpacity
-                        style={styles.moduleHeader}
+                        style={[styles.moduleHeader, { marginBottom: isExpanded ? 12 : 0 }]}
                         activeOpacity={0.8}
                         onPress={() => toggleModule(topic)}
                       >
@@ -361,13 +380,13 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
 
                                   <View style={styles.youtubeChannelRow}>
                                     <Icon
-                                      name="play-circle-outline"
+                                      name="time-outline"
                                       size={14}
                                       color="#71717A"
                                       style={{ marginRight: 4 }}
                                     />
                                     <Text style={styles.youtubeChannelText}>
-                                      TVTI Video Portal • Tap to watch lecture
+                                      {formatUploadedTime(v.createdAt || v.uploaded_at)}
                                     </Text>
                                   </View>
                                 </View>
@@ -561,35 +580,39 @@ const styles = StyleSheet.create({
   contentContainerStyle: {
     paddingBottom: 110,
   },
+  stickyHeader: {
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: SPACING.lg,
+    zIndex: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
   contentPadding: {
     paddingHorizontal: SPACING.lg,
-    paddingTop: 8,
+    paddingTop: 12,
+  },
+  mainTitle: {
+    fontSize: 28,
+    ...FONTS.extraBold,
+    color: '#18181B',
+    marginBottom: 16,
   },
 
-  /* SLEEK COMPACT HEADER CARD */
-  compactHeaderCard: {
+  compactCourseSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 10,
-    marginBottom: 16,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E4E4E7',
     ...Platform.select({
       web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
       default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
     }),
-  },
-  compactCourseSelect: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
   },
   courseSelectLeft: {
     flexDirection: 'row',
@@ -598,37 +621,31 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   compactCourseTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 14.5,
+    ...FONTS.extraBold,
     color: '#18181B',
   },
   compactFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-  },
-  filterIconPill: {
-    backgroundColor: '#FFF3E6',
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFE4D6',
+    gap: 8,
+    marginBottom: 20,
   },
   compactFilterPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F4F4F6',
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
   },
   compactFilterPillActive: {
     backgroundColor: '#18181B',
+    borderColor: '#18181B',
   },
   compactFilterText: {
     fontSize: 12,
@@ -729,19 +746,18 @@ const styles = StyleSheet.create({
 
   /* MODULE SECTION & ACCORDION */
   moduleSectionBox: {
-    marginBottom: SPACING.lg,
+    marginBottom: 12,
   },
   moduleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.lg,
-    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E4E4E7',
-    marginBottom: 12,
     ...Platform.select({
       web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
       default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 },

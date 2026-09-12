@@ -19,6 +19,23 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const formatUploadedTime = (dateStr?: string) => {
+  if (!dateStr) return 'Uploaded 2 days ago';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return 'Uploaded recently';
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffHours < 1) return 'Uploaded just now';
+  if (diffHours < 24) return `Uploaded ${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+  if (diffDays < 7) return `Uploaded ${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+
+  return `Uploaded on ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+};
+
 export default function VideoPlayerScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
@@ -91,7 +108,7 @@ export default function VideoPlayerScreen() {
     <View style={styles.container}>
       {/* Top Header Bar */}
       <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('StudentApp'))}>
           <Icon name="arrow-back" size={22} color="#1A1A1A" />
         </TouchableOpacity>
         <Text style={styles.pageHeaderTitle}>Video Player</Text>
@@ -137,11 +154,11 @@ export default function VideoPlayerScreen() {
             </Text>
           ) : null}
 
-          {/* Warning Banner */}
-          <View style={styles.warningBanner}>
-            <Icon name="warning-outline" size={20} color="#D97706" style={{ marginRight: 10 }} />
-            <Text style={styles.warningBannerText}>
-              DOWNLOADING OR DISTRIBUTING THIS CONTENT IS STRICTLY PROHIBITED.
+          {/* Uploaded Time Row */}
+          <View style={styles.uploadedTimeRow}>
+            <Icon name="time-outline" size={15} color="#71717A" style={{ marginRight: 6 }} />
+            <Text style={styles.uploadedTimeText}>
+              {formatUploadedTime(videoData?.createdAt || videoData?.uploaded_at)}
             </Text>
           </View>
 
@@ -295,25 +312,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     ...FONTS.regular,
-    marginBottom: SPACING.lg,
+    marginBottom: 6,
   },
-  warningBanner: {
+  uploadedTimeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF8E1',
-    borderWidth: 1,
-    borderColor: '#FFE082',
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
-  warningBannerText: {
-    flex: 1,
-    color: '#B45309',
-    fontSize: 11.5,
-    ...FONTS.bold,
-    letterSpacing: 0.3,
-    lineHeight: 16,
+  uploadedTimeText: {
+    fontSize: 13.5,
+    color: '#71717A',
+    ...FONTS.medium,
   },
   notesCard: {
     backgroundColor: '#FFFFFF',

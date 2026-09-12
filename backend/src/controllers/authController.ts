@@ -40,6 +40,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (!user.password_hash) {
+      res.status(401).json({ message: 'Invalid Index Number/Email or Password' });
+      return;
+    }
+
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       res.status(401).json({ message: 'Invalid Index Number/Email or Password' });
@@ -65,9 +70,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       must_change_password: user.must_change_password || false,
       token: generateToken(String(user._id)),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error during login' });
+    res.status(500).json({
+      message: 'Server error during login',
+      error: error?.message || String(error)
+    });
   }
 };
 
