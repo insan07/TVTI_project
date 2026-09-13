@@ -96,7 +96,12 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPhotoAsset(result.assets[0]);
+      const asset = result.assets[0];
+      if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+        showAck('Image Too Large', 'Selected profile photo is larger than 5MB. Please choose an image smaller than 5MB.', 'error');
+        return;
+      }
+      setPhotoAsset(asset);
     }
   };
 

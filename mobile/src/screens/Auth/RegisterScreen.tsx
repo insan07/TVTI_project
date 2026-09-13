@@ -267,6 +267,7 @@ export default function RegisterScreen() {
   };
 
   const pickStudentPhoto = async () => {
+    setErrorMsg('');
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
@@ -278,6 +279,14 @@ export default function RegisterScreen() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
+        if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+          setErrorMsg('Selected student photo is larger than 5MB. Please choose an image smaller than 5MB.');
+          return;
+        }
+        if (asset.base64 && asset.base64.length > 6700000) {
+          setErrorMsg('Selected student photo is larger than 5MB. Please choose an image smaller than 5MB.');
+          return;
+        }
         const base64Img = asset.base64
           ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
           : asset.uri;
@@ -289,6 +298,7 @@ export default function RegisterScreen() {
   };
 
   const pickPaymentSlip = async () => {
+    setErrorMsg('');
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
@@ -300,6 +310,14 @@ export default function RegisterScreen() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
+        if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+          setErrorMsg('Selected deposit receipt photo is larger than 5MB. Please choose an image smaller than 5MB.');
+          return;
+        }
+        if (asset.base64 && asset.base64.length > 6700000) {
+          setErrorMsg('Selected deposit receipt photo is larger than 5MB. Please choose an image smaller than 5MB.');
+          return;
+        }
         const base64Img = asset.base64
           ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
           : asset.uri;
