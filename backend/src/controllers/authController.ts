@@ -2,8 +2,8 @@ import { Request, Response } from 'express';
 import User from '../models/User';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
 import { sendOtp, verifyOtp, isEmailVerified, consumeEmailVerification } from '../services/otpService';
+import { sendPasswordResetEmail } from '../services/emailService';
 
 const generateToken = (id: string, expiresIn: any = '7d') => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
@@ -244,25 +244,7 @@ export const resetPasswordRequest = async (req: Request, res: Response): Promise
     const resetToken = generateToken(String(user._id), '1h');
     const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
 
-    // Send email via Nodemailer
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: Number(process.env.SMTP_PORT) || 587,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD,
-      },
-      connectionTimeout: 10000,
-      greetingTimeout: 5000,
-      socketTimeout: 10000,
-    });
-
-    await transporter.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_FROM || '"TVTI Institute" <noreply@tvti.edu>',
-      to: user.email,
-      subject: 'Password Reset Request',
-      html: `<p>You requested a password reset. Click the link below to set a new password:</p><p><a href="${resetLink}">Reset Password</a></p><p>This link will expire in 1 hour.</p>`,
-    });
+    await sendPasswordResetEmail({ to: user.email, resetLink });
 
     res.json({ message: 'Password reset link sent to email' });
   } catch (error) {

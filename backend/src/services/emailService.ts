@@ -12,6 +12,23 @@ export interface SendOtpMailOptions {
   otp: string;
 }
 
+export interface SendApplicationSubmissionEmailOptions {
+  to: string;
+  studentName: string;
+}
+
+export interface SendApprovalCredentialsEmailOptions {
+  to: string;
+  studentName: string;
+  indexNumber: string;
+  tempPassword: string;
+}
+
+export interface SendPasswordResetEmailOptions {
+  to: string;
+  resetLink: string;
+}
+
 /**
  * Creates and returns a Nodemailer Transporter based on environment variables.
  */
@@ -59,11 +76,27 @@ const getTransporter = () => {
   });
 };
 
+const DEFAULT_FROM_ADDRESS = process.env.MAIL_FROM || process.env.SMTP_FROM || '"Twintec Vocational Training Institute" <admissions@tvti.edu>';
+
+const renderHeaderCard = () => `
+  <div class="header">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 14px auto;">
+      <tr>
+        <td align="center" style="background: #ea580c; width: 52px; height: 52px; border-radius: 14px; text-align: center; vertical-align: middle; color: #ffffff; font-size: 26px; font-weight: 900; font-family: Arial, sans-serif;">
+          T
+        </td>
+      </tr>
+    </table>
+    <h1>TWINTEC VOCATIONAL TRAINING INSTITUTE</h1>
+    <p>OFFICIAL ADMISSIONS PORTAL</p>
+  </div>
+`;
+
 /**
  * Sends a 6-digit OTP verification email via Nodemailer.
  */
 export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = process.env.MAIL_FROM || process.env.SMTP_FROM || '"TVTI Institute" <admissions@tvti.edu>';
+  const from = DEFAULT_FROM_ADDRESS;
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -71,13 +104,13 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
     <html>
     <head>
       <meta charset="utf-8">
-      <title>TVTI Email Verification</title>
+      <title>Twintec Email Verification</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
         .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
         .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 3px solid #ea580c; }
-        .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
-        .header p { color: #94a3b8; margin: 4px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
         .content { padding: 36px 32px; text-align: center; }
         .title { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
         .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 28px; }
@@ -90,14 +123,11 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <h1>TECHNICAL & VOCATIONAL TRAINING INSTITUTE</h1>
-          <p>OFFICIAL ADMISSIONS PORTAL</p>
-        </div>
+        ${renderHeaderCard()}
         <div class="content">
           <h2 class="title">Email Address Verification</h2>
           <p class="description">
-            Thank you for initiating your registration with the Technical & Vocational Training Institute. Please enter the verification code below to confirm your email address.
+            Thank you for initiating your registration with Twintec Vocational Training Institute. Please enter the verification code below to confirm your email address.
           </p>
           <div class="otp-box">
             <div class="otp-code">${otp}</div>
@@ -110,7 +140,7 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
           </div>
         </div>
         <div class="footer">
-          Technical & Vocational Training Institute &bull; Official Communication
+          Twintec Vocational Training Institute &bull; Official Communication
         </div>
       </div>
     </body>
@@ -122,8 +152,8 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
       await transporter.sendMail({
         from,
         to,
-        subject: `TVTI Verification Code: ${otp}`,
-        text: `Your TVTI Verification Code is: ${otp}. It expires in 10 minutes.`,
+        subject: `Twintec Verification Code: ${otp}`,
+        text: `Your Twintec Verification Code is: ${otp}. It expires in 10 minutes.`,
         html: htmlContent,
       });
       return { success: true };
@@ -141,16 +171,11 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
   return { success: true, simulated: true };
 };
 
-export interface SendApplicationSubmissionEmailOptions {
-  to: string;
-  studentName: string;
-}
-
 /**
  * Sends a confirmation email when a student registers (Status: Pending Review).
  */
 export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendApplicationSubmissionEmailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = process.env.MAIL_FROM || process.env.SMTP_FROM || '"TVTI Institute" <admissions@tvti.edu>';
+  const from = DEFAULT_FROM_ADDRESS;
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -158,13 +183,13 @@ export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendAp
     <html>
     <head>
       <meta charset="utf-8">
-      <title>TVTI Application Confirmation</title>
+      <title>Twintec Application Confirmation</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
         .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
         .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 3px solid #ea580c; }
-        .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
-        .header p { color: #94a3b8; margin: 4px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
         .content { padding: 36px 32px; }
         .title { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
         .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px; }
@@ -179,15 +204,12 @@ export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendAp
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <h1>TECHNICAL & VOCATIONAL TRAINING INSTITUTE</h1>
-          <p>OFFICIAL ADMISSIONS PORTAL</p>
-        </div>
+        ${renderHeaderCard()}
         <div class="content">
           <h2 class="title">Application Submission Confirmation</h2>
           <p class="description">
             Dear <strong>${studentName}</strong>,<br><br>
-            Your application for course enrollment has been successfully submitted to the Technical & Vocational Training Institute (TVTI).
+            Your application for course enrollment has been successfully submitted to Twintec Vocational Training Institute.
           </p>
 
           <div class="status-box">
@@ -198,12 +220,12 @@ export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendAp
           <div class="info-card">
             <div class="info-card-title">Official Portal Credentials Notice</div>
             <div class="info-card-text">
-              Upon approval of your application by the TVTI Admissions Board, your official <strong>Registration Number (Index No)</strong> and temporary login password will be dispatched to this email address.
+              Upon approval of your application by the Twintec Admissions Board, your official <strong>Registration Number (Index No)</strong> and temporary login password will be dispatched to this email address.
             </div>
           </div>
         </div>
         <div class="footer">
-          Technical & Vocational Training Institute &bull; Official Communication
+          Twintec Vocational Training Institute &bull; Official Communication
         </div>
       </div>
     </body>
@@ -215,8 +237,8 @@ export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendAp
       await transporter.sendMail({
         from,
         to,
-        subject: `TVTI Course Application Confirmation - ${studentName}`,
-        text: `Dear ${studentName}, your TVTI application has been received and is pending administrative review.`,
+        subject: `Twintec Course Application Confirmation - ${studentName}`,
+        text: `Dear ${studentName}, your Twintec application has been received and is pending administrative review.`,
         html: htmlContent,
       });
       return { success: true };
@@ -234,13 +256,6 @@ export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendAp
   return { success: true, simulated: true };
 };
 
-export interface SendApprovalCredentialsEmailOptions {
-  to: string;
-  studentName: string;
-  indexNumber: string;
-  tempPassword: string;
-}
-
 /**
  * Sends official approval email containing Student Registration No and Temporary Password.
  */
@@ -250,7 +265,7 @@ export const sendApprovalCredentialsEmail = async ({
   indexNumber,
   tempPassword
 }: SendApprovalCredentialsEmailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = process.env.MAIL_FROM || process.env.SMTP_FROM || '"TVTI Institute" <admissions@tvti.edu>';
+  const from = DEFAULT_FROM_ADDRESS;
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -258,13 +273,13 @@ export const sendApprovalCredentialsEmail = async ({
     <html>
     <head>
       <meta charset="utf-8">
-      <title>TVTI Official Credentials & Portal Access</title>
+      <title>Twintec Official Credentials & Portal Access</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
         .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
         .header { background: #0f172a; padding: 36px 28px; text-align: center; border-bottom: 4px solid #10b981; }
-        .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
-        .header p { color: #94a3b8; margin: 4px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
         .content { padding: 40px 36px; }
         .title { font-size: 22px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
         .subtitle { font-size: 13px; font-weight: 700; color: #059669; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 24px; }
@@ -282,16 +297,13 @@ export const sendApprovalCredentialsEmail = async ({
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <h1>TECHNICAL & VOCATIONAL TRAINING INSTITUTE</h1>
-          <p>OFFICIAL ADMISSIONS PORTAL</p>
-        </div>
+        ${renderHeaderCard()}
         <div class="content">
           <div class="subtitle">Official Admission Decision: Approved</div>
           <h2 class="title">Student Access Credentials</h2>
           <p class="description">
             Dear <strong>${studentName}</strong>,<br><br>
-            Your application for course admission has been formally <strong>Approved</strong> by the TVTI Admissions Office. Below are your official institutional credentials for accessing the Student Learning Management System portal.
+            Your application for course admission has been formally <strong>Approved</strong> by the Twintec Admissions Office. Below are your official institutional credentials for accessing the Student Learning Management System portal.
           </p>
 
           <div class="cred-card">
@@ -315,11 +327,11 @@ export const sendApprovalCredentialsEmail = async ({
 
           <div class="security-box">
             <div class="security-box-title">Important Policy & Password Expiry Notice</div>
-            Your temporary password is valid for <strong>7 days</strong>. Upon your initial login to the TVTI Student Portal, you will be required to establish a secure permanent password.
+            Your temporary password is valid for <strong>7 days</strong>. Upon your initial login to the Twintec Student Portal, you will be required to establish a secure permanent password.
           </div>
         </div>
         <div class="footer">
-          Technical & Vocational Training Institute &bull; Official Communication
+          Twintec Vocational Training Institute &bull; Official Communication
         </div>
       </div>
     </body>
@@ -331,8 +343,8 @@ export const sendApprovalCredentialsEmail = async ({
       await transporter.sendMail({
         from,
         to,
-        subject: `TVTI Application Approved - Registration No: ${indexNumber}`,
-        text: `Dear ${studentName}, your TVTI course application has been approved. Registration Number: ${indexNumber}, Temporary Password: ${tempPassword}. Please log in to set your permanent password.`,
+        subject: `Twintec Application Approved - Registration No: ${indexNumber}`,
+        text: `Dear ${studentName}, your Twintec course application has been approved. Registration Number: ${indexNumber}, Temporary Password: ${tempPassword}. Please log in to set your permanent password.`,
         html: htmlContent,
       });
       console.log(`[APPROVAL EMAIL SENT SUCCESSFULLY via SMTP] To: ${to}`);
@@ -349,5 +361,71 @@ export const sendApprovalCredentialsEmail = async ({
   console.log(`Registration No: [ ${indexNumber} ]`);
   console.log(`Temporary Password: [ ${tempPassword} ]`);
   console.log(`======================================================\n`);
+  return { success: true, simulated: true };
+};
+
+/**
+ * Sends password reset link email.
+ */
+export const sendPasswordResetEmail = async ({ to, resetLink }: SendPasswordResetEmailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = DEFAULT_FROM_ADDRESS;
+  const transporter = getTransporter();
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Twintec Password Reset</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
+        .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+        .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 3px solid #ea580c; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .content { padding: 36px 32px; text-align: center; }
+        .title { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
+        .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 28px; }
+        .btn-link { display: inline-block; background: #ea580c; color: #ffffff; font-weight: 800; font-size: 15px; padding: 14px 28px; border-radius: 8px; text-decoration: none; margin-bottom: 24px; }
+        .expiry-note { font-size: 13px; color: #64748b; margin-bottom: 24px; font-weight: 500; }
+        .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        ${renderHeaderCard()}
+        <div class="content">
+          <h2 class="title">Password Reset Request</h2>
+          <p class="description">
+            You requested a password reset for your Twintec Student Portal account. Click the button below to establish a new password:
+          </p>
+          <a href="${resetLink}" class="btn-link" target="_blank">Reset Your Password</a>
+          <p class="expiry-note">
+            Password Reset Link Expiry: <strong>1 Hour</strong>
+          </p>
+        </div>
+        <div class="footer">
+          Twintec Vocational Training Institute &bull; Official Communication
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject: `Twintec Password Reset Request`,
+        text: `Click the following link to reset your Twintec password: ${resetLink}. It expires in 1 hour.`,
+        html: htmlContent,
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.warn(`[RESET EMAIL SMTP WARNING] (${err?.message || err}).`);
+    }
+  }
+
   return { success: true, simulated: true };
 };
