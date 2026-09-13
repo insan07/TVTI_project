@@ -10,6 +10,7 @@ import dns from 'dns';
 import multer from 'multer';
 
 // Force Google DNS servers to resolve MongoDB Atlas queryTxt/SRV lookups reliably
+// Backend updated: OTP Verification re-enabled
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 // Import Socket initialization
