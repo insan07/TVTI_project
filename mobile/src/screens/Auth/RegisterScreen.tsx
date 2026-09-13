@@ -354,7 +354,7 @@ export default function RegisterScreen() {
   };
 
   // STEP VALIDATION & NAVIGATION
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     setErrorMsg('');
 
     if (currentStep === 1) {
@@ -407,6 +407,21 @@ export default function RegisterScreen() {
       if (!formData.address.trim()) {
         setErrorMsg('Please enter your Residential Address.');
         return;
+      }
+
+      // Check Email & NIC availability against registered accounts and approved applications
+      try {
+        setLoading(true);
+        await api.post('/auth/check-eligibility', {
+          email: formData.email.trim().toLowerCase(),
+          nic: formData.nic.trim() || undefined
+        });
+      } catch (checkErr: any) {
+        const msg = checkErr.response?.data?.message || 'Eligibility check failed.';
+        setErrorMsg(msg);
+        return;
+      } finally {
+        setLoading(false);
       }
 
       setCurrentStep(2);
@@ -508,7 +523,9 @@ export default function RegisterScreen() {
       setSuccessModalVisible(true);
     } catch (e: any) {
       const serverMsg = e.response?.data?.message;
-      if (serverMsg) {
+      if (e.response?.status === 413 || (serverMsg && serverMsg.toLowerCase().includes('too large'))) {
+        setErrorMsg('The selected photo or deposit receipt is too large (request entity too large). Please upload a smaller image under 5MB.');
+      } else if (serverMsg) {
         setErrorMsg(serverMsg);
       } else {
         setErrorMsg('Application submission failed. Please check your network connection.');

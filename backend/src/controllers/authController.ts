@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
+import Application from '../models/Application';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { sendOtp, verifyOtp, isEmailVerified, consumeEmailVerification } from '../services/otpService';
@@ -143,6 +144,59 @@ export const forceChangePassword = async (req: Request, res: Response): Promise<
   }
 };
 
+export const checkEligibility = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, nic } = req.body;
+
+    if (email) {
+      const cleanEmail = String(email).toLowerCase().trim();
+      const existingUser = await User.findOne({ email: cleanEmail });
+      if (existingUser) {
+        res.status(400).json({
+          success: false,
+          message: 'An account with this email address is already registered. Please log in to your account.'
+        });
+        return;
+      }
+
+      const approvedApp = await Application.findOne({ email: cleanEmail, status: 'approved' });
+      if (approvedApp) {
+        res.status(400).json({
+          success: false,
+          message: 'An approved application already exists for this email address. Please log in.'
+        });
+        return;
+      }
+    }
+
+    if (nic && String(nic).trim()) {
+      const cleanNic = String(nic).trim();
+      const existingUserNic = await User.findOne({ nic: cleanNic });
+      if (existingUserNic) {
+        res.status(400).json({
+          success: false,
+          message: `The NIC number (${cleanNic}) is already registered to an existing student account.`
+        });
+        return;
+      }
+
+      const approvedAppNic = await Application.findOne({ nic_number: cleanNic, status: 'approved' });
+      if (approvedAppNic) {
+        res.status(400).json({
+          success: false,
+          message: `The NIC number (${cleanNic}) is already registered to an approved student application.`
+        });
+        return;
+      }
+    }
+
+    res.status(200).json({ success: true, message: 'Eligible for registration' });
+  } catch (error: any) {
+    console.error('Check eligibility error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error checking eligibility' });
+  }
+};
+
 export const sendOtpHandler = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email } = req.body;
@@ -151,7 +205,29 @@ export const sendOtpHandler = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const result = await sendOtp(email);
+    const cleanEmail = String(email).toLowerCase().trim();
+
+    // 1. Pre-check if an active user already exists with this email
+    const existingUser = await User.findOne({ email: cleanEmail });
+    if (existingUser) {
+      res.status(400).json({
+        success: false,
+        message: 'An account with this email address is already registered. Please log in to your account.'
+      });
+      return;
+    }
+
+    // 2. Pre-check if an approved student application exists for this email
+    const approvedApp = await Application.findOne({ email: cleanEmail, status: 'approved' });
+    if (approvedApp) {
+      res.status(400).json({
+        success: false,
+        message: 'An approved application already exists for this email address. Please log in.'
+      });
+      return;
+    }
+
+    const result = await sendOtp(cleanEmail);
     if (!result.success) {
       res.status(400).json(result);
       return;
