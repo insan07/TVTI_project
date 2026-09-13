@@ -27,12 +27,15 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showSystemDetails, setShowSystemDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState<'details' | 'payment'>('details');
 
   // Edit Profile Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '' });
   const [photoAsset, setPhotoAsset] = useState<any>(null);
+
+  // Bank Slip Zoom Modal
+  const [slipZoomVisible, setSlipZoomVisible] = useState(false);
 
   // Change Password Modal
   const [passModalVisible, setPassModalVisible] = useState(false);
@@ -75,7 +78,7 @@ export default function ProfileScreen() {
       setFormData({ name: res.data.name || '', phone: res.data.phone || '' });
     } catch (error) {
       console.warn('Failed to fetch profile', error);
-      showAck('Error', 'Failed to fetch profile', 'error');
+      showAck('Error', 'Failed to fetch profile details', 'error');
     } finally {
       setLoading(false);
     }
@@ -116,7 +119,7 @@ export default function ProfileScreen() {
 
       await api.put('/users/profile', data);
 
-      showAck('Profile Updated', 'Your profile has been updated successfully!', 'success', () => {
+      showAck('Profile Updated', 'Your profile has been updated successfully', 'success', () => {
         setEditModalVisible(false);
         setPhotoAsset(null);
         fetchProfile();
@@ -146,7 +149,7 @@ export default function ProfileScreen() {
         newPassword: passData.newPassword,
       });
 
-      showAck('Password Updated', 'Your password has been changed successfully!', 'success', () => {
+      showAck('Password Updated', 'Your password has been changed successfully', 'success', () => {
         setPassModalVisible(false);
         setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       });
@@ -184,13 +187,38 @@ export default function ProfileScreen() {
     return name.substring(0, 2).toUpperCase();
   };
 
-  const isStudent = (profile.role || 'student').toLowerCase() === 'student';
+  const formatCurrency = (amt?: number) => {
+    const val = amt || 0;
+    return `LKR ${val.toLocaleString('en-US')}`;
+  };
+
+  const getPaymentStatusBadge = (status?: string) => {
+    const s = (status || 'pending').toLowerCase();
+    switch (s) {
+      case 'paid':
+        return { text: 'Fully Paid', bg: '#DCFCE7', color: '#15803D' };
+      case 'partial':
+        return { text: 'Partially Paid', bg: '#FFEDD5', color: '#C2410C' };
+      case 'overdue':
+        return { text: 'Overdue', bg: '#FEE2E2', color: '#B91C1C' };
+      case 'waived':
+        return { text: 'Waived', bg: '#DBEAFE', color: '#1D4ED8' };
+      default:
+        return { text: 'Pending Payment', bg: '#FEF3C7', color: '#B45309' };
+    }
+  };
+
+  const paymentInfo = profile.payment_info || {};
+  const totalFee = paymentInfo.total_course_fee || 0;
+  const amountPaid = paymentInfo.amount_paid || 0;
+  const remainingBalance = Math.max(0, totalFee - amountPaid);
+  const statusBadge = getPaymentStatusBadge(paymentInfo.payment_status);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* FIXED STICKY TOP HEADER */}
       <View style={styles.stickyHeader}>
-        <Text style={styles.mainTitle}>Profile</Text>
+        <Text style={styles.mainTitle}>Student Profile</Text>
       </View>
 
       <ScrollView
@@ -198,9 +226,8 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-
         {/* ========================================================================= */}
-        {/* TOP MAIN PROFILE CARD (EXACT MATCH TO DESIGN SCREENSHOT) */}
+        {/* TOP PROFILE CARD */}
         {/* ========================================================================= */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
@@ -226,7 +253,7 @@ export default function ProfileScreen() {
               {profile.email}
             </Text>
             <Text style={styles.regNumberText}>
-              REG NO : {profile.index_number || profile.nic || 'TVTI/2026/001'}
+              REG NO : {profile.index_number || profile.nic || 'TVTI/STUDENT'}
             </Text>
           </View>
 
@@ -240,95 +267,351 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-
-
         {/* ========================================================================= */}
-        {/* MENU ACTION LIST CARDS (EXACT MATCH TO DESIGN SCREENSHOT) */}
+        {/* SEGMENT TAB NAVIGATOR */}
         {/* ========================================================================= */}
-        <View style={styles.menuListSection}>
-          {/* My Details Item */}
+        <View style={styles.segmentContainer}>
           <TouchableOpacity
-            style={styles.menuCard}
-            onPress={() => setShowSystemDetails(v => !v)}
-            activeOpacity={0.7}
+            style={[styles.segmentBtn, activeTab === 'details' && styles.segmentBtnActive]}
+            onPress={() => setActiveTab('details')}
+            activeOpacity={0.8}
           >
-            <View style={styles.menuLeftContent}>
-              <Icon name="person-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>My Details</Text>
-            </View>
-            <Icon name={showSystemDetails ? "chevron-down" : "chevron-forward"} size={18} color="#A1A1AA" />
+            <Icon
+              name="person-circle-outline"
+              size={18}
+              color={activeTab === 'details' ? '#FFFFFF' : '#71717A'}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={[styles.segmentText, activeTab === 'details' && styles.segmentTextActive]}>
+              My Details
+            </Text>
           </TouchableOpacity>
 
-          {/* Expandable My Details Content */}
-          {showSystemDetails && (
-            <View style={styles.expandableDetailsCard}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Registration / User ID:</Text>
-                <Text style={styles.infoVal}>{profile.index_number || profile._id}</Text>
+          <TouchableOpacity
+            style={[styles.segmentBtn, activeTab === 'payment' && styles.segmentBtnActive]}
+            onPress={() => setActiveTab('payment')}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name="card-outline"
+              size={18}
+              color={activeTab === 'payment' ? '#FFFFFF' : '#71717A'}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={[styles.segmentText, activeTab === 'payment' && styles.segmentTextActive]}>
+              Payment Details
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ========================================================================= */}
+        {/* TAB 1: MY DETAILS */}
+        {/* ========================================================================= */}
+        {activeTab === 'details' && (
+          <View style={styles.tabContentSection}>
+            {/* Personal Details Card */}
+            <View style={styles.detailCard}>
+              <View style={styles.cardHeaderRow}>
+                <Icon name="person-outline" size={20} color="#F58220" />
+                <Text style={styles.cardHeaderTitle}>Personal Information</Text>
               </View>
-              {profile.phone ? (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Phone Number:</Text>
-                  <Text style={styles.infoVal}>{profile.phone}</Text>
+              <View style={styles.cardDivider} />
+
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Full Name</Text>
+                  <Text style={styles.infoValue}>{profile.name || '-'}</Text>
                 </View>
-              ) : null}
-              {profile.nic ? (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>NIC Number:</Text>
-                  <Text style={styles.infoVal}>{profile.nic}</Text>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Email Address</Text>
+                  <Text style={styles.infoValue}>{profile.email || '-'}</Text>
                 </View>
-              ) : null}
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Account Status:</Text>
-                <Text style={[styles.infoVal, { color: '#10B981', fontWeight: 'bold' }]}>
-                  Active & Verified
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Date of Birth</Text>
+                  <Text style={styles.infoValue}>{profile.date_of_birth || 'Not Specified'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Gender</Text>
+                  <Text style={styles.infoValue}>{profile.gender ? profile.gender.toUpperCase() : 'Not Specified'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>NIC Number</Text>
+                  <Text style={styles.infoValue}>{profile.nic || 'Not Provided'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Contact Phone</Text>
+                  <Text style={styles.infoValue}>{profile.phone || 'Not Provided'}</Text>
+                </View>
+                <View style={[styles.infoItem, { width: '100%' }]}>
+                  <Text style={styles.infoLabel}>Residential Address</Text>
+                  <Text style={styles.infoValue}>{profile.address || 'Not Provided'}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Parent / Guardian Details Card */}
+            <View style={styles.detailCard}>
+              <View style={styles.cardHeaderRow}>
+                <Icon name="people-outline" size={20} color="#F58220" />
+                <Text style={styles.cardHeaderTitle}>Parent / Guardian Information</Text>
+              </View>
+              <View style={styles.cardDivider} />
+
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Guardian Name</Text>
+                  <Text style={styles.infoValue}>{profile.guardian?.name || 'Not Provided'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Relationship</Text>
+                  <Text style={styles.infoValue}>{profile.guardian?.relationship || 'Not Provided'}</Text>
+                </View>
+                <View style={[styles.infoItem, { width: '100%' }]}>
+                  <Text style={styles.infoLabel}>Guardian Contact Phone</Text>
+                  <Text style={styles.infoValue}>{profile.guardian?.phone || 'Not Provided'}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Educational Background Card */}
+            <View style={styles.detailCard}>
+              <View style={styles.cardHeaderRow}>
+                <Icon name="school-outline" size={20} color="#F58220" />
+                <Text style={styles.cardHeaderTitle}>Educational Qualifications</Text>
+              </View>
+              <View style={styles.cardDivider} />
+
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Highest Level Attained</Text>
+                  <Text style={styles.infoValue}>{profile.educational_qualification?.highest_level || 'Not Specified'}</Text>
+                </View>
+                {profile.educational_qualification?.grade_level ? (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Current Grade Level</Text>
+                    <Text style={styles.infoValue}>{profile.educational_qualification.grade_level}</Text>
+                  </View>
+                ) : null}
+                {profile.educational_qualification?.institute_name ? (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>School / Institute</Text>
+                    <Text style={styles.infoValue}>{profile.educational_qualification.institute_name}</Text>
+                  </View>
+                ) : null}
+                <View style={[styles.infoItem, { width: '100%' }]}>
+                  <Text style={styles.infoLabel}>Qualification Details</Text>
+                  <Text style={styles.infoValue}>{profile.educational_qualification?.details || 'No additional details logged'}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Enrolled Courses Card */}
+            <View style={styles.detailCard}>
+              <View style={styles.cardHeaderRow}>
+                <Icon name="book-outline" size={20} color="#F58220" />
+                <Text style={styles.cardHeaderTitle}>Enrolled Courses</Text>
+              </View>
+              <View style={styles.cardDivider} />
+
+              {profile.enrolled_courses && profile.enrolled_courses.length > 0 ? (
+                profile.enrolled_courses.map((course: any, idx: number) => (
+                  <View key={course._id || idx} style={styles.courseRowItem}>
+                    <View style={styles.courseBadge}>
+                      <Text style={styles.courseBadgeText}>{course.code || 'COURSE'}</Text>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.courseTitleText}>{course.title}</Text>
+                      {course.course_fee !== undefined ? (
+                        <Text style={styles.courseSubFee}>Fee: {formatCurrency(course.course_fee)}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>No enrolled courses registered yet.</Text>
+              )}
+            </View>
+
+            {/* Quick Action List */}
+            <View style={styles.menuListSection}>
+              <TouchableOpacity
+                style={styles.menuCard}
+                onPress={() => setPassModalVisible(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuLeftContent}>
+                  <Icon name="lock-closed-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+                  <Text style={styles.menuText}>Change Password</Text>
+                </View>
+                <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuCard}
+                onPress={() => setHelpModalVisible(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuLeftContent}>
+                  <Icon name="help-circle-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+                  <Text style={styles.menuText}>Help & Support</Text>
+                </View>
+                <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.menuCard, styles.logoutMenuCard]}
+                onPress={() => setLogoutModalVisible(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuLeftContent}>
+                  <Icon name="log-out-outline" size={20} color="#EF4444" style={styles.menuIcon} />
+                  <Text style={[styles.menuText, { color: '#EF4444', fontWeight: '700' }]}>
+                    Logout
+                  </Text>
+                </View>
+                <Icon name="chevron-forward" size={18} color="#FCA5A5" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 2: PAYMENT DETAILS */}
+        {/* ========================================================================= */}
+        {activeTab === 'payment' && (
+          <View style={styles.tabContentSection}>
+            {/* Fee Summary Cards Row */}
+            <View style={styles.feeCardsRow}>
+              <View style={styles.feeCard}>
+                <Text style={styles.feeCardLabel}>Total Course Fee</Text>
+                <Text style={styles.feeCardValue}>{formatCurrency(totalFee)}</Text>
+              </View>
+
+              <View style={[styles.feeCard, { backgroundColor: '#F0FDF4' }]}>
+                <Text style={[styles.feeCardLabel, { color: '#166534' }]}>Amount Paid</Text>
+                <Text style={[styles.feeCardValue, { color: '#15803D' }]}>{formatCurrency(amountPaid)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.balanceCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.balanceLabel}>Remaining Balance</Text>
+                <Text style={styles.balanceValue}>{formatCurrency(remainingBalance)}</Text>
+              </View>
+              <View style={[styles.statusPill, { backgroundColor: statusBadge.bg }]}>
+                <Text style={[styles.statusPillText, { color: statusBadge.color }]}>
+                  {statusBadge.text}
                 </Text>
               </View>
             </View>
-          )}
 
-          {/* Change Password Item */}
-          <TouchableOpacity
-            style={styles.menuCard}
-            onPress={() => setPassModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuLeftContent}>
-              <Icon name="lock-closed-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Change Password</Text>
-            </View>
-            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
-          </TouchableOpacity>
+            {/* Payment Method & Slip Info Card */}
+            <View style={styles.detailCard}>
+              <View style={styles.cardHeaderRow}>
+                <Icon name="receipt-outline" size={20} color="#F58220" />
+                <Text style={styles.cardHeaderTitle}>Payment Information & Receipts</Text>
+              </View>
+              <View style={styles.cardDivider} />
 
-          {/* Help & Support Item */}
-          <TouchableOpacity
-            style={styles.menuCard}
-            onPress={() => setHelpModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuLeftContent}>
-              <Icon name="help-circle-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Help & Support</Text>
-            </View>
-            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
-          </TouchableOpacity>
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Selected Payment Method</Text>
+                  <Text style={styles.infoValue}>
+                    {paymentInfo.payment_method === 'bank_slip'
+                      ? 'Bank Deposit / Online Transfer'
+                      : paymentInfo.payment_method === 'physical_cash'
+                      ? 'Physical Cash Payment'
+                      : 'Not Specified'}
+                  </Text>
+                </View>
 
-          {/* Logout Item */}
-          <TouchableOpacity
-            style={[styles.menuCard, styles.logoutMenuCard]}
-            onPress={() => setLogoutModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuLeftContent}>
-              <Icon name="log-out-outline" size={20} color="#EF4444" style={styles.menuIcon} />
-              <Text style={[styles.menuText, { color: '#EF4444', fontWeight: '700' }]}>
-                Logout
-              </Text>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Payment Status</Text>
+                  <Text style={[styles.infoValue, { color: statusBadge.color, fontWeight: '700' }]}>
+                    {statusBadge.text}
+                  </Text>
+                </View>
+
+                {paymentInfo.receipt_number ? (
+                  <View style={[styles.infoItem, { width: '100%' }]}>
+                    <Text style={styles.infoLabel}>Official Receipt Number</Text>
+                    <Text style={styles.infoValue}>{paymentInfo.receipt_number}</Text>
+                  </View>
+                ) : null}
+
+                {paymentInfo.notes ? (
+                  <View style={[styles.infoItem, { width: '100%' }]}>
+                    <Text style={styles.infoLabel}>Admin Notes / Remarks</Text>
+                    <Text style={styles.infoValue}>{paymentInfo.notes}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Deposit Slip Thumbnail */}
+              {paymentInfo.payment_slip ? (
+                <View style={styles.slipContainer}>
+                  <Text style={styles.slipTitle}>Bank Deposit Slip Document</Text>
+                  <TouchableOpacity
+                    style={styles.slipImageWrapper}
+                    onPress={() => setSlipZoomVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Image
+                      source={paymentInfo.payment_slip}
+                      style={styles.slipImagePreview}
+                      contentFit="cover"
+                    />
+                    <View style={styles.slipOverlayBadge}>
+                      <Icon name="expand-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.slipOverlayText}>Tap to View Full Image</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.noSlipBox}>
+                  <Icon name="alert-circle-outline" size={20} color="#9CA3AF" />
+                  <Text style={styles.noSlipText}>
+                    {paymentInfo.payment_method === 'physical_cash'
+                      ? 'Physical cash payment chosen. Payment verification recorded at counter.'
+                      : 'No bank deposit slip uploaded.'}
+                  </Text>
+                </View>
+              )}
             </View>
-            <Icon name="chevron-forward" size={18} color="#FCA5A5" />
-          </TouchableOpacity>
-        </View>
+
+            {/* TVTI Official Payment Instructions Card */}
+            <View style={styles.noticeCard}>
+              <Icon name="information-circle-outline" size={22} color="#2563EB" style={{ marginRight: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.noticeTitle}>Need to settle outstanding balance?</Text>
+                <Text style={styles.noticeBody}>
+                  You can make cash payments at the TVTI Counter during office hours (Mon-Sat: 8:30 AM - 4:30 PM) or submit bank receipts to the administration office.
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
       </ScrollView>
+
+      {/* ========================================================================= */}
+      {/* BANK SLIP ZOOM MODAL */}
+      {/* ========================================================================= */}
+      <Modal visible={slipZoomVisible} transparent animationType="fade">
+        <View style={styles.zoomModalOverlay}>
+          <TouchableOpacity style={styles.zoomCloseBtn} onPress={() => setSlipZoomVisible(false)}>
+            <Icon name="close" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.zoomImageContainer}>
+            {paymentInfo.payment_slip ? (
+              <Image
+                source={paymentInfo.payment_slip}
+                style={styles.fullZoomImage}
+                contentFit="contain"
+              />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       {/* ========================================================================= */}
       {/* EDIT PROFILE MODAL */}
@@ -523,8 +806,8 @@ export default function ProfileScreen() {
             <Text style={styles.popupMessage}>
               Need assistance with your courses, timetable, or student account? Contact the TVTI Student Support Desk.
               {'\n\n'}
-              📧 Email: support@tvti.edu{'\n'}
-              📞 Phone: +94 11 234 5678
+              Email: support@tvti.edu{'\n'}
+              Phone: +94 11 234 5678
             </Text>
             <TouchableOpacity
               style={[styles.popupOkBtn, { backgroundColor: '#18181B' }]}
@@ -667,12 +950,12 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F4F6', // Light clean gray matching design screenshot
+    backgroundColor: '#F4F4F6',
   },
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 100, // Space so floating bottom navbar never overlaps content
+    paddingBottom: 100,
   },
   loadingScreen: {
     flex: 1,
@@ -698,12 +981,6 @@ const styles = StyleSheet.create({
   },
 
   /* HEADER */
-  categoryHeader: {
-    fontSize: 13,
-    color: '#71717A',
-    fontWeight: '500',
-    marginBottom: 2,
-  },
   stickyHeader: {
     backgroundColor: '#F4F4F6',
     paddingHorizontal: 20,
@@ -720,7 +997,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  /* MAIN PROFILE CARD (EXACT MATCH TO DESIGN SCREENSHOT) */
+  /* MAIN PROFILE CARD */
   profileCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -778,21 +1055,7 @@ const styles = StyleSheet.create({
     color: '#F58220',
     fontSize: 12.5,
     ...FONTS.extraBold,
-    marginBottom: 6,
     letterSpacing: 0.4,
-  },
-  roleBadgePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  roleBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#EF4444',
-    letterSpacing: 0.5,
   },
   editCircleBtn: {
     width: 36,
@@ -805,46 +1068,266 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 
-  /* METRICS GRID ROW (EXACT MATCH TO DESIGN SCREENSHOT) */
-  statsGridRow: {
+  /* SEGMENT TAB SWITCHER */
+  segmentContainer: {
     flexDirection: 'row',
-    gap: 12,
+    backgroundColor: '#E4E4E7',
+    borderRadius: 14,
+    padding: 4,
     marginBottom: 16,
   },
-  statCard: {
+  segmentBtn: {
     flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  segmentBtnActive: {
+    backgroundColor: '#18181B',
+  },
+  segmentText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#71717A',
+  },
+  segmentTextActive: {
+    color: '#FFFFFF',
+  },
+
+  /* SECTIONS & DETAIL CARDS */
+  tabContentSection: {
+    gap: 14,
+  },
+  detailCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    paddingVertical: 18,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 18,
     ...Platform.select({
       web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
       default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 },
     }),
   },
-  statValue: {
-    fontSize: 20,
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardHeaderTitle: {
+    fontSize: 16,
     fontWeight: '800',
     color: '#18181B',
+    marginLeft: 10,
   },
-  statLabel: {
-    fontSize: 12,
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F4F4F6',
+    marginVertical: 12,
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  infoItem: {
+    width: '47%',
+  },
+  infoLabel: {
+    fontSize: 11.5,
     color: '#71717A',
-    marginTop: 4,
-    fontWeight: '500',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  infoValue: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#18181B',
+    marginTop: 2,
   },
 
-  /* MENU ACTION LIST CARDS (EXACT MATCH TO DESIGN SCREENSHOT) */
+  /* COURSE LIST */
+  courseRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAF9F6',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  courseBadge: {
+    backgroundColor: '#F58220',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  courseBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  courseTitleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#18181B',
+  },
+  courseSubFee: {
+    fontSize: 12,
+    color: '#71717A',
+    marginTop: 2,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+
+  /* FEE CARDS ROW */
+  feeCardsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  feeCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+  },
+  feeCardLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#71717A',
+  },
+  feeCardValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#18181B',
+    marginTop: 4,
+  },
+  balanceCard: {
+    backgroundColor: '#18181B',
+    borderRadius: 16,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  balanceLabel: {
+    fontSize: 12,
+    color: '#A1A1AA',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  balanceValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  statusPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  /* SLIP PREVIEW */
+  slipContainer: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F4F4F6',
+  },
+  slipTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#3F3F46',
+    marginBottom: 8,
+  },
+  slipImageWrapper: {
+    height: 140,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F4F4F6',
+  },
+  slipImagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  slipOverlayBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(24, 24, 27, 0.85)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  slipOverlayText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  noSlipBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  noSlipText: {
+    fontSize: 12.5,
+    color: '#6B7280',
+    marginLeft: 8,
+    flex: 1,
+  },
+
+  /* NOTICE CARD */
+  noticeCard: {
+    flexDirection: 'row',
+    backgroundColor: '#EFF6FF',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    alignItems: 'flex-start',
+  },
+  noticeTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E40AF',
+  },
+  noticeBody: {
+    fontSize: 12.5,
+    color: '#1E3A8A',
+    marginTop: 2,
+    lineHeight: 18,
+  },
+
+  /* MENU ACTION LIST CARDS */
   menuListSection: {
     gap: 10,
+    marginTop: 4,
   },
   menuCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -871,29 +1354,31 @@ const styles = StyleSheet.create({
     color: '#18181B',
   },
 
-  /* EXPANDABLE SYSTEM DETAILS */
-  expandableDetailsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: -4,
-    marginBottom: 4,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
+  /* ZOOM MODAL */
+  zoomModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+  zoomCloseBtn: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
   },
-  infoLabel: {
-    fontSize: 13,
-    color: '#71717A',
+  zoomImageContainer: {
+    width: '95%',
+    height: '80%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  infoVal: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#18181B',
+  fullZoomImage: {
+    width: '100%',
+    height: '100%',
   },
 
   /* MODALS */
@@ -1073,3 +1558,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+

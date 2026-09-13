@@ -13,10 +13,11 @@ const generateToken = (id: string, expiresIn: any = '7d') => {
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, identifier, password } = req.body;
-  const loginId = (identifier || email || '').trim();
+  const loginId = String(identifier || email || '').trim();
+  const passStr = String(password ?? '');
 
   try {
-    if (!loginId || !password) {
+    if (!loginId || !passStr) {
       res.status(400).json({ message: 'Index Number/Email and Password are required' });
       return;
     }
@@ -45,7 +46,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
+    const isMatch = await bcrypt.compare(passStr, user.password_hash);
     if (!isMatch) {
       res.status(401).json({ message: 'Invalid Index Number/Email or Password' });
       return;

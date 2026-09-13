@@ -10,6 +10,7 @@ import SlotBooking from '../models/SlotBooking';
 import Application from '../models/Application';
 import bcrypt from 'bcryptjs';
 import { generateUniqueIndexNumber } from './applicationController';
+import { sendApprovalCredentialsEmail } from '../services/emailService';
 
 // GET /api/admin/stats
 export const getAdminStats = async (req: Request, res: Response): Promise<void> => {
@@ -170,16 +171,50 @@ export const approveUser = async (req: Request, res: Response): Promise<void> =>
     user.must_change_password = true;
     user.temp_password_expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await user.save();
-
-    // If there is an associated application, mark it as approved
+    // If there is an associated application, sync details and mark as approved
     const appFilter: any[] = [{ email: user.email.toLowerCase() }];
     if (user.nic) appFilter.push({ nic_number: user.nic });
 
-    await Application.findOneAndUpdate(
-      { $or: appFilter },
-      { status: 'approved', generated_index_number: user.index_number }
-    );
+    const application = await Application.findOne({ $or: appFilter }).sort({ createdAt: -1 });
+    if (application) {
+      application.status = 'approved';
+      application.generated_index_number = user.index_number;
+      await application.save();
+
+      if (!user.date_of_birth && application.date_of_birth) user.date_of_birth = application.date_of_birth;
+      if (!user.gender && application.gender) user.gender = application.gender;
+      if (!user.address && application.address) user.address = application.address;
+      if (!user.guardian && application.guardian) user.guardian = application.guardian;
+      if (!user.educational_qualification && application.educational_qualification) {
+        user.educational_qualification = application.educational_qualification;
+      }
+      if (!user.profile_photo && application.student_photo) user.profile_photo = application.student_photo;
+      if (!user.payment_info || !user.payment_info.payment_method) {
+        user.payment_info = {
+          total_fee: application.total_course_fee || 0,
+          amount_paid: application.amount_paid || 0,
+          payment_status: application.payment_status || 'pending',
+          payment_method: application.payment_method || 'physical_pay',
+          payment_slip: application.payment_slip || '',
+          receipt_number: `REC-${Date.now().toString().slice(-6)}`,
+          last_updated: new Date()
+        };
+      }
+    }
+
+    await user.save();
+
+    // Send official credentials email to approved user
+    try {
+      await sendApprovalCredentialsEmail({
+        to: user.email,
+        studentName: user.name,
+        indexNumber: user.index_number,
+        tempPassword: tempPassword
+      });
+    } catch (emailErr) {
+      console.warn('Warning: Failed to send approval credentials email:', emailErr);
+    }
 
     res.json({
       message: 'User approved successfully',

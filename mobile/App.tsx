@@ -49,6 +49,24 @@ export default function App() {
           font-family: 'Ionicons' !important;
         }
 
+        /* Suppress default browser black focus outlines & native password reveal buttons */
+        input:focus, textarea:focus, select:focus, [contenteditable="true"]:focus {
+          outline: none !important;
+          box-shadow: none !important;
+        }
+        input::-ms-reveal, input::-ms-clear {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
+        input::-webkit-contacts-auto-fill-button, input::-webkit-credentials-auto-fill-button {
+          visibility: hidden !important;
+          display: none !important;
+          pointer-events: none !important;
+          position: absolute !important;
+          right: -9999px !important;
+        }
+
         html, body {
           background-color: #ffffff !important;
           height: 100% !important;
