@@ -109,17 +109,19 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
 
     // Normalize educational qualification object (supports nested or flat fields)
     let eduData: any = undefined;
-    if (educational_qualification && (educational_qualification.highest_level || educational_qualification.institute_name)) {
+    if (educational_qualification && (educational_qualification.highest_level || educational_qualification.institute_name || educational_qualification.details)) {
       eduData = {
         highest_level: educational_qualification.highest_level || 'O/L Completed',
         grade_level: educational_qualification.grade_level ? educational_qualification.grade_level.trim() : undefined,
-        institute_name: educational_qualification.institute_name ? educational_qualification.institute_name.trim() : undefined
+        institute_name: educational_qualification.institute_name ? educational_qualification.institute_name.trim() : undefined,
+        details: educational_qualification.details ? educational_qualification.details.trim() : undefined
       };
-    } else if (req.body.education_level || req.body.school_name || req.body.highest_level) {
+    } else if (req.body.education_level || req.body.school_name || req.body.highest_level || req.body.qualification_details || req.body.details) {
       eduData = {
         highest_level: req.body.education_level || req.body.highest_level || 'O/L Completed',
         grade_level: req.body.grade_level ? req.body.grade_level.trim() : undefined,
-        institute_name: req.body.school_name ? req.body.school_name.trim() : (req.body.institute_name ? req.body.institute_name.trim() : undefined)
+        institute_name: req.body.school_name ? req.body.school_name.trim() : (req.body.institute_name ? req.body.institute_name.trim() : undefined),
+        details: req.body.qualification_details ? req.body.qualification_details.trim() : (req.body.details ? req.body.details.trim() : undefined)
       };
     }
 

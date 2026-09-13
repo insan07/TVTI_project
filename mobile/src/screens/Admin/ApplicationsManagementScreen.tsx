@@ -402,6 +402,12 @@ export default function ApplicationsManagementScreen({ embedded = false, onAppro
                       <Text style={styles.infoLabel}>School / Institute:</Text>
                       <Text style={styles.infoVal}>{selectedAppForReview.educational_qualification?.institute_name || 'N/A'}</Text>
                     </View>
+                    {selectedAppForReview.educational_qualification?.details ? (
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Qualification Details:</Text>
+                        <Text style={styles.infoVal}>{selectedAppForReview.educational_qualification.details}</Text>
+                      </View>
+                    ) : null}
                   </View>
 
                   {/* 4. Payment Method & Deposit Slip Review */}
