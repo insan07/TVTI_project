@@ -131,7 +131,7 @@ const AdminTabs = ({ insets }: { insets: any }) => (
     },
   })}>
     <Tab.Screen name="Home" component={AdminDashboardScreen} options={{ tabBarLabel: 'Dashboard' }} />
-    <Tab.Screen name="Users" component={UserManagementScreen} options={{ tabBarLabel: 'Users & Apps' }} />
+    <Tab.Screen name="Users" component={UserManagementScreen} options={{ tabBarLabel: 'Admissions' }} />
     <Tab.Screen name="Courses" component={AdminCoursesStack} />
     <Tab.Screen name="Practice" component={AdminSlotManagementScreen} options={{ tabBarLabel: 'Slots' }} />
     <Tab.Screen name="Results" component={ManageResultsScreen} />

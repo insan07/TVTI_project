@@ -116,7 +116,11 @@ export default function AdminDashboardScreen() {
           <>
             {/* Stat Cards Grid (2x2) */}
             <View style={styles.gridContainer}>
-              <View style={styles.statCard}>
+              <TouchableOpacity
+                style={styles.statCard}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('Users', { initialTab: 'approved' })}
+              >
                 <View style={styles.cardTopRow}>
                   <Text style={styles.statLabel}>Total Students</Text>
                   <View style={styles.iconCircle}>
@@ -124,9 +128,13 @@ export default function AdminDashboardScreen() {
                   </View>
                 </View>
                 <Text style={styles.statValue}>{stats.totalStudents.toLocaleString()}</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.statCard}>
+              <TouchableOpacity
+                style={styles.statCard}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('Users', { initialTab: 'instructors' })}
+              >
                 <View style={styles.cardTopRow}>
                   <Text style={styles.statLabel}>Instructors</Text>
                   <View style={styles.iconCircle}>
@@ -134,9 +142,13 @@ export default function AdminDashboardScreen() {
                   </View>
                 </View>
                 <Text style={styles.statValue}>{stats.totalInstructors.toLocaleString()}</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.statCard}>
+              <TouchableOpacity
+                style={styles.statCard}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('Courses')}
+              >
                 <View style={styles.cardTopRow}>
                   <Text style={styles.statLabel}>Active Courses</Text>
                   <View style={styles.iconCircle}>
@@ -144,9 +156,13 @@ export default function AdminDashboardScreen() {
                   </View>
                 </View>
                 <Text style={styles.statValue}>{stats.activeCourses.toLocaleString()}</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.statCard}>
+              <TouchableOpacity
+                style={styles.statCard}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('Users', { initialTab: 'pending' })}
+              >
                 <View style={styles.cardTopRow}>
                   <Text style={styles.statLabel}>Pending Appr.</Text>
                   <View style={styles.iconCircle}>
@@ -154,7 +170,7 @@ export default function AdminDashboardScreen() {
                   </View>
                 </View>
                 <Text style={styles.statValue}>{stats.pendingApprovalsCount.toLocaleString()}</Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* Quick Management Actions Section */}
@@ -165,78 +181,52 @@ export default function AdminDashboardScreen() {
                   style={{
                     flex: 1,
                     minWidth: '45%',
-                    backgroundColor: '#FFF7ED',
+                    backgroundColor: '#EEF2FF',
                     borderWidth: 1,
-                    borderColor: '#FDBA74',
-                    padding: 12,
-                    borderRadius: 10,
+                    borderColor: '#C7D2FE',
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 20,
                     flexDirection: 'row',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    shadowColor: '#4F46E5',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 4,
+                    elevation: 1,
                   }}
                   onPress={() => navigation.navigate('PostAnnouncement')}
                 >
-                  <Icon name="megaphone-outline" size={20} color="#D97706" style={{ marginRight: 8 }} />
-                  <Text style={{ fontWeight: 'bold', color: '#92400E', fontSize: 13 }}>Announcement</Text>
+                  <Icon name="megaphone-outline" size={18} color="#4338CA" style={{ marginRight: 8 }} />
+                  <Text style={{ fontWeight: '700', color: '#4338CA', fontSize: 13 }}>Announcement</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={{
                     flex: 1,
                     minWidth: '45%',
-                    backgroundColor: '#EFF6FF',
+                    backgroundColor: '#ECFDF5',
                     borderWidth: 1,
-                    borderColor: '#BFDBFE',
-                    padding: 12,
-                    borderRadius: 10,
+                    borderColor: '#A7F3D0',
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 20,
                     flexDirection: 'row',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    shadowColor: '#059669',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 4,
+                    elevation: 1,
                   }}
                   onPress={() => navigation.navigate('Practice')}
                 >
-                  <Icon name="calendar-outline" size={20} color="#2563EB" style={{ marginRight: 8 }} />
-                  <Text style={{ fontWeight: 'bold', color: '#1E40AF', fontSize: 13 }}>Practical Slots</Text>
+                  <Icon name="calendar-outline" size={18} color="#047857" style={{ marginRight: 8 }} />
+                  <Text style={{ fontWeight: '700', color: '#047857', fontSize: 13 }}>Practical Slots</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-
-            {/* Pending Approvals Section */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Pending Approvals</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Users', { initialTab: 'pending' })}>
-                  <Text style={styles.viewAllText}>View All</Text>
-                </TouchableOpacity>
-              </View>
-
-              {stats.pendingUsers.length === 0 ? (
-                <Text style={styles.emptyText}>No pending approvals.</Text>
-              ) : (
-                stats.pendingUsers.map((user, index) => (
-                  <View key={user._id} style={[styles.userRow, index > 0 && styles.rowBorder]}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{user.initials}</Text>
-                    </View>
-                    <View style={styles.userInfo}>
-                      <Text style={styles.userName}>{user.name}</Text>
-                      <Text style={styles.userSubtext}>{user.subtext}</Text>
-                    </View>
-                    <View style={styles.actionButtons}>
-                      <TouchableOpacity
-                        style={styles.approveIconBtn}
-                        onPress={() => handleApprove(user._id, user.name)}
-                      >
-                        <Icon name="checkmark" size={18} color="#10B981" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.rejectIconBtn}
-                        onPress={() => handleReject(user._id, user.name)}
-                      >
-                        <Icon name="close" size={18} color="#EF4444" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))
-              )}
             </View>
 
             {/* Recent Activity Section */}
@@ -377,6 +367,7 @@ const styles = StyleSheet.create({
   },
   userInfo: {
     flex: 1,
+    marginRight: 8,
   },
   userName: {
     fontSize: 15,

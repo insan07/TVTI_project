@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import api from '../../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS } from '../../config/theme';
 
@@ -21,6 +22,12 @@ type StatusTab = 'all' | 'pending' | 'contacted' | 'paid' | 'approved' | 'reject
 
 export default function ApplicationsManagementScreen({ embedded }: { embedded?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<StatusTab>('pending');
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setActiveTab('pending');
+    }, [])
+  );
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -195,7 +202,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
   const getStatusBadgeStyle = (status: string) => {
     switch (status) {
       case 'pending':
-        return { bg: '#FEF3C7', text: '#92400E', label: 'PENDING' };
+        return { bg: '#FEF3C7', text: '#92400E', label: 'PENDING', border: '#000000' };
       case 'contacted':
         return { bg: '#DBEAFE', text: '#1E40AF', label: 'CONTACTED' };
       case 'paid':
@@ -244,7 +251,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
               )}
             </View>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
+          <View style={[styles.statusBadge, { backgroundColor: badge.bg, borderWidth: badge.border ? 1 : 0, borderColor: badge.border || 'transparent' }]}>
             <Text style={[styles.statusBadgeText, { color: badge.text }]}>{badge.label}</Text>
           </View>
         </View>
@@ -284,7 +291,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
           ) : (
             <>
               <TouchableOpacity
-                style={[styles.stageBtn, { backgroundColor: '#F58220' }]}
+                style={[styles.stageBtn, { backgroundColor: '#D97706' }]}
                 onPress={() => handleOpenAssignCoursesModal(item)}
               >
                 <Icon name="create-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
@@ -292,42 +299,18 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
               </TouchableOpacity>
 
               {item.status === 'pending' && (
-                <>
-                  <TouchableOpacity
-                    style={[styles.stageBtn, { backgroundColor: '#3B82F6' }]}
-                    onPress={() => handleUpdateStatus(item._id, 'contacted', item.full_name)}
-                  >
-                    <Text style={styles.stageBtnText}>Mark Contacted</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.stageBtn, { backgroundColor: '#10B981' }]}
-                    onPress={() => handleUpdateStatus(item._id, 'approved', item.full_name)}
-                  >
-                    <Text style={styles.stageBtnText}>Approve</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {item.status === 'contacted' && (
-                <>
-                  <TouchableOpacity
-                    style={[styles.stageBtn, { backgroundColor: '#8B5CF6' }]}
-                    onPress={() => handleUpdateStatus(item._id, 'paid', item.full_name)}
-                  >
-                    <Text style={styles.stageBtnText}>Mark Paid</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.stageBtn, { backgroundColor: '#10B981' }]}
-                    onPress={() => handleUpdateStatus(item._id, 'approved', item.full_name)}
-                  >
-                    <Text style={styles.stageBtnText}>Approve</Text>
-                  </TouchableOpacity>
-                </>
+                <TouchableOpacity
+                  style={[styles.stageBtn, { backgroundColor: '#059669' }]}
+                  onPress={() => handleUpdateStatus(item._id, 'approved', item.full_name)}
+                >
+                  <Icon name="checkmark-circle-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.stageBtnText}>Approve</Text>
+                </TouchableOpacity>
               )}
 
               {item.status === 'paid' && (
                 <TouchableOpacity
-                  style={[styles.stageBtn, { backgroundColor: '#10B981', flex: 1 }]}
+                  style={[styles.stageBtn, { backgroundColor: '#059669', flex: 1 }]}
                   onPress={() => handleUpdateStatus(item._id, 'approved', item.full_name)}
                 >
                   <Icon name="checkmark-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -337,7 +320,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
 
               {item.status === 'approved' && (
                 <TouchableOpacity
-                  style={[styles.stageBtn, { backgroundColor: '#059669', flex: 1 }]}
+                  style={[styles.stageBtn, { backgroundColor: '#047857', flex: 1 }]}
                   onPress={() => handleUpdateStatus(item._id, 'approved', item.full_name)}
                 >
                   <Icon name="key-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -354,29 +337,6 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
   if (embedded) {
     return (
       <View style={styles.container}>
-        {/* Tabs Filter Header */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsBar}>
-          {[
-            { id: 'pending', label: 'Pending' },
-            { id: 'contacted', label: 'Contacted' },
-            { id: 'paid', label: 'Fees Paid' },
-            { id: 'approved', label: 'Approved' },
-            { id: 'rejected', label: 'Rejected' },
-            { id: 'all', label: 'All Applications' }
-          ].map(tab => {
-            const isActive = activeTab === tab.id;
-            return (
-              <TouchableOpacity
-                key={tab.id}
-                style={[styles.tabItem, isActive && styles.tabItemActive]}
-                onPress={() => setActiveTab(tab.id as StatusTab)}
-              >
-                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
         {/* Applications List */}
         {loading ? (
           <ActivityIndicator size="large" color="#000000" style={{ marginTop: 40 }} />
@@ -387,7 +347,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
             renderItem={renderApplicationCard}
             contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#000000']} />}
-            ListEmptyComponent={<Text style={styles.emptyText}>No applications found in "{activeTab}" status.</Text>}
+            ListEmptyComponent={<Text style={styles.emptyText}>No pending applications found.</Text>}
           />
         )}
 
@@ -614,27 +574,34 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
       )}
 
       {/* Tabs Filter Header */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsBar}>
-        {[
-          { id: 'pending', label: 'Pending' },
-          { id: 'contacted', label: 'Contacted' },
-          { id: 'paid', label: 'Fees Paid' },
-          { id: 'approved', label: 'Approved' },
-          { id: 'rejected', label: 'Rejected' },
-          { id: 'all', label: 'All Applications' }
-        ].map(tab => {
-          const isActive = activeTab === tab.id;
-          return (
-            <TouchableOpacity
-              key={tab.id}
-              style={[styles.tabItem, isActive && styles.tabItemActive]}
-              onPress={() => setActiveTab(tab.id as StatusTab)}
-            >
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <View style={styles.tabsBarWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabsBarContent}
+        >
+          {[
+            { id: 'pending', label: 'Pending' },
+            { id: 'contacted', label: 'Contacted' },
+            { id: 'paid', label: 'Fees Paid' },
+            { id: 'approved', label: 'Approved' },
+            { id: 'rejected', label: 'Rejected' },
+            { id: 'all', label: 'All Applications' }
+          ].map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[styles.tabItem, isActive && styles.tabItemActive]}
+                onPress={() => setActiveTab(tab.id as StatusTab)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {/* Applications List */}
       {loading ? (
@@ -787,18 +754,23 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
   },
-  tabsBar: {
-    paddingHorizontal: 12,
+  tabsBarWrapper: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
-    maxHeight: 50,
+  },
+  tabsBarContent: {
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   tabItem: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabItemActive: {
     borderBottomColor: '#000000',
@@ -823,7 +795,7 @@ const styles = StyleSheet.create({
   },
   cardHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
   avatarCircle: {
@@ -868,6 +840,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+    marginLeft: 4,
   },
   statusBadgeText: {
     fontSize: 11,
@@ -882,16 +857,21 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 6,
   },
   detailLabel: {
     fontSize: 12,
     color: '#6B7280',
+    marginRight: 8,
+    flexShrink: 0,
   },
   detailVal: {
     fontSize: 12,
     fontWeight: '600',
     color: '#1F2937',
+    textAlign: 'right',
+    flexShrink: 1,
   },
   actionsBar: {
     flexDirection: 'row',
@@ -901,17 +881,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   stageBtn: {
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
   },
   stageBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   completedStatusBox: {
     flexDirection: 'row',

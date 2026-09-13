@@ -16,21 +16,27 @@ import api from '../../services/api';
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import ApplicationsManagementScreen from './ApplicationsManagementScreen';
 
 type Tab = 'pending' | 'approved' | 'instructors';
 
 export default function UserManagementScreen() {
-  let initialTab: Tab = 'pending';
-  try {
-    const route = useRoute<any>();
-    if (route?.params?.initialTab) {
-      initialTab = route.params.initialTab;
-    }
-  } catch (e) {}
+  const route = useRoute<any>();
+  const navigation = useNavigation<any>();
+  const [activeTab, setActiveTab] = useState<Tab>('pending');
 
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  useFocusEffect(
+    React.useCallback(() => {
+      const targetTab = route?.params?.initialTab;
+      if (targetTab) {
+        setActiveTab(targetTab);
+        navigation.setParams({ initialTab: undefined });
+      } else {
+        setActiveTab('pending');
+      }
+    }, [route?.params?.initialTab, navigation])
+  );
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -70,7 +76,7 @@ export default function UserManagementScreen() {
     visible: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const [alertModal, setAlertModal] = useState<{
@@ -310,13 +316,16 @@ export default function UserManagementScreen() {
 
       <View style={styles.cardActions}>
         <TouchableOpacity style={styles.viewProfileBtn} onPress={() => handleOpenDetails(item._id)}>
-          <Text style={styles.viewProfileText}>View Profile →</Text>
+          <Icon name="eye-outline" size={14} color="#4338CA" style={{ marginRight: 4 }} />
+          <Text style={styles.viewProfileText}>View Profile</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row' }}>
           <TouchableOpacity style={styles.rejectOutlineBtn} onPress={() => handleReject(item._id, item.name)}>
+            <Icon name="close-circle-outline" size={14} color="#DC2626" style={{ marginRight: 4 }} />
             <Text style={styles.rejectOutlineText}>Reject</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.approveDarkBtn} onPress={() => handleApprove(item._id)}>
+            <Icon name="checkmark-circle-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
             <Text style={styles.approveDarkText}>Approve</Text>
           </TouchableOpacity>
         </View>
@@ -344,11 +353,29 @@ export default function UserManagementScreen() {
 
       <View style={styles.cardActions}>
         <TouchableOpacity style={styles.viewProfileBtn} onPress={() => handleOpenDetails(item._id)}>
-          <Text style={styles.viewProfileText}>View Profile →</Text>
+          <Icon name="eye-outline" size={14} color="#4338CA" style={{ marginRight: 4 }} />
+          <Text style={styles.viewProfileText}>View Profile</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity style={styles.deactivateBtn} onPress={() => handleToggleActive(item._id, item.is_active, item.name)}>
-            <Text style={styles.deactivateBtnText}>{item.is_active ? 'Deactivate' : 'Activate'}</Text>
+          <TouchableOpacity 
+            style={[
+              styles.deactivateBtn, 
+              { 
+                backgroundColor: item.is_active ? '#FEF2F2' : '#ECFDF5',
+                borderColor: item.is_active ? '#FECACA' : '#A7F3D0'
+              }
+            ]} 
+            onPress={() => handleToggleActive(item._id, item.is_active, item.name)}
+          >
+            <Icon 
+              name={item.is_active ? "ban-outline" : "checkmark-circle-outline"} 
+              size={14} 
+              color={item.is_active ? "#DC2626" : "#059669"} 
+              style={{ marginRight: 4 }} 
+            />
+            <Text style={[styles.deactivateBtnText, { color: item.is_active ? '#DC2626' : '#059669' }]}>
+              {item.is_active ? 'Deactivate' : 'Activate'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.assignBatchBtn}
@@ -357,6 +384,7 @@ export default function UserManagementScreen() {
               setAssignModalVisible(true);
             }}
           >
+            <Icon name="school-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
             <Text style={styles.assignBatchText}>Assign Batch</Text>
           </TouchableOpacity>
         </View>
@@ -384,10 +412,28 @@ export default function UserManagementScreen() {
 
       <View style={styles.cardActions}>
         <TouchableOpacity style={styles.viewProfileBtn} onPress={() => handleOpenDetails(item._id)}>
-          <Text style={styles.viewProfileText}>View Profile & Batches →</Text>
+          <Icon name="eye-outline" size={14} color="#4338CA" style={{ marginRight: 4 }} />
+          <Text style={styles.viewProfileText}>View Profile & Batches</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.deactivateBtn} onPress={() => handleToggleActive(item._id, item.is_active, item.name)}>
-          <Text style={styles.deactivateBtnText}>{item.is_active ? 'Deactivate' : 'Activate'}</Text>
+        <TouchableOpacity 
+          style={[
+            styles.deactivateBtn, 
+            { 
+              backgroundColor: item.is_active ? '#FEF2F2' : '#ECFDF5',
+              borderColor: item.is_active ? '#FECACA' : '#A7F3D0'
+            }
+          ]} 
+          onPress={() => handleToggleActive(item._id, item.is_active, item.name)}
+        >
+          <Icon 
+            name={item.is_active ? "ban-outline" : "checkmark-circle-outline"} 
+            size={14} 
+            color={item.is_active ? "#DC2626" : "#059669"} 
+            style={{ marginRight: 4 }} 
+          />
+          <Text style={[styles.deactivateBtnText, { color: item.is_active ? '#DC2626' : '#059669' }]}>
+            {item.is_active ? 'Deactivate' : 'Activate'}
+          </Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -397,7 +443,7 @@ export default function UserManagementScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Top Header */}
       <View style={styles.topHeaderContainer}>
-        <Text style={styles.title}>Users & Applications</Text>
+        <Text style={styles.title}>People & Admissions</Text>
         <Text style={styles.subtitle}>Manage pending student applications, approved students, and instructors.</Text>
       </View>
 
@@ -444,7 +490,7 @@ export default function UserManagementScreen() {
             <View style={styles.actionButtonRow}>
               <TouchableOpacity style={styles.addInstructorBtn} onPress={() => setInstructorModalVisible(true)}>
                 <Icon name="add" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.addInstructorBtnText}>+ Add Instructor</Text>
+                <Text style={styles.addInstructorBtnText}>Add Instructor</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -891,16 +937,16 @@ export default function UserManagementScreen() {
                   confirmModal.type === 'danger'
                     ? 'alert-circle-outline'
                     : confirmModal.type === 'lock'
-                    ? 'lock-closed-outline'
-                    : 'information-circle-outline'
+                      ? 'lock-closed-outline'
+                      : 'information-circle-outline'
                 }
                 size={28}
                 color={
                   confirmModal.type === 'danger'
                     ? '#DC2626'
                     : confirmModal.type === 'lock'
-                    ? '#D97706'
-                    : '#2563EB'
+                      ? '#D97706'
+                      : '#2563EB'
                 }
               />
             </View>
@@ -949,16 +995,16 @@ export default function UserManagementScreen() {
                   alertModal.type === 'success'
                     ? 'checkmark-circle-outline'
                     : alertModal.type === 'error'
-                    ? 'close-circle-outline'
-                    : 'information-circle-outline'
+                      ? 'close-circle-outline'
+                      : 'information-circle-outline'
                 }
                 size={28}
                 color={
                   alertModal.type === 'success'
                     ? '#16A34A'
                     : alertModal.type === 'error'
-                    ? '#DC2626'
-                    : '#2563EB'
+                      ? '#DC2626'
+                      : '#2563EB'
                 }
               />
             </View>
@@ -1005,6 +1051,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   actionButtonRow: {
+    marginTop: 16,
     paddingHorizontal: 16,
     marginBottom: 14,
   },
@@ -1109,7 +1156,7 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   avatar: {
     width: 44,
@@ -1127,6 +1174,7 @@ const styles = StyleSheet.create({
   },
   headerDetails: {
     flex: 1,
+    marginRight: 8,
   },
   userName: {
     fontSize: 16,
@@ -1148,6 +1196,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+    marginLeft: 4,
+    borderWidth: 1,
+    borderColor: '#000000',
   },
   newBadgeText: {
     fontSize: 12,
@@ -1158,6 +1211,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+    marginLeft: 4,
   },
   statusBadgeText: {
     fontSize: 12,
@@ -1173,61 +1229,84 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   viewProfileBtn: {
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
   },
   viewProfileText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#F58220',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4338CA',
   },
   rejectOutlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    borderColor: '#FECACA',
+    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
     marginRight: 8,
   },
   rejectOutlineText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
   },
   approveDarkBtn: {
-    backgroundColor: '#000000',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#059669',
+    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   approveDarkText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   deactivateBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
     marginRight: 8,
   },
   deactivateBtnText: {
-    color: '#EF4444',
-    fontWeight: '600',
-    fontSize: 13,
+    fontWeight: '700',
+    fontSize: 12,
   },
   assignBatchBtn: {
-    backgroundColor: '#10B981',
-    borderRadius: 8,
-    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4F46E5',
+    borderRadius: 20,
+    paddingVertical: 7,
     paddingHorizontal: 14,
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   assignBatchText: {
     color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13,
+    fontWeight: '700',
+    fontSize: 12,
   },
   emptyListText: {
     textAlign: 'center',

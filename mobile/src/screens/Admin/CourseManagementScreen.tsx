@@ -13,7 +13,7 @@ import {
   ScrollView
 } from 'react-native';
 import api from '../../services/api';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 
@@ -21,6 +21,12 @@ type Tab = 'all' | 'active' | 'archived';
 
 export default function CourseManagementScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('all');
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setActiveTab('all');
+    }, [])
+  );
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -163,12 +169,13 @@ export default function CourseManagementScreen() {
 
       <View style={styles.cardActions}>
         <TouchableOpacity style={styles.editOutlineBtn} onPress={() => openEditModal(item)}>
-          <Icon name="pencil" size={16} color="#111827" />
+          <Icon name="pencil-outline" size={16} color="#374151" />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.viewBatchesBtn}
           onPress={() => navigation.navigate('Batches', { courseId: item._id })}
         >
+          <Icon name="grid-outline" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
           <Text style={styles.viewBatchesText}>Manage Batches</Text>
         </TouchableOpacity>
       </View>
@@ -447,9 +454,10 @@ const styles = StyleSheet.create({
   },
   editOutlineBtn: {
     borderWidth: 1,
-    borderColor: '#000000',
-    borderRadius: 8,
-    paddingVertical: 10,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 20,
+    paddingVertical: 8,
     paddingHorizontal: 16,
     marginRight: 8,
     justifyContent: 'center',
@@ -457,30 +465,38 @@ const styles = StyleSheet.create({
   },
   viewBatchesBtn: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    paddingVertical: 10,
+    flexDirection: 'row',
+    backgroundColor: '#4F46E5',
+    borderRadius: 20,
+    paddingVertical: 9,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   viewBatchesText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   fab: {
     position: 'absolute',
     bottom: 24,
     right: 20,
-    backgroundColor: '#F97316',
+    backgroundColor: '#4F46E5',
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowOffset: { width: 0, height: 3 },
+    shadowColor: '#4F46E5',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
   },
   emptyText: {
     textAlign: 'center',

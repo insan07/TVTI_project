@@ -4,6 +4,8 @@ import api from '../../services/api';
 import { useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Ionicons as Icon } from '@expo/vector-icons';
+
 export default function EnrollStudentScreen() {
   const route = useRoute<any>();
   const { batchId, capacity, enrolled } = route.params;
@@ -99,7 +101,14 @@ export default function EnrollStudentScreen() {
         <View style={styles.footer}>
           <Text style={{fontWeight: 'bold'}}>{selectedIds.length} Selected</Text>
           <TouchableOpacity style={styles.btn} onPress={handleEnroll} disabled={saving}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Enroll Now</Text>}
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Icon name="person-add-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.btnText}>Enroll Now</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       )}
@@ -113,14 +122,27 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   header: { padding: 20, backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: 20, fontWeight: 'bold' },
-  stats: { color: '#10B981', fontWeight: 'bold' },
-  search: { backgroundColor: '#fff', padding: 12, margin: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, marginHorizontal: 10, marginBottom: 8, borderRadius: 8 },
-  checkbox: { width: 24, height: 24, borderRadius: 4, borderWidth: 2, borderColor: '#ccc', marginRight: 12 },
-  checkboxActive: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+  stats: { color: '#059669', fontWeight: 'bold' },
+  search: { backgroundColor: '#fff', padding: 12, margin: 10, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' },
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, marginHorizontal: 10, marginBottom: 8, borderRadius: 12 },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#D1D5DB', marginRight: 12 },
+  checkboxActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
   name: { fontWeight: 'bold', fontSize: 16 },
   email: { color: '#6B7280' },
   footer: { padding: 20, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  btn: { backgroundColor: '#2563EB', padding: 12, borderRadius: 8, minWidth: 100, alignItems: 'center' },
-  btnText: { color: '#fff', fontWeight: 'bold' }
+  btn: {
+    backgroundColor: '#4F46E5',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    minWidth: 130,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 }
 });

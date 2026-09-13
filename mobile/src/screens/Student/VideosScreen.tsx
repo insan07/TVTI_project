@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import api from '../../services/api';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +22,12 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
   const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<'videos' | 'materials'>('videos');
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setActiveTab('videos');
+    }, [])
+  );
   const [batches, setBatches] = useState<any[]>([]);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   

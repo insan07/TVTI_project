@@ -15,6 +15,7 @@ import {
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../services/api';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -56,6 +57,12 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
 
 export default function AdminSlotManagementScreen() {
   const [activeTab, setActiveTab] = useState<'slots' | 'create'>('slots');
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setActiveTab('slots');
+    }, [])
+  );
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);

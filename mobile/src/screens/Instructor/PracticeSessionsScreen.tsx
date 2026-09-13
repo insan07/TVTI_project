@@ -57,6 +57,7 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
 
 export default function PracticeSessionsScreen() {
   const [activeTab, setActiveTab] = useState<'slots' | 'create'>('slots');
+
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);

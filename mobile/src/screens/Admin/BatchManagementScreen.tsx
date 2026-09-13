@@ -224,10 +224,11 @@ export default function BatchManagementScreen() {
 
         <View style={styles.cardFooterActions}>
           <TouchableOpacity style={styles.viewDetailsTextBtn} onPress={() => handleOpenDetails(item._id)}>
-            <Text style={styles.viewDetailsText}>View Details & Enrolled Students →</Text>
+            <Icon name="eye-outline" size={14} color="#4338CA" style={{ marginRight: 4 }} />
+            <Text style={styles.viewDetailsText}>View Details & Students</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
-            <Icon name="pencil-outline" size={14} color="#1F2937" style={{ marginRight: 4 }} />
+            <Icon name="pencil-outline" size={14} color="#374151" style={{ marginRight: 4 }} />
             <Text style={styles.editBtnText}>Edit</Text>
           </TouchableOpacity>
         </View>
@@ -676,25 +677,34 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   viewDetailsTextBtn: {
-    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
   },
   viewDetailsText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#F58220',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4338CA',
   },
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F3F4F6',
-    borderRadius: 6,
-    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 20,
+    paddingVertical: 7,
     paddingHorizontal: 12,
   },
   editBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
   },
   emptyText: {
     textAlign: 'center',
@@ -709,10 +719,14 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#000000',
+    backgroundColor: '#4F46E5',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
 
   /* DETAILS MODAL STYLES */
