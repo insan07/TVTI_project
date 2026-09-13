@@ -27,7 +27,16 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
         .lean();
 
       stats = { enrolled_batches_count: enrollments.length };
-      enrolled_courses = enrollments;
+      enrolled_courses = enrollments.map((e: any) => {
+        const course = e.batch_id?.course_id || {};
+        return {
+          _id: course._id || e._id,
+          title: course.title || e.batch_id?.name || 'Enrolled Course',
+          code: course.code || 'TVTI',
+          course_fee: course.fee || 0,
+          batch_name: e.batch_id?.name
+        };
+      });
     } else if (user.role === 'instructor') {
       const assigned_batches = await Batch.countDocuments({ instructor_ids: user._id });
       stats = { assigned_batches_count: assigned_batches };
