@@ -201,6 +201,7 @@ export default function RegisterScreen() {
   const handleSendOtp = async () => {
     setOtpError('');
     setOtpSuccessMsg('');
+    setOtpCode('');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim() || !emailRegex.test(formData.email.trim())) {
       setOtpError('Please enter a valid email address before requesting an OTP.');
@@ -215,6 +216,8 @@ export default function RegisterScreen() {
         setOtpSuccessMsg(res.data?.message || 'A 6-digit OTP code has been sent to your email address.');
         if (res.data?.devOtp) {
           setOtpCode(res.data.devOtp);
+        } else {
+          setOtpCode('');
         }
         setResendCooldown(60);
       } else {
