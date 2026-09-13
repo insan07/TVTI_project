@@ -6,6 +6,7 @@ import { API_URL } from '../config/constants';
 
 const api = axios.create({
   baseURL: API_URL,
+  timeout: 30000, // 30 second timeout for mobile uploads
 });
 
 api.interceptors.request.use(

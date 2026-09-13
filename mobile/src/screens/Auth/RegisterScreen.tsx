@@ -266,6 +266,39 @@ export default function RegisterScreen() {
     setOtpSuccessMsg('');
   };
 
+  const compressBase64Image = (dataUrl: string, maxWidth = 1000, quality = 0.5): Promise<string> => {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !dataUrl || !dataUrl.startsWith('data:image')) {
+        return resolve(dataUrl);
+      }
+      const img = new (window as any).Image();
+      img.crossOrigin = 'anonymous';
+      img.src = dataUrl;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(dataUrl);
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed.length < dataUrl.length ? compressed : dataUrl);
+      };
+      img.onerror = () => resolve(dataUrl);
+    });
+  };
+
   const pickStudentPhoto = async () => {
     setErrorMsg('');
     try {
@@ -273,23 +306,25 @@ export default function RegisterScreen() {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7,
+        quality: 0.5,
         base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
-          setErrorMsg('Selected student photo is larger than 5MB. Please choose an image smaller than 5MB.');
-          return;
-        }
-        if (asset.base64 && asset.base64.length > 6700000) {
-          setErrorMsg('Selected student photo is larger than 5MB. Please choose an image smaller than 5MB.');
-          return;
-        }
-        const base64Img = asset.base64
+        let base64Img = asset.base64
           ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
           : asset.uri;
+
+        if (Platform.OS === 'web' && base64Img.startsWith('data:image')) {
+          base64Img = await compressBase64Image(base64Img, 1000, 0.5);
+        }
+
+        if (base64Img.length > 3500000) {
+          setErrorMsg('Selected student photo is larger than 2.5MB. Please choose a smaller photo.');
+          return;
+        }
+
         setFormData(prev => ({ ...prev, student_photo: base64Img }));
       }
     } catch (e) {
@@ -304,23 +339,25 @@ export default function RegisterScreen() {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
+        quality: 0.5,
         base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
-          setErrorMsg('Selected deposit receipt photo is larger than 5MB. Please choose an image smaller than 5MB.');
-          return;
-        }
-        if (asset.base64 && asset.base64.length > 6700000) {
-          setErrorMsg('Selected deposit receipt photo is larger than 5MB. Please choose an image smaller than 5MB.');
-          return;
-        }
-        const base64Img = asset.base64
+        let base64Img = asset.base64
           ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
           : asset.uri;
+
+        if (Platform.OS === 'web' && base64Img.startsWith('data:image')) {
+          base64Img = await compressBase64Image(base64Img, 1000, 0.5);
+        }
+
+        if (base64Img.length > 3500000) {
+          setErrorMsg('Selected deposit receipt photo is larger than 2.5MB. Please choose a smaller photo.');
+          return;
+        }
+
         setFormData(prev => ({ ...prev, payment_slip: base64Img }));
       }
     } catch (e) {

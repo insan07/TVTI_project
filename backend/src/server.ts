@@ -143,6 +143,14 @@ app.use('/api/announcements', announcementRoutes);
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
 
+  if ((err as any).type === 'entity.too.large' || (err as any).status === 413) {
+    res.status(413).json({
+      success: false,
+      message: 'Request entity too large. The uploaded image or file data exceeds size limits.',
+    });
+    return;
+  }
+
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       res.status(413).json({
