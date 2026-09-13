@@ -17,7 +17,7 @@ import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { FONTS, COLORS, SPACING } from '../../config/theme';
+import { FONTS } from '../../config/theme';
 
 export default function ProfileScreen() {
   const context = useContext(AuthContext);
@@ -27,7 +27,10 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'payment'>('details');
+
+  // Tab / Detail Modals
+  const [myDetailsModalVisible, setMyDetailsModalVisible] = useState(false);
+  const [paymentDetailsModalVisible, setPaymentDetailsModalVisible] = useState(false);
 
   // Edit Profile Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -268,256 +271,343 @@ export default function ProfileScreen() {
         </View>
 
         {/* ========================================================================= */}
-        {/* PROFILE CARDS SECTION */}
+        {/* MENU OPTIONS LIST (STYLING EXACTLY MATCHES USER'S SCREENSHOT) */}
         {/* ========================================================================= */}
-        <View style={styles.tabContentSection}>
-          {/* 1. Personal Details Card */}
-          <View style={styles.detailCard}>
-            <View style={styles.cardHeaderRow}>
-              <Icon name="person-outline" size={20} color="#F58220" />
-              <Text style={styles.cardHeaderTitle}>Personal Information</Text>
+        <View style={styles.menuListSection}>
+          {/* My Details Option Card */}
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={() => setMyDetailsModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name="person-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>My Details</Text>
             </View>
-            <View style={styles.cardDivider} />
+            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+          </TouchableOpacity>
 
-            <View style={styles.infoGrid}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Full Name</Text>
-                <Text style={styles.infoValue}>{profile.name || '-'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Email Address</Text>
-                <Text style={styles.infoValue}>{profile.email || '-'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Date of Birth</Text>
-                <Text style={styles.infoValue}>{profile.date_of_birth || 'Not Specified'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Gender</Text>
-                <Text style={styles.infoValue}>{profile.gender ? profile.gender.toUpperCase() : 'Not Specified'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>NIC Number</Text>
-                <Text style={styles.infoValue}>{profile.nic || 'Not Provided'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Contact Phone</Text>
-                <Text style={styles.infoValue}>{profile.phone || 'Not Provided'}</Text>
-              </View>
-              <View style={[styles.infoItem, { width: '100%' }]}>
-                <Text style={styles.infoLabel}>Residential Address</Text>
-                <Text style={styles.infoValue}>{profile.address || 'Not Provided'}</Text>
-              </View>
+          {/* Payment Details Option Card */}
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={() => setPaymentDetailsModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name="card-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Payment Details</Text>
             </View>
-          </View>
+            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+          </TouchableOpacity>
 
-          {/* 2. Parent / Guardian Details Card */}
-          <View style={styles.detailCard}>
-            <View style={styles.cardHeaderRow}>
-              <Icon name="people-outline" size={20} color="#F58220" />
-              <Text style={styles.cardHeaderTitle}>Parent / Guardian Information</Text>
+          {/* Change Password Option Card */}
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={() => setPassModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name="lock-closed-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Change Password</Text>
             </View>
-            <View style={styles.cardDivider} />
+            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+          </TouchableOpacity>
 
-            <View style={styles.infoGrid}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Guardian Name</Text>
-                <Text style={styles.infoValue}>{profile.guardian?.name || 'Not Provided'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Relationship</Text>
-                <Text style={styles.infoValue}>{profile.guardian?.relationship || 'Not Provided'}</Text>
-              </View>
-              <View style={[styles.infoItem, { width: '100%' }]}>
-                <Text style={styles.infoLabel}>Guardian Contact Phone</Text>
-                <Text style={styles.infoValue}>{profile.guardian?.phone || 'Not Provided'}</Text>
-              </View>
+          {/* Help & Support Option Card */}
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={() => setHelpModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name="help-circle-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Help & Support</Text>
             </View>
-          </View>
+            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+          </TouchableOpacity>
 
-          {/* 3. Educational Background Card */}
-          <View style={styles.detailCard}>
-            <View style={styles.cardHeaderRow}>
-              <Icon name="school-outline" size={20} color="#F58220" />
-              <Text style={styles.cardHeaderTitle}>Educational Qualifications</Text>
+          {/* Logout Option Card */}
+          <TouchableOpacity
+            style={[styles.menuCard, styles.logoutMenuCard]}
+            onPress={() => setLogoutModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name="log-out-outline" size={20} color="#EF4444" style={styles.menuIcon} />
+              <Text style={[styles.menuText, { color: '#EF4444', fontWeight: '700' }]}>
+                Logout
+              </Text>
             </View>
-            <View style={styles.cardDivider} />
-
-            <View style={styles.infoGrid}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Highest Level Attained</Text>
-                <Text style={styles.infoValue}>{profile.educational_qualification?.highest_level || 'Not Specified'}</Text>
-              </View>
-              {profile.educational_qualification?.grade_level ? (
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Current Grade Level</Text>
-                  <Text style={styles.infoValue}>{profile.educational_qualification.grade_level}</Text>
-                </View>
-              ) : null}
-              {profile.educational_qualification?.institute_name ? (
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>School / Institute</Text>
-                  <Text style={styles.infoValue}>{profile.educational_qualification.institute_name}</Text>
-                </View>
-              ) : null}
-              <View style={[styles.infoItem, { width: '100%' }]}>
-                <Text style={styles.infoLabel}>Qualification Details</Text>
-                <Text style={styles.infoValue}>{profile.educational_qualification?.details || 'No additional details logged'}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 4. Enrolled Courses Card */}
-          <View style={styles.detailCard}>
-            <View style={styles.cardHeaderRow}>
-              <Icon name="book-outline" size={20} color="#F58220" />
-              <Text style={styles.cardHeaderTitle}>Enrolled Courses</Text>
-            </View>
-            <View style={styles.cardDivider} />
-
-            {profile.enrolled_courses && profile.enrolled_courses.length > 0 ? (
-              profile.enrolled_courses.map((course: any, idx: number) => (
-                <View key={course._id || idx} style={styles.courseRowItem}>
-                  <View style={styles.courseBadge}>
-                    <Text style={styles.courseBadgeText}>{course.code || 'COURSE'}</Text>
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.courseTitleText}>{course.title}</Text>
-                    {course.course_fee !== undefined ? (
-                      <Text style={styles.courseSubFee}>Fee: {formatCurrency(course.course_fee)}</Text>
-                    ) : null}
-                  </View>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.emptyText}>No enrolled courses registered yet.</Text>
-            )}
-          </View>
-
-          {/* 5. Payment Details Card (SAME DESIGN SYSTEM AS MY DETAILS) */}
-          <View style={styles.detailCard}>
-            <View style={styles.cardHeaderRow}>
-              <Icon name="card-outline" size={20} color="#F58220" />
-              <Text style={styles.cardHeaderTitle}>Payment Details</Text>
-            </View>
-            <View style={styles.cardDivider} />
-
-            <View style={styles.infoGrid}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Total Course Fee</Text>
-                <Text style={styles.infoValue}>{formatCurrency(totalFee)}</Text>
-              </View>
-
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Amount Paid</Text>
-                <Text style={[styles.infoValue, { color: '#15803D' }]}>{formatCurrency(amountPaid)}</Text>
-              </View>
-
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Remaining Balance</Text>
-                <Text style={[styles.infoValue, { color: remainingBalance > 0 ? '#C2410C' : '#15803D' }]}>
-                  {formatCurrency(remainingBalance)}
-                </Text>
-              </View>
-
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Payment Status</Text>
-                <Text style={[styles.infoValue, { color: statusBadge.color, fontWeight: '700' }]}>
-                  {statusBadge.text}
-                </Text>
-              </View>
-
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Payment Method</Text>
-                <Text style={styles.infoValue}>
-                  {paymentInfo.payment_method === 'bank_slip' || paymentInfo.payment_method === 'bank_transfer'
-                    ? 'Bank Deposit Slip'
-                    : paymentInfo.payment_method === 'physical_cash' || paymentInfo.payment_method === 'physical_pay'
-                    ? 'Physical Cash Payment'
-                    : 'Physical Cash Payment'}
-                </Text>
-              </View>
-
-              {paymentInfo.receipt_number ? (
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Official Receipt No</Text>
-                  <Text style={styles.infoValue}>{paymentInfo.receipt_number}</Text>
-                </View>
-              ) : null}
-
-              {paymentInfo.notes ? (
-                <View style={[styles.infoItem, { width: '100%' }]}>
-                  <Text style={styles.infoLabel}>Admin Remarks</Text>
-                  <Text style={styles.infoValue}>{paymentInfo.notes}</Text>
-                </View>
-              ) : null}
-            </View>
-
-            {/* Bank Deposit Slip Thumbnail if available */}
-            {paymentInfo.payment_slip ? (
-              <View style={styles.slipContainer}>
-                <Text style={styles.slipTitle}>Bank Deposit Slip Document</Text>
-                <TouchableOpacity
-                  style={styles.slipImageWrapper}
-                  onPress={() => setSlipZoomVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Image
-                    source={paymentInfo.payment_slip}
-                    style={styles.slipImagePreview}
-                    contentFit="cover"
-                  />
-                  <View style={styles.slipOverlayBadge}>
-                    <Icon name="expand-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.slipOverlayText}>Tap to View Full Image</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-          </View>
-
-          {/* 6. Quick Actions Section */}
-          <View style={styles.menuListSection}>
-            <TouchableOpacity
-              style={styles.menuCard}
-              onPress={() => setPassModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuLeftContent}>
-                <Icon name="lock-closed-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-                <Text style={styles.menuText}>Change Password</Text>
-              </View>
-              <Icon name="chevron-forward" size={18} color="#A1A1AA" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuCard}
-              onPress={() => setHelpModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuLeftContent}>
-                <Icon name="help-circle-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-                <Text style={styles.menuText}>Help & Support</Text>
-              </View>
-              <Icon name="chevron-forward" size={18} color="#A1A1AA" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.menuCard, styles.logoutMenuCard]}
-              onPress={() => setLogoutModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuLeftContent}>
-                <Icon name="log-out-outline" size={20} color="#EF4444" style={styles.menuIcon} />
-                <Text style={[styles.menuText, { color: '#EF4444', fontWeight: '700' }]}>
-                  Logout
-                </Text>
-              </View>
-              <Icon name="chevron-forward" size={18} color="#FCA5A5" />
-            </TouchableOpacity>
-          </View>
+            <Icon name="chevron-forward" size={18} color="#FCA5A5" />
+          </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* ========================================================================= */}
+      {/* MY DETAILS MODAL VIEW */}
+      {/* ========================================================================= */}
+      <Modal visible={myDetailsModalVisible} animationType="slide" transparent={false}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F4F6' }} edges={['top']}>
+          {/* Modal Header */}
+          <View style={styles.modalHeaderBar}>
+            <TouchableOpacity
+              style={styles.modalBackBtn}
+              onPress={() => setMyDetailsModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Icon name="chevron-back" size={24} color="#18181B" />
+            </TouchableOpacity>
+            <Text style={styles.modalHeaderTitle}>My Details</Text>
+            <TouchableOpacity
+              style={styles.modalEditHeaderBtn}
+              onPress={() => setEditModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Icon name="pencil-outline" size={20} color="#F58220" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 14 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* 1. Personal Details Card */}
+            <View style={styles.detailCard}>
+              <View style={styles.cardHeaderRow}>
+                <Icon name="person-outline" size={20} color="#F58220" />
+                <Text style={styles.cardHeaderTitle}>Personal Information</Text>
+              </View>
+              <View style={styles.cardDivider} />
+
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Full Name</Text>
+                  <Text style={styles.infoValue}>{profile.name || '-'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Email Address</Text>
+                  <Text style={styles.infoValue}>{profile.email || '-'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Date of Birth</Text>
+                  <Text style={styles.infoValue}>{profile.date_of_birth || 'Not Specified'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Gender</Text>
+                  <Text style={styles.infoValue}>
+                    {profile.gender ? profile.gender.toUpperCase() : 'Not Specified'}
+                  </Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>NIC Number</Text>
+                  <Text style={styles.infoValue}>{profile.nic || 'Not Provided'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Contact Phone</Text>
+                  <Text style={styles.infoValue}>{profile.phone || 'Not Provided'}</Text>
+                </View>
+                <View style={[styles.infoItem, { width: '100%' }]}>
+                  <Text style={styles.infoLabel}>Residential Address</Text>
+                  <Text style={styles.infoValue}>{profile.address || 'Not Provided'}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 2. Parent / Guardian Details Card */}
+            <View style={styles.detailCard}>
+              <View style={styles.cardHeaderRow}>
+                <Icon name="people-outline" size={20} color="#F58220" />
+                <Text style={styles.cardHeaderTitle}>Parent / Guardian Information</Text>
+              </View>
+              <View style={styles.cardDivider} />
+
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Guardian Name</Text>
+                  <Text style={styles.infoValue}>{profile.guardian?.name || 'Not Provided'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Relationship</Text>
+                  <Text style={styles.infoValue}>{profile.guardian?.relationship || 'Not Provided'}</Text>
+                </View>
+                <View style={[styles.infoItem, { width: '100%' }]}>
+                  <Text style={styles.infoLabel}>Guardian Contact Phone</Text>
+                  <Text style={styles.infoValue}>{profile.guardian?.phone || 'Not Provided'}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 3. Educational Background Card */}
+            <View style={styles.detailCard}>
+              <View style={styles.cardHeaderRow}>
+                <Icon name="school-outline" size={20} color="#F58220" />
+                <Text style={styles.cardHeaderTitle}>Educational Qualifications</Text>
+              </View>
+              <View style={styles.cardDivider} />
+
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Highest Level Attained</Text>
+                  <Text style={styles.infoValue}>
+                    {profile.educational_qualification?.highest_level || 'Not Specified'}
+                  </Text>
+                </View>
+                {profile.educational_qualification?.grade_level ? (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Current Grade Level</Text>
+                    <Text style={styles.infoValue}>{profile.educational_qualification.grade_level}</Text>
+                  </View>
+                ) : null}
+                {profile.educational_qualification?.institute_name ? (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>School / Institute</Text>
+                    <Text style={styles.infoValue}>{profile.educational_qualification.institute_name}</Text>
+                  </View>
+                ) : null}
+                <View style={[styles.infoItem, { width: '100%' }]}>
+                  <Text style={styles.infoLabel}>Qualification Details</Text>
+                  <Text style={styles.infoValue}>
+                    {profile.educational_qualification?.details || 'No additional details logged'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 4. Enrolled Courses Card */}
+            <View style={styles.detailCard}>
+              <View style={styles.cardHeaderRow}>
+                <Icon name="book-outline" size={20} color="#F58220" />
+                <Text style={styles.cardHeaderTitle}>Enrolled Courses</Text>
+              </View>
+              <View style={styles.cardDivider} />
+
+              {profile.enrolled_courses && profile.enrolled_courses.length > 0 ? (
+                profile.enrolled_courses.map((course: any, idx: number) => (
+                  <View key={course._id || idx} style={styles.courseRowItem}>
+                    <View style={styles.courseBadge}>
+                      <Text style={styles.courseBadgeText}>{course.code || 'COURSE'}</Text>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.courseTitleText}>{course.title}</Text>
+                      {course.course_fee !== undefined ? (
+                        <Text style={styles.courseSubFee}>Fee: {formatCurrency(course.course_fee)}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>No enrolled courses registered yet.</Text>
+              )}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* PAYMENT DETAILS MODAL VIEW */}
+      {/* ========================================================================= */}
+      <Modal visible={paymentDetailsModalVisible} animationType="slide" transparent={false}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F4F6' }} edges={['top']}>
+          {/* Modal Header */}
+          <View style={styles.modalHeaderBar}>
+            <TouchableOpacity
+              style={styles.modalBackBtn}
+              onPress={() => setPaymentDetailsModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Icon name="chevron-back" size={24} color="#18181B" />
+            </TouchableOpacity>
+            <Text style={styles.modalHeaderTitle}>Payment Details</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          <ScrollView
+            contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 14 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.detailCard}>
+              <View style={styles.cardHeaderRow}>
+                <Icon name="card-outline" size={20} color="#F58220" />
+                <Text style={styles.cardHeaderTitle}>Payment Information</Text>
+              </View>
+              <View style={styles.cardDivider} />
+
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Total Course Fee</Text>
+                  <Text style={styles.infoValue}>{formatCurrency(totalFee)}</Text>
+                </View>
+
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Amount Paid</Text>
+                  <Text style={[styles.infoValue, { color: '#15803D' }]}>{formatCurrency(amountPaid)}</Text>
+                </View>
+
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Remaining Balance</Text>
+                  <Text style={[styles.infoValue, { color: remainingBalance > 0 ? '#C2410C' : '#15803D' }]}>
+                    {formatCurrency(remainingBalance)}
+                  </Text>
+                </View>
+
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Payment Status</Text>
+                  <Text style={[styles.infoValue, { color: statusBadge.color, fontWeight: '700' }]}>
+                    {statusBadge.text}
+                  </Text>
+                </View>
+
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Payment Method</Text>
+                  <Text style={styles.infoValue}>
+                    {paymentInfo.payment_method === 'bank_slip' || paymentInfo.payment_method === 'bank_transfer'
+                      ? 'Bank Deposit Slip'
+                      : paymentInfo.payment_method === 'physical_cash' || paymentInfo.payment_method === 'physical_pay'
+                      ? 'Physical Cash Payment'
+                      : 'Physical Cash Payment'}
+                  </Text>
+                </View>
+
+                {paymentInfo.receipt_number ? (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Official Receipt No</Text>
+                    <Text style={styles.infoValue}>{paymentInfo.receipt_number}</Text>
+                  </View>
+                ) : null}
+
+                {paymentInfo.notes ? (
+                  <View style={[styles.infoItem, { width: '100%' }]}>
+                    <Text style={styles.infoLabel}>Admin Remarks</Text>
+                    <Text style={styles.infoValue}>{paymentInfo.notes}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Bank Deposit Slip Thumbnail if available */}
+              {paymentInfo.payment_slip ? (
+                <View style={styles.slipContainer}>
+                  <Text style={styles.slipTitle}>Bank Deposit Slip Document</Text>
+                  <TouchableOpacity
+                    style={styles.slipImageWrapper}
+                    onPress={() => setSlipZoomVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Image
+                      source={paymentInfo.payment_slip}
+                      style={styles.slipImagePreview}
+                      contentFit="cover"
+                    />
+                    <View style={styles.slipOverlayBadge}>
+                      <Icon name="expand-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.slipOverlayText}>Tap to View Full Image</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
 
       {/* ========================================================================= */}
       {/* BANK SLIP ZOOM MODAL */}
@@ -923,6 +1013,33 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
+  /* MODAL HEADER BAR */
+  modalHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E4E4E7',
+  },
+  modalBackBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#F4F4F6',
+  },
+  modalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#18181B',
+  },
+  modalEditHeaderBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#FFF7ED',
+  },
+
   /* MAIN PROFILE CARD */
   profileCard: {
     backgroundColor: '#FFFFFF',
@@ -994,38 +1111,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 
-  /* SEGMENT TAB SWITCHER */
-  segmentContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#E4E4E7',
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 16,
-  },
-  segmentBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    paddingVertical: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 10,
-  },
-  segmentBtnActive: {
-    backgroundColor: '#18181B',
-  },
-  segmentText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#71717A',
-  },
-  segmentTextActive: {
-    color: '#FFFFFF',
-  },
-
   /* SECTIONS & DETAIL CARDS */
-  tabContentSection: {
-    gap: 14,
-  },
   detailCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
@@ -1110,60 +1196,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 
-  /* FEE CARDS ROW */
-  feeCardsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  feeCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
-  },
-  feeCardLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#71717A',
-  },
-  feeCardValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#18181B',
-    marginTop: 4,
-  },
-  balanceCard: {
-    backgroundColor: '#18181B',
-    borderRadius: 16,
-    padding: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  balanceLabel: {
-    fontSize: 12,
-    color: '#A1A1AA',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  balanceValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginTop: 2,
-  },
-  statusPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statusPillText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-
   /* SLIP PREVIEW */
   slipContainer: {
     marginTop: 14,
@@ -1204,44 +1236,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     marginLeft: 6,
-  },
-  noSlipBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  noSlipText: {
-    fontSize: 12.5,
-    color: '#6B7280',
-    marginLeft: 8,
-    flex: 1,
-  },
-
-  /* NOTICE CARD */
-  noticeCard: {
-    flexDirection: 'row',
-    backgroundColor: '#EFF6FF',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    alignItems: 'flex-start',
-  },
-  noticeTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E40AF',
-  },
-  noticeBody: {
-    fontSize: 12.5,
-    color: '#1E3A8A',
-    marginTop: 2,
-    lineHeight: 18,
   },
 
   /* MENU ACTION LIST CARDS */
@@ -1484,4 +1478,3 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
-
