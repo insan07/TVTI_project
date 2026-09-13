@@ -226,11 +226,7 @@ export default function ManageResultsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Title Header */}
-      <View style={styles.topHeader}>
-        <Text style={styles.pageTitle}>Academic Results</Text>
-        <Text style={styles.pageSubtitle}>Manage and publish evaluation marks for vocational batches.</Text>
-      </View>
+
 
       {/* Controls Bar: Batch Dropdown & Toggle Button */}
       <View style={styles.controlsBar}>

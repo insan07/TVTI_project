@@ -177,11 +177,7 @@ export default function CourseManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Title & Subtitle */}
-      <View style={styles.topHeaderContainer}>
-        <Text style={styles.title}>Courses</Text>
-        <Text style={styles.subtitle}>Manage vocational training modules and syllabi.</Text>
-      </View>
+
 
       {/* Search Input */}
       <View style={styles.searchContainer}>

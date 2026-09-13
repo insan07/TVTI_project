@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,17 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
+import { AuthContext } from '../../context/AuthContext';
 
 export default function AdminDashboardScreen() {
+  const context = useContext(AuthContext);
+  if (!context) return null;
+  const { user } = context;
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
@@ -102,60 +108,42 @@ export default function AdminDashboardScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F97316']} />}
-      >
-        {/* Header */}
-        <Text style={styles.headerTitle}>Dashboard</Text>
+    <ScrollView
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F97316']} />}
+      showsVerticalScrollIndicator={false}
+    >
 
-        {loading ? (
-          <ActivityIndicator size="large" color="#F97316" style={{ marginTop: 40 }} />
-        ) : (
-          <>
-            {/* Stat Cards Grid (2x2) */}
-            <View style={styles.gridContainer}>
-              <View style={styles.statCard}>
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.statLabel}>Total Students</Text>
-                  <View style={styles.iconCircle}>
-                    <Icon name="people-outline" size={16} color="#F97316" />
-                  </View>
-                </View>
-                <Text style={styles.statValue}>{stats.totalStudents.toLocaleString()}</Text>
-              </View>
 
-              <View style={styles.statCard}>
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.statLabel}>Instructors</Text>
-                  <View style={styles.iconCircle}>
-                    <Icon name="school-outline" size={16} color="#F97316" />
-                  </View>
-                </View>
-                <Text style={styles.statValue}>{stats.totalInstructors.toLocaleString()}</Text>
-              </View>
+      {/* 2. Welcome Banner */}
+      <LinearGradient colors={['#2D2D2D', '#111111']} style={styles.bannerContainer}>
+        <Text style={styles.welcomeText}>Welcome back, {user?.name?.split(' ')[0] || 'Admin'}</Text>
+        <Text style={styles.subWelcomeText}>Here is your administrative overview</Text>
+      </LinearGradient>
 
-              <View style={styles.statCard}>
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.statLabel}>Active Courses</Text>
-                  <View style={styles.iconCircle}>
-                    <Icon name="book-outline" size={16} color="#F97316" />
-                  </View>
-                </View>
-                <Text style={styles.statValue}>{stats.activeCourses.toLocaleString()}</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.statLabel}>Pending Appr.</Text>
-                  <View style={styles.iconCircle}>
-                    <Icon name="clipboard-outline" size={16} color="#F97316" />
-                  </View>
-                </View>
-                <Text style={styles.statValue}>{stats.pendingApprovalsCount.toLocaleString()}</Text>
-              </View>
+      {loading ? (
+        <ActivityIndicator size="large" color="#F97316" style={{ marginTop: 40 }} />
+      ) : (
+        <>
+          {/* 3. Stat Cards */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{stats.totalStudents}</Text>
+              <Text style={styles.statLabel}>STUDENTS</Text>
             </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{stats.totalInstructors}</Text>
+              <Text style={styles.statLabel}>INSTRUCTORS</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{stats.activeCourses}</Text>
+              <Text style={styles.statLabel}>COURSES</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{stats.pendingApprovalsCount}</Text>
+              <Text style={styles.statLabel}>PENDING</Text>
+            </View>
+          </View>
 
             {/* Quick Management Actions Section */}
             <View style={styles.sectionCard}>
@@ -261,68 +249,49 @@ export default function AdminDashboardScreen() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F3F4F6',
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 16,
-    marginTop: 4,
-  },
-  gridContainer: {
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  headerContainer: {
+    backgroundColor: '#111111',
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  brandContainer: { flexDirection: 'row', alignItems: 'center' },
+  logoBadge: {
+    width: 22, height: 22, borderRadius: 11, backgroundColor: '#F97316',
+    justifyContent: 'center', alignItems: 'center', marginRight: 6,
+  },
+  brandText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  profileBtn: { padding: 6 },
+
+  bannerContainer: {
+    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 52,
+    borderBottomLeftRadius: 16, borderBottomRightRadius: 16,
+  },
+  welcomeText: { color: '#FFF', fontSize: 22, fontWeight: 'bold', marginBottom: 4 },
+  subWelcomeText: { color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 },
+
+  statsContainer: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingHorizontal: 16, marginTop: -32, marginBottom: 16,
   },
   statCard: {
-    backgroundColor: '#FFFFFF',
-    width: '48%',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.04)',
-    elevation: 1,
+    backgroundColor: '#FFF', flex: 1, paddingVertical: 14,
+    borderRadius: 12, marginHorizontal: 4, alignItems: 'center',
+    borderWidth: 1, borderColor: '#E5E7EB', elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2,
   },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4B5563',
-  },
-  iconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFF7ED',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#F97316',
-  },
+  statValue: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
+  statLabel: { fontSize: 9, fontWeight: '600', color: '#9CA3AF', marginTop: 4 },
   sectionCard: {
+    marginHorizontal: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 16,

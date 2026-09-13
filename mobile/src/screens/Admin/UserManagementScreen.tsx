@@ -395,11 +395,7 @@ export default function UserManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Top Header */}
-      <View style={styles.topHeaderContainer}>
-        <Text style={styles.title}>Users & Applications</Text>
-        <Text style={styles.subtitle}>Manage pending student applications, approved students, and instructors.</Text>
-      </View>
+
 
       {/* 3 Main Options Tabs Header */}
       <View style={{ flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>

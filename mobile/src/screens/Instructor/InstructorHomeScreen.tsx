@@ -82,18 +82,7 @@ export default function InstructorHomeScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F58220']} />}
       showsVerticalScrollIndicator={false}
     >
-      {/* 1. Custom Brand Header */}
-      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-        <View style={styles.brandContainer}>
-          <View style={styles.logoBadge}>
-            <Icon name="ribbon" size={12} color="#FFF" />
-          </View>
-          <Text style={styles.brandText}>Twintec VTI</Text>
-        </View>
-        <TouchableOpacity style={styles.profileBtn} onPress={() => navigation.navigate('Profile')}>
-          <Icon name="person-circle-outline" size={28} color="#FFF" />
-        </TouchableOpacity>
-      </View>
+
 
       {/* 2. Welcome Banner */}
       <LinearGradient colors={['#2D2D2D', '#111111']} style={styles.bannerContainer}>

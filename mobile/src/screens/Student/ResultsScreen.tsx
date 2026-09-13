@@ -62,15 +62,6 @@ export default function ResultsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home'))}>
-          <Icon name="arrow-back" size={22} color="#1A1A1A" />
-        </TouchableOpacity>
-        <Text style={styles.pageHeaderTitle}>My Results</Text>
-        <View style={{ width: 32 }} />
-      </View>
-
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         <View style={styles.contentPadding}>
           {/* Select Batch Dropdown */}

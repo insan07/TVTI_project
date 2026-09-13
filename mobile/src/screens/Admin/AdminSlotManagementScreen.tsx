@@ -390,13 +390,7 @@ export default function AdminSlotManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Top Header */}
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.headerTitle}>Practical Slots Control</Text>
-          <Text style={styles.headerSubtitle}>Manage lab stations, instructor schedules, & student bookings.</Text>
-        </View>
-      </View>
+
 
       {/* Main Mode Tabs */}
       <View style={styles.tabContainer}>

@@ -606,12 +606,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {!embedded && (
-        <View style={styles.topHeader}>
-          <Text style={styles.pageTitle}>Student Applications</Text>
-          <Text style={styles.pageSubtitle}>Review registrations, track payment status, and issue registration numbers.</Text>
-        </View>
-      )}
+
 
       {/* Tabs Filter Header */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsBar}>
