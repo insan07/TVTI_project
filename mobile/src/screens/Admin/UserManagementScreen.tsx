@@ -10,7 +10,8 @@ import {
   Alert,
   Modal,
   ScrollView,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import api from '../../services/api';
 import CustomDropdown from '../../components/shared/CustomDropdown';
@@ -35,6 +36,7 @@ export default function UserManagementScreen() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [showFilter, setShowFilter] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   // User Details Modal State
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
@@ -117,7 +119,7 @@ export default function UserManagementScreen() {
     try {
       let url = '/admin/users';
       if (activeTab === 'approved') {
-        url += '?role=student&status=active';
+        url += '?role=student';
       } else if (activeTab === 'instructors') {
         url += '?role=instructor';
       }
@@ -270,11 +272,23 @@ export default function UserManagementScreen() {
     }
   };
 
-  const filteredUsers = (users || []).filter(
-    u =>
-      (u?.name || '').toLowerCase().includes((search || '').toLowerCase()) ||
-      (u?.email || '').toLowerCase().includes((search || '').toLowerCase())
-  );
+  const filteredUsers = (users || []).filter(u => {
+    const term = (search || '').toLowerCase().trim();
+    const matchesSearch =
+      !term ||
+      (u?.name || '').toLowerCase().includes(term) ||
+      (u?.email || '').toLowerCase().includes(term) ||
+      (u?.index_number || '').toLowerCase().includes(term) ||
+      (u?.nic || '').toLowerCase().includes(term);
+
+    if (activeTab === 'approved') {
+      if (statusFilter === 'active') return matchesSearch && u.is_active === true;
+      if (statusFilter === 'inactive') return matchesSearch && u.is_active === false;
+      return matchesSearch;
+    }
+
+    return matchesSearch;
+  });
 
   const getInitials = (name?: string) => {
     if (!name || typeof name !== 'string') return 'U';
@@ -337,7 +351,7 @@ export default function UserManagementScreen() {
         </View>
         <View style={[styles.statusBadge, { backgroundColor: item.is_active ? '#D1FAE5' : '#FEE2E2' }]}>
           <Text style={[styles.statusBadgeText, { color: item.is_active ? '#065F46' : '#991B1B' }]}>
-            {item.is_active ? 'Active' : 'Inactive'}
+            {item.is_active ? 'Active' : 'Deactivated'}
           </Text>
         </View>
       </View>
@@ -347,8 +361,13 @@ export default function UserManagementScreen() {
           <Text style={styles.viewProfileText}>View Profile →</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity style={styles.deactivateBtn} onPress={() => handleToggleActive(item._id, item.is_active, item.name)}>
-            <Text style={styles.deactivateBtnText}>{item.is_active ? 'Deactivate' : 'Activate'}</Text>
+          <TouchableOpacity
+            style={[styles.deactivateBtn, !item.is_active && styles.activateBtn]}
+            onPress={() => handleToggleActive(item._id, item.is_active, item.name)}
+          >
+            <Text style={[styles.deactivateBtnText, !item.is_active && styles.activateBtnText]}>
+              {item.is_active ? 'Deactivate' : 'Activate'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.assignBatchBtn}
@@ -432,7 +451,7 @@ export default function UserManagementScreen() {
 
       {/* Content View */}
       {activeTab === 'pending' ? (
-        <ApplicationsManagementScreen embedded={true} />
+        <ApplicationsManagementScreen embedded={true} onApproved={fetchUsers} />
       ) : (
         <>
           {/* Add Instructor Button (only on instructors tab) */}
@@ -451,7 +470,7 @@ export default function UserManagementScreen() {
               <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search by name or email..."
+                placeholder="Search by name, email, reg no, or NIC..."
                 placeholderTextColor="#9CA3AF"
                 value={search}
                 onChangeText={setSearch}
@@ -461,10 +480,43 @@ export default function UserManagementScreen() {
               style={[styles.filterBtn, showFilter && styles.filterBtnActive]}
               onPress={() => setShowFilter(!showFilter)}
             >
-              <Icon name="options-outline" size={18} color="#374151" style={{ marginRight: 6 }} />
-              <Text style={styles.filterBtnText}>Filters</Text>
+              <Icon name="options-outline" size={18} color={showFilter ? '#FFFFFF' : '#374151'} style={{ marginRight: 6 }} />
+              <Text style={[styles.filterBtnText, showFilter && { color: '#FFFFFF' }]}>Filters</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Filter Options Panel for Approved Tab */}
+          {showFilter && activeTab === 'approved' && (
+            <View style={styles.filterOptionsPanel}>
+              <Text style={styles.filterPanelTitle}>Filter Student Status:</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                <TouchableOpacity
+                  style={[styles.filterChip, statusFilter === 'all' && styles.filterChipActive]}
+                  onPress={() => setStatusFilter('all')}
+                >
+                  <Text style={[styles.filterChipText, statusFilter === 'all' && styles.filterChipTextActive]}>
+                    All ({users.length})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterChip, statusFilter === 'active' && styles.filterChipActive]}
+                  onPress={() => setStatusFilter('active')}
+                >
+                  <Text style={[styles.filterChipText, statusFilter === 'active' && styles.filterChipTextActive]}>
+                    Active ({users.filter(u => u.is_active).length})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterChip, statusFilter === 'inactive' && styles.filterChipActive]}
+                  onPress={() => setStatusFilter('inactive')}
+                >
+                  <Text style={[styles.filterChipText, statusFilter === 'inactive' && styles.filterChipTextActive]}>
+                    Deactivated ({users.filter(u => !u.is_active).length})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* Content List */}
           {loading ? (
@@ -528,20 +580,40 @@ export default function UserManagementScreen() {
 
                 {/* Scrollable Profile Body */}
                 <ScrollView style={{ flex: 1, padding: 16 }} showsVerticalScrollIndicator={false}>
-                  {/* 1. Basic Info Card */}
+                  {/* 1. Personal Contact & Identity Card */}
                   <View style={styles.detailSectionCard}>
-                    <Text style={styles.detailSectionTitle}>👤 Contact & Identity</Text>
+                    <Text style={styles.detailSectionTitle}>👤 Personal & Contact Info</Text>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Reg No:</Text>
+                      <Text style={styles.detailLabel}>Reg No / Index:</Text>
                       <Text style={[styles.detailValue, { fontWeight: 'bold', color: '#059669' }]}>{userDetails.user.index_number || 'Pending'}</Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>NIC Number:</Text>
-                      <Text style={styles.detailValue}>{userDetails.user.nic || 'N/A'}</Text>
+                      <Text style={styles.detailLabel}>Full Name:</Text>
+                      <Text style={styles.detailValue}>{userDetails.user.name}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Email Address:</Text>
+                      <Text style={styles.detailValue}>{userDetails.user.email}</Text>
                     </View>
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>Phone Number:</Text>
                       <Text style={styles.detailValue}>{userDetails.user.phone || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Date of Birth:</Text>
+                      <Text style={styles.detailValue}>{userDetails.user.date_of_birth || 'Not Provided'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Gender:</Text>
+                      <Text style={styles.detailValue}>{userDetails.user.gender || 'Not Provided'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>NIC Number:</Text>
+                      <Text style={styles.detailValue}>{userDetails.user.nic || 'Optional / Not Provided'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Residential Address:</Text>
+                      <Text style={styles.detailValue}>{userDetails.user.address || 'Not Provided'}</Text>
                     </View>
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>Joined Date:</Text>
@@ -551,7 +623,89 @@ export default function UserManagementScreen() {
                     </View>
                   </View>
 
-                  {/* 2. STUDENT SPECIFIC DETAILS */}
+                  {/* 2. Parent / Guardian Details Card */}
+                  {userDetails.user.role === 'student' && (
+                    <View style={styles.detailSectionCard}>
+                      <Text style={styles.detailSectionTitle}>👨‍👩‍👦 Parent / Guardian Details</Text>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Guardian Name:</Text>
+                        <Text style={styles.detailValue}>{userDetails.user.guardian?.name || 'Not Provided'}</Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Relationship:</Text>
+                        <Text style={styles.detailValue}>{userDetails.user.guardian?.relationship || 'Not Provided'}</Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Guardian Phone:</Text>
+                        <Text style={styles.detailValue}>{userDetails.user.guardian?.phone || 'Not Provided'}</Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Occupation:</Text>
+                        <Text style={styles.detailValue}>{userDetails.user.guardian?.occupation || 'Not Provided'}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* 3. Educational Qualifications Card */}
+                  {userDetails.user.role === 'student' && (
+                    <View style={styles.detailSectionCard}>
+                      <Text style={styles.detailSectionTitle}>🎓 Educational Qualifications</Text>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Highest Level:</Text>
+                        <Text style={styles.detailValue}>{userDetails.user.educational_qualification?.highest_level || 'Not Provided'}</Text>
+                      </View>
+                      {userDetails.user.educational_qualification?.grade_level ? (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Grade Level:</Text>
+                          <Text style={styles.detailValue}>{userDetails.user.educational_qualification.grade_level}</Text>
+                        </View>
+                      ) : null}
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>School / Institute:</Text>
+                        <Text style={styles.detailValue}>{userDetails.user.educational_qualification?.institute_name || 'Not Provided'}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* 4. Payment & Deposit Details Card */}
+                  {userDetails.user.role === 'student' && (
+                    <View style={styles.detailSectionCard}>
+                      <Text style={styles.detailSectionTitle}>💳 Payment & Fee Info</Text>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Payment Method:</Text>
+                        <Text style={[styles.detailValue, { fontWeight: 'bold' }]}>
+                          {userDetails.user.payment_info?.payment_method === 'bank_transfer'
+                            ? 'Bank Deposit Slip Upload'
+                            : 'Physical Cash Counter Payment'}
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Payment Status:</Text>
+                        <Text style={[styles.detailValue, { fontWeight: 'bold', color: userDetails.user.payment_info?.payment_status === 'paid' ? '#059669' : '#D97706' }]}>
+                          {userDetails.user.payment_info?.payment_status?.toUpperCase() || 'PENDING'}
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Total Course Fee:</Text>
+                        <Text style={styles.detailValue}>Rs. {userDetails.user.payment_info?.total_fee ? userDetails.user.payment_info.total_fee.toLocaleString() : '0'}</Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Amount Paid:</Text>
+                        <Text style={styles.detailValue}>Rs. {userDetails.user.payment_info?.amount_paid ? userDetails.user.payment_info.amount_paid.toLocaleString() : '0'}</Text>
+                      </View>
+                      {userDetails.user.payment_info?.payment_slip ? (
+                        <View style={{ marginTop: 8 }}>
+                          <Text style={styles.detailLabel}>Deposit Receipt Slip:</Text>
+                          <Image
+                            source={{ uri: userDetails.user.payment_info.payment_slip }}
+                            style={{ width: '100%', height: 160, borderRadius: 10, marginTop: 6, resizeMode: 'contain', backgroundColor: '#F3F4F6' }}
+                          />
+                        </View>
+                      ) : null}
+                    </View>
+                  )}
+
+                  {/* 5. STUDENT SPECIFIC DETAILS */}
                   {userDetails.user.role === 'student' && (
                     <>
                       {/* Academic Performance Summary */}
@@ -828,9 +982,9 @@ export default function UserManagementScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { alignItems: 'center' }]}>
             <View style={{ marginBottom: 12 }}>
-              <Icon name="checkmark-circle" size={50} color="#10B981" />
+              <Icon name="checkmark-circle-outline" size={50} color="#10B981" />
             </View>
-            <Text style={styles.modalTitle}>User Approved! 🎉</Text>
+            <Text style={styles.modalTitle}>User Account Approved</Text>
             <Text style={{ fontSize: 13, color: '#6B7280', textAlign: 'center', marginBottom: 16 }}>
               Student account created & registration number generated successfully.
             </Text>
@@ -839,11 +993,11 @@ export default function UserManagementScreen() {
               <View style={{ backgroundColor: '#111827', borderRadius: 12, padding: 16, width: '100%', marginBottom: 14 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Registration No:</Text>
-                  <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#F58220' }}>{approvedCredentials.index_number}</Text>
+                  <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#10B981' }}>{approvedCredentials.index_number}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Temp Password:</Text>
-                  <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#F58220' }}>{approvedCredentials.temp_password}</Text>
+                  <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#10B981' }}>{approvedCredentials.temp_password}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Student Email:</Text>
@@ -852,10 +1006,10 @@ export default function UserManagementScreen() {
               </View>
             )}
 
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FFFBEB', borderRadius: 8, padding: 10, marginBottom: 18 }}>
-              <Icon name="time-outline" size={18} color="#92400E" style={{ marginRight: 8 }} />
-              <Text style={{ flex: 1, fontSize: 12, color: '#92400E', lineHeight: 16 }}>
-                Temporary password expires in 7 days. Upon first login, the student will be prompted to set a permanent password.
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#F0FDFA', borderRadius: 8, padding: 10, marginBottom: 18 }}>
+              <Icon name="shield-checkmark-outline" size={18} color="#0F766E" style={{ marginRight: 8 }} />
+              <Text style={{ flex: 1, fontSize: 12, color: '#0F766E', lineHeight: 16 }}>
+                Temporary password expires in 7 days. Official portal credentials have been dispatched to the student's email.
               </Text>
             </View>
 
@@ -863,7 +1017,7 @@ export default function UserManagementScreen() {
               style={{ backgroundColor: '#000000', borderRadius: 10, paddingVertical: 12, width: '100%', alignItems: 'center' }}
               onPress={() => setCredentialsModalVisible(false)}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 }}>Done</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 }}>Close & Return</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1213,6 +1367,48 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontWeight: '600',
     fontSize: 13,
+  },
+  activateBtn: {
+    borderColor: '#A7F3D0',
+    backgroundColor: '#ECFDF5',
+  },
+  activateBtnText: {
+    color: '#059669',
+  },
+  filterOptionsPanel: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  filterPanelTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterChipActive: {
+    backgroundColor: '#111827',
+    borderColor: '#111827',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
   },
   assignBatchBtn: {
     backgroundColor: '#10B981',

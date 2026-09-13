@@ -76,6 +76,7 @@ const StudentTabs = ({ unreadCount }: { unreadCount: number; insets: any }) => (
   <Tab.Navigator
     tabBar={(props) => <CustomFloatingTabBar {...props} />}
     screenOptions={{ headerShown: false }}
+    backBehavior="history"
   >
     <Tab.Screen name="Home" options={{ tabBarLabel: 'Home' }}>
       {(props) => <HomeScreen {...props} unreadCount={unreadCount} />}
@@ -94,6 +95,7 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
   <Tab.Navigator
     tabBar={(props) => <CustomFloatingTabBar {...props} />}
     screenOptions={{ headerShown: false }}
+    backBehavior="history"
   >
     <Tab.Screen name="Home" component={InstructorHomeScreen} options={{ tabBarLabel: 'Home' }} />
     <Tab.Screen
@@ -139,6 +141,7 @@ const AdminTabs = ({ insets }: { insets: any }) => (
   <Tab.Navigator
     tabBar={(props) => <CustomFloatingTabBar {...props} />}
     screenOptions={{ headerShown: false }}
+    backBehavior="history"
   >
     <Tab.Screen name="Home" component={AdminDashboardScreen} options={{ tabBarLabel: 'Dashboard' }} />
     <Tab.Screen name="Users" component={UserManagementScreen} options={{ tabBarLabel: 'Users' }} />

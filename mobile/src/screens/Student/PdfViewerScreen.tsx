@@ -85,7 +85,7 @@ export default function PdfViewerScreen() {
     <View style={styles.container}>
       {/* Top Header Bar */}
       <View style={[styles.topHeaderBar, { paddingTop: insets.top + 6 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('StudentApp'))}>
           <Icon name="arrow-back" size={22} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>

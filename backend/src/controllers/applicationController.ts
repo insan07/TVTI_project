@@ -8,6 +8,7 @@ import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
 import { sendNotification } from '../services/notificationService';
 import { isEmailVerified, consumeEmailVerification } from '../services/otpService';
+import { sendApplicationSubmissionEmail, sendApprovalCredentialsEmail } from '../services/emailService';
 
 export const generateUniqueIndexNumber = async (): Promise<string> => {
   const fullYear = new Date().getFullYear();
@@ -33,7 +34,23 @@ export const generateUniqueIndexNumber = async (): Promise<string> => {
 
 export const submitApplication = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { full_name, nic_number, email, phone, course_id, course_ids, terms_accepted } = req.body;
+    const {
+      full_name,
+      nic_number,
+      email,
+      phone,
+      date_of_birth,
+      gender,
+      address,
+      guardian,
+      educational_qualification,
+      student_photo,
+      payment_method,
+      payment_slip,
+      course_id,
+      course_ids,
+      terms_accepted
+    } = req.body;
 
     let selectedCourseIds: string[] = [];
     if (Array.isArray(course_ids) && course_ids.length > 0) {
@@ -42,8 +59,8 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
       selectedCourseIds = [course_id];
     }
 
-    if (!full_name || !nic_number || !email || !phone || selectedCourseIds.length === 0) {
-      res.status(400).json({ message: 'All application fields and at least one course selection are required' });
+    if (!full_name || !email || !phone || selectedCourseIds.length === 0) {
+      res.status(400).json({ message: 'Full name, email, phone, and at least one course selection are required' });
       return;
     }
 
@@ -61,30 +78,69 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Check if application already submitted with this email or NIC for pending status
-    const existingApp = await Application.findOne({
-      $or: [{ email: email.toLowerCase().trim() }, { nic_number: nic_number.trim() }],
-      status: { $in: ['pending', 'contacted', 'paid'] }
+    // If an un-approved application with this email already exists in pending status, clean it up so the new submission replaces it seamlessly
+    await Application.deleteMany({
+      email: email.toLowerCase().trim(),
+      status: 'pending'
     });
 
-    if (existingApp) {
-      res.status(400).json({
-        message: 'An active application with this email or NIC already exists. Please await admin review.'
-      });
-      return;
+    // Normalize date of birth, gender, address
+    const dob = date_of_birth || req.body.dob || undefined;
+    const gndr = gender || req.body.gender || undefined;
+    const addr = address || req.body.residential_address || undefined;
+
+    // Normalize guardian object (supports nested or flat fields)
+    let guardianData: any = undefined;
+    if (guardian && (guardian.name || guardian.phone || guardian.relationship)) {
+      guardianData = {
+        name: guardian.name ? guardian.name.trim() : undefined,
+        relationship: guardian.relationship || 'Father',
+        phone: guardian.phone ? guardian.phone.trim() : undefined,
+        occupation: guardian.occupation ? guardian.occupation.trim() : undefined
+      };
+    } else if (req.body.guardian_name || req.body.guardian_phone) {
+      guardianData = {
+        name: req.body.guardian_name ? req.body.guardian_name.trim() : undefined,
+        relationship: req.body.guardian_relationship || 'Father',
+        phone: req.body.guardian_phone ? req.body.guardian_phone.trim() : undefined,
+        occupation: req.body.guardian_occupation ? req.body.guardian_occupation.trim() : undefined
+      };
     }
 
-    let validCourseId = course_id;
-    if (!mongoose.Types.ObjectId.isValid(course_id)) {
-      const activeCourse = await Course.findOne({ is_active: true });
-      validCourseId = activeCourse ? activeCourse._id : new mongoose.Types.ObjectId();
+    // Normalize educational qualification object (supports nested or flat fields)
+    let eduData: any = undefined;
+    if (educational_qualification && (educational_qualification.highest_level || educational_qualification.institute_name || educational_qualification.details)) {
+      eduData = {
+        highest_level: educational_qualification.highest_level || 'O/L Completed',
+        grade_level: educational_qualification.grade_level ? educational_qualification.grade_level.trim() : undefined,
+        institute_name: educational_qualification.institute_name ? educational_qualification.institute_name.trim() : undefined,
+        details: educational_qualification.details ? educational_qualification.details.trim() : undefined
+      };
+    } else if (req.body.education_level || req.body.school_name || req.body.highest_level || req.body.qualification_details || req.body.details) {
+      eduData = {
+        highest_level: req.body.education_level || req.body.highest_level || 'O/L Completed',
+        grade_level: req.body.grade_level ? req.body.grade_level.trim() : undefined,
+        institute_name: req.body.school_name ? req.body.school_name.trim() : (req.body.institute_name ? req.body.institute_name.trim() : undefined),
+        details: req.body.qualification_details ? req.body.qualification_details.trim() : (req.body.details ? req.body.details.trim() : undefined)
+      };
     }
 
     const application = await Application.create({
       full_name: full_name.trim(),
-      nic_number: nic_number.trim(),
+      nic_number: nic_number ? nic_number.trim() : undefined,
       email: email.toLowerCase().trim(),
       phone: phone.trim(),
+      date_of_birth: dob ? String(dob).trim() : undefined,
+      gender: gndr ? String(gndr).trim() : undefined,
+      address: addr ? String(addr).trim() : undefined,
+      guardian: guardianData,
+      educational_qualification: eduData,
+      student_photo: student_photo || undefined,
+      payment_method: payment_method || 'physical_pay',
+      payment_slip: payment_slip || undefined,
+      total_course_fee: 0,
+      amount_paid: 0,
+      payment_status: 'pending',
       course_id: selectedCourseIds[0],
       course_ids: selectedCourseIds,
       status: 'pending',
@@ -96,6 +152,14 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
 
     // Consume the OTP verification record so it cannot be reused
     await consumeEmailVerification(email);
+
+    // Send confirmation email asynchronously (non-blocking)
+    sendApplicationSubmissionEmail({
+      to: application.email,
+      studentName: application.full_name
+    }).catch(emailErr => {
+      console.warn('Warning: Failed to send submission confirmation email:', emailErr);
+    });
 
     res.status(201).json({
       message: 'Application submitted successfully. Awaiting TVTI admin review.',
@@ -131,7 +195,7 @@ export const getApplications = async (req: Request, res: Response): Promise<void
 export const updateApplicationStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { status, assigned_course_ids } = req.body;
+    const { status, assigned_course_ids, total_course_fee, amount_paid, payment_status } = req.body;
 
     const application = await Application.findById(id).populate('course_id').populate('course_ids');
     if (!application) {
@@ -145,17 +209,25 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
       application.course_id = assigned_course_ids[0] as any;
     }
 
+    if (total_course_fee !== undefined) {
+      application.total_course_fee = Number(total_course_fee);
+    }
+    if (amount_paid !== undefined) {
+      application.amount_paid = Number(amount_paid);
+    }
+    if (payment_status) {
+      application.payment_status = payment_status;
+    }
+
     let generatedCredentials = null;
 
     if (status === 'approved') {
-      // Find existing student by email or NIC safely
       const orConditions: any[] = [{ email: application.email.toLowerCase() }];
       if (application.nic_number && application.nic_number.trim()) {
         orConditions.push({ nic: application.nic_number.trim() });
       }
       let studentUser = await User.findOne({ $or: orConditions });
 
-      // Generate Temp Password e.g. TVTI#4829
       const randomDigits = Math.floor(1000 + Math.random() * 9000);
       const tempPassword = `TVTI#${randomDigits}`;
       const salt = await bcrypt.genSalt(10);
@@ -165,7 +237,6 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
       let indexNumber = '';
 
       if (studentUser) {
-        // If user exists without index_number, assign one
         if (!studentUser.index_number) {
           studentUser.index_number = await generateUniqueIndexNumber();
         }
@@ -174,16 +245,47 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
         studentUser.must_change_password = true;
         studentUser.temp_password_expires_at = temp_password_expires_at;
         studentUser.is_active = true;
-        studentUser.role = 'student';
+        studentUser.nic = application.nic_number || studentUser.nic;
+        studentUser.date_of_birth = application.date_of_birth || studentUser.date_of_birth;
+        studentUser.gender = application.gender || studentUser.gender;
+        studentUser.address = application.address || studentUser.address;
+        studentUser.guardian = application.guardian || studentUser.guardian;
+        studentUser.educational_qualification = application.educational_qualification || studentUser.educational_qualification;
+        if (application.student_photo && !studentUser.profile_photo) {
+          studentUser.profile_photo = application.student_photo;
+        }
+        studentUser.payment_info = {
+          total_fee: application.total_course_fee || 0,
+          amount_paid: application.amount_paid || 0,
+          payment_status: application.payment_status || 'pending',
+          payment_method: application.payment_method || 'physical_pay',
+          payment_slip: application.payment_slip || '',
+          receipt_number: `REC-${Date.now().toString().slice(-6)}`,
+          last_updated: new Date()
+        };
         await studentUser.save();
       } else {
-        // Create new Student User
         indexNumber = await generateUniqueIndexNumber();
         studentUser = await User.create({
           name: application.full_name,
           email: application.email.toLowerCase(),
           phone: application.phone,
           nic: application.nic_number,
+          date_of_birth: application.date_of_birth,
+          gender: application.gender,
+          address: application.address,
+          guardian: application.guardian,
+          educational_qualification: application.educational_qualification,
+          profile_photo: application.student_photo,
+          payment_info: {
+            total_fee: application.total_course_fee || 0,
+            amount_paid: application.amount_paid || 0,
+            payment_status: application.payment_status || 'pending',
+            payment_method: application.payment_method || 'physical_pay',
+            payment_slip: application.payment_slip || '',
+            receipt_number: `REC-${Date.now().toString().slice(-6)}`,
+            last_updated: new Date()
+          },
           index_number: indexNumber,
           password_hash,
           role: 'student',
@@ -202,7 +304,7 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
         student_id: studentUser._id
       };
 
-      // Auto-enroll into active batch(es) for all selected/assigned courses
+      // Auto-enroll into active batch(es)
       try {
         const coursesToEnroll = (assigned_course_ids && assigned_course_ids.length > 0)
           ? assigned_course_ids
@@ -230,18 +332,28 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
       } catch (enrollErr) {
         console.warn('Auto enrollment warning:', enrollErr);
       }
+
+      // Send official email asynchronously (non-blocking)
+      sendApprovalCredentialsEmail({
+        to: application.email,
+        studentName: application.full_name,
+        indexNumber: indexNumber,
+        tempPassword: tempPassword
+      }).catch(emailErr => {
+        console.warn('Warning: Failed to send approval credentials email:', emailErr);
+      });
     }
 
     await application.save();
 
-    // Send instant notification if student account exists
+    // Send instant notification
     const matchingUser = await User.findOne({ email: application.email.toLowerCase() });
     if (matchingUser) {
       await sendNotification({
         userIds: [matchingUser._id],
         title: `Application ${status.toUpperCase()}`,
         message: status === 'approved'
-          ? `Congratulations! Your TVTI course application has been APPROVED. Index: ${application.generated_index_number || matchingUser.index_number || 'Assigned'}.`
+          ? `Your TVTI course application has been APPROVED.\nRegistration No: ${application.generated_index_number || matchingUser.index_number}\nTemporary Password: ${generatedCredentials?.temp_password || 'Issued'}\nPlease log in to set your permanent password.`
           : `Your TVTI application status has been updated to: ${status}.`,
         type: 'application_update',
         relatedId: application._id,

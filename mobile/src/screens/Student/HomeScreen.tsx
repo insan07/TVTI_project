@@ -106,47 +106,53 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
   ];
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Dark Header Container */}
-      <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top + 8, 16) }]}>
-        <View style={styles.headerTop}>
+    <View style={styles.container}>
+      {/* FIXED STICKY ENTIRE DARK HEADER CARD */}
+      <View style={[styles.stickyHeaderCard, { paddingTop: Math.max(insets.top + 8, 16) }]}>
+        {/* Top Brand Logo & Notification Bar */}
+        <View style={styles.brandHeaderRow}>
+          <View style={styles.brandLogoGroup}>
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={styles.brandLogoImg}
+              resizeMode="contain"
+            />
+            <View style={styles.brandTextColumn}>
+              <Text style={styles.brandTitleText}>TWINTEC VTI</Text>
+            </View>
+          </View>
+
           <TouchableOpacity
             style={styles.bellBtn}
             onPress={() => navigation.navigate('Notifications')}
           >
-            <Icon name="notifications-outline" size={24} color="#FFF" />
+            <Icon name="notifications-outline" size={22} color="#FFF" />
             {unreadCount > 0 && <View style={styles.badgeDot} />}
           </TouchableOpacity>
         </View>
 
         {/* Welcome Section */}
         <View style={styles.welcomeSection}>
-          <View style={styles.avatarWrapper}>
-            <Image
-              source={require('../../../assets/student_avatar.png')}
-              style={styles.avatarImage}
-            />
-          </View>
-          <View style={styles.welcomeTextContainer}>
-            <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.name}>{user?.name || 'Student'}</Text>
-          </View>
+          <Text style={styles.greeting}>Welcome back,</Text>
+          <Text style={styles.name}>{user?.name || 'Student'}</Text>
+          <Text style={styles.regNumberText}>
+            REG NO : {user?.index_number || user?.nic || 'TVTI/2026/001'}
+          </Text>
         </View>
       </View>
 
-      <View style={styles.mainContent}>
+      {/* SCROLLABLE MAIN CONTENT */}
+      <ScrollView
+        style={styles.scrollContent}
+        contentContainerStyle={styles.scrollContentStyle}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.mainContent}>
         {/* ========================================================================= */}
-        {/* SECTION 1: UPCOMING PRACTICAL (EXACT MATCH TO USER SCREENSHOT) */}
+        {/* SECTION 1: UPCOMING PRACTICAL */}
         {/* ========================================================================= */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Upcoming Practical</Text>
-          <View style={styles.campusBadge}>
-            <Text style={styles.campusBadgeText}>On-Campus Lab</Text>
-          </View>
         </View>
 
         <TouchableOpacity
@@ -199,13 +205,10 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
         </TouchableOpacity>
 
         {/* ========================================================================= */}
-        {/* SECTION 2: RECENT THEORY LESSONS (EXACT MATCH TO USER SCREENSHOT) */}
+        {/* SECTION 2: RECENT THEORY LESSONS */}
         {/* ========================================================================= */}
         <View style={[styles.sectionHeaderRow, { marginTop: 28 }]}>
           <Text style={styles.sectionTitle}>Recent Theory Lessons</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Videos')}>
-            <Text style={styles.watchHistoryText}>Watch History</Text>
-          </TouchableOpacity>
         </View>
 
         <View style={styles.lessonsListContainer}>
@@ -255,8 +258,9 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
             );
           })}
         </View>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -266,7 +270,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   scrollContent: {
-    paddingBottom: 110, // Generous space so floating navbar never hides content
+    flex: 1,
+  },
+  scrollContentStyle: {
+    paddingBottom: 110,
   },
   loadingContainer: {
     flex: 1,
@@ -275,23 +282,52 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
 
-  /* DARK HEADER CONTAINER */
-  headerContainer: {
+  /* DARK HEADER BANNER CONTAINER */
+  stickyHeaderCard: {
     backgroundColor: '#121214',
     paddingHorizontal: 20,
     paddingBottom: 24,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
+    zIndex: 10,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.15)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5 },
+    }),
   },
-  headerTop: {
+
+  brandHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  brandLogoGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandLogoImg: {
+    width: 32,
+    height: 32,
+    marginRight: 10,
+  },
+  brandTextColumn: {
+    justifyContent: 'center',
+    height: 32,
+  },
+  brandTitleText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    ...FONTS.extraBold,
+    letterSpacing: 0.8,
   },
   bellBtn: {
     position: 'relative',
-    padding: 6,
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
   },
   badgeDot: {
     position: 'absolute',
@@ -303,32 +339,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F58220',
   },
   welcomeSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  avatarWrapper: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2.5,
-    borderColor: '#F58220',
-    overflow: 'hidden',
-    marginRight: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#27272A',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  welcomeTextContainer: {
-    justifyContent: 'center',
+    paddingTop: 16,
   },
   greeting: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 13.5,
     ...FONTS.medium,
     marginBottom: 2,
   },
@@ -336,6 +351,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 22,
     ...FONTS.extraBold,
+  },
+  regNumberText: {
+    color: '#F58220', // Signature active navbar orange
+    fontSize: 13.5,
+    ...FONTS.extraBold,
+    marginTop: 4,
+    letterSpacing: 0.5,
   },
 
   /* MAIN CONTENT AREA */
