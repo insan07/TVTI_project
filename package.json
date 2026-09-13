@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "dev": "npm run dev --prefix backend"
+    "dev": "npm run dev --prefix backend",
+    "build": "cd mobile && npm install && npx expo export -p web"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
