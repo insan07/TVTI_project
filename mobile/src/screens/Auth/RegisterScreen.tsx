@@ -269,21 +269,65 @@ export default function RegisterScreen() {
     setOtpSuccessMsg('');
   };
 
+  const compressBase64Image = (dataUrl: string, maxWidth = 1000, quality = 0.5): Promise<string> => {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !dataUrl || !dataUrl.startsWith('data:image')) {
+        return resolve(dataUrl);
+      }
+      const img = new (window as any).Image();
+      img.crossOrigin = 'anonymous';
+      img.src = dataUrl;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(dataUrl);
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed.length < dataUrl.length ? compressed : dataUrl);
+      };
+      img.onerror = () => resolve(dataUrl);
+    });
+  };
+
   const pickStudentPhoto = async () => {
+    setErrorMsg('');
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7,
+        quality: 0.5,
         base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        const base64Img = asset.base64
+        let base64Img = asset.base64
           ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
           : asset.uri;
+
+        if (Platform.OS === 'web' && base64Img.startsWith('data:image')) {
+          base64Img = await compressBase64Image(base64Img, 1000, 0.5);
+        }
+
+        if (base64Img.length > 3500000) {
+          setErrorMsg('Selected student photo is larger than 2.5MB. Please choose a smaller photo.');
+          return;
+        }
+
         setFormData(prev => ({ ...prev, student_photo: base64Img }));
       }
     } catch (e) {
@@ -292,20 +336,31 @@ export default function RegisterScreen() {
   };
 
   const pickPaymentSlip = async () => {
+    setErrorMsg('');
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
+        quality: 0.5,
         base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        const base64Img = asset.base64
+        let base64Img = asset.base64
           ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
           : asset.uri;
+
+        if (Platform.OS === 'web' && base64Img.startsWith('data:image')) {
+          base64Img = await compressBase64Image(base64Img, 1000, 0.5);
+        }
+
+        if (base64Img.length > 3500000) {
+          setErrorMsg('Selected deposit receipt photo is larger than 2.5MB. Please choose a smaller photo.');
+          return;
+        }
+
         setFormData(prev => ({ ...prev, payment_slip: base64Img }));
       }
     } catch (e) {
@@ -339,7 +394,7 @@ export default function RegisterScreen() {
   };
 
   // STEP VALIDATION & NAVIGATION
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     setErrorMsg('');
 
     if (currentStep === 1) {
@@ -392,6 +447,21 @@ export default function RegisterScreen() {
       if (!formData.address.trim()) {
         setErrorMsg('Please enter your Residential Address.');
         return;
+      }
+
+      // Check Email & NIC availability against registered accounts and approved applications
+      try {
+        setLoading(true);
+        await api.post('/auth/check-eligibility', {
+          email: formData.email.trim().toLowerCase(),
+          nic: formData.nic.trim() || undefined
+        });
+      } catch (checkErr: any) {
+        const msg = checkErr.response?.data?.message || 'Eligibility check failed.';
+        setErrorMsg(msg);
+        return;
+      } finally {
+        setLoading(false);
       }
 
       setCurrentStep(2);
@@ -493,7 +563,9 @@ export default function RegisterScreen() {
       setSuccessModalVisible(true);
     } catch (e: any) {
       const serverMsg = e.response?.data?.message;
-      if (serverMsg) {
+      if (e.response?.status === 413 || (serverMsg && serverMsg.toLowerCase().includes('too large'))) {
+        setErrorMsg('The selected photo or deposit receipt is too large (request entity too large). Please upload a smaller image under 5MB.');
+      } else if (serverMsg) {
         setErrorMsg(serverMsg);
       } else {
         setErrorMsg('Application submission failed. Please check your network connection.');
