@@ -9,10 +9,11 @@ import {
   Image,
   Dimensions,
   Platform,
+  Modal,
 } from 'react-native';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,11 +24,14 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [bookmarkedLessons, setBookmarkedLessons] = useState<{ [key: string]: boolean }>({});
+  const [instructorModalVisible, setInstructorModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchDashboard();
+    }, [])
+  );
 
   const fetchDashboard = async () => {
     try {
@@ -61,49 +65,40 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
   const nextPractice = data?.next_practice;
   const nextClass = data?.next_class;
   const practicalTitle =
-    nextPractice?.slot_id?.batch_id?.course_id?.title ||
-    nextClass?.course_id?.title ||
-    'Hydraulic CNC Calibration';
+    data?.next_practice?.slot_id?.batch_id?.course_id?.title ||
+    data?.next_class?.course_id?.title ||
+    'Course Details Loading...';
   
-  const instructorName =
-    nextPractice?.slot_id?.instructor_id?.name ||
-    nextClass?.instructor_ids?.[0]?.name ||
-    'Eng. Marcus Vance';
+  const instructorData =
+    data?.next_practice?.slot_id?.instructor_id ||
+    (data?.next_class?.instructor_ids && data?.next_class?.instructor_ids.length > 0
+      ? data.next_class.instructor_ids[0]
+      : null);
+
+  const instructorName = instructorData?.name || 'Instructor TBD';
+  const avatarUrl =
+    instructorData?.profile_photo ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(instructorName)}&background=F3F4F6&color=9CA3AF`;
+  const instructorEmail = instructorData?.email || 'N/A';
+  const instructorPhone = instructorData?.phone || 'N/A';
 
   const timeLocationText = nextPractice?.slot_id
-    ? `${nextPractice.slot_id.start_time || '10:30 AM'} • Bay 4B (Advanced Lab)`
-    : '10:30 AM • Bay 4B (Advanced Lab)';
+    ? `${nextPractice.slot_id.start_time || 'TBD'} • ${nextPractice.slot_id.location || 'Location TBD'}`
+    : 'Time & Location TBD';
 
-  // Mock / Dynamic Theory Lessons list matching user screenshot
-  const theoryLessons = [
-    {
-      id: 'l1',
-      tag: 'AUTOMATION',
-      duration: '18 min',
-      title: 'Pneumatic Circuit Actuators',
-      rating: '4.9',
-      reviews: '142',
-      thumbnail: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?q=80&w=300&auto=format&fit=crop',
-    },
-    {
-      id: 'l2',
-      tag: 'ELECTRICAL',
-      duration: '26 min',
-      title: 'Three-Phase Motor Starters',
-      rating: '4.8',
-      reviews: '98',
-      thumbnail: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?q=80&w=300&auto=format&fit=crop',
-    },
-    {
-      id: 'l3',
-      tag: 'ROBOTICS',
-      duration: '32 min',
-      title: 'Fanuc 6-Axis Kinematics',
-      rating: '5.0',
-      reviews: '215',
-      thumbnail: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=300&auto=format&fit=crop',
-    },
-  ];
+  let pracMonth = '--';
+  let pracDay = '--';
+  const rawDate = nextPractice?.slot_id?.date || nextClass?.date;
+  if (rawDate) {
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      pracMonth = d.toLocaleString('default', { month: 'short' }).toUpperCase();
+      pracDay = d.getDate().toString();
+    }
+  }
+
+  // Fetch real theory lessons from backend if available, otherwise empty
+  const theoryLessons = data?.theory_lessons || [];
 
   return (
     <View style={styles.container}>
@@ -136,7 +131,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
           <Text style={styles.greeting}>Welcome back,</Text>
           <Text style={styles.name}>{user?.name || 'Student'}</Text>
           <Text style={styles.regNumberText}>
-            REG NO : {user?.index_number || user?.nic || 'TVTI/2026/001'}
+            REG NO : {user?.index_number || user?.nic || 'N/A'}
           </Text>
         </View>
       </View>
@@ -164,8 +159,8 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
           <View style={styles.cardTopRow}>
             {/* Soft Peach Date Badge */}
             <View style={styles.dateBadgeBox}>
-              <Text style={styles.dateMonthText}>OCT</Text>
-              <Text style={styles.dateDayText}>24</Text>
+              <Text style={styles.dateMonthText}>{pracMonth}</Text>
+              <Text style={styles.dateDayText}>{pracDay}</Text>
             </View>
 
             <View style={styles.cardDetailsColumn}>
@@ -183,16 +178,20 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
 
           {/* Bottom Row: Instructor Avatar + View Slot Button */}
           <View style={styles.cardBottomRow}>
-            <View style={styles.instructorInfoRow}>
+            <TouchableOpacity 
+              style={styles.instructorInfoRow} 
+              activeOpacity={0.7}
+              onPress={() => setInstructorModalVisible(true)}
+            >
               <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150&auto=format&fit=crop' }}
+                source={{ uri: avatarUrl }}
                 style={styles.instructorAvatar}
               />
               <View style={styles.instructorTextColumn}>
                 <Text style={styles.instructorName}>{instructorName}</Text>
-                <Text style={styles.instructorRole}>Lead Certified Mentor</Text>
+                <Text style={styles.instructorRole}>Course Instructor</Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.viewSlotBtn}
@@ -260,6 +259,38 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
         </View>
         </View>
       </ScrollView>
+
+      {/* Instructor Profile Modal */}
+      <Modal visible={instructorModalVisible} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Instructor Profile</Text>
+              <TouchableOpacity onPress={() => setInstructorModalVisible(false)}>
+                <Icon name="close" size={24} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalBody}>
+              <Image source={{ uri: avatarUrl }} style={styles.modalAvatar} />
+              <Text style={styles.modalName}>{instructorName}</Text>
+              <Text style={styles.modalRole}>Course Instructor</Text>
+              
+              <View style={styles.modalInfoBox}>
+                <View style={styles.modalInfoRow}>
+                  <Icon name="mail-outline" size={18} color="#6B7280" />
+                  <Text style={styles.modalInfoText}>{instructorEmail}</Text>
+                </View>
+                <View style={[styles.modalInfoRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                  <Icon name="call-outline" size={18} color="#6B7280" />
+                  <Text style={styles.modalInfoText}>{instructorPhone}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -570,6 +601,77 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   bookmarkTouch: {
-    padding: 6,
+    padding: 8,
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  modalBody: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  modalAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 16,
+  },
+  modalName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  modalRole: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 24,
+  },
+  modalInfoBox: {
+    width: '100%',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  modalInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 12,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalInfoText: {
+    marginLeft: 12,
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
   },
 });

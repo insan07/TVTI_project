@@ -57,7 +57,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
 
   if (visibleRoutes.length === 0) return null;
 
-  const isScrollable = visibleRoutes.length > 4;
+  const isScrollable = visibleRoutes.length > 5;
 
   return (
     <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom + 10, 16) }]}>
@@ -73,71 +73,90 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
         >
           {visibleRoutes.map((route) => {
             const index = state.routes.findIndex((r) => r.key === route.key);
-          const isFocused = state.index === index;
-          const { options } = descriptors[route.key];
+            const isFocused = state.index === index;
+            const { options } = descriptors[route.key];
 
-          const label =
-            options.tabBarLabel !== undefined
-              ? String(options.tabBarLabel)
-              : options.title !== undefined
-              ? options.title
-              : route.name;
+            const label =
+              options.tabBarLabel !== undefined
+                ? String(options.tabBarLabel)
+                : options.title !== undefined
+                  ? options.title
+                  : route.name;
 
-          const iconName = getTabIcon(route.name, isFocused);
+            let iconName = 'ellipse-outline';
+            
+            // Admin Routes
+            if (route.name === 'Home') iconName = 'home'; // Used by Student and Instructor
+            else if (route.name === 'AdminDashboard') iconName = 'home';
+            else if (route.name === 'AdminCourses') iconName = 'book';
+            else if (route.name === 'AdminBatches') iconName = 'layers';
+            else if (route.name === 'AdminSlots') iconName = 'calendar';
+            else if (route.name === 'ManageResults') iconName = 'podium';
+            else if (route.name === 'AdminAnnouncements') iconName = 'megaphone';
+            else if (route.name === 'AdminUsers') iconName = 'people';
+            
+            // Student & Instructor Routes
+            else if (route.name === 'Videos' || route.name === 'Uploads') iconName = 'play-circle';
+            else if (route.name === 'Schedule' || route.name === 'Practice') iconName = 'calendar';
+            else if (route.name === 'PostAnnouncement') iconName = 'megaphone';
+            else if (route.name === 'Profile') iconName = 'person';
+            else if (route.name === 'Users') iconName = 'people';
+            else if (route.name === 'Courses') iconName = 'book';
+            else if (route.name === 'Results') iconName = 'podium';
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (!isFocused && !event.defaultPrevented) {
-              LayoutAnimation.configureNext({
-                duration: 300,
-                update: { type: 'spring', springDamping: 0.7 },
-                create: { type: 'linear', property: 'opacity' },
-                delete: { type: 'linear', property: 'opacity' },
+            const onPress = () => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
               });
-              navigation.navigate(route.name, route.params);
-            }
-          };
 
-          const onLongPress = () => {
-            navigation.emit({
-              type: 'tabLongPress',
-              target: route.key,
-            });
-          };
+              if (!isFocused && !event.defaultPrevented) {
+                LayoutAnimation.configureNext({
+                  duration: 300,
+                  update: { type: 'spring', springDamping: 0.7 },
+                  create: { type: 'linear', property: 'opacity' },
+                  delete: { type: 'linear', property: 'opacity' },
+                });
+                navigation.navigate(route.name, route.params);
+              }
+            };
 
-          return (
-            <TouchableOpacity
-              key={route.key}
-              accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
-              testID={(options as any).tabBarTestID}
-              onPress={onPress}
-              onLongPress={onLongPress}
-              activeOpacity={0.8}
-              style={[
-                styles.tabItem,
-                isFocused ? styles.activeTabItem : styles.inactiveTabItem,
-              ]}
-            >
-              <Icon
-                name={iconName}
-                size={20}
-                color={isFocused ? '#FFFFFF' : '#E4E4E7'}
-              />
-              {isFocused && (
-                <Text style={styles.activeLabel} numberOfLines={1}>
-                  {label}
-                </Text>
-              )}
-            </TouchableOpacity>
-          );
-        })}
+            const onLongPress = () => {
+              navigation.emit({
+                type: 'tabLongPress',
+                target: route.key,
+              });
+            };
+
+            return (
+              <TouchableOpacity
+                key={route.key}
+                accessibilityRole="button"
+                accessibilityState={isFocused ? { selected: true } : {}}
+                accessibilityLabel={options.tabBarAccessibilityLabel}
+                testID={(options as any).tabBarTestID}
+                onPress={onPress}
+                onLongPress={onLongPress}
+                activeOpacity={0.8}
+                style={[
+                  styles.tabItem,
+                  isFocused ? styles.activeTabItem : styles.inactiveTabItem,
+                ]}
+              >
+                <Icon
+                  name={iconName}
+                  size={20}
+                  color={isFocused ? '#FFFFFF' : '#E4E4E7'}
+                />
+                {isFocused && (
+                  <Text style={styles.activeLabel} numberOfLines={1}>
+                    {label}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
     </View>
@@ -147,8 +166,10 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
 const styles = StyleSheet.create({
   outerWrapper: {
     position: 'absolute',
-    left: 20,
-    right: 20,
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 480, // Matches app container max width
+    paddingHorizontal: 20, // Provides the gap on left/right
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 9999,

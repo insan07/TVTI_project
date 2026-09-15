@@ -586,15 +586,18 @@ export default function RegisterScreen() {
       {/* DARK NAVY TOP BACKGROUND GRADIENT MATCHING SCREENSHOT */}
       <View style={[styles.topGradientBackground, { paddingTop: insets.top + 8 }]}>
         <View style={styles.topBrandRow}>
-          <TouchableOpacity style={styles.backBtnAbsolute} onPress={handleGoToLogin}>
+          <TouchableOpacity style={{ padding: 4 }} onPress={handleGoToLogin}>
             <Icon name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Image
-            source={require('../../../assets/icon.png')}
-            style={styles.brandLogoImg}
-            resizeMode="contain"
-          />
-          <Text style={styles.topBrandTitleText}>TVTI Student Portal</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginHorizontal: 8 }}>
+            <Image
+              source={require('../../../assets/icon.png')}
+              style={styles.brandLogoImg}
+              resizeMode="contain"
+            />
+            <Text style={styles.topBrandTitleText} numberOfLines={1} adjustsFontSizeToFit>TVTI Student Portal</Text>
+          </View>
+          <View style={{ width: 32 }} /> {/* Empty spacer to balance the flex space-between */}
         </View>
       </View>
 
@@ -1261,14 +1264,8 @@ const styles = StyleSheet.create({
   topBrandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  backBtnAbsolute: {
-    position: 'absolute',
-    left: 0,
-    zIndex: 10,
-    padding: 4,
+    justifyContent: 'space-between',
+    width: '100%',
   },
   brandLogoImg: {
     width: 32,
