@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ export default function UserManagementScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<Tab>('pending');
+  const userCacheRef = useRef<Record<string, any[]>>({});
 
   useFocusEffect(
     React.useCallback(() => {
@@ -101,13 +102,6 @@ export default function UserManagementScreen() {
     });
   };
 
-  useEffect(() => {
-    if (activeTab !== 'pending') {
-      fetchUsers();
-      fetchBatches();
-    }
-  }, [activeTab]);
-
   const fetchBatches = async () => {
     try {
       const res = await api.get('/admin/batches');
@@ -118,8 +112,14 @@ export default function UserManagementScreen() {
     }
   };
 
-  const fetchUsers = async () => {
-    setLoading(true);
+  const fetchUsers = useCallback(async (isRefresh = false) => {
+    if (activeTab === 'pending') return;
+    if (!isRefresh && userCacheRef.current[activeTab]) {
+      setUsers(userCacheRef.current[activeTab]);
+      setLoading(false);
+      return;
+    }
+    setLoading(!isRefresh);
     try {
       let url = '/admin/users';
       if (activeTab === 'approved') {
@@ -128,13 +128,22 @@ export default function UserManagementScreen() {
         url += '?role=instructor';
       }
       const res = await api.get(url);
-      setUsers(res.data);
+      const data = res.data || [];
+      userCacheRef.current[activeTab] = data;
+      setUsers(data);
     } catch (e: any) {
       console.warn('Failed to fetch users', e);
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'pending') {
+      fetchUsers(false);
+      fetchBatches();
+    }
+  }, [activeTab, fetchUsers]);
 
   const handleOpenDetails = async (userId: string) => {
     setDetailsModalVisible(true);
@@ -222,7 +231,8 @@ export default function UserManagementScreen() {
       onConfirm: async () => {
         try {
           await api.put(`/admin/users/${id}/deactivate`);
-          fetchUsers();
+          userCacheRef.current = {};
+          fetchUsers(true);
           if (detailsModalVisible) {
             handleOpenDetails(id);
           }
@@ -251,6 +261,7 @@ export default function UserManagementScreen() {
       const res = await api.post('/admin/users/instructor', instructorForm);
       setInstructorForm({ name: '', email: '', phone: '', nic: '' });
       setInstructorModalVisible(false);
+      userCacheRef.current = {};
 
       if (res.data.index_number) {
         setApprovedCredentials({
@@ -264,7 +275,7 @@ export default function UserManagementScreen() {
       }
 
       if (activeTab === 'instructors') {
-        fetchUsers();
+        fetchUsers(true);
       } else {
         setActiveTab('instructors');
       }
@@ -276,64 +287,36 @@ export default function UserManagementScreen() {
     }
   };
 
-  const filteredUsers = (users || []).filter(
-    u =>
-      (u?.name || '').toLowerCase().includes((search || '').toLowerCase()) ||
-      (u?.email || '').toLowerCase().includes((search || '').toLowerCase())
-  );
+  const filteredUsers = useMemo(() => {
+    if (!search.trim()) return users || [];
+    const query = search.toLowerCase().trim();
+    return (users || []).filter(
+      u =>
+        (u?.name || '').toLowerCase().includes(query) ||
+        (u?.email || '').toLowerCase().includes(query) ||
+        (u?.index_number || u?.nic || '').toLowerCase().includes(query)
+    );
+  }, [users, search]);
 
-  const getInitials = (name?: string) => {
+  const getInitials = useCallback((name?: string) => {
     if (!name || typeof name !== 'string') return 'U';
     const parts = name.trim().split(' ');
     if (parts.length >= 2 && parts[0][0] && parts[1][0]) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     return name.substring(0, 2).toUpperCase();
-  };
+  }, []);
 
-  const getGradeColor = (grade: string) => {
+  const getGradeColor = useCallback((grade: string) => {
     if (!grade) return '#6B7280';
     const g = grade.toUpperCase();
     if (g.startsWith('A')) return '#10B981';
     if (g.startsWith('B')) return '#3B82F6';
     if (g.startsWith('C')) return '#F59E0B';
     return '#EF4444';
-  };
+  }, []);
 
-  const renderPendingItem = ({ item }: { item: any }) => (
-    <TouchableOpacity style={styles.card} onPress={() => handleOpenDetails(item._id)} activeOpacity={0.7}>
-      <View style={styles.cardHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
-        </View>
-        <View style={styles.headerDetails}>
-          <Text style={styles.userName}>{item.name}</Text>
-          <Text style={styles.userEmail}>{item.email}</Text>
-          {item.index_number || item.nic ? <Text style={styles.userSubtext}>Reg No: {item.index_number || item.nic}</Text> : null}
-        </View>
-        <View style={styles.newBadge}>
-          <Text style={styles.newBadgeText}>Pending</Text>
-        </View>
-      </View>
+  const keyExtractor = useCallback((item: any) => item._id, []);
 
-      <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.viewProfileBtn} onPress={() => handleOpenDetails(item._id)}>
-          <Icon name="eye-outline" size={14} color="#4338CA" style={{ marginRight: 4 }} />
-          <Text style={styles.viewProfileText}>View Profile</Text>
-        </TouchableOpacity>
-        <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity style={styles.rejectOutlineBtn} onPress={() => handleReject(item._id, item.name)}>
-            <Icon name="close-circle-outline" size={14} color="#DC2626" style={{ marginRight: 4 }} />
-            <Text style={styles.rejectOutlineText}>Reject</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.approveDarkBtn} onPress={() => handleApprove(item._id)}>
-            <Icon name="checkmark-circle-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
-            <Text style={styles.approveDarkText}>Approve</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderStudentItem = ({ item }: { item: any }) => (
+  const renderStudentItem = useCallback(({ item }: { item: any }) => (
     <TouchableOpacity style={styles.card} onPress={() => handleOpenDetails(item._id)} activeOpacity={0.7}>
       <View style={styles.cardHeader}>
         <View style={styles.avatar}>
@@ -390,9 +373,9 @@ export default function UserManagementScreen() {
         </View>
       </View>
     </TouchableOpacity>
-  );
+  ), [getInitials]);
 
-  const renderInstructorItem = ({ item }: { item: any }) => (
+  const renderInstructorItem = useCallback(({ item }: { item: any }) => (
     <TouchableOpacity style={styles.card} onPress={() => handleOpenDetails(item._id)} activeOpacity={0.7}>
       <View style={styles.cardHeader}>
         <View style={[styles.avatar, { backgroundColor: '#FEF3C7' }]}>
@@ -437,7 +420,7 @@ export default function UserManagementScreen() {
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
-  );
+  ), [getInitials]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -522,7 +505,7 @@ export default function UserManagementScreen() {
           ) : (
             <FlatList
               data={filteredUsers}
-              keyExtractor={item => item._id}
+              keyExtractor={keyExtractor}
               renderItem={
                 activeTab === 'approved'
                   ? renderStudentItem
@@ -530,6 +513,11 @@ export default function UserManagementScreen() {
               }
               contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
               ListEmptyComponent={<Text style={styles.emptyListText}>No users found in this tab.</Text>}
+              initialNumToRender={8}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              removeClippedSubviews={Platform.OS !== 'web'}
+              updateCellsBatchingPeriod={50}
             />
           )}
         </>

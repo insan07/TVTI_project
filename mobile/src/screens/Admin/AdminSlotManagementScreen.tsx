@@ -10,7 +10,8 @@ import {
   Alert,
   Modal,
   FlatList,
-  RefreshControl
+  RefreshControl,
+  Platform
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -787,6 +788,10 @@ export default function AdminSlotManagementScreen() {
               <FlatList
                 data={slotBookings}
                 keyExtractor={item => item._id}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                removeClippedSubviews={Platform.OS !== 'web'}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
                     <Icon name="people-outline" size={44} color="#D1D5DB" />
@@ -837,6 +842,10 @@ export default function AdminSlotManagementScreen() {
               <FlatList
                 data={batchStudents}
                 keyExtractor={item => item._id}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                removeClippedSubviews={Platform.OS !== 'web'}
                 ListEmptyComponent={<Text style={styles.emptyTitle}>No enrolled students found in this batch.</Text>}
                 renderItem={({ item }) => (
                   <TouchableOpacity

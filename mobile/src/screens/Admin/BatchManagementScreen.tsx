@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  ScrollView
+  ScrollView,
+  Platform
 } from 'react-native';
 import api from '../../services/api';
 import CustomDropdown from '../../components/shared/CustomDropdown';
@@ -248,7 +249,37 @@ export default function BatchManagementScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Title & Subtitle */}
       <View style={styles.topHeaderContainer}>
-        <Text style={styles.title}>Batches Management</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <Text style={[styles.title, { flex: 1 }]}>Batches Management</Text>
+          {(filterCourseId || navigation.canGoBack()) && (
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#F3F4F6',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                marginLeft: 8,
+                cursor: 'pointer'
+              }}
+              onPress={() => {
+                navigation.setParams({ courseId: undefined });
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  navigation.navigate('CoursesMain');
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <Icon name="arrow-back-outline" size={16} color="#111827" style={{ marginRight: 4 }} />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>Back to Courses</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <Text style={styles.subtitle}>Manage vocational course batches, student rosters, and schedules.</Text>
       </View>
 
@@ -256,13 +287,17 @@ export default function BatchManagementScreen() {
       {filterCourseId ? (
         <View style={styles.filterBanner}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <Icon name="options-outline" size={16} color="#78350F" style={{ marginRight: 8 }} />
+            <Icon name="funnel-outline" size={16} color="#78350F" style={{ marginRight: 8 }} />
             <Text style={styles.filterText} numberOfLines={1}>
               Filtered by: <Text style={{ fontWeight: 'bold' }}>{courseName}</Text>
             </Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.setParams({ courseId: null })}>
-            <Icon name="close" size={18} color="#78350F" />
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
+            onPress={() => navigation.setParams({ courseId: null })}
+          >
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#78350F', marginRight: 4 }}>Clear Filter</Text>
+            <Icon name="close" size={14} color="#78350F" />
           </TouchableOpacity>
         </View>
       ) : null}
@@ -277,6 +312,10 @@ export default function BatchManagementScreen() {
           keyExtractor={i => i._id}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           ListEmptyComponent={<Text style={styles.emptyText}>No batches found.</Text>}
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS !== 'web'}
         />
       )}
 

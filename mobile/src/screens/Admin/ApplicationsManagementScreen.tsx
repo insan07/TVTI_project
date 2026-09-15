@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ type StatusTab = 'all' | 'pending' | 'contacted' | 'paid' | 'approved' | 'reject
 
 export default function ApplicationsManagementScreen({ embedded }: { embedded?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<StatusTab>('pending');
+  const cacheRef = useRef<Record<string, any[]>>({});
 
   useFocusEffect(
     React.useCallback(() => {
@@ -48,16 +49,19 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
   const [assignedCourseIds, setAssignedCourseIds] = useState<string[]>([]);
   const [assigningCourses, setAssigningCourses] = useState(false);
 
-  useEffect(() => {
-    fetchApplications();
-  }, [activeTab]);
-
-  const fetchApplications = async () => {
-    setLoading(true);
+  const fetchApplications = useCallback(async (isRefresh = false) => {
+    if (!isRefresh && cacheRef.current[activeTab]) {
+      setApplications(cacheRef.current[activeTab]);
+      setLoading(false);
+      return;
+    }
+    setLoading(!isRefresh);
     try {
       const url = activeTab === 'all' ? '/admin/applications' : `/admin/applications?status=${activeTab}`;
       const res = await api.get(url);
-      setApplications(res.data || []);
+      const data = res.data || [];
+      cacheRef.current[activeTab] = data;
+      setApplications(data);
     } catch (e) {
       console.warn('Failed to load applications', e);
       Alert.alert('Error', 'Failed to load student applications');
@@ -65,12 +69,16 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [activeTab]);
 
-  const onRefresh = () => {
+  useEffect(() => {
+    fetchApplications(false);
+  }, [fetchApplications]);
+
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchApplications();
-  };
+    fetchApplications(true);
+  }, [fetchApplications]);
 
   const handleOpenAssignCoursesModal = async (app: any) => {
     setSelectedAppForAssignment(app);
@@ -119,6 +127,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
       });
 
       setAssignCoursesModalVisible(false);
+      cacheRef.current = {};
       if (targetStatus === 'approved' && res.data.credentials) {
         setApprovedCredentials(res.data.credentials);
         setCredentialsModalVisible(true);
@@ -131,7 +140,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
         if (Platform.OS === 'web') window.alert(`Success: Course assignments saved! Status set to ${targetStatus.toUpperCase()}`);
         else Alert.alert('Success', `Course assignments saved! Status set to ${targetStatus.toUpperCase()}`);
       }
-      fetchApplications();
+      fetchApplications(true);
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Failed to save course assignments';
       if (Platform.OS === 'web') window.alert(`Error: ${msg}`);
@@ -170,6 +179,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
     try {
       const res = await api.put(`/admin/applications/${appId}/status`, { status: newStatus });
 
+      cacheRef.current = {};
       if (newStatus === 'approved' && res.data.credentials) {
         setApprovedCredentials(res.data.credentials);
         setCredentialsModalVisible(true);
@@ -186,7 +196,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
         }
       }
 
-      fetchApplications();
+      fetchApplications(true);
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Failed to update application status';
       if (Platform.OS === 'web') {
@@ -199,7 +209,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
     }
   };
 
-  const getStatusBadgeStyle = (status: string) => {
+  const getStatusBadgeStyle = useCallback((status: string) => {
     switch (status) {
       case 'pending':
         return { bg: '#FEF3C7', text: '#92400E', label: 'PENDING', border: '#000000' };
@@ -214,16 +224,18 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
       default:
         return { bg: '#F3F4F6', text: '#374151', label: status.toUpperCase() };
     }
-  };
+  }, []);
 
-  const getInitials = (name: string) => {
+  const getInitials = useCallback((name: string) => {
     if (!name) return 'A';
     const parts = name.trim().split(' ');
     if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     return name.substring(0, 2).toUpperCase();
-  };
+  }, []);
 
-  const renderApplicationCard = ({ item }: { item: any }) => {
+  const keyExtractor = useCallback((item: any) => item._id, []);
+
+  const renderApplicationCard = useCallback(({ item }: { item: any }) => {
     const badge = getStatusBadgeStyle(item.status);
     const isUpdating = updatingId === item._id;
 
@@ -332,7 +344,7 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
         </View>
       </View>
     );
-  };
+  }, [getStatusBadgeStyle, updatingId, getInitials]);
 
   if (embedded) {
     return (
@@ -343,11 +355,16 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
         ) : (
           <FlatList
             data={applications}
-            keyExtractor={item => item._id}
+            keyExtractor={keyExtractor}
             renderItem={renderApplicationCard}
             contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#000000']} />}
             ListEmptyComponent={<Text style={styles.emptyText}>No pending applications found.</Text>}
+            initialNumToRender={8}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS !== 'web'}
+            updateCellsBatchingPeriod={50}
           />
         )}
 
@@ -609,11 +626,16 @@ export default function ApplicationsManagementScreen({ embedded }: { embedded?: 
       ) : (
         <FlatList
           data={applications}
-          keyExtractor={item => item._id}
+          keyExtractor={keyExtractor}
           renderItem={renderApplicationCard}
           contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#000000']} />}
           ListEmptyComponent={<Text style={styles.emptyText}>No applications found in "{activeTab}" status.</Text>}
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS !== 'web'}
+          updateCellsBatchingPeriod={50}
         />
       )}
 
