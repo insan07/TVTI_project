@@ -245,11 +245,7 @@ export default function BatchManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Title & Subtitle */}
-      <View style={styles.topHeaderContainer}>
-        <Text style={styles.title}>Batches Management</Text>
-        <Text style={styles.subtitle}>Manage vocational course batches, student rosters, and schedules.</Text>
-      </View>
+
 
       {/* Filter Banner if active */}
       {filterCourseId ? (
@@ -704,7 +700,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 100,
     right: 24,
     width: 56,
     height: 56,

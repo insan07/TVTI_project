@@ -24,6 +24,9 @@ const getApiUrl = () => {
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:5000/api';
   }
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:5000/api';
+  }
 
   // 4. Default Production API Endpoint
   return 'https://api.twintec.edu.lk/api';

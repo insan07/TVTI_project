@@ -414,12 +414,8 @@ export default function UserManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Top Header */}
-      <View style={styles.topHeaderContainer}>
-        <Text style={styles.title}>Users & Applications</Text>
-        <Text style={styles.subtitle}>Manage pending student applications, approved students, and instructors.</Text>
-      </View>
-
+      {/* Spacer for Upper Margin */}
+      <View style={{ height: 20 }} />
       {/* 3 Main Options Tabs Header */}
       <View style={{ flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
         <TouchableOpacity
@@ -534,7 +530,7 @@ export default function UserManagementScreen() {
                   ? renderStudentItem
                   : renderInstructorItem
               }
-              contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
               ListEmptyComponent={<Text style={styles.emptyListText}>No users found in this tab.</Text>}
             />
           )}
@@ -1161,6 +1157,7 @@ const styles = StyleSheet.create({
   actionButtonRow: {
     paddingHorizontal: 16,
     marginBottom: 14,
+    marginTop: 16,
   },
   addInstructorBtn: {
     backgroundColor: '#000000',
@@ -1179,6 +1176,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     marginBottom: 16,
+    marginTop: 16,
   },
   searchBox: {
     flex: 1,

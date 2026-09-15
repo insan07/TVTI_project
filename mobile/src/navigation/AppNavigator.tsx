@@ -103,11 +103,6 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
       component={UploadVideoScreen}
       options={{
         tabBarLabel: 'Uploads',
-        headerShown: true,
-        title: 'Upload Portal',
-        headerStyle: { backgroundColor: COLORS.primary },
-        headerTintColor: COLORS.secondary,
-        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 },
       }}
     />
     <Tab.Screen
@@ -115,11 +110,6 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
       component={InstructorPracticeScreen}
       options={{
         tabBarLabel: 'Schedule',
-        headerShown: true,
-        title: 'Practical Slots',
-        headerStyle: { backgroundColor: COLORS.primary },
-        headerTintColor: COLORS.secondary,
-        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 },
       }}
     />
     <Tab.Screen
@@ -127,11 +117,6 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
       component={PostAnnouncementScreen}
       options={{
         tabBarLabel: 'Notices',
-        headerShown: true,
-        title: 'Announcements',
-        headerStyle: { backgroundColor: COLORS.primary },
-        headerTintColor: COLORS.secondary,
-        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 },
       }}
     />
     <Tab.Screen
@@ -147,11 +132,6 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
       options={{
         tabBarButton: () => null,
         tabBarItemStyle: { display: 'none' },
-        headerShown: true,
-        title: 'My Students',
-        headerStyle: { backgroundColor: COLORS.primary },
-        headerTintColor: COLORS.secondary,
-        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 },
       }}
     />
   </Tab.Navigator>
@@ -173,11 +153,6 @@ const AdminTabs = ({ insets }: { insets: any }) => (
       component={PostAnnouncementScreen}
       options={{
         tabBarLabel: 'Notices',
-        headerShown: true,
-        title: 'Announcements',
-        headerStyle: { backgroundColor: COLORS.primary },
-        headerTintColor: COLORS.secondary,
-        headerTitleStyle: { fontWeight: '700' as const, fontSize: 17, color: '#fff' },
       }}
     />
     <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
@@ -247,7 +222,14 @@ export const AppNavigator = () => {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator 
+        screenOptions={{ 
+          headerShown: false,
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+          animation: 'slide_from_right'
+        }}
+      >
         {userToken == null ? (
           <Stack.Screen
             name="Auth"

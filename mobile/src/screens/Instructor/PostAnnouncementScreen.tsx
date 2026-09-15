@@ -181,10 +181,7 @@ export default function PostAnnouncementScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* Screen Header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>📢 New Announcement</Text>
-        </View>
+
 
         {/* New Announcement Form Card */}
         <View style={styles.formCard}>

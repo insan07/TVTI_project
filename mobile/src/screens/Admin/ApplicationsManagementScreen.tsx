@@ -282,7 +282,7 @@ export default function ApplicationsManagementScreen({ embedded = false, onAppro
           data={applications}
           keyExtractor={item => item._id}
           renderItem={renderApplicationCard}
-          contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#000000']} />}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>

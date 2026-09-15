@@ -586,6 +586,9 @@ export default function RegisterScreen() {
       {/* DARK NAVY TOP BACKGROUND GRADIENT MATCHING SCREENSHOT */}
       <View style={[styles.topGradientBackground, { paddingTop: insets.top + 8 }]}>
         <View style={styles.topBrandRow}>
+          <TouchableOpacity style={styles.backBtnAbsolute} onPress={handleGoToLogin}>
+            <Icon name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
           <Image
             source={require('../../../assets/icon.png')}
             style={styles.brandLogoImg}
@@ -1259,6 +1262,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  backBtnAbsolute: {
+    position: 'absolute',
+    left: 0,
+    zIndex: 10,
+    padding: 4,
   },
   brandLogoImg: {
     width: 32,
