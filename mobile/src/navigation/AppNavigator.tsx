@@ -222,7 +222,14 @@ export const AppNavigator = () => {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator 
+        screenOptions={{ 
+          headerShown: false,
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+          animation: 'slide_from_right'
+        }}
+      >
         {userToken == null ? (
           <Stack.Screen
             name="Auth"

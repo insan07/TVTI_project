@@ -207,8 +207,20 @@ export default function InstructorHomeScreen() {
         </View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollContent}>
-          {stats.recentVideos.map((video) => (
+          {stats.recentVideos.map((video) => {
+            let thumbUrl = video.thumbnail || null;
+            if (!thumbUrl && video.content_type !== 'material' && video.cloudinary_url) {
+              if (video.cloudinary_url.includes('youtube.com') || video.cloudinary_url.includes('youtu.be')) {
+                const match = video.cloudinary_url.match(/[?&]v=([^&]+)/) || video.cloudinary_url.match(/youtu\.be\/([^?]+)/);
+                if (match && match[1]) {
+                  thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+                }
+              } else if (video.cloudinary_url.includes('cloudinary.com')) {
+                thumbUrl = video.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
+              }
+            }
 
+            return (
             <TouchableOpacity 
               key={video._id} 
               style={styles.videoCard}
@@ -229,12 +241,12 @@ export default function InstructorHomeScreen() {
                 }
               }}
             >
-              <View style={styles.videoThumbnailContainer}>
-                {video.thumbnail ? (
-                  <Image source={{ uri: video.thumbnail }} style={styles.videoThumbnail} />
+              <View style={[styles.videoThumbnailContainer, video.content_type === 'material' ? { backgroundColor: '#ECFDF5' } : {}]}>
+                {thumbUrl ? (
+                  <Image source={{ uri: thumbUrl }} style={styles.videoThumbnail} />
                 ) : (
                   <View style={styles.videoThumbnailPlaceholder}>
-                    <Icon name={video.content_type === 'material' ? 'document-text' : 'videocam'} size={28} color="#9CA3AF" />
+                    <Icon name={video.content_type === 'material' ? 'document-text' : 'videocam'} size={32} color={video.content_type === 'material' ? '#10B981' : '#9CA3AF'} />
                   </View>
                 )}
                 {video.content_type !== 'material' && (
@@ -253,7 +265,7 @@ export default function InstructorHomeScreen() {
                 {video.topic ? <Text style={styles.videoTopic} numberOfLines={1}>Topic: {video.topic}</Text> : null}
               </View>
             </TouchableOpacity>
-          ))}
+          )})}
         </ScrollView>
       )}
 

@@ -177,7 +177,8 @@ export default function CourseManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-
+      {/* Spacer for Upper Margin */}
+      <View style={{ height: 20 }} />
 
       {/* Search Input */}
       <View style={styles.searchContainer}>
@@ -465,7 +466,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 100,
     right: 20,
     backgroundColor: '#F97316',
     width: 56,

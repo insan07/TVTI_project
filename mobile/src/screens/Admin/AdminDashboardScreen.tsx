@@ -110,6 +110,7 @@ export default function AdminDashboardScreen() {
   return (
     <ScrollView
       style={styles.container}
+      contentContainerStyle={{ paddingBottom: 110 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F97316']} />}
       showsVerticalScrollIndicator={false}
     >
@@ -279,12 +280,12 @@ const styles = StyleSheet.create({
   subWelcomeText: { color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 },
 
   statsContainer: {
-    flexDirection: 'row', justifyContent: 'space-between',
+    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
     paddingHorizontal: 16, marginTop: -32, marginBottom: 16,
   },
   statCard: {
-    backgroundColor: '#FFF', flex: 1, paddingVertical: 14,
-    borderRadius: 12, marginHorizontal: 4, alignItems: 'center',
+    backgroundColor: '#FFF', width: '48%', paddingVertical: 14,
+    borderRadius: 12, marginBottom: 10, alignItems: 'center',
     borderWidth: 1, borderColor: '#E5E7EB', elevation: 2,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2,
   },

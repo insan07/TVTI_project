@@ -10,7 +10,8 @@ import {
   Alert,
   Modal,
   FlatList,
-  RefreshControl
+  RefreshControl,
+  Platform
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -979,7 +980,7 @@ const styles = StyleSheet.create({
   weekArrow: { padding: 6, borderRadius: 8, backgroundColor: '#FFFBEB' },
   weekDateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14 },
   weekText: { fontSize: 13, fontWeight: 'bold', color: '#92400E' },
-  scrollContent: { padding: 16, paddingBottom: 60 },
+  scrollContent: { padding: 16, paddingBottom: 100 },
   metricsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
   metricCard: { backgroundColor: '#FFFFFF', flex: 1, marginHorizontal: 4, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 },
   metricNumber: { fontSize: 22, fontWeight: 'bold', color: '#0F172A' },
@@ -1023,7 +1024,7 @@ const styles = StyleSheet.create({
   actionBtnOutline: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, flex: 1, justifyContent: 'center' },
   actionBtnText: { fontSize: 11.5, fontWeight: 'bold', color: '#475569' },
   actionBtnDanger: { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  createScroll: { flex: 1, padding: 16 },
+  createScroll: { flex: 1, padding: 16, paddingBottom: 100 },
   formSectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#0F172A', marginTop: 8, marginBottom: 10 },
   fieldLabel: { fontSize: 11, fontWeight: 'bold', color: '#475569', marginTop: 10, marginBottom: 6, letterSpacing: 0.5 },
   noBatchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFBEB', padding: 12, borderRadius: 8, marginBottom: 16 },

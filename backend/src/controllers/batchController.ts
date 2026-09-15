@@ -113,7 +113,18 @@ export const enrollStudents = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const enrollmentsToCreate = studentIds.map((id: string) => ({
+    // Find existing enrollments for this batch to prevent duplicates
+    const existingEnrollments = await Enrollment.find({ batch_id });
+    const existingStudentIds = new Set(existingEnrollments.map(e => e.student_id.toString()));
+
+    const newStudentIds = studentIds.filter((id: string) => !existingStudentIds.has(id.toString()));
+
+    if (newStudentIds.length === 0) {
+      res.json({ message: 'All selected students are already enrolled in this batch' });
+      return;
+    }
+
+    const enrollmentsToCreate = newStudentIds.map((id: string) => ({
       student_id: id,
       batch_id,
       enrolled_date: new Date(),

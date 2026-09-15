@@ -1,8 +1,12 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, LayoutAnimation, UIManager, ScrollView } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   state,
@@ -53,11 +57,22 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
 
   if (visibleRoutes.length === 0) return null;
 
+  const isScrollable = visibleRoutes.length > 4;
+
   return (
     <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom + 10, 16) }]}>
       <View style={styles.tabBarContainer}>
-        {visibleRoutes.map((route) => {
-          const index = state.routes.findIndex((r) => r.key === route.key);
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          bounces={true}
+          contentContainerStyle={[
+            styles.scrollContent,
+            !isScrollable && { flex: 1, justifyContent: 'space-between' }
+          ]}
+        >
+          {visibleRoutes.map((route) => {
+            const index = state.routes.findIndex((r) => r.key === route.key);
           const isFocused = state.index === index;
           const { options } = descriptors[route.key];
 
@@ -78,6 +93,12 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
             });
 
             if (!isFocused && !event.defaultPrevented) {
+              LayoutAnimation.configureNext({
+                duration: 300,
+                update: { type: 'spring', springDamping: 0.7 },
+                create: { type: 'linear', property: 'opacity' },
+                delete: { type: 'linear', property: 'opacity' },
+              });
               navigation.navigate(route.name, route.params);
             }
           };
@@ -117,6 +138,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
             </TouchableOpacity>
           );
         })}
+        </ScrollView>
       </View>
     </View>
   );
@@ -132,9 +154,6 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   tabBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#343436', // Sleek dark charcoal capsule background matching user image
     borderRadius: 36,
     paddingHorizontal: 8,
@@ -153,6 +172,11 @@ const styles = StyleSheet.create({
         elevation: 10,
       },
     }),
+  },
+  scrollContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   tabItem: {
     flexDirection: 'row',

@@ -6,7 +6,6 @@
     "build": "tsc",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "seed": "ts-node src/seed.ts",
-    "build": "tsc",
     "prestart": "npm run build",
     "start": "node dist/server.js"
   },
@@ -30,6 +29,7 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.7",
+    "pdf2pic": "^3.2.0",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

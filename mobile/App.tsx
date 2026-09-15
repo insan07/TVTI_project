@@ -103,13 +103,15 @@ export default function App() {
 
   return (
     <SafeAreaProvider style={{ flex: 1 }}>
-      <View style={{ flex: 1 }}>
-        <StatusBar style="dark" backgroundColor="#ffffff" />
-        <AuthProvider>
-          <OfflineBanner />
-          <AppNavigator />
-          <Toast />
-        </AuthProvider>
+      <View style={{ flex: 1, backgroundColor: Platform.OS === 'web' ? '#E5E7EB' : '#ffffff', alignItems: 'center' }}>
+        <View style={{ flex: 1, width: '100%', maxWidth: Platform.OS === 'web' ? 480 : '100%', backgroundColor: '#ffffff', overflow: 'hidden', boxShadow: Platform.OS === 'web' ? '0px 0px 20px rgba(0,0,0,0.05)' : 'none' } as any}>
+          <StatusBar style="dark" backgroundColor="#ffffff" />
+          <AuthProvider>
+            <OfflineBanner />
+            <AppNavigator />
+            <Toast />
+          </AuthProvider>
+        </View>
       </View>
     </SafeAreaProvider>
   );

@@ -5,6 +5,8 @@ import Video from '../models/Video';
 import cloudinary from '../config/cloudinary';
 import { sendNotification } from '../services/notificationService';
 import { saveBufferToGridFS } from '../services/fileStorage';
+import { fromBuffer } from 'pdf2pic';
+import os from 'os';
 
 const saveFileToDisk = (buffer: Buffer, originalName: string, subfolder: 'videos' | 'notes' | 'materials'): string => {
   const uploadsDir = path.join(process.cwd(), 'uploads', subfolder);
@@ -89,6 +91,32 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
     );
     const cloudinary_url = `/api/files/${file_id}`;
 
+    let thumbnail_url = undefined;
+    if (materialFile.mimetype === 'application/pdf') {
+      try {
+        const options = {
+          density: 100,
+          saveFilename: `thumb_${Date.now()}`,
+          savePath: os.tmpdir(),
+          format: "jpg",
+          width: 600,
+          height: 800
+        };
+        const storeAsImage = fromBuffer(materialFile.buffer, options);
+        const result = await storeAsImage(1, { responseType: "buffer" }) as any;
+        if (result && result.buffer) {
+          const thumbId = await saveBufferToGridFS(
+            result.buffer,
+            `thumb_${originalName}.jpg`,
+            'image/jpeg'
+          );
+          thumbnail_url = `/api/files/${thumbId}`;
+        }
+      } catch (pdfErr) {
+        console.error('Failed to generate PDF thumbnail:', pdfErr);
+      }
+    }
+
     const material = await Video.create({
       batch_id,
       instructor_id: (req as any).user._id,
@@ -96,6 +124,7 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
       title,
       cloudinary_url,
       file_id,
+      thumbnail: thumbnail_url,
       content_type: 'material',
       order_index: Number(order_index) || 0,
     });
