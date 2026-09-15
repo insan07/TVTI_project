@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Dimensions, Image, Linking, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
 import { API_URL } from '../../config/constants';
@@ -48,9 +48,11 @@ export default function InstructorHomeScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchStats();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -159,13 +161,23 @@ export default function InstructorHomeScreen() {
           const booked = slot.booked_count || 0;
           const max = slot.max_students || 1;
           const percentage = Math.min((booked / max) * 100, 100);
-          return (
+            // Compute the actual date of the slot
+            let slotDateStr = '';
+            if (slot.week_start_date) {
+              const daysArr = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+              const ws = new Date(slot.week_start_date);
+              const dayIdx = daysArr.indexOf(slot.day_of_week);
+              if (dayIdx !== -1) ws.setDate(ws.getDate() + dayIdx);
+              slotDateStr = ws.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            }
+
+            return (
             <View key={slot._id} style={styles.slotCard}>
               <View style={styles.slotHeader}>
                 <View style={styles.slotTimeRow}>
                   <Icon name="calendar-outline" size={14} color="#6B7280" style={{ marginRight: 6 }} />
                   <Text style={styles.slotTimeText}>
-                    {slot.day_of_week} | {slot.start_time} - {slot.end_time}
+                    {slot.day_of_week}{slotDateStr ? `, ${slotDateStr}` : ''} | {slot.start_time} - {slot.end_time}
                   </Text>
                 </View>
                 <View style={styles.bookedBadge}>

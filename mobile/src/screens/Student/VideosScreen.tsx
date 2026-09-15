@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
   TouchableWithoutFeedback
 } from 'react-native';
 import api from '../../services/api';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
@@ -30,7 +30,7 @@ if (Platform.OS === 'android') {
 }
 
 const formatUploadedTime = (dateStr?: string) => {
-  if (!dateStr) return 'Uploaded 2 days ago';
+  if (!dateStr) return 'Upload date unknown';
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return 'Uploaded recently';
 
@@ -63,23 +63,20 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
 
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    fetchBatches();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      api.get('/students/batches').then(res => {
+        setBatches(res.data || []);
+        if (res.data && res.data.length > 0) {
+          const targetId = activeBatchId || res.data[0]._id;
+          if (!activeBatchId) setActiveBatchId(targetId);
+          fetchContent(targetId);
+        }
+      }).catch(e => console.warn('Failed to load batches:', e));
+    }, [activeBatchId])
+  );
 
-  const fetchBatches = async () => {
-    try {
-      const res = await api.get('/students/batches');
-      setBatches(res.data || []);
-      if (res.data && res.data.length > 0) {
-        const firstId = res.data[0]._id;
-        setActiveBatchId(firstId);
-        fetchContent(firstId);
-      }
-    } catch (e) {
-      console.warn('Failed to load batches:', e);
-    }
-  };
+  // We can remove the old fetchBatches function as it's handled in useFocusEffect now
 
   const fetchContent = (batchId: string) => {
     fetchVideos(batchId);
@@ -287,12 +284,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                             }
 
                             if (!thumbUrl && !isLocalVideo) {
-                              const sampleThumbs = [
-                                'https://images.unsplash.com/photo-1581092160607-ee22621dd758?q=80&w=600&auto=format&fit=crop',
-                                'https://images.unsplash.com/photo-1581092335397-9583fe92d232?q=80&w=600&auto=format&fit=crop',
-                                'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=600&auto=format&fit=crop',
-                              ];
-                              thumbUrl = sampleThumbs[vIdx % sampleThumbs.length];
+                              thumbUrl = null; // Will fall through to placeholder icon
                             }
 
                             return (
@@ -347,7 +339,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                                   {/* Duration Badge */}
                                   <View style={styles.durationPill}>
                                     <Text style={styles.durationPillText}>
-                                      {v.duration || '15:30'}
+                                      {v.duration || '--:--'}
                                     </Text>
                                   </View>
                                 </View>

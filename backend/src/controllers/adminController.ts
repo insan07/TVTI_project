@@ -263,6 +263,52 @@ export const deactivateUser = async (req: Request, res: Response): Promise<void>
   }
 };
 
+// DELETE /api/admin/users/:id/delete — permanently remove a user and all related data
+export const deleteUserCompletely = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    // Prevent deleting admin accounts
+    if (user.role === 'admin') {
+      res.status(403).json({ message: 'Cannot delete admin accounts' });
+      return;
+    }
+
+    if (user.role === 'student') {
+      // Remove all student-related data
+      await Enrollment.deleteMany({ student_id: user._id });
+      await SlotBooking.deleteMany({ student_id: user._id });
+      await Result.deleteMany({ student_id: user._id });
+    } else if (user.role === 'instructor') {
+      // Remove instructor from batch assignments (don't delete the batch)
+      await Batch.updateMany(
+        { instructor_ids: user._id },
+        { $pull: { instructor_ids: user._id } }
+      );
+      // Remove instructor's videos, practice slots, and announcements
+      await Video.deleteMany({ instructor_id: user._id });
+      await PracticeSlot.deleteMany({ instructor_id: user._id });
+      const Announcement = (await import('../models/Announcement')).default;
+      await Announcement.deleteMany({ posted_by: user._id });
+    }
+
+    // Delete associated application if exists
+    await Application.deleteMany({ email: user.email.toLowerCase() });
+
+    // Finally delete the user
+    await user.deleteOne();
+
+    res.json({ message: `${user.role === 'student' ? 'Student' : 'Instructor'} and all related data permanently deleted` });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ message: 'Server error during deletion' });
+  }
+};
+
 const generateUniqueInstructorIndexNumber = async (): Promise<string> => {
   const fullYear = new Date().getFullYear();
   const year2Digits = String(fullYear).slice(-2); // e.g. 2026 -> 26

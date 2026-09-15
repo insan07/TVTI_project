@@ -20,7 +20,7 @@ import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const formatUploadedTime = (dateStr?: string) => {
-  if (!dateStr) return 'Uploaded 2 days ago';
+  if (!dateStr) return 'Upload date unknown';
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return 'Uploaded recently';
 

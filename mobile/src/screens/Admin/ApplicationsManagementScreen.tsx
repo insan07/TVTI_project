@@ -372,7 +372,7 @@ export default function ApplicationsManagementScreen({ embedded = false, onAppro
                     </View>
                     <View style={styles.infoRow}>
                       <Text style={styles.infoLabel}>Relationship:</Text>
-                      <Text style={styles.infoVal}>{selectedAppForReview.guardian?.relationship || 'Father'}</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.guardian?.relationship || 'N/A'}</Text>
                     </View>
                     <View style={styles.infoRow}>
                       <Text style={styles.infoLabel}>Contact Phone:</Text>

@@ -166,6 +166,33 @@ export default function BatchManagementScreen() {
     }
   };
 
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState<{id: string, name: string} | null>(null);
+
+  const handleDeleteBatch = (id: string, batchName: string) => {
+    setBatchToDelete({ id, name: batchName });
+    setDeleteConfirmVisible(true);
+  };
+
+  const confirmDeleteBatch = async () => {
+    if (!batchToDelete) return;
+    try {
+      await api.delete(`/admin/batches/${batchToDelete.id}/delete`);
+      fetchData();
+      if (detailsModalVisible) {
+        setDetailsModalVisible(false);
+        setBatchDetails(null);
+      }
+      setDeleteConfirmVisible(false);
+      setBatchToDelete(null);
+      Alert.alert('Success', 'Batch and all related data deleted permanently.');
+    } catch (e: any) {
+      setDeleteConfirmVisible(false);
+      setBatchToDelete(null);
+      Alert.alert('Error', e.response?.data?.message || 'Failed to delete batch');
+    }
+  };
+
   const getInitials = (name: string) => {
     if (!name) return 'S';
     const parts = name.trim().split(' ');
@@ -226,10 +253,16 @@ export default function BatchManagementScreen() {
           <TouchableOpacity style={styles.viewDetailsTextBtn} onPress={() => handleOpenDetails(item._id)}>
             <Text style={styles.viewDetailsText}>View Details & Enrolled Students →</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
-            <Icon name="pencil-outline" size={14} color="#1F2937" style={{ marginRight: 4 }} />
-            <Text style={styles.editBtnText}>Edit</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
+              <Icon name="pencil-outline" size={14} color="#1F2937" style={{ marginRight: 4 }} />
+              <Text style={styles.editBtnText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteCardBtn} onPress={() => handleDeleteBatch(item._id, item.name || item.course_id?.title || 'Batch')}>
+              <Icon name="trash-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+              <Text style={styles.deleteCardBtnText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -245,7 +278,18 @@ export default function BatchManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-
+      {/* Top Header */}
+      <View style={styles.topHeaderContainer}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ paddingRight: 12, paddingVertical: 4 }}>
+            <Icon name="arrow-back" size={24} color="#000000" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.title}>Batch Management</Text>
+            <Text style={styles.subtitle}>Manage vocational training batches</Text>
+          </View>
+        </View>
+      </View>
 
       {/* Filter Banner if active */}
       {filterCourseId ? (
@@ -427,10 +471,16 @@ export default function BatchManagementScreen() {
 
                 {/* Bottom Actions */}
                 <View style={styles.detailsFooter}>
-                  <TouchableOpacity style={styles.footerEditBtn} onPress={() => { setDetailsModalVisible(false); openEditModal(batchDetails.batch); }}>
-                    <Icon name="pencil" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.footerEditBtnText}>Edit Batch Config</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <TouchableOpacity style={[styles.footerEditBtn, { flex: 1 }]} onPress={() => { setDetailsModalVisible(false); openEditModal(batchDetails.batch); }}>
+                      <Icon name="pencil" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.footerEditBtnText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.footerEditBtn, { flex: 1, backgroundColor: '#7F1D1D' }]} onPress={() => handleDeleteBatch(batchDetails.batch._id, batchDetails.batch.name || batchDetails.batch.course_id?.title || 'Batch')}>
+                      <Icon name="trash" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.footerEditBtnText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             )}
@@ -543,6 +593,30 @@ export default function BatchManagementScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal visible={deleteConfirmVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+              <Icon name="warning" size={40} color="#DC2626" />
+            </View>
+            <Text style={[styles.modalTitle, { textAlign: 'center', color: '#991B1B' }]}>Permanently Delete?</Text>
+            <Text style={{ textAlign: 'center', marginTop: 12, fontSize: 14, color: '#374151', lineHeight: 20 }}>
+              This will <Text style={{ fontWeight: 'bold' }}>PERMANENTLY</Text> delete the batch <Text style={{ fontWeight: 'bold' }}>"{batchToDelete?.name}"</Text> and ALL related data including enrollments, results, videos, and practice slots.{'\n\n'}
+              This action CANNOT be undone. Are you absolutely sure?
+            </Text>
+            <View style={[styles.modalActions, { marginTop: 24 }]}>
+              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => { setDeleteConfirmVisible(false); setBatchToDelete(null); }}>
+                <Text style={styles.cancelModalText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.submitModalBtn, { backgroundColor: '#DC2626' }]} onPress={confirmDeleteBatch}>
+                <Text style={styles.submitModalText}>Delete Forever</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -666,6 +740,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
     marginTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#F9FAFB',
@@ -691,6 +767,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#1F2937',
+  },
+  deleteCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#7F1D1D',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  deleteCardBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   emptyText: {
     textAlign: 'center',
