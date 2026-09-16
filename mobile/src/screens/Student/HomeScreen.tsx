@@ -214,7 +214,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
         </View>
 
         <View style={styles.lessonsListContainer}>
-          {theoryLessons.map(lesson => {
+          {theoryLessons.map((lesson: any) => {
             const isBookmarked = !!bookmarkedLessons[lesson._id];
             let thumbUrl = lesson.thumbnail || null;
             if (!thumbUrl && lesson.cloudinary_url) {

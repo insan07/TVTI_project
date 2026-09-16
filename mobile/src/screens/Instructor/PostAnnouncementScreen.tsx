@@ -6,8 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
-  FlatList,
   RefreshControl,
   ScrollView,
   Platform,
@@ -16,11 +14,13 @@ import {
 import api from '../../services/api';
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { COLORS } from '../../config/theme';
+import { COLORS, FONTS } from '../../config/theme';
 import { AuthContext } from '../../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
 export default function PostAnnouncementScreen() {
+  const navigation = useNavigation<any>();
   const authContext = useContext(AuthContext);
   const userRole = authContext?.userRole;
 
@@ -32,6 +32,13 @@ export default function PostAnnouncementScreen() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Compose & Edit Modal State
+  const [composeModalVisible, setComposeModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editItem, setEditItem] = useState<any>(null);
+  const [editFormData, setEditFormData] = useState({ batch_id: 'all', title: '', message: '' });
+  const [editLoading, setEditLoading] = useState(false);
 
   // Custom Confirmation & Alert Dialog Popup State
   const [confirmModal, setConfirmModal] = useState<{
@@ -127,10 +134,45 @@ export default function PostAnnouncementScreen() {
       showAlert('Success', 'Announcement posted successfully!', undefined, 'success');
       setAnnouncements(prev => [res.data, ...prev]);
       setFormData({ batch_id: 'all', title: '', message: '' });
+      setComposeModalVisible(false);
     } catch (e: any) {
       showAlert('Error', e.response?.data?.message || 'Failed to post announcement', undefined, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenEdit = (ann: any) => {
+    setEditItem(ann);
+    const targetBatch = ann.batch_id?._id || ann.batch_id || 'all';
+    setEditFormData({
+      batch_id: targetBatch,
+      title: ann.title || '',
+      message: ann.message || '',
+    });
+    setEditModalVisible(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editFormData.title.trim()) return showAlert('Validation Error', 'Please enter an announcement title', undefined, 'error');
+    if (!editFormData.message.trim()) return showAlert('Validation Error', 'Please enter a message', undefined, 'error');
+    if (!editItem) return;
+
+    setEditLoading(true);
+    try {
+      const res = await api.put(`/announcements/${editItem._id}`, {
+        batch_id: editFormData.batch_id === 'all' ? null : editFormData.batch_id,
+        title: editFormData.title.trim(),
+        message: editFormData.message.trim()
+      });
+      showAlert('Success', 'Announcement updated successfully!', undefined, 'success');
+      setAnnouncements(prev => prev.map(a => a._id === editItem._id ? res.data : a));
+      setEditModalVisible(false);
+      setEditItem(null);
+    } catch (e: any) {
+      showAlert('Error', e.response?.data?.message || 'Failed to update announcement', undefined, 'error');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -148,7 +190,7 @@ export default function PostAnnouncementScreen() {
     setConfirmModal({
       visible: true,
       title: 'Delete Announcement',
-      message: 'Are you sure you want to delete this announcement? This cannot be undone.',
+      message: 'Are you sure you want to delete this announcement? This action cannot be undone.',
       type: 'danger',
       confirmText: 'Delete',
       cancelText: 'Cancel',
@@ -178,111 +220,308 @@ export default function PostAnnouncementScreen() {
     }
   };
 
+  const batchOptions = [
+    { label: 'All Batches (Global Announcement)', value: 'all', subtext: 'Visible to all enrolled students' },
+    ...batches.map(b => ({
+      label: b.name || b.course_id?.title || 'Batch',
+      value: b._id,
+      subtext: b.course_id?.title ? `Course: ${b.course_id.title}` : undefined
+    }))
+  ];
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-
-
-        {/* New Announcement Form Card */}
-        <View style={styles.formCard}>
-          {batchesLoading ? (
-            <ActivityIndicator size="small" color="#000" style={{ marginVertical: 8 }} />
-          ) : (
-            <CustomDropdown
-              placeholder="Choose a target batch..."
-              iconName="megaphone-outline"
-              items={[
-                { label: 'All Batches (Global Announcement)', value: 'all', subtext: 'Visible to all enrolled students' },
-                ...batches.map(b => ({
-                  label: b.name || b.course_id?.title || 'Batch',
-                  value: b._id,
-                  subtext: b.course_id?.title ? `Course: ${b.course_id.title}` : undefined
-                }))
-              ]}
-              selectedValue={formData.batch_id}
-              onValueChange={val => setFormData({ ...formData, batch_id: val })}
-              containerStyle={{ marginBottom: 16 }}
-            />
-          )}
-
-          <Text style={styles.fieldLabel}>ANNOUNCEMENT TITLE</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Class Rescheduled"
-            placeholderTextColor="#9CA3AF"
-            value={formData.title}
-            onChangeText={t => setFormData({ ...formData, title: t })}
-          />
-
-          <Text style={styles.fieldLabel}>MESSAGE</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Write the details of the announcement here..."
-            placeholderTextColor="#9CA3AF"
-            multiline
-            numberOfLines={4}
-            value={formData.message}
-            onChangeText={t => setFormData({ ...formData, message: t })}
-            textAlignVertical="top"
-          />
-
-          <TouchableOpacity style={styles.postBtn} onPress={handlePost} disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Icon name="send-outline" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.postBtnText}>POST ANNOUNCEMENT</Text>
-              </>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F58220']} />}
+      >
+        {/* Top Header Bar with Navigation Back Button, Title, and Round + Button */}
+        <View style={styles.topHeaderBar}>
+          <View style={styles.headerLeftGroup}>
+            {navigation.canGoBack() && (
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => navigation.goBack()}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="arrow-back" size={20} color="#0F172A" />
+              </TouchableOpacity>
             )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle}>Announcements</Text>
+              <Text style={styles.headerSubtitle}>
+                {announcements.length} {announcements.length === 1 ? 'notice' : 'notices'} published across batches
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.roundAddBtn}
+            onPress={() => setComposeModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Icon name="add" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        {/* Announcement History Section */}
-        <View style={styles.historySection}>
-          <Text style={styles.historySectionTitle}>Announcement History</Text>
-
+        {/* Announcements List */}
+        <View style={styles.listSection}>
           {loadingHistory ? (
-            <ActivityIndicator size="small" color="#000" style={{ marginTop: 20 }} />
+            <ActivityIndicator size="small" color="#F58220" style={{ marginTop: 30 }} />
           ) : announcements.length === 0 ? (
-            <Text style={styles.emptyHistoryText}>No announcement history found.</Text>
+            <View style={styles.emptyStateContainer}>
+              <View style={styles.emptyIconCircle}>
+                <Icon name="megaphone-outline" size={32} color="#9CA3AF" />
+              </View>
+              <Text style={styles.emptyTitle}>No Announcements Yet</Text>
+              <Text style={styles.emptySub}>
+                Publish updates, timetable changes, or alerts to your student batches.
+              </Text>
+              <TouchableOpacity
+                style={styles.emptyCreateBtn}
+                onPress={() => setComposeModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Icon name="add" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.emptyCreateBtnText}>Create Announcement</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             announcements.map(ann => (
-              <View key={ann._id} style={styles.historyCard}>
-                <View style={styles.historyCardHeader}>
-                  <Text style={styles.historyTitle}>{ann.title}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={styles.timestampBadge}>
-                      <Text style={styles.timestampText}>{formatTimestamp(ann.createdAt)}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => handleDelete(ann._id)} style={{ marginLeft: 12, padding: 4 }}>
-                      <Icon name="trash-outline" size={18} color="#EF4444" />
-                    </TouchableOpacity>
+              <View key={ann._id} style={styles.announcementCard}>
+                {/* Card Top Row: Title + Timestamp */}
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardTitle}>{ann.title}</Text>
+                  <View style={styles.timestampBadge}>
+                    <Text style={styles.timestampText}>{formatTimestamp(ann.createdAt)}</Text>
                   </View>
                 </View>
 
-                <Text style={styles.historyBody}>{ann.message}</Text>
-
-                <View style={styles.targetRow}>
-                  {ann.batch_id ? (
-                    <>
-                      <Icon name="people-outline" size={14} color="#6B7280" style={{ marginRight: 4 }} />
-                      <Text style={styles.targetText}>
-                        Target: {ann.batch_id.name || ann.batch_id.course_id?.title || 'Batch'}
+                {/* Target & Author Badges */}
+                <View style={styles.metaRow}>
+                  <View style={styles.targetBadge}>
+                    <Icon
+                      name={ann.batch_id ? "people-outline" : "globe-outline"}
+                      size={13}
+                      color="#F58220"
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text style={styles.targetBadgeText}>
+                      {ann.batch_id ? (ann.batch_id.name || ann.batch_id.course_id?.title || 'Target Batch') : 'All Batches'}
+                    </Text>
+                  </View>
+                  {ann.posted_by && (
+                    <View style={styles.authorBadge}>
+                      <Icon name="person-circle-outline" size={13} color="#6B7280" style={{ marginRight: 4 }} />
+                      <Text style={styles.authorBadgeText}>
+                        {ann.posted_by.name || 'Staff'} {ann.posted_by.role ? `(${ann.posted_by.role})` : ''}
                       </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="globe-outline" size={14} color="#6B7280" style={{ marginRight: 4 }} />
-                      <Text style={styles.targetText}>Target: All Batches</Text>
-                    </>
+                    </View>
                   )}
+                </View>
+
+                {/* Message Body */}
+                <Text style={styles.cardBody}>{ann.message}</Text>
+
+                {/* Actions Row: Edit and Delete */}
+                <View style={styles.cardActionRow}>
+                  <TouchableOpacity
+                    style={styles.cardEditBtn}
+                    onPress={() => handleOpenEdit(ann)}
+                    activeOpacity={0.7}
+                  >
+                    <Icon name="create-outline" size={15} color="#F58220" style={{ marginRight: 5 }} />
+                    <Text style={styles.cardEditText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.cardDeleteBtn}
+                    onPress={() => handleDelete(ann._id)}
+                    activeOpacity={0.7}
+                  >
+                    <Icon name="trash-outline" size={15} color="#EF4444" style={{ marginRight: 5 }} />
+                    <Text style={styles.cardDeleteText}>Delete</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ))
           )}
         </View>
       </ScrollView>
+
+      {/* CREATE / POST ANNOUNCEMENT MODAL */}
+      <Modal
+        visible={composeModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setComposeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContentCard}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Post Announcement</Text>
+                <Text style={styles.modalSubtitle}>Broadcast a notice to student batches</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setComposeModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Icon name="close" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {batchesLoading ? (
+                <ActivityIndicator size="small" color="#F58220" style={{ marginVertical: 12 }} />
+              ) : (
+                <>
+                  <Text style={styles.fieldLabel}>TARGET AUDIENCE</Text>
+                  <CustomDropdown
+                    placeholder="Choose target batch..."
+                    iconName="megaphone-outline"
+                    items={batchOptions}
+                    selectedValue={formData.batch_id}
+                    onValueChange={val => setFormData({ ...formData, batch_id: val })}
+                    containerStyle={{ marginBottom: 14 }}
+                  />
+                </>
+              )}
+
+              <Text style={styles.fieldLabel}>ANNOUNCEMENT TITLE</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Schedule Revision for Web Development"
+                placeholderTextColor="#9CA3AF"
+                value={formData.title}
+                onChangeText={t => setFormData({ ...formData, title: t })}
+              />
+
+              <Text style={styles.fieldLabel}>MESSAGE</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Write the full details of your announcement here..."
+                placeholderTextColor="#9CA3AF"
+                multiline
+                numberOfLines={4}
+                value={formData.message}
+                onChangeText={t => setFormData({ ...formData, message: t })}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.modalButtonRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setComposeModalVisible(false)}
+                  disabled={loading}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalSubmitBtn}
+                  onPress={handlePost}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <>
+                      <Icon name="send-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.modalSubmitText}>Publish Notice</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* EDIT ANNOUNCEMENT MODAL */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContentCard}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Edit Announcement</Text>
+                <Text style={styles.modalSubtitle}>Update content or audience for this notice</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setEditModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Icon name="close" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <Text style={styles.fieldLabel}>TARGET AUDIENCE</Text>
+              <CustomDropdown
+                placeholder="Choose target batch..."
+                iconName="megaphone-outline"
+                items={batchOptions}
+                selectedValue={editFormData.batch_id}
+                onValueChange={val => setEditFormData({ ...editFormData, batch_id: val })}
+                containerStyle={{ marginBottom: 14 }}
+              />
+
+              <Text style={styles.fieldLabel}>ANNOUNCEMENT TITLE</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Announcement Title"
+                placeholderTextColor="#9CA3AF"
+                value={editFormData.title}
+                onChangeText={t => setEditFormData({ ...editFormData, title: t })}
+              />
+
+              <Text style={styles.fieldLabel}>MESSAGE</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Write the full details..."
+                placeholderTextColor="#9CA3AF"
+                multiline
+                numberOfLines={4}
+                value={editFormData.message}
+                onChangeText={t => setEditFormData({ ...editFormData, message: t })}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.modalButtonRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setEditModalVisible(false)}
+                  disabled={editLoading}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalSubmitBtn}
+                  onPress={handleSaveEdit}
+                  disabled={editLoading}
+                >
+                  {editLoading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <>
+                      <Icon name="checkmark" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.modalSubmitText}>Save Changes</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* CUSTOM IN-APP CONFIRMATION POPUP MODAL */}
       <Modal
@@ -381,135 +620,388 @@ export default function PostAnnouncementScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
   },
   scrollContent: {
     padding: 16,
     paddingBottom: 60,
   },
-  headerRow: {
-    marginBottom: 14,
+
+  /* Top Header Bar */
+  topHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
     marginTop: 4,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000000',
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
   },
-  formCard: {
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 18,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 20,
-    elevation: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    ...Platform.select({
+      web: { boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.04)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      },
+    }),
+  },
+  headerTitle: {
+    fontSize: 22,
+    ...FONTS.bold,
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 12.5,
+    ...FONTS.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  roundAddBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F58220',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(245, 130, 32, 0.35)' },
+      default: {
+        shadowColor: '#F58220',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.35,
+        shadowRadius: 4,
+        elevation: 3,
+      },
+    }),
+  },
+
+  /* List Section */
+  listSection: {
+    marginTop: 2,
+  },
+  announcementCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.05), inset 0 1px 1px 0 rgba(255, 255, 255, 0.9)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2,
+      },
+    }),
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  cardTitle: {
+    fontSize: 15.5,
+    ...FONTS.bold,
+    color: '#0F172A',
+    flex: 1,
+    marginRight: 8,
+    letterSpacing: -0.2,
+  },
+  timestampBadge: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+  },
+  timestampText: {
+    fontSize: 11,
+    color: '#64748B',
+    ...FONTS.medium,
+  },
+
+  /* Meta Row */
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  targetBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 130, 32, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 130, 32, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  targetBadgeText: {
+    fontSize: 11.5,
+    ...FONTS.medium,
+    color: '#EA580C',
+  },
+  authorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  authorBadgeText: {
+    fontSize: 11.5,
+    ...FONTS.medium,
+    color: '#64748B',
+  },
+
+  /* Card Body */
+  cardBody: {
+    fontSize: 13.5,
+    ...FONTS.regular,
+    color: '#334155',
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+
+  /* Card Action Row */
+  cardActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  cardEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 130, 32, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 130, 32, 0.25)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 7,
+  },
+  cardEditText: {
+    fontSize: 12,
+    ...FONTS.semiBold,
+    color: '#EA580C',
+  },
+  cardDeleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 7,
+  },
+  cardDeleteText: {
+    fontSize: 12,
+    ...FONTS.semiBold,
+    color: '#EF4444',
+  },
+
+  /* Empty State */
+  emptyStateContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 10,
+  },
+  emptyIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    ...FONTS.bold,
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  emptySub: {
+    fontSize: 13,
+    ...FONTS.regular,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 18,
+  },
+  emptyCreateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F58220',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 9,
+  },
+  emptyCreateBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    ...FONTS.semiBold,
+  },
+
+  /* Modals (Compose & Edit) */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContentCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 20,
+    width: '100%',
+    maxWidth: 480,
+    maxHeight: '90%',
+    ...Platform.select({
+      web: { boxShadow: '0px 10px 25px rgba(0, 0, 0, 0.2)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+        elevation: 8,
+      },
+    }),
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalTitle: {
+    fontSize: 18,
+    ...FONTS.bold,
+    color: '#0F172A',
+  },
+  modalSubtitle: {
+    fontSize: 12.5,
+    ...FONTS.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    padding: 4,
+    borderRadius: 6,
   },
   fieldLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#374151',
+    fontSize: 11.5,
+    ...FONTS.bold,
+    color: '#475569',
     marginBottom: 6,
-    marginTop: 12,
-    letterSpacing: 0.5,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    marginTop: 10,
+    letterSpacing: 0.4,
   },
   input: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#CBD5E1',
     borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: '#1F2937',
+    paddingVertical: 10,
+    fontSize: 13.5,
+    ...FONTS.regular,
+    color: '#0F172A',
   },
   textArea: {
     height: 110,
   },
-  postBtn: {
-    backgroundColor: '#000000',
-    borderRadius: 10,
-    paddingVertical: 14,
+  modalButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 20,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  modalCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelText: {
+    color: '#475569',
+    fontSize: 13,
+    ...FONTS.semiBold,
+  },
+  modalSubmitBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    backgroundColor: '#F58220',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 6px rgba(245, 130, 32, 0.3)' },
+      default: {
+        shadowColor: '#F58220',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
+      },
+    }),
   },
-  postBtnText: {
+  modalSubmitText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-    letterSpacing: 0.5,
+    fontSize: 13,
+    ...FONTS.bold,
   },
-  historySection: {
-    marginTop: 4,
-  },
-  historySectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 14,
-  },
-  emptyHistoryText: {
-    color: '#9CA3AF',
-    fontStyle: 'italic',
-  },
-  historyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    elevation: 1,
-  },
-  historyCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-    flex: 1,
-    marginRight: 8,
-  },
-  timestampBadge: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  timestampText: {
-    fontSize: 11,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  historyBody: {
-    fontSize: 14,
-    color: '#4B5563',
-    lineHeight: 20,
-    marginBottom: 10,
-  },
-  targetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  targetText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  
+
   // Custom Popup Dialog Modal Styles
   popupOverlay: {
     flex: 1,
@@ -525,7 +1017,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
-    boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.25)',
     elevation: 10
   },
   popupIconCircle: {
@@ -538,13 +1029,14 @@ const styles = StyleSheet.create({
   },
   popupTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    ...FONTS.bold,
     color: '#0F172A',
     textAlign: 'center',
     marginBottom: 8
   },
   popupMessage: {
-    fontSize: 14,
+    fontSize: 13.5,
+    ...FONTS.regular,
     color: '#475569',
     textAlign: 'center',
     lineHeight: 20,
@@ -566,8 +1058,8 @@ const styles = StyleSheet.create({
   },
   popupCancelText: {
     color: '#475569',
-    fontWeight: 'bold',
-    fontSize: 14
+    ...FONTS.semiBold,
+    fontSize: 13.5
   },
   popupConfirmBtn: {
     flex: 1,
@@ -577,8 +1069,8 @@ const styles = StyleSheet.create({
   },
   popupConfirmText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14
+    ...FONTS.bold,
+    fontSize: 13.5
   },
   popupSingleBtn: {
     width: '100%',
@@ -588,7 +1080,7 @@ const styles = StyleSheet.create({
   },
   popupSingleBtnText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 15
+    ...FONTS.bold,
+    fontSize: 14.5
   }
 });
