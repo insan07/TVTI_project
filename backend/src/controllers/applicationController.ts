@@ -124,9 +124,48 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
       return;
     }
 
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanNic = nic_number ? nic_number.trim() : undefined;
+
+    // Check if email already exists as a registered user
+    const existingUserEmail = await User.findOne({ email: cleanEmail });
+    if (existingUserEmail) {
+      res.status(400).json({
+        message: 'This email address is already registered in the system. Please log in to your account.'
+      });
+      return;
+    }
+
+    // Check if an approved application already exists for this email
+    const approvedAppEmail = await Application.findOne({ email: cleanEmail, status: 'approved' });
+    if (approvedAppEmail) {
+      res.status(400).json({
+        message: 'An approved application already exists for this email address. Please log in.'
+      });
+      return;
+    }
+
+    // Check if NIC already registered to a user or approved application
+    if (cleanNic) {
+      const existingUserNic = await User.findOne({ nic: cleanNic });
+      if (existingUserNic) {
+        res.status(400).json({
+          message: `The NIC number (${cleanNic}) is already registered to an existing student account.`
+        });
+        return;
+      }
+      const approvedAppNic = await Application.findOne({ nic_number: cleanNic, status: 'approved' });
+      if (approvedAppNic) {
+        res.status(400).json({
+          message: `The NIC number (${cleanNic}) is already registered to an approved student application.`
+        });
+        return;
+      }
+    }
+
     // If an un-approved application with this email already exists in pending status, clean it up so the new submission replaces it seamlessly
     await Application.deleteMany({
-      email: email.toLowerCase().trim(),
+      email: cleanEmail,
       status: 'pending'
     });
 

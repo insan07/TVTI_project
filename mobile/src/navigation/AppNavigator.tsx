@@ -31,7 +31,6 @@ import StudentScheduleScreen from '../screens/Student/StudentScheduleScreen';
 import NotificationsScreen from '../screens/Shared/NotificationsScreen';
 import PostAnnouncementScreen from '../screens/Instructor/PostAnnouncementScreen';
 import ResultsScreen from '../screens/Student/ResultsScreen';
-import ManageResultsScreen from '../screens/Admin/ManageResultsScreen';
 import MyStudentsScreen from '../screens/Instructor/MyStudentsScreen';
 import ForceChangePasswordScreen from '../screens/Auth/ForceChangePasswordScreen';
 import AdminSlotManagementScreen from '../screens/Admin/AdminSlotManagementScreen';
@@ -147,14 +146,6 @@ const AdminTabs = ({ insets }: { insets: any }) => (
     <Tab.Screen name="Users" component={UserManagementScreen} options={{ tabBarLabel: 'Users' }} />
     <Tab.Screen name="Courses" component={AdminCoursesStack} options={{ tabBarLabel: 'Courses' }} />
     <Tab.Screen name="Practice" component={AdminSlotManagementScreen} options={{ tabBarLabel: 'Slots' }} />
-    <Tab.Screen name="Results" component={ManageResultsScreen} options={{ tabBarLabel: 'Results' }} />
-    <Tab.Screen
-      name="PostAnnouncement"
-      component={PostAnnouncementScreen}
-      options={{
-        tabBarLabel: 'Notices',
-      }}
-    />
     <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
 );
@@ -256,6 +247,7 @@ export const AppNavigator = () => {
                   {props => <AdminTabs {...props} insets={insets} />}
                 </Stack.Screen>
                 <Stack.Screen name="EnrollStudent" component={EnrollStudentScreen} options={{ ...headerOptions, headerShown: true, title: 'Enroll Students' }} />
+                <Stack.Screen name="PostAnnouncement" component={PostAnnouncementScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>
             ) : (

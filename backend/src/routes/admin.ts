@@ -1,5 +1,5 @@
 import express from 'express';
-import { getUsers, getUserDetails, approveUser, rejectUser, deactivateUser, deleteUserCompletely, createInstructor, getAdminStats } from '../controllers/adminController';
+import { getUsers, getUserDetails, approveUser, rejectUser, deactivateUser, deleteUserCompletely, createInstructor, getAdminStats, getAdminActivities } from '../controllers/adminController';
 import { getAdminCourses, createCourse, updateCourse, archiveCourse } from '../controllers/courseController';
 import { getAdminBatches, getBatchDetails, createBatch, updateBatch, getBatchStudents, enrollStudents, deleteBatchCompletely } from '../controllers/batchController';
 import { getBatchResults, createResult, updateResult } from '../controllers/resultController';
@@ -13,6 +13,7 @@ const router = express.Router();
 router.use(protect, checkRole(['admin']));
 
 router.get('/stats', getAdminStats);
+router.get('/activities', getAdminActivities);
 
 // Applications
 router.get('/applications', getApplications);

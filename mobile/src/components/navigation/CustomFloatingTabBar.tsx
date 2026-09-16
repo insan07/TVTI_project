@@ -145,7 +145,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
                 ]}
               >
                 <Icon
-                  name={iconName}
+                  name={iconName as any}
                   size={20}
                   color={isFocused ? '#FFFFFF' : '#E4E4E7'}
                 />

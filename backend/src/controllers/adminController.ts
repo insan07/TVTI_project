@@ -8,9 +8,143 @@ import Video from '../models/Video';
 import PracticeSlot from '../models/PracticeSlot';
 import SlotBooking from '../models/SlotBooking';
 import Application from '../models/Application';
+import Announcement from '../models/Announcement';
 import bcrypt from 'bcryptjs';
 import { generateUniqueIndexNumber } from './applicationController';
 import { sendApprovalCredentialsEmail } from '../services/emailService';
+
+const formatTimeAgo = (date: any): string => {
+  if (!date) return 'Recently';
+  const now = new Date();
+  const past = new Date(date);
+  const diffSec = Math.floor((now.getTime() - past.getTime()) / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  const diffDays = Math.floor(diffHour / 24);
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return past.toLocaleDateString([], { month: 'short', day: 'numeric' });
+};
+
+export const fetchSystemActivities = async (limit = 20) => {
+  try {
+    const [users, announcements, courses, batches, applications, slotBookings, videos] = await Promise.all([
+      User.find().sort({ createdAt: -1 }).limit(limit).select('name role is_active createdAt'),
+      Announcement.find().sort({ createdAt: -1 }).limit(limit).select('title createdAt'),
+      Course.find().sort({ createdAt: -1 }).limit(limit).select('title createdAt'),
+      Batch.find().populate('course_id', 'title').sort({ createdAt: -1 }).limit(limit).select('name course_id createdAt'),
+      Application.find().populate('course_id', 'title').sort({ createdAt: -1 }).limit(limit).select('fullName course_id status createdAt'),
+      SlotBooking.find().populate('student_id', 'name').sort({ createdAt: -1 }).limit(limit).select('student_id booking_date status createdAt'),
+      Video.find().sort({ createdAt: -1 }).limit(limit).select('title content_type createdAt')
+    ]);
+
+    const items: Array<{
+      id: string;
+      text: string;
+      type: string;
+      createdAt: Date;
+      time: string;
+      color: string;
+      icon: string;
+    }> = [];
+
+    users.forEach((u: any) => {
+      const isStudent = u.role === 'student';
+      items.push({
+        id: `user-${u._id}`,
+        text: isStudent
+          ? `Student "${u.name}" registered ${u.is_active ? '(Active)' : '(Pending approval)'}`
+          : `${u.role === 'instructor' ? 'Instructor' : 'User'} "${u.name}" account created`,
+        type: 'user',
+        createdAt: u.createdAt || new Date(),
+        time: formatTimeAgo(u.createdAt),
+        color: isStudent ? (u.is_active ? '#10B981' : '#F59E0B') : '#3B82F6',
+        icon: isStudent ? 'person-add-outline' : 'shield-checkmark-outline'
+      });
+    });
+
+    announcements.forEach((a: any) => {
+      items.push({
+        id: `ann-${a._id}`,
+        text: `Notice posted: "${a.title}"`,
+        type: 'announcement',
+        createdAt: a.createdAt || new Date(),
+        time: formatTimeAgo(a.createdAt),
+        color: '#D97706',
+        icon: 'megaphone-outline'
+      });
+    });
+
+    courses.forEach((c: any) => {
+      items.push({
+        id: `course-${c._id}`,
+        text: `Course "${c.title}" added to curriculum`,
+        type: 'course',
+        createdAt: c.createdAt || new Date(),
+        time: formatTimeAgo(c.createdAt),
+        color: '#8B5CF6',
+        icon: 'book-outline'
+      });
+    });
+
+    batches.forEach((b: any) => {
+      items.push({
+        id: `batch-${b._id}`,
+        text: `New batch "${b.name}" opened for ${b.course_id?.title || 'course'}`,
+        type: 'batch',
+        createdAt: b.createdAt || new Date(),
+        time: formatTimeAgo(b.createdAt),
+        color: '#06B6D4',
+        icon: 'layers-outline'
+      });
+    });
+
+    applications.forEach((app: any) => {
+      items.push({
+        id: `app-${app._id}`,
+        text: `Application received from ${app.fullName} for ${app.course_id?.title || 'course'}`,
+        type: 'application',
+        createdAt: app.createdAt || new Date(),
+        time: formatTimeAgo(app.createdAt),
+        color: '#EC4899',
+        icon: 'document-text-outline'
+      });
+    });
+
+    slotBookings.forEach((sb: any) => {
+      items.push({
+        id: `slot-${sb._id}`,
+        text: `Student "${sb.student_id?.name || 'Student'}" booked practical workshop`,
+        type: 'booking',
+        createdAt: sb.createdAt || new Date(),
+        time: formatTimeAgo(sb.createdAt),
+        color: '#2563EB',
+        icon: 'calendar-outline'
+      });
+    });
+
+    videos.forEach((v: any) => {
+      items.push({
+        id: `vid-${v._id}`,
+        text: `New ${v.content_type === 'material' ? 'study material' : 'lecture video'}: "${v.title}"`,
+        type: 'video',
+        createdAt: v.createdAt || new Date(),
+        time: formatTimeAgo(v.createdAt),
+        color: '#6366F1',
+        icon: v.content_type === 'material' ? 'document-attach-outline' : 'play-circle-outline'
+      });
+    });
+
+    items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return items.slice(0, limit);
+  } catch (err) {
+    console.error('fetchSystemActivities error:', err);
+    return [];
+  }
+};
 
 // GET /api/admin/stats
 export const getAdminStats = async (req: Request, res: Response): Promise<void> => {
@@ -26,17 +160,8 @@ export const getAdminStats = async (req: Request, res: Response): Promise<void> 
       .sort({ createdAt: -1 })
       .limit(5);
 
-    // Dynamic recent activity
-    const recentCourses = await Course.find().sort({ createdAt: -1 }).limit(2);
-    const recentActivities = [
-      ...(recentCourses.map(c => ({
-        id: c._id.toString(),
-        text: `New course "${c.title}" published.`,
-        time: 'Recently'
-      }))),
-      { id: 'act-1', text: 'System maintenance scheduled for 02:00 AM.', time: '2 hours ago' },
-      { id: 'act-2', text: 'Batch 44 completed module Safety Protocols.', time: 'Yesterday, 4:30 PM' }
-    ];
+    // Dynamic real recent activity (5 items)
+    const recentActivities = await fetchSystemActivities(5);
 
     res.json({
       totalStudents,
@@ -48,6 +173,17 @@ export const getAdminStats = async (req: Request, res: Response): Promise<void> 
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// GET /api/admin/activities
+export const getAdminActivities = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = parseInt(req.query.limit as string, 10) || 50;
+    const activities = await fetchSystemActivities(limit);
+    res.json(activities);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch activities' });
   }
 };
 

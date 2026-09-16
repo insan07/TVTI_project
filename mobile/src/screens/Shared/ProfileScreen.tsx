@@ -96,7 +96,12 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPhotoAsset(result.assets[0]);
+      const asset = result.assets[0];
+      if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+        showAck('Image Too Large', 'Selected profile photo is larger than 5MB. Please choose an image smaller than 5MB.', 'error');
+        return;
+      }
+      setPhotoAsset(asset);
     }
   };
 
@@ -128,7 +133,12 @@ export default function ProfileScreen() {
         fetchProfile();
       });
     } catch (e: any) {
-      showAck('Error', e.response?.data?.message || 'Failed to update profile', 'error');
+      const serverMsg = e.response?.data?.message;
+      if (e.response?.status === 413 || (serverMsg && serverMsg.toLowerCase().includes('too large'))) {
+        showAck('Photo Too Large', 'The selected profile photo is too large (request entity too large). Please upload a smaller image under 5MB.', 'error');
+      } else {
+        showAck('Error', serverMsg || 'Failed to update profile', 'error');
+      }
     } finally {
       setSaving(false);
     }
