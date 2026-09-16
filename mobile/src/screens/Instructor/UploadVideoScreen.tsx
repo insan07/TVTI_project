@@ -572,12 +572,15 @@ export default function UploadVideoScreen() {
                           if (match && match[1]) {
                             thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
                           }
-                        } else if (item.cloudinary_url && item.content_type !== 'material') {
+                        } else if (item.cloudinary_url) {
                           if (item.cloudinary_url.includes('cloudinary.com')) {
+                            // Cloudinary can generate thumbnails for videos and PDFs by changing the extension to .jpg
                             thumbUrl = item.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
                           } else if (item.cloudinary_url.startsWith('/uploads/')) {
-                            isLocalVideo = true;
-                            localVideoUrl = `${API_URL.replace(/\/api\/?$/, '')}${item.cloudinary_url}`;
+                            if (item.content_type !== 'material') {
+                              isLocalVideo = true;
+                              localVideoUrl = `${API_URL.replace(/\/api\/?$/, '')}${item.cloudinary_url}`;
+                            }
                           }
                         }
                         
@@ -587,7 +590,7 @@ export default function UploadVideoScreen() {
                               <Image source={{ uri: thumbUrl }} style={styles.thumbnailImage} resizeMode="cover" />
                               <View style={styles.thumbnailOverlay}>
                                 <Icon
-                                  name={item.youtube_url ? 'logo-youtube' : 'videocam'}
+                                  name={item.content_type === 'material' ? 'document-text' : item.youtube_url ? 'logo-youtube' : 'videocam'}
                                   size={22}
                                   color="#FFFFFF"
                                 />

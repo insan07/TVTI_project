@@ -10,4 +10,10 @@ router.post('/verify-otp', verifyOtpHandler);
 router.post('/reset-password', resetPasswordRequest);
 router.put('/reset-password/:token', resetPassword);
 
+router.get('/debug-batch', async (req, res) => {
+  const Batch = require('../models/Batch').default;
+  const batches = await Batch.find({}).populate('course_id');
+  res.json(batches);
+});
+
 export default router;

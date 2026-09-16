@@ -414,10 +414,19 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                 <ActivityIndicator size="large" color="#F58220" style={{ marginVertical: 30 }} />
               ) : materials.length > 0 ? (
                 <View style={styles.materialsListContainer}>
-                  {materials.map((mat) => (
+                  {materials.map((mat) => {
+                    let thumbUrl = null;
+                    if (mat.cloudinary_url && mat.cloudinary_url.includes('cloudinary.com')) {
+                      thumbUrl = mat.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
+                    }
+                    return (
                     <View key={mat._id} style={styles.materialCard}>
-                      <View style={styles.materialIconCircle}>
-                        <Icon name="document-text" size={26} color="#F58220" />
+                      <View style={[styles.materialIconCircle, thumbUrl ? { backgroundColor: 'transparent' } : {}]}>
+                        {thumbUrl ? (
+                          <Image source={{ uri: thumbUrl }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+                        ) : (
+                          <Icon name="document-text" size={26} color="#F58220" />
+                        )}
                       </View>
                       <View style={styles.materialInfo}>
                         <Text style={styles.materialTitle}>{mat.title}</Text>
@@ -443,7 +452,8 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                         </LinearGradient>
                       </TouchableOpacity>
                     </View>
-                  ))}
+                    );
+                  })}
                 </View>
               ) : (
                 <View style={styles.emptyMaterialsBox}>

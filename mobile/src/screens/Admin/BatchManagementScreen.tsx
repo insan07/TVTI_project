@@ -36,8 +36,9 @@ export default function BatchManagementScreen() {
     start_date: new Date(),
     end_date: new Date(),
     capacity: '25',
+    room: '',
     instructor_ids: [],
-    schedule_json: { days: ['Mon', 'Wed', 'Fri'] }
+    schedule_json: { days: ['Mon', 'Wed', 'Fri'], time: '' }
   });
   const [saving, setSaving] = useState(false);
   const [showPicker, setShowPicker] = useState<'start' | 'end' | null>(null);
@@ -97,8 +98,9 @@ export default function BatchManagementScreen() {
       start_date: new Date(),
       end_date: new Date(Date.now() + 60 * 86400000),
       capacity: '25',
+      room: '',
       instructor_ids: [],
-      schedule_json: { days: ['Mon', 'Wed', 'Fri'] }
+      schedule_json: { days: ['Mon', 'Wed', 'Fri'], time: '' }
     });
     setModalVisible(true);
   };
@@ -111,8 +113,9 @@ export default function BatchManagementScreen() {
       start_date: batch.start_date ? new Date(batch.start_date) : new Date(),
       end_date: batch.end_date ? new Date(batch.end_date) : new Date(),
       capacity: String(batch.capacity || 25),
+      room: batch.room || '',
       instructor_ids: batch.instructor_ids?.map((i: any) => i._id || i) || [],
-      schedule_json: batch.schedule_json || { days: ['Mon', 'Wed', 'Fri'] }
+      schedule_json: batch.schedule_json || { days: ['Mon', 'Wed', 'Fri'], time: '' }
     });
     setModalVisible(true);
   };
@@ -132,8 +135,12 @@ export default function BatchManagementScreen() {
   };
 
   const saveBatch = async () => {
-    if (!formData.name.trim()) return Alert.alert('Error', 'Batch name is required');
-    if (!formData.course_id) return Alert.alert('Error', 'Course selection is required');
+    if (!formData.name.trim()) return Alert.alert('Validation Error', 'Batch name is required.');
+    if (!formData.course_id) return Alert.alert('Validation Error', 'Course selection is required.');
+    if (!formData.capacity || isNaN(parseInt(formData.capacity))) return Alert.alert('Validation Error', 'A valid capacity is required.');
+    if (!formData.schedule_json?.days || formData.schedule_json.days.length === 0) return Alert.alert('Validation Error', 'Please select at least one schedule day.');
+    if (!formData.schedule_json?.time?.trim()) return Alert.alert('Validation Error', 'Class time is required.');
+    if (!formData.room?.trim()) return Alert.alert('Validation Error', 'Room is required.');
 
     setSaving(true);
     try {
@@ -143,6 +150,7 @@ export default function BatchManagementScreen() {
         start_date: formData.start_date.toISOString(),
         end_date: formData.end_date.toISOString(),
         capacity: parseInt(formData.capacity, 10) || 25,
+        room: formData.room,
         instructor_ids: formData.instructor_ids,
         schedule_json: formData.schedule_json
       };
@@ -583,6 +591,22 @@ export default function BatchManagementScreen() {
                   );
                 })}
               </View>
+
+              <Text style={styles.label}>Class Time</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 9:00 AM - 12:00 PM"
+                value={formData.schedule_json?.time || ''}
+                onChangeText={t => setFormData({ ...formData, schedule_json: { ...formData.schedule_json, time: t } })}
+              />
+
+              <Text style={styles.label}>Room</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Lab 2"
+                value={formData.room}
+                onChangeText={t => setFormData({ ...formData, room: t })}
+              />
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setModalVisible(false)}>
