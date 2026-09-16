@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Platform,
   Alert,
   Modal,
   ScrollView
@@ -18,6 +19,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 
+import ScreenHeader from '../../components/shared/ScreenHeader';
+
 export default function BatchManagementScreen() {
   const [batches, setBatches] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
@@ -26,6 +29,11 @@ export default function BatchManagementScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const filterCourseId = route.params?.courseId;
+
+  // Search & Filter States
+  const [search, setSearch] = useState('');
+  const [showFilter, setShowFilter] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'full'>('all');
 
   // Edit/Add Modal
   const [modalVisible, setModalVisible] = useState(false);
@@ -276,9 +284,25 @@ export default function BatchManagementScreen() {
     );
   };
 
-  const filteredBatches = filterCourseId
-    ? batches.filter(b => b.course_id?._id === filterCourseId || b.course_id === filterCourseId)
-    : batches;
+  const filteredBatches = (batches || []).filter(b => {
+    const matchesCourse = !filterCourseId || b.course_id?._id === filterCourseId || b.course_id === filterCourseId;
+    const term = (search || '').toLowerCase().trim();
+    const batchName = (b.name || '').toLowerCase();
+    const courseTitle = (b.course_id?.title || '').toLowerCase();
+    const room = (b.room || '').toLowerCase();
+    const matchesSearch =
+      !term ||
+      batchName.includes(term) ||
+      courseTitle.includes(term) ||
+      room.includes(term);
+
+    const isFull = (b.enrolled_count || 0) >= b.capacity;
+    let matchesStatus = true;
+    if (statusFilter === 'active') matchesStatus = !isFull;
+    if (statusFilter === 'full') matchesStatus = isFull;
+
+    return matchesCourse && matchesSearch && matchesStatus;
+  });
 
   const courseName = filterCourseId
     ? courses.find(c => c._id === filterCourseId)?.title || 'Selected Course'
@@ -286,18 +310,76 @@ export default function BatchManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Top Header */}
-      <View style={styles.topHeaderContainer}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ paddingRight: 12, paddingVertical: 4 }}>
-            <Icon name="arrow-back" size={24} color="#000000" />
-          </TouchableOpacity>
-          <View>
-            <Text style={styles.title}>Batch Management</Text>
-            <Text style={styles.subtitle}>Manage vocational training batches</Text>
+      <ScreenHeader
+        title="Batch Management"
+        subtitle="Manage vocational training batches"
+      />
+
+      {/* Top Create Batch Action Button */}
+      <View style={styles.actionButtonRow}>
+        <TouchableOpacity style={styles.addBatchBtn} onPress={openAddModal} activeOpacity={0.85}>
+          <Icon name="add" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.addBatchBtnText}>Create Batch</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Search Bar & Filter Toggle Button */}
+      <View style={styles.searchFilterRow}>
+        <View style={styles.searchBox}>
+          <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search batch by name, course, or room..."
+            placeholderTextColor="#9CA3AF"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+        <TouchableOpacity
+          style={[styles.filterBtn, showFilter && styles.filterBtnActive]}
+          onPress={() => setShowFilter(!showFilter)}
+          activeOpacity={0.8}
+        >
+          <Icon name="options-outline" size={18} color={showFilter ? '#FFFFFF' : '#374151'} style={{ marginRight: 6 }} />
+          <Text style={[styles.filterBtnText, showFilter && { color: '#FFFFFF' }]}>Filters</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter Options Panel */}
+      {showFilter && (
+        <View style={styles.filterOptionsPanel}>
+          <Text style={styles.filterPanelTitle}>Filter Batch Status:</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+            <TouchableOpacity
+              style={[styles.filterChip, statusFilter === 'all' && styles.filterChipActive]}
+              onPress={() => setStatusFilter('all')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.filterChipText, statusFilter === 'all' && styles.filterChipTextActive]}>
+                All ({batches.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterChip, statusFilter === 'active' && styles.filterChipActive]}
+              onPress={() => setStatusFilter('active')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.filterChipText, statusFilter === 'active' && styles.filterChipTextActive]}>
+                Active ({batches.filter(b => (b.enrolled_count || 0) < b.capacity).length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterChip, statusFilter === 'full' && styles.filterChipActive]}
+              onPress={() => setStatusFilter('full')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.filterChipText, statusFilter === 'full' && styles.filterChipTextActive]}>
+                Full ({batches.filter(b => (b.enrolled_count || 0) >= b.capacity).length})
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
+      )}
 
       {/* Filter Banner if active */}
       {filterCourseId ? (
@@ -326,11 +408,6 @@ export default function BatchManagementScreen() {
           ListEmptyComponent={<Text style={styles.emptyText}>No batches found.</Text>}
         />
       )}
-
-      {/* FAB (+) */}
-      <TouchableOpacity style={styles.fab} onPress={openAddModal}>
-        <Icon name="add" size={30} color="#FFFFFF" />
-      </TouchableOpacity>
 
       {/* ========================================================================= */}
       {/* COMPREHENSIVE BATCH DETAILS MODAL */}
@@ -668,6 +745,92 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
   },
+  searchFilterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    marginTop: 10,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 26,
+    paddingHorizontal: 16,
+    height: 46,
+    marginRight: 8,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+    }),
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1F2937',
+  },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    height: 46,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+    }),
+  },
+  filterBtnActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  filterBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  filterOptionsPanel: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 8,
+  },
+  filterPanelTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 22,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  filterChipActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
   filterBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -677,7 +840,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
@@ -687,12 +850,15 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    elevation: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 14px rgba(0, 0, 0, 0.05)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }
+    }),
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -714,7 +880,7 @@ const styles = StyleSheet.create({
   },
   activeBadge: {
     backgroundColor: '#D1FAE5',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -725,7 +891,7 @@ const styles = StyleSheet.create({
   },
   fullBadge: {
     backgroundColor: '#FEE2E2',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -750,42 +916,51 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   dayChip: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
     paddingVertical: 3,
   },
   dayChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#374151',
+    color: '#475569',
   },
   cardFooterActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 12,
+    gap: 10,
+    marginTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#F9FAFB',
-    paddingTop: 10,
+    paddingTop: 12,
   },
   viewDetailsTextBtn: {
-    paddingVertical: 4,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
   viewDetailsText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: 'bold',
     color: '#F58220',
   },
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 22,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
   editBtnText: {
     fontSize: 13,
@@ -796,9 +971,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#7F1D1D',
-    borderRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    borderRadius: 22,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 8px rgba(127, 29, 29, 0.3)' },
+      default: { shadowColor: '#7F1D1D', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 }
+    }),
   },
   deleteCardBtnText: {
     fontSize: 13,
@@ -1012,12 +1191,16 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
   },
   footerEditBtn: {
-    backgroundColor: '#000000',
-    borderRadius: 10,
+    backgroundColor: '#F58220',
+    borderRadius: 24,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 4 }
+    }),
   },
   footerEditBtnText: {
     color: '#FFFFFF',
@@ -1105,6 +1288,29 @@ const styles = StyleSheet.create({
   scheduleDayTextActive: {
     color: '#FFFFFF',
   },
+  actionButtonRow: {
+    paddingHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  addBatchBtn: {
+    backgroundColor: '#F58220',
+    borderRadius: 26,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 }
+    }),
+  },
+  addBatchBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -1114,19 +1320,24 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     marginRight: 8,
+    borderRadius: 24,
   },
   cancelModalText: {
     color: '#6B7280',
     fontWeight: '600',
   },
   submitModalBtn: {
-    backgroundColor: '#000000',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
+    backgroundColor: '#F58220',
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 4 }
+    }),
   },
   submitModalText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
 });

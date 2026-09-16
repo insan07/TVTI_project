@@ -13,6 +13,7 @@ import CustomDropdown from '../../components/shared/CustomDropdown';
 import api from '../../services/api';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function ResultsScreen() {
   const navigation = useNavigation<any>();
@@ -62,13 +63,11 @@ export default function ResultsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('StudentApp'))}>
-          <Icon name="arrow-back" size={22} color="#1A1A1A" />
-        </TouchableOpacity>
-        <Text style={styles.pageHeaderTitle}>My Results</Text>
-        <View style={{ width: 32 }} />
+      <View style={{ paddingTop: insets.top }}>
+        <ScreenHeader
+          title="My Results"
+          subtitle="Academic performance & marks summary"
+        />
       </View>
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>

@@ -13,6 +13,7 @@ import { storage } from '../../utils/storage';
 import { COLORS, FONTS } from '../../config/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500MB
 
@@ -322,32 +323,45 @@ export default function UploadVideoScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      {/* Top Header Bar */}
-      <View style={styles.topHeaderBar}>
-        <View style={styles.headerLeftGroup}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Icon name="arrow-back" size={20} color="#0F172A" />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Upload Content</Text>
-          </View>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Upload Content"
+        subtitle="Publish video lessons & study materials"
+      />
 
-      <View style={styles.tabHeader}>
-        <TouchableOpacity style={[styles.tab, activeTab === 'upload' && styles.activeTab]} onPress={() => setActiveTab('upload')}>
-          <Icon name="cloud-upload-outline" size={16} color={activeTab === 'upload' ? COLORS.primary : '#6B7280'} style={{ marginRight: 5 }} />
-          <Text style={[styles.tabText, activeTab === 'upload' && styles.activeTabText]}>Upload Portal</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, activeTab === 'my_videos' && styles.activeTab]} onPress={() => setActiveTab('my_videos')}>
-          <Icon name="layers-outline" size={16} color={activeTab === 'my_videos' ? COLORS.primary : '#6B7280'} style={{ marginRight: 5 }} />
-          <Text style={[styles.tabText, activeTab === 'my_videos' && styles.activeTabText]}>My Uploads</Text>
-        </TouchableOpacity>
+      <View style={styles.segmentedTrackContainer}>
+        <View style={styles.segmentedTrack}>
+          <TouchableOpacity
+            style={[styles.segmentedTab, activeTab === 'upload' && styles.segmentedTabActive]}
+            onPress={() => setActiveTab('upload')}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name={activeTab === 'upload' ? 'cloud-upload' : 'cloud-upload-outline'}
+              size={16}
+              color={activeTab === 'upload' ? '#FFFFFF' : '#64748B'}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={[styles.segmentedTabText, activeTab === 'upload' && styles.segmentedTabTextActive]}>
+              Upload Portal
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.segmentedTab, activeTab === 'my_videos' && styles.segmentedTabActive]}
+            onPress={() => setActiveTab('my_videos')}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name={activeTab === 'my_videos' ? 'layers' : 'layers-outline'}
+              size={16}
+              color={activeTab === 'my_videos' ? '#FFFFFF' : '#64748B'}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={[styles.segmentedTabText, activeTab === 'my_videos' && styles.segmentedTabTextActive]}>
+              My Uploads
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {activeTab === 'upload' ? (
@@ -803,11 +817,57 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
-  tabHeader: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
-  tab: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 14, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  activeTab: { borderBottomColor: '#F58220' },
-  tabText: { ...FONTS.bold, color: '#6B7280', fontSize: 13.5 },
-  activeTabText: { color: '#F58220' },
+  segmentedTrackContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  segmentedTrack: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 26,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
+      default: {}
+    }),
+  },
+  segmentedTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 22,
+  },
+  segmentedTabActive: {
+    backgroundColor: '#0F172A',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+        elevation: 4,
+      }
+    }),
+  },
+  segmentedTabText: {
+    fontSize: 13.5,
+    ...FONTS.semiBold,
+    color: '#64748B',
+  },
+  segmentedTabTextActive: {
+    color: '#FFFFFF',
+    ...FONTS.bold,
+  },
   card: {
     backgroundColor: '#FFFFFF', margin: 16, borderRadius: 14, padding: 20,
     borderWidth: 1, borderColor: '#E2E8F0',

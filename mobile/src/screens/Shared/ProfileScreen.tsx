@@ -18,6 +18,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { FONTS } from '../../config/theme';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function ProfileScreen() {
   const context = useContext(AuthContext);
@@ -229,13 +230,13 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* FIXED STICKY TOP HEADER */}
-      <View style={styles.stickyHeader}>
-        <Text style={styles.mainTitle}>
-          {user?.role === 'instructor' ? 'Instructor Profile' : 
-           user?.role === 'admin' ? 'Admin Profile' : 'Student Profile'}
-        </Text>
-      </View>
+      <ScreenHeader
+        title={
+          user?.role === 'instructor' ? 'Instructor Profile' :
+          user?.role === 'admin' ? 'Admin Profile' : 'Student Profile'
+        }
+        subtitle="Account details & preferences"
+      />
 
       <ScrollView
         style={{ flex: 1 }}

@@ -781,7 +781,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.2)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4 }
+    }),
   },
   reviewBtnText: {
     color: '#FFFFFF',
@@ -814,7 +819,7 @@ const styles = StyleSheet.create({
   },
   reviewModalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 22,
     width: '92%',
     maxHeight: '90%',
     overflow: 'hidden',
@@ -839,13 +844,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeIconBtn: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
   },
   infoSectionCard: {
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 14,
     marginBottom: 12,
   },
@@ -881,9 +888,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-start',
     backgroundColor: '#D1FAE5',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
     marginTop: 4,
   },
   otpVerifiedText: {
@@ -940,7 +947,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
-    borderRadius: 10,
+    borderRadius: 16,
     padding: 10,
     marginBottom: 6,
   },
@@ -951,7 +958,7 @@ const styles = StyleSheet.create({
   courseCheckbox: {
     width: 20,
     height: 20,
-    borderRadius: 5,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: '#9CA3AF',
     justifyContent: 'center',
@@ -981,7 +988,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#D1D5DB',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 6,
     alignItems: 'center',
     marginTop: 6,
@@ -989,15 +996,15 @@ const styles = StyleSheet.create({
   slipThumbnailImg: {
     width: '100%',
     height: 120,
-    borderRadius: 6,
+    borderRadius: 10,
   },
   zoomOverlayBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(15,23,42,0.8)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
     marginTop: 6,
   },
   zoomOverlayText: {
@@ -1007,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   noSlipBox: {
     backgroundColor: '#F3F4F6',
-    borderRadius: 6,
+    borderRadius: 10,
     padding: 10,
     marginTop: 6,
   },
@@ -1018,7 +1025,7 @@ const styles = StyleSheet.create({
   },
   adminFeeEditorCard: {
     backgroundColor: '#0F172A',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
   },
@@ -1041,8 +1048,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderWidth: 1,
     borderColor: '#334155',
-    borderRadius: 6,
-    paddingHorizontal: 10,
+    borderRadius: 12,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
     fontWeight: 'bold',
@@ -1057,9 +1064,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderWidth: 1,
     borderColor: '#334155',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
   },
   statusChipSelected: {
     backgroundColor: '#10B981',
@@ -1105,7 +1112,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#DC2626',
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 24,
     alignItems: 'center',
   },
   rejectOutlineBtnText: {
@@ -1120,7 +1127,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 24,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(5, 150, 105, 0.3)' },
+      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 }
+    }),
   },
   approveFillBtnText: {
     color: '#FFFFFF',
@@ -1146,7 +1157,7 @@ const styles = StyleSheet.create({
   },
   credentialsModalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 24,
     width: '88%',
     alignItems: 'center',
@@ -1169,7 +1180,7 @@ const styles = StyleSheet.create({
   },
   credentialsBox: {
     backgroundColor: '#0F172A',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     width: '100%',
     marginBottom: 16,
@@ -1205,7 +1216,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0FDFA',
     borderWidth: 1,
     borderColor: '#99F6E4',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     marginBottom: 20,
   },
@@ -1217,10 +1228,14 @@ const styles = StyleSheet.create({
   },
   closeCredModalBtn: {
     backgroundColor: '#111827',
-    borderRadius: 10,
+    borderRadius: 24,
     paddingVertical: 12,
     width: '100%',
     alignItems: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.25)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 4 }
+    }),
   },
   closeCredModalBtnText: {
     color: '#FFFFFF',

@@ -8,6 +8,7 @@ import api from '../../services/api';
 import { COLORS, FONTS } from '../../config/theme';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { Platform } from 'react-native';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function MyStudentsScreen() {
   const navigation = useNavigation();
@@ -89,25 +90,10 @@ export default function MyStudentsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={styles.topHeaderBar}>
-        <View style={styles.headerLeftGroup}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Icon name="arrow-back" size={20} color="#0F172A" />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>My Students</Text>
-            <Text style={styles.headerSubtitle}>
-              Manage and view your assigned batches
-            </Text>
-          </View>
-        </View>
-      </View>
+      <ScreenHeader
+        title="My Students"
+        subtitle="Manage & view your assigned batches"
+      />
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>

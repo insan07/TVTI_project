@@ -18,6 +18,7 @@ import { COLORS, FONTS } from '../../config/theme';
 import { AuthContext } from '../../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function PostAnnouncementScreen() {
   const navigation = useNavigation<any>();
@@ -231,33 +232,11 @@ export default function PostAnnouncementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F58220']} />}
-      >
-        {/* Top Header Bar with Navigation Back Button, Title, and Round + Button */}
-        <View style={styles.topHeaderBar}>
-          <View style={styles.headerLeftGroup}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => {
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                } else {
-                  navigation.navigate('Dashboard');
-                }
-              }}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="arrow-back" size={20} color="#0F172A" />
-            </TouchableOpacity>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle}>Announcements</Text>
-            </View>
-          </View>
-
+      {/* Stable Fixed Header Card */}
+      <ScreenHeader
+        title="Announcements"
+        subtitle="Broadcast notices & updates to batches"
+        rightElement={
           <TouchableOpacity
             style={styles.roundAddBtn}
             onPress={() => setComposeModalVisible(true)}
@@ -265,7 +244,14 @@ export default function PostAnnouncementScreen() {
           >
             <Icon name="add" size={22} color="#FFFFFF" />
           </TouchableOpacity>
-        </View>
+        }
+      />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F58220']} />}
+      >
 
         {/* Announcements List */}
         <View style={styles.listSection}>

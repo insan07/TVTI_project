@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
 import ApplicationsManagementScreen from './ApplicationsManagementScreen';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 type Tab = 'pending' | 'approved' | 'instructors';
 
@@ -42,6 +43,9 @@ export default function UserManagementScreen() {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [userDetails, setUserDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+
+  // Inline WhatsApp 3-Dots Options Menu State
+  const [activeMenuUserId, setActiveMenuUserId] = useState<string | null>(null);
 
   // Add Instructor Modal
   const [instructorModalVisible, setInstructorModalVisible] = useState(false);
@@ -368,129 +372,256 @@ export default function UserManagementScreen() {
     </TouchableOpacity>
   );
 
-  const renderStudentItem = ({ item }: { item: any }) => (
-    <TouchableOpacity style={styles.card} onPress={() => handleOpenDetails(item._id)} activeOpacity={0.7}>
-      <View style={styles.cardHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
-        </View>
-        <View style={styles.headerDetails}>
-          <Text style={styles.userName}>{item.name}</Text>
-          <Text style={styles.userEmail}>{item.email}</Text>
-          <Text style={styles.userSubtext}>Reg No: {item.index_number || item.nic || 'N/A'}</Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: item.is_active ? '#D1FAE5' : '#FEE2E2' }]}>
-          <Text style={[styles.statusBadgeText, { color: item.is_active ? '#065F46' : '#991B1B' }]}>
-            {item.is_active ? 'Active' : 'Deactivated'}
-          </Text>
-        </View>
-      </View>
+  const renderStudentItem = ({ item }: { item: any }) => {
+    const isMenuOpen = activeMenuUserId === item._id;
+    return (
+      <TouchableOpacity
+        style={[styles.card, isMenuOpen && { zIndex: 9999, elevation: 25 }]}
+        onPress={() => {
+          if (activeMenuUserId) {
+            setActiveMenuUserId(null);
+          } else {
+            handleOpenDetails(item._id);
+          }
+        }}
+        activeOpacity={0.75}
+      >
+        <View style={[styles.cardHeader, isMenuOpen && { zIndex: 9999 }]}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
+          </View>
+          <View style={styles.headerDetails}>
+            <Text style={styles.userName}>{item.name}</Text>
+            <Text style={styles.userEmail}>{item.email}</Text>
+            <Text style={styles.userSubtext}>Reg No: {item.index_number || item.nic || 'N/A'}</Text>
+          </View>
+          <View style={[styles.rightCardCol, isMenuOpen && { zIndex: 9999 }]}>
+            <TouchableOpacity
+              style={styles.threeDotsBtn}
+              onPress={() => setActiveMenuUserId(isMenuOpen ? null : item._id)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Icon name="ellipsis-vertical" size={20} color={isMenuOpen ? "#0F172A" : "#64748B"} />
+            </TouchableOpacity>
+            <View style={[styles.statusBadge, { backgroundColor: item.is_active ? '#D1FAE5' : '#FEE2E2', marginTop: 8 }]}>
+              <Text style={[styles.statusBadgeText, { color: item.is_active ? '#065F46' : '#991B1B' }]}>
+                {item.is_active ? 'Active' : 'Deactivated'}
+              </Text>
+            </View>
 
-      <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.viewProfileBtn} onPress={() => handleOpenDetails(item._id)}>
-          <Text style={styles.viewProfileText}>View Profile →</Text>
-        </TouchableOpacity>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <TouchableOpacity
-            style={[styles.deactivateBtn, !item.is_active && styles.activateBtn]}
-            onPress={() => handleToggleActive(item._id, item.is_active, item.name)}
-          >
-            <Text style={[styles.deactivateBtnText, !item.is_active && styles.activateBtnText]}>
-              {item.is_active ? 'Deactivate' : 'Activate'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.assignBatchBtn}
-            onPress={() => {
-              setAssignStudentId(item._id);
-              setAssignModalVisible(true);
-            }}
-          >
-            <Text style={styles.assignBatchText}>Assign Batch</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.deletePermanentBtn}
-            onPress={() => handleDeleteCompletely(item._id, item.name, 'student')}
-          >
-            <Text style={styles.deletePermanentBtnText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+            {isMenuOpen && (
+              <View style={styles.whatsappMenuContainer}>
+                <TouchableOpacity
+                  style={styles.whatsappMenuItem}
+                  onPress={() => {
+                    setActiveMenuUserId(null);
+                    handleOpenDetails(item._id);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.whatsappMenuText}>View Profile</Text>
+                </TouchableOpacity>
 
-  const renderInstructorItem = ({ item }: { item: any }) => (
-    <TouchableOpacity style={styles.card} onPress={() => handleOpenDetails(item._id)} activeOpacity={0.7}>
-      <View style={styles.cardHeader}>
-        <View style={[styles.avatar, { backgroundColor: '#FEF3C7' }]}>
-          <Text style={[styles.avatarText, { color: '#92400E' }]}>{getInitials(item.name)}</Text>
-        </View>
-        <View style={styles.headerDetails}>
-          <Text style={styles.userName}>{item.name}</Text>
-          <Text style={styles.userEmail}>{item.email}</Text>
-          {item.phone ? <Text style={styles.userSubtext}>📱 {item.phone}</Text> : null}
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: item.is_active ? '#DBEAFE' : '#FEE2E2' }]}>
-          <Text style={[styles.statusBadgeText, { color: item.is_active ? '#1E40AF' : '#991B1B' }]}>
-            Instructor
-          </Text>
-        </View>
-      </View>
+                <TouchableOpacity
+                  style={styles.whatsappMenuItem}
+                  onPress={() => {
+                    setActiveMenuUserId(null);
+                    setAssignStudentId(item._id);
+                    setAssignModalVisible(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.whatsappMenuText}>Assign Batch</Text>
+                </TouchableOpacity>
 
-      <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.viewProfileBtn} onPress={() => handleOpenDetails(item._id)}>
-          <Text style={styles.viewProfileText}>View Profile & Batches →</Text>
-        </TouchableOpacity>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <TouchableOpacity style={styles.deactivateBtn} onPress={() => handleToggleActive(item._id, item.is_active, item.name)}>
-            <Text style={styles.deactivateBtnText}>{item.is_active ? 'Deactivate' : 'Activate'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.deletePermanentBtn}
-            onPress={() => handleDeleteCompletely(item._id, item.name, 'instructor')}
-          >
-            <Text style={styles.deletePermanentBtnText}>Delete</Text>
-          </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.whatsappMenuItem}
+                  onPress={() => {
+                    setActiveMenuUserId(null);
+                    handleToggleActive(item._id, item.is_active, item.name);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.whatsappMenuText, { color: item.is_active ? "#DC2626" : "#2563EB" }]}>
+                    {item.is_active ? 'Deactivate' : 'Activate'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.whatsappMenuItem, { borderBottomWidth: 0 }]}
+                  onPress={() => {
+                    setActiveMenuUserId(null);
+                    handleDeleteCompletely(item._id, item.name, item.role);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.whatsappMenuText, { color: '#DC2626', fontWeight: '600' }]}>
+                    Delete
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
+
+  const renderInstructorItem = ({ item }: { item: any }) => {
+    const isMenuOpen = activeMenuUserId === item._id;
+    return (
+      <TouchableOpacity
+        style={[styles.card, isMenuOpen && { zIndex: 9999, elevation: 25 }]}
+        onPress={() => {
+          if (activeMenuUserId) {
+            setActiveMenuUserId(null);
+          } else {
+            handleOpenDetails(item._id);
+          }
+        }}
+        activeOpacity={0.75}
+      >
+        <View style={[styles.cardHeader, isMenuOpen && { zIndex: 9999 }]}>
+          <View style={[styles.avatar, { backgroundColor: '#FEF3C7' }]}>
+            <Text style={[styles.avatarText, { color: '#92400E' }]}>{getInitials(item.name)}</Text>
+          </View>
+          <View style={styles.headerDetails}>
+            <Text style={styles.userName}>{item.name}</Text>
+            <Text style={styles.userEmail}>{item.email}</Text>
+            {item.phone ? <Text style={styles.userSubtext}>📱 {item.phone}</Text> : null}
+          </View>
+          <View style={[styles.rightCardCol, isMenuOpen && { zIndex: 9999 }]}>
+            <TouchableOpacity
+              style={styles.threeDotsBtn}
+              onPress={() => setActiveMenuUserId(isMenuOpen ? null : item._id)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Icon name="ellipsis-vertical" size={20} color={isMenuOpen ? "#0F172A" : "#64748B"} />
+            </TouchableOpacity>
+            <View style={[styles.statusBadge, { backgroundColor: item.is_active ? '#DBEAFE' : '#FEE2E2', marginTop: 8 }]}>
+              <Text style={[styles.statusBadgeText, { color: item.is_active ? '#1E40AF' : '#991B1B' }]}>
+                Instructor
+              </Text>
+            </View>
+
+            {isMenuOpen && (
+              <View style={styles.whatsappMenuContainer}>
+                <TouchableOpacity
+                  style={styles.whatsappMenuItem}
+                  onPress={() => {
+                    setActiveMenuUserId(null);
+                    handleOpenDetails(item._id);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.whatsappMenuText}>View Profile</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.whatsappMenuItem}
+                  onPress={() => {
+                    setActiveMenuUserId(null);
+                    handleToggleActive(item._id, item.is_active, item.name);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.whatsappMenuText, { color: item.is_active ? "#DC2626" : "#2563EB" }]}>
+                    {item.is_active ? 'Deactivate' : 'Activate'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.whatsappMenuItem, { borderBottomWidth: 0 }]}
+                  onPress={() => {
+                    setActiveMenuUserId(null);
+                    handleDeleteCompletely(item._id, item.name, item.role);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.whatsappMenuText, { color: '#DC2626', fontWeight: '600' }]}>
+                    Delete
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Spacer for Upper Margin */}
-      <View style={{ height: 20 }} />
-      {/* 3 Main Options Tabs Header */}
-      <View style={{ flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
+      {activeMenuUserId && (
         <TouchableOpacity
-          style={[styles.tabItem, { flex: 1, alignItems: 'center', justifyContent: 'center' }, activeTab === 'pending' && styles.activeTabItem]}
-          onPress={() => setActiveTab('pending')}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Icon name="time-outline" size={16} color={activeTab === 'pending' ? '#000000' : '#6B7280'} style={{ marginRight: 6 }} />
-            <Text style={[styles.tabText, activeTab === 'pending' && styles.activeTabText]}>Pending</Text>
-          </View>
-        </TouchableOpacity>
+          activeOpacity={1}
+          onPress={() => setActiveMenuUserId(null)}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9990,
+            backgroundColor: 'transparent',
+          }}
+        />
+      )}
+      <ScreenHeader
+        title="User Management"
+        subtitle="Manage student admissions & instructor staff"
+      />
+      {/* Sleek Segmented Pill Track Header */}
+      <View style={styles.segmentedTrackContainer}>
+        <View style={styles.segmentedTrack}>
+          <TouchableOpacity
+            style={[styles.segmentedTab, activeTab === 'pending' && styles.segmentedTabActive]}
+            onPress={() => setActiveTab('pending')}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name={activeTab === 'pending' ? 'time' : 'time-outline'}
+              size={16}
+              color={activeTab === 'pending' ? '#FFFFFF' : '#64748B'}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={[styles.segmentedTabText, activeTab === 'pending' && styles.segmentedTabTextActive]}>
+              Pending
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabItem, { flex: 1, alignItems: 'center', justifyContent: 'center' }, activeTab === 'approved' && styles.activeTabItem]}
-          onPress={() => setActiveTab('approved')}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Icon name="checkmark-circle-outline" size={16} color={activeTab === 'approved' ? '#000000' : '#6B7280'} style={{ marginRight: 6 }} />
-            <Text style={[styles.tabText, activeTab === 'approved' && styles.activeTabText]}>Approved</Text>
-          </View>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentedTab, activeTab === 'approved' && styles.segmentedTabActive]}
+            onPress={() => setActiveTab('approved')}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name={activeTab === 'approved' ? 'checkmark-circle' : 'checkmark-circle-outline'}
+              size={16}
+              color={activeTab === 'approved' ? '#FFFFFF' : '#64748B'}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={[styles.segmentedTabText, activeTab === 'approved' && styles.segmentedTabTextActive]}>
+              Approved
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabItem, { flex: 1, alignItems: 'center', justifyContent: 'center' }, activeTab === 'instructors' && styles.activeTabItem]}
-          onPress={() => setActiveTab('instructors')}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Icon name="school-outline" size={16} color={activeTab === 'instructors' ? '#000000' : '#6B7280'} style={{ marginRight: 6 }} />
-            <Text style={[styles.tabText, activeTab === 'instructors' && styles.activeTabText]}>Instructors</Text>
-          </View>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentedTab, activeTab === 'instructors' && styles.segmentedTabActive]}
+            onPress={() => setActiveTab('instructors')}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name={activeTab === 'instructors' ? 'school' : 'school-outline'}
+              size={16}
+              color={activeTab === 'instructors' ? '#FFFFFF' : '#64748B'}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={[styles.segmentedTabText, activeTab === 'instructors' && styles.segmentedTabTextActive]}>
+              Instructors
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Content View */}
@@ -501,9 +632,9 @@ export default function UserManagementScreen() {
           {/* Add Instructor Button (only on instructors tab) */}
           {activeTab === 'instructors' && (
             <View style={styles.actionButtonRow}>
-              <TouchableOpacity style={styles.addInstructorBtn} onPress={() => setInstructorModalVisible(true)}>
-                <Icon name="add" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.addInstructorBtnText}>+ Add Instructor</Text>
+              <TouchableOpacity style={styles.addInstructorBtn} onPress={() => setInstructorModalVisible(true)} activeOpacity={0.85}>
+                <Icon name="add" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.addInstructorBtnText}>Add Instructor</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -574,6 +705,21 @@ export default function UserManagementScreen() {
                   ? renderStudentItem
                   : renderInstructorItem
               }
+              CellRendererComponent={({ children, index, style, ...props }: any) => {
+                const item = filteredUsers[index];
+                const isMenuOpen = item && activeMenuUserId === item._id;
+                return (
+                  <View
+                    style={[
+                      style,
+                      { zIndex: isMenuOpen ? 99999 : (filteredUsers.length || 100) - index }
+                    ]}
+                    {...props}
+                  >
+                    {children}
+                  </View>
+                );
+              }}
               contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
               ListEmptyComponent={<Text style={styles.emptyListText}>No users found in this tab.</Text>}
             />
@@ -925,6 +1071,8 @@ export default function UserManagementScreen() {
         </View>
       </Modal>
 
+
+
       {/* Add Instructor Modal */}
       <Modal visible={instructorModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
@@ -1210,16 +1358,21 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   addInstructorBtn: {
-    backgroundColor: '#000000',
-    borderRadius: 8,
+    backgroundColor: '#F58220',
+    borderRadius: 26,
     paddingVertical: 12,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 }
+    }),
   },
   addInstructorBtnText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 15,
   },
   searchFilterRow: {
@@ -1235,8 +1388,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderRadius: 24,
+    paddingHorizontal: 16,
     height: 44,
     marginRight: 10,
   },
@@ -1251,18 +1404,73 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#D1D5DB',
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    borderRadius: 24,
+    paddingHorizontal: 16,
     height: 44,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 }
+    }),
   },
   filterBtnActive: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#000000',
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
   },
   filterBtnText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#374151',
+  },
+  segmentedTrackContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  segmentedTrack: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 26,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
+      default: {}
+    }),
+  },
+  segmentedTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 22,
+  },
+  segmentedTabActive: {
+    backgroundColor: '#0F172A',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+        elevation: 4,
+      }
+    }),
+  },
+  segmentedTabText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  segmentedTabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -1270,28 +1478,33 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   tabItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    marginHorizontal: 4,
+    marginVertical: 4,
   },
   activeTabItem: {
-    borderBottomColor: '#D97706',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
   },
   tabText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#4B5563',
   },
   activeTabText: {
     color: '#D97706',
+    fontWeight: '700',
   },
   tabBadge: {
     backgroundColor: '#FEF3C7',
-    borderRadius: 10,
-    paddingHorizontal: 6,
+    borderRadius: 12,
+    paddingHorizontal: 8,
     paddingVertical: 2,
     marginLeft: 6,
   },
@@ -1302,16 +1515,21 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    elevation: 1,
+    overflow: 'visible',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.05)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }
+    }),
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    overflow: 'visible',
   },
   avatar: {
     width: 44,
@@ -1347,7 +1565,7 @@ const styles = StyleSheet.create({
   },
   newBadge: {
     backgroundColor: '#FEF3C7',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -1357,7 +1575,7 @@ const styles = StyleSheet.create({
     color: '#D97706',
   },
   statusBadge: {
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -1370,26 +1588,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
     marginTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#F9FAFB',
     paddingTop: 12,
   },
   viewProfileBtn: {
-    paddingVertical: 6,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
   viewProfileText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: 'bold',
-    color: '#F58220',
+    color: '#F97316',
   },
   rejectOutlineBtn: {
     borderWidth: 1,
     borderColor: '#D1D5DB',
-    borderRadius: 8,
+    borderRadius: 22,
     paddingVertical: 8,
     paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
   },
   rejectOutlineText: {
     fontSize: 13,
@@ -1398,9 +1622,13 @@ const styles = StyleSheet.create({
   },
   approveDarkBtn: {
     backgroundColor: '#000000',
-    borderRadius: 8,
+    borderRadius: 22,
     paddingVertical: 8,
     paddingHorizontal: 16,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.22)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 5, elevation: 3 }
+    }),
   },
   approveDarkText: {
     fontSize: 13,
@@ -1409,8 +1637,8 @@ const styles = StyleSheet.create({
   },
   deactivateBtn: {
     paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: '#FCA5A5',
     backgroundColor: '#FEF2F2',
@@ -1429,11 +1657,15 @@ const styles = StyleSheet.create({
   },
   deletePermanentBtn: {
     paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: '#991B1B',
     backgroundColor: '#7F1D1D',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 8px rgba(127, 29, 29, 0.3)' },
+      default: { shadowColor: '#7F1D1D', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 }
+    }),
   },
   deletePermanentBtnText: {
     color: '#FFFFFF',
@@ -1455,9 +1687,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 22,
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -1477,9 +1709,13 @@ const styles = StyleSheet.create({
   },
   assignBatchBtn: {
     backgroundColor: '#10B981',
-    borderRadius: 8,
+    borderRadius: 22,
     paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(16, 185, 129, 0.3)' },
+      default: { shadowColor: '#10B981', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }
+    }),
   },
   assignBatchText: {
     color: '#FFFFFF',
@@ -1537,9 +1773,9 @@ const styles = StyleSheet.create({
   },
   roleTag: {
     backgroundColor: '#F3F4F6',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   roleTagText: {
     fontSize: 10,
@@ -1548,10 +1784,12 @@ const styles = StyleSheet.create({
   },
   closeModalIconBtn: {
     padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
   },
   detailSectionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 14,
     marginBottom: 14,
     borderWidth: 1,
@@ -1579,14 +1817,14 @@ const styles = StyleSheet.create({
   },
   summaryBanner: {
     backgroundColor: '#1E3A8A',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     alignItems: 'center',
     marginBottom: 14,
   },
   summaryBannerInstructor: {
     backgroundColor: '#111827',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -1611,7 +1849,7 @@ const styles = StyleSheet.create({
   },
   itemSubCard: {
     backgroundColor: '#F9FAFB',
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 10,
     marginBottom: 8,
     borderWidth: 1,
@@ -1658,7 +1896,7 @@ const styles = StyleSheet.create({
   gradeChip: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: 12,
     marginTop: 2,
   },
   gradeChipText: {
@@ -1674,9 +1912,13 @@ const styles = StyleSheet.create({
   },
   footerActionBtn: {
     flex: 1,
-    borderRadius: 10,
+    borderRadius: 24,
     paddingVertical: 12,
     alignItems: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.2)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 }
+    }),
   },
   footerActionText: {
     color: '#FFFFFF',
@@ -1693,10 +1935,10 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
     width: '88%',
-    elevation: 4,
+    elevation: 6,
   },
   modalTitle: {
     fontSize: 20,
@@ -1715,8 +1957,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
     borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
     color: '#1F2937',
@@ -1724,7 +1966,7 @@ const styles = StyleSheet.create({
   pickerContainer: {
     borderWidth: 1,
     borderColor: '#D1D5DB',
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#F9FAFB',
   },
@@ -1735,18 +1977,24 @@ const styles = StyleSheet.create({
   },
   cancelModalBtn: {
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     marginRight: 8,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
   },
   cancelModalText: {
-    color: '#6B7280',
+    color: '#4B5563',
     fontWeight: '600',
   },
   submitModalBtn: {
     backgroundColor: '#000000',
-    borderRadius: 8,
+    borderRadius: 24,
     paddingVertical: 10,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.25)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 5, elevation: 4 }
+    }),
   },
   submitModalText: {
     color: '#FFFFFF',
@@ -1763,13 +2011,15 @@ const styles = StyleSheet.create({
   },
   popupCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 22,
     padding: 24,
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
-    boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.25)',
-    elevation: 10
+    ...Platform.select({
+      web: { boxShadow: '0px 10px 24px rgba(0, 0, 0, 0.25)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 10 }
+    }),
   },
   popupIconCircle: {
     width: 60,
@@ -1802,7 +2052,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F1F5F9',
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 24,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#CBD5E1'
@@ -1815,8 +2065,12 @@ const styles = StyleSheet.create({
   popupConfirmBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center'
+    borderRadius: 24,
+    alignItems: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.2)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4 }
+    }),
   },
   popupConfirmText: {
     color: '#FFFFFF',
@@ -1826,12 +2080,56 @@ const styles = StyleSheet.create({
   popupSingleBtn: {
     width: '100%',
     paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center'
+    borderRadius: 24,
+    alignItems: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.2)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4 }
+    }),
   },
   popupSingleBtnText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 15
+  },
+
+  rightCardCol: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    position: 'relative',
+    overflow: 'visible',
+  },
+  threeDotsBtn: {
+    padding: 4,
+  },
+
+  /* INLINE WHATSAPP 3-DOTS DROPDOWN MENU STYLES */
+  whatsappMenuContainer: {
+    position: 'absolute',
+    top: 28,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    width: 140,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    zIndex: 99999,
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.22)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.22, shadowRadius: 10, elevation: 25 },
+    }),
+  },
+  whatsappMenuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  whatsappMenuText: {
+    fontSize: 13.5,
+    fontWeight: '500',
+    color: '#1E293B',
   }
 });

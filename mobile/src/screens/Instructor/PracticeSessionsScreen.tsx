@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../services/api';
 import { updatePracticeSlot, getSlotBookings } from '../../services/practiceService';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -49,7 +50,7 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
 export default function PracticeSessionsScreen() {
   const navigation = useNavigation<any>();
   const [viewMode, setViewMode] = useState<'Month' | 'Week' | 'Day' | 'List'>('List');
-  const [activeTab, setActiveTab] = useState<'slots' | 'create'>('slots');
+  const [createModalVisible, setCreateModalVisible] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
@@ -147,8 +148,8 @@ export default function PracticeSessionsScreen() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'slots') fetchSlots();
-  }, [activeTab, weekStart, selectedDate, viewMode]);
+    fetchSlots();
+  }, [weekStart, selectedDate, viewMode]);
 
   const showAlert = (title: string, msg: string, onOk?: () => void, type = 'info') => {
     setAlertModal({ visible: true, title, message: msg, type, onOk });
@@ -279,8 +280,8 @@ export default function PracticeSessionsScreen() {
         }]
       };
       await api.post('/instructors/practice-slots', slotData);
+      setCreateModalVisible(false);
       showAlert('Success', 'Practical slot created successfully!', () => {
-        setActiveTab('slots');
         fetchSlots();
       }, 'success');
     } catch (e: any) {
@@ -462,189 +463,163 @@ export default function PracticeSessionsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#1F2937" />
+      <ScreenHeader
+        title="Practice Slots"
+        subtitle="Schedule & manage practical sessions"
+      />
+
+      {/* Top Create Practical Slot Action Button */}
+      <View style={styles.actionButtonRow}>
+        <TouchableOpacity style={styles.addSlotBtn} onPress={() => setCreateModalVisible(true)} activeOpacity={0.85}>
+          <Icon name="add" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.addSlotBtnText}>Create Practical Slot</Text>
         </TouchableOpacity>
-        <View style={{flex: 1}}>
-          <Text style={styles.headerTitle}>Practice Slots</Text>
-        </View>
       </View>
 
-      {activeTab === 'slots' && (
-        <View style={styles.viewToggleRow}>
-          {['Month', 'Week', 'Day', 'List'].map(mode => (
-            <TouchableOpacity key={mode} style={[styles.viewToggleBtn, viewMode === mode && styles.viewToggleBtnActive]} onPress={() => setViewMode(mode as any)}>
-              <Text style={[styles.viewToggleText, viewMode === mode && styles.viewToggleTextActive]}>{mode}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+      <View style={styles.viewToggleRow}>
+        {['Month', 'Week', 'Day', 'List'].map(mode => (
+          <TouchableOpacity key={mode} style={[styles.viewToggleBtn, viewMode === mode && styles.viewToggleBtnActive]} onPress={() => setViewMode(mode as any)}>
+            <Text style={[styles.viewToggleText, viewMode === mode && styles.viewToggleTextActive]}>{mode}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <View style={styles.subHeader}>
-        {activeTab === 'slots' ? (
-           <>
-             <View style={styles.subHeaderLeft}>
-                <Icon name="calendar" size={18} color="#F97316" />
-                <Text style={styles.subHeaderTitle}>My Practical Slots ({slots.length})</Text>
-             </View>
-             <TouchableOpacity style={styles.createBtn} onPress={() => setActiveTab('create')}>
-               <Icon name="add" size={16} color="#4B5563" />
-               <Text style={styles.createBtnText}>Create Slots</Text>
-             </TouchableOpacity>
-           </>
+         <View style={styles.subHeaderLeft}>
+            <Icon name="calendar" size={18} color="#F58220" />
+            <Text style={styles.subHeaderTitle}>My Practical Slots ({slots.length})</Text>
+         </View>
+      </View>
+
+      <View style={styles.dateNavigator}>
+        <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(-1) : viewMode === 'Day' ? changeDay(-1) : changeWeek(-1)}>
+          <Icon name="chevron-back" size={20} color="#F97316" />
+        </TouchableOpacity>
+        <View style={styles.dateBadge}>
+          <Icon name="calendar-outline" size={14} color="#F97316" style={{marginRight: 6}} />
+          <Text style={styles.dateBadgeText}>
+            {viewMode === 'Month' 
+              ? selectedDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+              : viewMode === 'Day'
+              ? selectedDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+              : `Week of ${getLocalDateString(weekStart)}`}
+          </Text>
+        </View>
+        <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(1) : viewMode === 'Day' ? changeDay(1) : changeWeek(1)}>
+          <Icon name="chevron-forward" size={20} color="#F97316" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={{flex: 1}}>
+        {loading ? (
+          <ActivityIndicator size="large" color="#F97316" style={{marginTop: 40}} />
         ) : (
-           <TouchableOpacity style={styles.backToSlotsBtn} onPress={() => setActiveTab('slots')}>
-              <Icon name="arrow-back" size={16} color="#6B7280" />
-              <Text style={styles.backToSlotsText}>Back to Slots</Text>
-           </TouchableOpacity>
+          viewMode === 'Week' ? renderWeekView() :
+          viewMode === 'Month' ? renderMonthView() :
+          viewMode === 'Day' ? (
+            <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}}>
+              {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).length === 0 ? (
+                <View style={{alignItems: 'center', marginTop: 40}}>
+                  <Icon name="calendar-outline" size={48} color="#D1D5DB" />
+                  <Text style={{color: '#6B7280', marginVertical: 12}}>No slots scheduled for this day.</Text>
+                  <TouchableOpacity style={styles.actionBtnBlue} onPress={() => {
+                     setCreateDate(selectedDate);
+                     setCreateModalVisible(true);
+                  }}>
+                    <Icon name="add" size={16} color="#2563EB" />
+                    <Text style={styles.actionBtnBlueText}>Create Slot for this Day</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).map(renderListCard)}
+                  <TouchableOpacity style={[styles.actionBtnBlue, {marginTop: 16, alignSelf: 'center'}]} onPress={() => {
+                     setCreateDate(selectedDate);
+                     setCreateModalVisible(true);
+                  }}>
+                    <Icon name="add" size={16} color="#2563EB" />
+                    <Text style={styles.actionBtnBlueText}>Add Another Slot</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </ScrollView>
+          ) :
+          <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+            {slots.length === 0 ? <Text style={styles.emptyText}>No slots found</Text> : slots.map(renderListCard)}
+          </ScrollView>
         )}
       </View>
 
-      {activeTab === 'slots' && (
-        <View style={styles.dateNavigator}>
-          <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(-1) : viewMode === 'Day' ? changeDay(-1) : changeWeek(-1)}>
-            <Icon name="chevron-back" size={20} color="#F97316" />
-          </TouchableOpacity>
-          <View style={styles.dateBadge}>
-            <Icon name="calendar-outline" size={14} color="#F97316" style={{marginRight: 6}} />
-            <Text style={styles.dateBadgeText}>
-              {viewMode === 'Month' 
-                ? selectedDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-                : viewMode === 'Day'
-                ? selectedDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
-                : `Week of ${getLocalDateString(weekStart)}`}
-            </Text>
+      {/* POP-UP MODAL FOR CREATE SLOT */}
+      <Modal visible={createModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitleText}>Create Practical Slot</Text>
+              <TouchableOpacity onPress={() => setCreateModalVisible(false)} style={styles.closeModalIconBtn}>
+                <Icon name="close" size={20} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 520 }}>
+              <Text style={styles.createFormSubtitle}>Add a new practical training session</Text>
+              
+              <View style={styles.formGroup}>
+                <Text style={styles.label}><Icon name="people-outline" size={14}/> Batch *</Text>
+                <View style={styles.pickerWrap}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {batches.map(b => (
+                      <TouchableOpacity key={b._id} style={[styles.pillsForm, createBatchId === b._id && styles.pillsFormActive]} onPress={() => setCreateBatchId(b._id)}>
+                        <Text style={[styles.pillsFormText, createBatchId === b._id && {color: '#fff'}]}>{b.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}><Icon name="calendar-outline" size={14}/> Date *</Text>
+                <TouchableOpacity style={styles.pickerBox} onPress={() => setShowDatePicker(true)}>
+                  <Text>{createDate.toLocaleDateString('en-GB')}</Text>
+                  <Icon name="calendar" size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+                {showDatePicker && (
+                  <DateTimePicker value={createDate} mode="date" display="default" onChange={(e, d) => { setShowDatePicker(false); if (d) setCreateDate(d); }} />
+                )}
+              </View>
+
+              <View style={styles.rowGroup}>
+                <View style={[styles.formGroup, {flex: 1}]}>
+                  <Text style={styles.label}>Start Time *</Text>
+                  <TextInput style={styles.textInputBox} value={createStartTime} onChangeText={setCreateStartTime} placeholder="09:00" />
+                </View>
+                <View style={[styles.formGroup, {flex: 1, marginLeft: 12}]}>
+                  <Text style={styles.label}>End Time *</Text>
+                  <TextInput style={styles.textInputBox} value={createEndTime} onChangeText={setCreateEndTime} placeholder="12:00" />
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}><Icon name="location-outline" size={14}/> Location / Lab *</Text>
+                <TextInput style={styles.textInputBox} value={createLocation} onChangeText={setCreateLocation} placeholder="Hardware Lab 01" />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}><Icon name="person-outline" size={14}/> Capacity *</Text>
+                <TextInput style={styles.textInputBox} value={createCapacity} onChangeText={setCreateCapacity} keyboardType="numeric" />
+              </View>
+              
+              <View style={styles.createActionsRow}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setCreateModalVisible(false)}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.submitBtn} onPress={handleCreateSlot} disabled={creating}>
+                  {creating ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Create Slot</Text>}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
-          <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(1) : viewMode === 'Day' ? changeDay(1) : changeWeek(1)}>
-            <Icon name="chevron-forward" size={20} color="#F97316" />
-          </TouchableOpacity>
         </View>
-      )}
-
-      {activeTab === 'slots' ? (
-         <View style={{flex: 1}}>
-           {viewMode === 'List' && (
-             <View style={styles.listTopBar}>
-                <View style={styles.metricsRow}>
-                  <View style={styles.metricItem}><Text style={styles.metricVal}>{slots.length}</Text><Text style={styles.metricLbl}>TOTAL SLOTS</Text></View>
-                  <View style={styles.metricItem}><Text style={[styles.metricVal, {color: '#10B981'}]}>{slots.filter(s=>s.is_open).length}</Text><Text style={styles.metricLbl}>OPEN SLOTS</Text></View>
-                  <View style={styles.metricItem}><Text style={[styles.metricVal, {color: '#3B82F6'}]}>{slots.reduce((acc, s)=>acc+(s.booked_count||0),0)}</Text><Text style={styles.metricLbl}>BOOKED SEATS</Text></View>
-                </View>
-                <View style={styles.searchFilterRow}>
-                  <View style={styles.searchBox}>
-                    <Icon name="search-outline" size={16} color="#9CA3AF" />
-                    <TextInput style={styles.searchInput} placeholder="Search by batch, note..." value={search} onChangeText={setSearch} />
-                  </View>
-                  <TouchableOpacity style={styles.filterBtnOutline} onPress={() => setShowFilter(true)}>
-                    <Icon name="options-outline" size={16} color="#4B5563" />
-                    <Text style={styles.filterBtnOutlineText}>Filters</Text>
-                  </TouchableOpacity>
-                </View>
-             </View>
-           )}
-
-           {loading ? (
-             <ActivityIndicator size="large" color="#F97316" style={{marginTop: 40}} />
-           ) : (
-             viewMode === 'Week' ? renderWeekView() :
-             viewMode === 'Month' ? renderMonthView() :
-             viewMode === 'Day' ? (
-               <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-                 <Text style={{fontSize: 16, fontWeight: 'bold', marginBottom: 16, color: '#1F2937'}}>
-                   Schedule for {selectedDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                 </Text>
-                 {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).length === 0 ? (
-                   <View style={{alignItems: 'center', marginTop: 40}}>
-                     <Icon name="calendar-outline" size={48} color="#D1D5DB" />
-                     <Text style={{color: '#6B7280', marginVertical: 12}}>No slots scheduled for this day.</Text>
-                     <TouchableOpacity style={styles.actionBtnBlue} onPress={() => {
-                        setCreateDate(selectedDate);
-                        setActiveTab('create');
-                     }}>
-                       <Icon name="add" size={16} color="#2563EB" />
-                       <Text style={styles.actionBtnBlueText}>Create Slot for this Day</Text>
-                     </TouchableOpacity>
-                   </View>
-                 ) : (
-                   <>
-                     {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).map(renderListCard)}
-                     <TouchableOpacity style={[styles.actionBtnBlue, {marginTop: 16, alignSelf: 'center'}]} onPress={() => {
-                        setCreateDate(selectedDate);
-                        setActiveTab('create');
-                     }}>
-                       <Icon name="add" size={16} color="#2563EB" />
-                       <Text style={styles.actionBtnBlueText}>Add Another Slot</Text>
-                     </TouchableOpacity>
-                   </>
-                 )}
-               </ScrollView>
-             ) :
-             <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-               {slots.length === 0 ? <Text style={styles.emptyText}>No slots found</Text> : slots.map(renderListCard)}
-             </ScrollView>
-           )}
-         </View>
-      ) : (
-         <ScrollView style={styles.createScroll} contentContainerStyle={{paddingBottom: 100}}>
-           <Text style={styles.createFormTitle}>Create Practical Slot</Text>
-           <Text style={styles.createFormSubtitle}>Add a new practical session</Text>
-           
-           <View style={styles.formGroup}>
-             <Text style={styles.label}><Icon name="people-outline" size={14}/> Batch *</Text>
-             <View style={styles.pickerWrap}>
-               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                 {batches.map(b => (
-                   <TouchableOpacity key={b._id} style={[styles.pillsForm, createBatchId === b._id && styles.pillsFormActive]} onPress={() => setCreateBatchId(b._id)}>
-                     <Text style={[styles.pillsFormText, createBatchId === b._id && {color: '#fff'}]}>{b.name}</Text>
-                   </TouchableOpacity>
-                 ))}
-               </ScrollView>
-             </View>
-           </View>
-
-           <View style={styles.formGroup}>
-             <Text style={styles.label}><Icon name="calendar-outline" size={14}/> Date *</Text>
-             <TouchableOpacity style={styles.pickerBox} onPress={() => setShowDatePicker(true)}>
-               <Text>{createDate.toLocaleDateString('en-GB')}</Text>
-               <Icon name="calendar" size={18} color="#9CA3AF" />
-             </TouchableOpacity>
-             {showDatePicker && (
-               <DateTimePicker value={createDate} mode="date" display="default" onChange={(e, d) => { setShowDatePicker(false); if (d) setCreateDate(d); }} />
-             )}
-           </View>
-
-           <View style={styles.rowGroup}>
-             <View style={[styles.formGroup, {flex: 1}]}>
-               <Text style={styles.label}>Start Time *</Text>
-               <TextInput style={styles.textInputBox} value={createStartTime} onChangeText={setCreateStartTime} placeholder="09:00" />
-             </View>
-             <View style={[styles.formGroup, {flex: 1, marginLeft: 12}]}>
-               <Text style={styles.label}>End Time *</Text>
-               <TextInput style={styles.textInputBox} value={createEndTime} onChangeText={setCreateEndTime} placeholder="12:00" />
-             </View>
-           </View>
-
-           <View style={styles.formGroup}>
-             <Text style={styles.label}><Icon name="location-outline" size={14}/> Location / Lab *</Text>
-             <TextInput style={styles.textInputBox} value={createLocation} onChangeText={setCreateLocation} placeholder="Hardware Lab 01" />
-           </View>
-
-           <View style={styles.formGroup}>
-             <Text style={styles.label}><Icon name="person-outline" size={14}/> Capacity *</Text>
-             <TextInput style={styles.textInputBox} value={createCapacity} onChangeText={setCreateCapacity} keyboardType="numeric" />
-           </View>
-           
-           <View style={styles.createActionsRow}>
-             <TouchableOpacity style={styles.cancelBtn} onPress={() => setActiveTab('slots')}>
-               <Text style={styles.cancelBtnText}>Cancel</Text>
-             </TouchableOpacity>
-             <TouchableOpacity style={styles.submitBtn} onPress={handleCreateSlot} disabled={creating}>
-               {creating ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Create Slot</Text>}
-             </TouchableOpacity>
-           </View>
-         </ScrollView>
-      )}
+      </Modal>
 
       <Modal visible={showFilter} animationType="slide" transparent>
         <View style={styles.filterModalOverlay}>
@@ -767,11 +742,49 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
   headerSubtitle: { fontSize: 13, color: '#6B7280' },
   
-  viewToggleRow: { flexDirection: 'row', backgroundColor: '#F3F4F6', marginHorizontal: 16, borderRadius: 8, padding: 4, marginTop: 8 },
-  viewToggleBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
-  viewToggleBtnActive: { backgroundColor: '#F97316' },
-  viewToggleText: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
-  viewToggleTextActive: { color: '#fff', fontWeight: '600' },
+  viewToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    marginHorizontal: 16,
+    borderRadius: 26,
+    padding: 4,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
+      default: {}
+    }),
+  },
+  viewToggleBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+  },
+  viewToggleBtnActive: {
+    backgroundColor: '#0F172A',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+        elevation: 4,
+      }
+    }),
+  },
+  viewToggleText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  viewToggleTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
 
   subHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   subHeaderLeft: { flexDirection: 'row', alignItems: 'center' },
@@ -861,30 +874,114 @@ const styles = StyleSheet.create({
   pillsFormActive: { backgroundColor: '#1F2937', borderColor: '#1F2937' },
   pillsFormText: { color: '#4B5563', fontSize: 13 },
   rowGroup: { flexDirection: 'row' },
-  createActionsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
-  cancelBtn: { flex: 1, padding: 14, alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 8, marginRight: 8 },
+  actionButtonRow: {
+    paddingHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  addSlotBtn: {
+    backgroundColor: '#F58220',
+    borderRadius: 26,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 }
+    }),
+  },
+  addSlotBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    width: '100%',
+    maxWidth: 440,
+    ...Platform.select({
+      web: { boxShadow: '0px 10px 24px rgba(0, 0, 0, 0.2)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 10 }
+    }),
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxWidth: 440,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 16,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 14,
+  },
+  modalTitleText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+  },
+  closeModalIconBtn: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+  },
+  cancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 24, marginRight: 8 },
   cancelBtnText: { color: '#4B5563', fontWeight: '600' },
-  submitBtn: { flex: 2, padding: 14, alignItems: 'center', backgroundColor: '#F97316', borderRadius: 8, marginLeft: 8 },
+  submitBtn: {
+    flex: 2,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 24,
+    marginLeft: 8,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(15, 23, 42, 0.22)' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 5, elevation: 4 }
+    }),
+  },
   submitBtnText: { color: '#fff', fontWeight: 'bold' },
-  
-  filterModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  filterModalContainer: { backgroundColor: '#fff', height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  filterHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  filterTitle: { fontSize: 18, fontWeight: 'bold', marginLeft: 16 },
-  filterSectionTitle: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 12 },
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  checkboxActive: { backgroundColor: '#F97316', borderColor: '#F97316' },
-  checkboxLabel: { fontSize: 14, color: '#4B5563' },
-  filterFooter: { flexDirection: 'row', padding: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
-  resetBtn: { flex: 1, padding: 14, alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 8, marginRight: 8 },
-  resetBtnText: { color: '#4B5563', fontWeight: '600' },
-  applyBtn: { flex: 2, padding: 14, alignItems: 'center', backgroundColor: '#F97316', borderRadius: 8, marginLeft: 8 },
-  applyBtnText: { color: '#fff', fontWeight: 'bold' },
-  emptyText: { textAlign: 'center', color: '#9CA3AF', marginTop: 40, fontSize: 16 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 12, padding: 20, elevation: 5 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 16 },
-  modalActions: { flexDirection: 'row', marginTop: 20 }
+  emptyText: { color: '#6B7280', textAlign: 'center', marginTop: 30, fontSize: 14 },
+  createActionsRow: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  filterModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  filterModalContainer: { backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, height: '75%' },
+  filterHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  filterTitle: { fontSize: 18, fontWeight: 'bold', marginLeft: 16, color: '#1F2937' },
+  filterSectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#374151', marginBottom: 8 },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
+  checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+  checkboxActive: { backgroundColor: '#F58220', borderColor: '#F58220' },
+  checkboxLabel: { fontSize: 14, color: '#374151' },
+  filterFooter: { flexDirection: 'row', padding: 16, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  resetBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', marginRight: 8, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8 },
+  resetBtnText: { color: '#4B5563', fontWeight: '600' },
+  applyBtn: { flex: 2, paddingVertical: 12, alignItems: 'center', backgroundColor: '#F58220', borderRadius: 8 },
+  applyBtnText: { color: '#fff', fontWeight: '600' },
 });
