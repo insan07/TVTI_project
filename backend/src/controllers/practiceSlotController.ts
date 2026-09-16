@@ -67,7 +67,7 @@ const checkSlotInstructorLimit = async (
 };
 
 // POST /api/instructor/practice-slots
-// Body: { batch_id, week_start_date, slots: [{ day_of_week, start_time, end_time, max_students, equipment_note }] }
+// Body: { batch_id, week_start_date, slots: [{ day_of_week, start_time, end_time, max_students, equipment_note, location, booking_deadline }] }
 export const createSlots = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { batch_id, week_start_date, slots } = req.body;
@@ -131,7 +131,13 @@ export const getMySlots = async (req: AuthRequest, res: Response): Promise<void>
     const query: any = req.user?.role === 'admin' ? {} : { instructor_id: req.user?._id };
     if (batchId) query.batch_id = batchId;
     if (instructorId && req.user?.role === 'admin') query.instructor_id = instructorId;
-    if (weekStart) {
+    
+    if (req.query.startDate && req.query.endDate) {
+      query.week_start_date = {
+        $gte: new Date(req.query.startDate as string),
+        $lte: new Date(req.query.endDate as string)
+      };
+    } else if (weekStart) {
       const normalized = new Date(weekStart as string);
       normalized.setUTCHours(0, 0, 0, 0);
       query.week_start_date = normalized;
@@ -172,7 +178,7 @@ export const getSlotBookings = async (req: AuthRequest, res: Response): Promise<
 };
 
 // PATCH /api/instructor/practice-slots/:slotId
-// Body: { max_students?, equipment_note?, is_open?, start_time?, end_time?, day_of_week? }
+// Body: { max_students?, equipment_note?, is_open?, start_time?, end_time?, day_of_week?, location?, booking_deadline? }
 export const updateSlot = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const slot = req.user?.role === 'admin'
@@ -183,7 +189,7 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const { max_students, equipment_note, is_open, start_time, end_time, day_of_week, instructor_id } = req.body;
+    const { max_students, equipment_note, is_open, start_time, end_time, day_of_week, instructor_id, location, booking_deadline } = req.body;
 
     if (typeof max_students === 'number') {
       const confirmed = await SlotBooking.countDocuments({ slot_id: slot._id, status: 'confirmed' });
@@ -222,6 +228,8 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
     if (end_time !== undefined) slot.end_time = end_time;
     if (day_of_week !== undefined) slot.day_of_week = day_of_week;
     if (instructor_id !== undefined && req.user?.role === 'admin') slot.instructor_id = instructor_id;
+    if (location !== undefined) slot.location = location;
+    if (booking_deadline !== undefined) slot.booking_deadline = booking_deadline;
 
     await slot.save();
     res.json(slot);
