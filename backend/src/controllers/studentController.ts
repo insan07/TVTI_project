@@ -3,6 +3,7 @@ import Enrollment from '../models/Enrollment';
 import Batch from '../models/Batch';
 import Notification from '../models/Notification';
 import SlotBooking from '../models/SlotBooking';
+import Video from '../models/Video';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 export const getMySchedule = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -30,7 +31,7 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
 
     const nextBatch = await Batch.findOne({ _id: { $in: batchIds } })
       .populate('course_id', 'title')
-      .populate('instructor_ids', 'name')
+      .populate('instructor_ids', 'name email phone profile_photo')
       .lean();
 
     const nextPracticeBooking = await SlotBooking.findOne({ student_id: req.user._id, status: 'confirmed' })
@@ -38,16 +39,22 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
         path: 'slot_id',
         populate: [
           { path: 'batch_id', populate: { path: 'course_id', select: 'title' } },
-          { path: 'instructor_id', select: 'name' }
+          { path: 'instructor_id', select: 'name email phone profile_photo' }
         ]
       })
       .sort({ createdAt: -1 })
       .lean();
 
+    const theory_lessons = await Video.find({ batch_id: { $in: batchIds } })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .lean();
+
     res.json({
       notifications,
       next_class: nextBatch,
-      next_practice: nextPracticeBooking
+      next_practice: nextPracticeBooking,
+      theory_lessons
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

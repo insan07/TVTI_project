@@ -365,11 +365,16 @@ const styles = StyleSheet.create({
   inputContainerFocused: {
     borderColor: COLORS.primary,
     borderWidth: 1.5,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 2,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 4px rgba(26,26,26,0.12)' } as any,
+      default: {
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 4,
+        elevation: 2,
+      }
+    })
   },
   inputIcon: {
     marginRight: SPACING.sm,

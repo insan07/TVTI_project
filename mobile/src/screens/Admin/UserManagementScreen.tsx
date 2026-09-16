@@ -235,6 +235,36 @@ export default function UserManagementScreen() {
     });
   };
 
+  const handleDeleteCompletely = (id: string, userName?: string, role?: string) => {
+    const roleLabel = role === 'instructor' ? 'instructor' : 'student';
+    setConfirmModal({
+      visible: true,
+      title: '⚠️ Permanently Delete',
+      message: `This will PERMANENTLY delete ${userName || 'this user'} and ALL their related data (enrollments, results, bookings, uploads, etc.).\n\nThis action CANNOT be undone. Are you absolutely sure?`,
+      type: 'danger',
+      confirmText: 'Delete Forever',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/admin/users/${id}/delete`);
+          fetchUsers();
+          if (detailsModalVisible) {
+            setDetailsModalVisible(false);
+            setUserDetails(null);
+          }
+          showAlert(
+            'Deleted',
+            `${userName || 'User'} and all related data have been permanently removed.`,
+            undefined,
+            'success'
+          );
+        } catch (e: any) {
+          showAlert('Error', e.response?.data?.message || 'Deletion failed', undefined, 'error');
+        }
+      }
+    });
+  };
+
   const handleCreateInstructor = async () => {
     const { name, email, phone, nic } = instructorForm;
     if (!name.trim() || !email.trim() || !nic.trim()) {
@@ -326,7 +356,7 @@ export default function UserManagementScreen() {
         <TouchableOpacity style={styles.viewProfileBtn} onPress={() => handleOpenDetails(item._id)}>
           <Text style={styles.viewProfileText}>View Profile →</Text>
         </TouchableOpacity>
-        <View style={{ flexDirection: 'row' }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <TouchableOpacity style={styles.rejectOutlineBtn} onPress={() => handleReject(item._id, item.name)}>
             <Text style={styles.rejectOutlineText}>Reject</Text>
           </TouchableOpacity>
@@ -360,7 +390,7 @@ export default function UserManagementScreen() {
         <TouchableOpacity style={styles.viewProfileBtn} onPress={() => handleOpenDetails(item._id)}>
           <Text style={styles.viewProfileText}>View Profile →</Text>
         </TouchableOpacity>
-        <View style={{ flexDirection: 'row' }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <TouchableOpacity
             style={[styles.deactivateBtn, !item.is_active && styles.activateBtn]}
             onPress={() => handleToggleActive(item._id, item.is_active, item.name)}
@@ -377,6 +407,12 @@ export default function UserManagementScreen() {
             }}
           >
             <Text style={styles.assignBatchText}>Assign Batch</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deletePermanentBtn}
+            onPress={() => handleDeleteCompletely(item._id, item.name, 'student')}
+          >
+            <Text style={styles.deletePermanentBtnText}>Delete</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -405,21 +441,25 @@ export default function UserManagementScreen() {
         <TouchableOpacity style={styles.viewProfileBtn} onPress={() => handleOpenDetails(item._id)}>
           <Text style={styles.viewProfileText}>View Profile & Batches →</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.deactivateBtn} onPress={() => handleToggleActive(item._id, item.is_active, item.name)}>
-          <Text style={styles.deactivateBtnText}>{item.is_active ? 'Deactivate' : 'Activate'}</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <TouchableOpacity style={styles.deactivateBtn} onPress={() => handleToggleActive(item._id, item.is_active, item.name)}>
+            <Text style={styles.deactivateBtnText}>{item.is_active ? 'Deactivate' : 'Activate'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deletePermanentBtn}
+            onPress={() => handleDeleteCompletely(item._id, item.name, 'instructor')}
+          >
+            <Text style={styles.deletePermanentBtnText}>Delete</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Top Header */}
-      <View style={styles.topHeaderContainer}>
-        <Text style={styles.title}>Users & Applications</Text>
-        <Text style={styles.subtitle}>Manage pending student applications, approved students, and instructors.</Text>
-      </View>
-
+      {/* Spacer for Upper Margin */}
+      <View style={{ height: 20 }} />
       {/* 3 Main Options Tabs Header */}
       <View style={{ flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
         <TouchableOpacity
@@ -534,7 +574,7 @@ export default function UserManagementScreen() {
                   ? renderStudentItem
                   : renderInstructorItem
               }
-              contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
               ListEmptyComponent={<Text style={styles.emptyListText}>No users found in this tab.</Text>}
             />
           )}
@@ -850,7 +890,7 @@ export default function UserManagementScreen() {
                       </TouchableOpacity>
                     </View>
                   ) : (
-                    <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+                    <View style={{ flexDirection: 'row', gap: 10, width: '100%', flexWrap: 'wrap' }}>
                       {userDetails.user.role === 'student' && (
                         <TouchableOpacity
                           style={[styles.footerActionBtn, { backgroundColor: '#000000' }]}
@@ -867,8 +907,14 @@ export default function UserManagementScreen() {
                         onPress={() => handleToggleActive(userDetails.user._id, userDetails.user.is_active, userDetails.user.name)}
                       >
                         <Text style={styles.footerActionText}>
-                          {userDetails.user.is_active ? 'Deactivate Account' : 'Activate Account'}
+                          {userDetails.user.is_active ? 'Deactivate' : 'Activate'}
                         </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.footerActionBtn, { backgroundColor: '#7F1D1D' }]}
+                        onPress={() => handleDeleteCompletely(userDetails.user._id, userDetails.user.name, userDetails.user.role)}
+                      >
+                        <Text style={styles.footerActionText}>Delete Permanently</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -1161,6 +1207,7 @@ const styles = StyleSheet.create({
   actionButtonRow: {
     paddingHorizontal: 16,
     marginBottom: 14,
+    marginTop: 16,
   },
   addInstructorBtn: {
     backgroundColor: '#000000',
@@ -1179,6 +1226,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     marginBottom: 16,
+    marginTop: 16,
   },
   searchBox: {
     flex: 1,
@@ -1321,6 +1369,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
     marginTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#F9FAFB',
@@ -1340,7 +1390,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    marginRight: 8,
   },
   rejectOutlineText: {
     fontSize: 13,
@@ -1365,7 +1414,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FCA5A5',
     backgroundColor: '#FEF2F2',
-    marginRight: 8,
   },
   deactivateBtnText: {
     color: '#EF4444',
@@ -1378,6 +1426,19 @@ const styles = StyleSheet.create({
   },
   activateBtnText: {
     color: '#059669',
+  },
+  deletePermanentBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#991B1B',
+    backgroundColor: '#7F1D1D',
+  },
+  deletePermanentBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 13,
   },
   filterOptionsPanel: {
     backgroundColor: '#FFFFFF',

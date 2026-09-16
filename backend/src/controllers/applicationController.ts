@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import Application from '../models/Application';
 import User from '../models/User';
 import Course from '../models/Course';
@@ -8,7 +9,52 @@ import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
 import { sendNotification } from '../services/notificationService';
 import { isEmailVerified, consumeEmailVerification } from '../services/otpService';
-import { sendApplicationSubmissionEmail, sendApprovalCredentialsEmail } from '../services/emailService';
+import { sendApplicationSubmissionEmail, sendApprovalEmail } from '../services/emailService';
+
+/**
+ * Generates a sequential, unique Registration Number in the format TVTI-YYYY-00001
+ */
+export const generateUniqueRegistrationNumber = async (): Promise<string> => {
+  const currentYear = new Date().getFullYear();
+  const prefix = `TVTI-${currentYear}-`;
+  const regex = new RegExp(`^TVTI-${currentYear}-(\\d+)`);
+
+  const [users, applications] = await Promise.all([
+    User.find({ registration_number: { $regex: regex } }).select('registration_number'),
+    Application.find({ registration_number: { $regex: regex } }).select('registration_number')
+  ]);
+
+  let maxSeq = 0;
+  const processRegNo = (regNo?: string) => {
+    if (regNo) {
+      const match = regNo.match(regex);
+      if (match && match[1]) {
+        const seq = parseInt(match[1], 10);
+        if (seq > maxSeq) maxSeq = seq;
+      }
+    }
+  };
+
+  for (const u of users) processRegNo(u.registration_number);
+  for (const a of applications) processRegNo(a.registration_number);
+
+  const nextSeq = maxSeq + 1;
+  return `${prefix}${String(nextSeq).padStart(5, '0')}`;
+};
+
+/**
+ * Generates a secure random temporary password (e.g. TVTI@K7mP92x)
+ */
+export const generateTemporaryPassword = (): string => {
+  const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let randomStr = '';
+  const bytes = crypto.randomBytes(7);
+  for (let i = 0; i < 7; i++) {
+    randomStr += charset[bytes[i] % charset.length];
+  }
+  return `TVTI@${randomStr}`;
+};
+
 
 export const generateUniqueIndexNumber = async (): Promise<string> => {
   const fullYear = new Date().getFullYear();
@@ -242,6 +288,14 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
       return;
     }
 
+    if (status === 'approved' && application.status === 'approved') {
+      res.status(400).json({
+        message: 'This application has already been approved. Duplicate approval is not permitted.',
+        application
+      });
+      return;
+    }
+
     application.status = status;
     if (assigned_course_ids && Array.isArray(assigned_course_ids) && assigned_course_ids.length > 0) {
       application.course_ids = assigned_course_ids as any;
@@ -259,6 +313,9 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
     }
 
     let generatedCredentials = null;
+    let regNumber = application.registration_number;
+    let emailSent = false;
+    let emailError: string | undefined = undefined;
 
     if (status === 'approved') {
       const orConditions: any[] = [{ email: application.email.toLowerCase() }];
@@ -267,8 +324,13 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
       }
       let studentUser = await User.findOne({ $or: orConditions });
 
-      const randomDigits = Math.floor(1000 + Math.random() * 9000);
-      const tempPassword = `TVTI#${randomDigits}`;
+      // Generate Registration Number if not already assigned
+      if (!regNumber) {
+        regNumber = await generateUniqueRegistrationNumber();
+      }
+
+      // Generate Secure Random Temp Password e.g. TVTI@K7mP92x
+      const tempPassword = generateTemporaryPassword();
       const salt = await bcrypt.genSalt(10);
       const password_hash = await bcrypt.hash(tempPassword, salt);
       const temp_password_expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -276,9 +338,11 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
       let indexNumber = '';
 
       if (studentUser) {
+        // If user exists without index_number or registration_number, assign them
         if (!studentUser.index_number) {
           studentUser.index_number = await generateUniqueIndexNumber();
         }
+        studentUser.registration_number = regNumber;
         indexNumber = studentUser.index_number;
         studentUser.password_hash = password_hash;
         studentUser.must_change_password = true;
@@ -326,6 +390,7 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
             last_updated: new Date()
           },
           index_number: indexNumber,
+          registration_number: regNumber,
           password_hash,
           role: 'student',
           is_active: true,
@@ -334,9 +399,11 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
         });
       }
 
+      application.registration_number = regNumber;
       application.generated_index_number = indexNumber;
 
       generatedCredentials = {
+        registration_number: regNumber,
         index_number: indexNumber,
         temp_password: tempPassword,
         email: application.email,
@@ -372,37 +439,55 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
         console.warn('Auto enrollment warning:', enrollErr);
       }
 
-      // Send official email asynchronously (non-blocking)
-      sendApprovalCredentialsEmail({
-        to: application.email,
-        studentName: application.full_name,
-        indexNumber: indexNumber,
-        tempPassword: tempPassword
-      }).catch(emailErr => {
-        console.warn('Warning: Failed to send approval credentials email:', emailErr);
-      });
+      // Send official approval credentials email via Nodemailer
+      try {
+        const emailResult = await sendApprovalEmail({
+          to: application.email,
+          name: application.full_name,
+          registrationNumber: regNumber,
+          temporaryPassword: tempPassword
+        });
+        emailSent = emailResult.success;
+        application.approval_email_sent = true;
+        application.approval_email_sent_at = new Date();
+        application.approval_email_error = undefined;
+      } catch (mailErr: any) {
+        console.error('Failed to send approval email via Nodemailer:', mailErr);
+        emailSent = false;
+        emailError = mailErr?.message || String(mailErr);
+        application.approval_email_sent = false;
+        application.approval_email_error = emailError;
+      }
     }
 
     await application.save();
 
-    // Send instant notification
-    const matchingUser = await User.findOne({ email: application.email.toLowerCase() });
-    if (matchingUser) {
-      await sendNotification({
-        userIds: [matchingUser._id],
-        title: `Application ${status.toUpperCase()}`,
-        message: status === 'approved'
-          ? `Your TVTI course application has been APPROVED.\nRegistration No: ${application.generated_index_number || matchingUser.index_number}\nTemporary Password: ${generatedCredentials?.temp_password || 'Issued'}\nPlease log in to set your permanent password.`
-          : `Your TVTI application status has been updated to: ${status}.`,
-        type: 'application_update',
-        relatedId: application._id,
-        link: '/profile'
-      });
+    // Send instant notification if student account exists
+    try {
+      const matchingUser = await User.findOne({ email: application.email.toLowerCase() });
+      if (matchingUser) {
+        await sendNotification({
+          userIds: [matchingUser._id],
+          title: `Application ${status.toUpperCase()}`,
+          message: status === 'approved'
+            ? `Congratulations! Your TVTI course application has been APPROVED. Reg No: ${regNumber || 'Assigned'}.`
+            : `Your TVTI application status has been updated to: ${status}.`,
+          type: 'application_update',
+          relatedId: application._id,
+          link: '/profile'
+        });
+      }
+    } catch (notifErr) {
+      console.warn('In-app notification warning:', notifErr);
     }
 
     res.json({
-      message: `Application marked as ${status}`,
+      success: true,
+      message: `Application marked as ${status}${status === 'approved' ? (emailSent ? ' and credentials sent via email' : ' but approval email delivery failed') : ''}`,
       application,
+      registration_number: regNumber,
+      email_sent: emailSent,
+      email_error: emailError,
       credentials: generatedCredentials
     });
   } catch (error) {

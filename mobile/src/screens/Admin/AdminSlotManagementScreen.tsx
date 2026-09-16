@@ -102,7 +102,7 @@ export default function AdminSlotManagementScreen() {
     visible: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const [alertModal, setAlertModal] = useState<{
@@ -390,31 +390,27 @@ export default function AdminSlotManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Top Header */}
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.headerTitle}>Practical Slots Control</Text>
-          <Text style={styles.headerSubtitle}>Manage lab stations, instructor schedules, & student bookings.</Text>
-        </View>
-      </View>
+      {/* Spacer for Upper Margin */}
+      <View style={{ height: 20 }} />
 
-      {/* Main Mode Tabs */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'slots' && styles.activeTabItem]}
-          onPress={() => setActiveTab('slots')}
-        >
-          <Icon name="calendar" size={17} color={activeTab === 'slots' ? '#D97706' : '#6B7280'} style={{ marginRight: 6 }} />
-          <Text style={[styles.tabText, activeTab === 'slots' && styles.activeTabText]}>All Practical Slots ({slots.length})</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'create' && styles.activeTabItem]}
-          onPress={() => setActiveTab('create')}
-        >
-          <Icon name="add-circle" size={17} color={activeTab === 'create' ? '#D97706' : '#6B7280'} style={{ marginRight: 6 }} />
-          <Text style={[styles.tabText, activeTab === 'create' && styles.activeTabText]}>+ Create Slots</Text>
-        </TouchableOpacity>
-      </View>
+      <View style={{ flex: 1 }}>
+        {/* Main Mode Tabs */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'slots' && styles.activeTabItem]}
+            onPress={() => setActiveTab('slots')}
+          >
+            <Icon name="calendar" size={17} color={activeTab === 'slots' ? '#D97706' : '#6B7280'} style={{ marginRight: 6 }} />
+            <Text style={[styles.tabText, activeTab === 'slots' && styles.activeTabText]}>All Practical Slots ({slots.length})</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'create' && styles.activeTabItem]}
+            onPress={() => setActiveTab('create')}
+          >
+            <Icon name="add-circle" size={17} color={activeTab === 'create' ? '#D97706' : '#6B7280'} style={{ marginRight: 6 }} />
+            <Text style={[styles.tabText, activeTab === 'create' && styles.activeTabText]}>+ Create Slots</Text>
+          </TouchableOpacity>
+        </View>
 
       {activeTab === 'slots' ? (
         <ScrollView contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#D97706']} />}>
@@ -918,16 +914,16 @@ export default function AdminSlotManagementScreen() {
                   confirmModal.type === 'danger'
                     ? 'trash-outline'
                     : confirmModal.type === 'lock'
-                    ? 'lock-closed-outline'
-                    : 'alert-circle-outline'
+                      ? 'lock-closed-outline'
+                      : 'alert-circle-outline'
                 }
                 size={28}
                 color={
                   confirmModal.type === 'danger'
                     ? '#DC2626'
                     : confirmModal.type === 'lock'
-                    ? '#D97706'
-                    : '#2563EB'
+                      ? '#D97706'
+                      : '#2563EB'
                 }
               />
             </View>
@@ -976,16 +972,16 @@ export default function AdminSlotManagementScreen() {
                   alertModal.type === 'success'
                     ? 'checkmark-circle-outline'
                     : alertModal.type === 'error'
-                    ? 'close-circle-outline'
-                    : 'information-circle-outline'
+                      ? 'close-circle-outline'
+                      : 'information-circle-outline'
                 }
                 size={28}
                 color={
                   alertModal.type === 'success'
                     ? '#16A34A'
                     : alertModal.type === 'error'
-                    ? '#DC2626'
-                    : '#2563EB'
+                      ? '#DC2626'
+                      : '#2563EB'
                 }
               />
             </View>
@@ -1007,6 +1003,7 @@ export default function AdminSlotManagementScreen() {
           </View>
         </View>
       </Modal>
+      </View>
     </SafeAreaView>
   );
 }
@@ -1016,12 +1013,12 @@ const styles = StyleSheet.create({
   headerRow: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10 },
   headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#0F172A' },
   headerSubtitle: { fontSize: 13, color: '#64748B', marginTop: 2 },
-  tabContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  tabContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingTop: 20 },
   tabItem: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   activeTabItem: { borderBottomColor: '#D97706' },
   tabText: { fontSize: 13.5, fontWeight: 'bold', color: '#64748B' },
   activeTabText: { color: '#D97706' },
-  scrollContent: { padding: 16, paddingBottom: 60 },
+  scrollContent: { padding: 16, paddingBottom: 110 },
   metricsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
   metricCard: { backgroundColor: '#FFFFFF', flex: 1, marginHorizontal: 4, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 },
   metricNumber: { fontSize: 22, fontWeight: 'bold', color: '#0F172A' },

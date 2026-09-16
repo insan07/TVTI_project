@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { getOpenPracticeSlots, bookPracticeSlot, cancelPracticeBooking } from '.
 import api from '../../services/api';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 const parseUTCDate = (dateStr: string) => {
   if (!dateStr) return new Date();
@@ -60,13 +60,27 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
     return d;
   });
 
-  useEffect(() => {
-    fetchBatches();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      api.get('/students/batches').then(res => {
+        setBatches(res.data || []);
+        let currentBatch = selectedBatch;
+        if (res.data && res.data.length > 0) {
+          if (!currentBatch) {
+            currentBatch = res.data[0];
+            setSelectedBatch(currentBatch);
+          } else {
+            fetchSlots(currentBatch);
+          }
+        }
+      }).catch(e => console.log('Error fetching batches', e));
+    }, [selectedBatch])
+  );
 
+  // Still keep this to fetch when batch changes
   useEffect(() => {
     if (selectedBatch) {
-      fetchSlots();
+      fetchSlots(selectedBatch);
     }
   }, [selectedBatch]);
 
@@ -82,11 +96,11 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
     }
   };
 
-  const fetchSlots = async () => {
-    if (!selectedBatch) return;
+  const fetchSlots = async (batch = selectedBatch) => {
+    if (!batch) return;
     setLoading(true);
     try {
-      const data = await getOpenPracticeSlots({ batchId: selectedBatch._id });
+      const data = await getOpenPracticeSlots({ batchId: batch._id });
       setSlots(data);
     } catch (e) {
       console.log(e);
@@ -145,10 +159,10 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
           title: selectedBatch?.course_id?.title || 'Vocational Training Course',
           days: Array.isArray(selectedBatch?.schedule_json?.days)
             ? selectedBatch.schedule_json.days.join(', ')
-            : (selectedBatch?.schedule_json?.days || 'Mon, Wed, Fri'),
-          time: selectedBatch?.schedule_json?.time || '09:00 - 11:30',
-          room: selectedBatch?.room || 'Main Workshop',
-          instructor: selectedBatch?.instructor_ids?.[0]?.name || 'Instructor',
+            : (selectedBatch?.schedule_json?.days || 'Days TBD'),
+          time: selectedBatch?.schedule_json?.time || 'Time TBD',
+          room: selectedBatch?.room || 'Room TBD',
+          instructor: selectedBatch?.instructor_ids?.[0]?.name || 'Instructor TBD',
         },
       ]
     : [];
@@ -231,10 +245,10 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                     </View>
                     <View style={styles.classCardInfoRow}>
                       <Icon name="location-outline" size={15} color="#666" style={{ marginRight: 4 }} />
-                      <Text style={styles.classCardInfoText}>{cls.room || 'Main Workshop'}</Text>
+                      <Text style={styles.classCardInfoText}>{cls.room || 'Room TBD'}</Text>
                       <Text style={styles.dotSeparator}>•</Text>
                       <Icon name="person-outline" size={15} color="#666" style={{ marginRight: 4 }} />
-                      <Text style={styles.classCardInfoText}>Inst. {cls.instructor}</Text>
+                      <Text style={styles.classCardInfoText}>{cls.instructor}</Text>
                     </View>
                   </View>
                 </View>
@@ -332,7 +346,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                         style={{ marginRight: 4 }}
                       />
                       <Text style={[styles.practiceInfoText, isFull && styles.dimmedText]}>
-                        Inst. {slot.instructor_id?.name || 'Instructor'}
+                        {slot.instructor_id?.name || 'Instructor TBD'}
                       </Text>
                     </View>
 

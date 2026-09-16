@@ -64,9 +64,19 @@ export default function ManageResultsScreen() {
         api.get(`/admin/batches/${batchId}/students`),
         api.get(`/admin/batches/${batchId}/results`)
       ]);
-      const sData = Array.isArray(studentsRes.data)
+      let sData = Array.isArray(studentsRes.data)
         ? studentsRes.data.map(item => item.student_id ? { ...item.student_id, _enrollmentId: item._id } : item)
         : [];
+      
+      // Deduplicate students by _id to prevent duplicate cards
+      const uniqueStudents = new Map();
+      sData.forEach(student => {
+        if (student && student._id && !uniqueStudents.has(student._id)) {
+          uniqueStudents.set(student._id, student);
+        }
+      });
+      sData = Array.from(uniqueStudents.values());
+
       setStudents(sData);
       setResults(resultsRes.data || []);
     } catch (e) {
@@ -226,11 +236,8 @@ export default function ManageResultsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Title Header */}
-      <View style={styles.topHeader}>
-        <Text style={styles.pageTitle}>Academic Results</Text>
-        <Text style={styles.pageSubtitle}>Manage and publish evaluation marks for vocational batches.</Text>
-      </View>
+      {/* Spacer for Upper Margin */}
+      <View style={{ height: 20 }} />
 
       {/* Controls Bar: Batch Dropdown & Toggle Button */}
       <View style={styles.controlsBar}>
@@ -287,7 +294,7 @@ export default function ManageResultsScreen() {
         <FlatList
           data={students}
           keyExtractor={item => item._id}
-          contentContainerStyle={{ paddingBottom: 60 }}
+          contentContainerStyle={{ paddingBottom: 110 }}
           ListEmptyComponent={<Text style={styles.emptyText}>No students in this batch.</Text>}
           renderItem={({ item }) => {
             const sResults = results.filter(

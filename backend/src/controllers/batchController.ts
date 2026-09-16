@@ -3,6 +3,8 @@ import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
 import Result from '../models/Result';
 import Video from '../models/Video';
+import PracticeSlot from '../models/PracticeSlot';
+import SlotBooking from '../models/SlotBooking';
 
 export const getAdminBatches = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -86,6 +88,39 @@ export const updateBatch = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+export const deleteBatchCompletely = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const batchId = req.params.id;
+    const batch = await Batch.findById(batchId);
+    if (!batch) {
+      res.status(404).json({ message: 'Batch not found' });
+      return;
+    }
+
+    // Delete associated enrollments, results, videos
+    await Enrollment.deleteMany({ batch_id: batchId });
+    await Result.deleteMany({ batch_id: batchId });
+    await Video.deleteMany({ batch_id: batchId });
+
+    // Delete associated practice slots and their bookings
+    const slots = await PracticeSlot.find({ batch_id: batchId }).select('_id');
+    const slotIds = slots.map(s => s._id);
+    
+    if (slotIds.length > 0) {
+      await SlotBooking.deleteMany({ slot_id: { $in: slotIds } });
+      await PracticeSlot.deleteMany({ batch_id: batchId });
+    }
+
+    // Delete the batch
+    await batch.deleteOne();
+
+    res.json({ message: 'Batch and all related records deleted completely' });
+  } catch (error) {
+    console.error('Error deleting batch:', error);
+    res.status(500).json({ message: 'Server error during batch deletion' });
+  }
+};
+
 export const getBatchStudents = async (req: Request, res: Response): Promise<void> => {
   try {
     const enrollments = await Enrollment.find({ batch_id: req.params.id })
@@ -113,7 +148,18 @@ export const enrollStudents = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const enrollmentsToCreate = studentIds.map((id: string) => ({
+    // Find existing enrollments for this batch to prevent duplicates
+    const existingEnrollments = await Enrollment.find({ batch_id });
+    const existingStudentIds = new Set(existingEnrollments.map(e => e.student_id.toString()));
+
+    const newStudentIds = studentIds.filter((id: string) => !existingStudentIds.has(id.toString()));
+
+    if (newStudentIds.length === 0) {
+      res.json({ message: 'All selected students are already enrolled in this batch' });
+      return;
+    }
+
+    const enrollmentsToCreate = newStudentIds.map((id: string) => ({
       student_id: id,
       batch_id,
       enrolled_date: new Date(),

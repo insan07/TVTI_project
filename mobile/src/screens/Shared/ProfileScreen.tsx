@@ -22,7 +22,7 @@ import { FONTS } from '../../config/theme';
 export default function ProfileScreen() {
   const context = useContext(AuthContext);
   if (!context) return null;
-  const { logout } = context as any;
+  const { logout, user } = context as any;
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -231,7 +231,10 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* FIXED STICKY TOP HEADER */}
       <View style={styles.stickyHeader}>
-        <Text style={styles.mainTitle}>Student Profile</Text>
+        <Text style={styles.mainTitle}>
+          {user?.role === 'instructor' ? 'Instructor Profile' : 
+           user?.role === 'admin' ? 'Admin Profile' : 'Student Profile'}
+        </Text>
       </View>
 
       <ScrollView
@@ -266,7 +269,8 @@ export default function ProfileScreen() {
               {profile.email}
             </Text>
             <Text style={styles.regNumberText}>
-              REG NO : {profile.index_number || profile.nic || 'TVTI/STUDENT'}
+              {user?.role === 'student' ? 'REG NO : ' : 'ID : '}
+              {profile.index_number || profile.nic || (user?.role === 'student' ? 'TVTI/STUDENT' : 'N/A')}
             </Text>
           </View>
 
@@ -298,17 +302,19 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           {/* Payment Details Option Card */}
-          <TouchableOpacity
-            style={styles.menuCard}
-            onPress={() => setPaymentDetailsModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuLeftContent}>
-              <Icon name="card-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Payment Details</Text>
-            </View>
-            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
-          </TouchableOpacity>
+          {user?.role === 'student' && (
+            <TouchableOpacity
+              style={styles.menuCard}
+              onPress={() => setPaymentDetailsModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuLeftContent}>
+                <Icon name="card-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Payment Details</Text>
+              </View>
+              <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+            </TouchableOpacity>
+          )}
 
           {/* Change Password Option Card */}
           <TouchableOpacity
@@ -423,92 +429,96 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            {/* 2. Parent / Guardian Details Card */}
-            <View style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <Icon name="people-outline" size={20} color="#F58220" />
-                <Text style={styles.cardHeaderTitle}>Parent / Guardian Information</Text>
-              </View>
-              <View style={styles.cardDivider} />
-
-              <View style={styles.infoGrid}>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Guardian Name</Text>
-                  <Text style={styles.infoValue}>{profile.guardian?.name || 'Not Provided'}</Text>
-                </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Relationship</Text>
-                  <Text style={styles.infoValue}>{profile.guardian?.relationship || 'Not Provided'}</Text>
-                </View>
-                <View style={[styles.infoItem, { width: '100%' }]}>
-                  <Text style={styles.infoLabel}>Guardian Contact Phone</Text>
-                  <Text style={styles.infoValue}>{profile.guardian?.phone || 'Not Provided'}</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* 3. Educational Background Card */}
-            <View style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <Icon name="school-outline" size={20} color="#F58220" />
-                <Text style={styles.cardHeaderTitle}>Educational Qualifications</Text>
-              </View>
-              <View style={styles.cardDivider} />
-
-              <View style={styles.infoGrid}>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Highest Level Attained</Text>
-                  <Text style={styles.infoValue}>
-                    {profile.educational_qualification?.highest_level || 'Not Specified'}
-                  </Text>
-                </View>
-                {profile.educational_qualification?.grade_level ? (
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Current Grade Level</Text>
-                    <Text style={styles.infoValue}>{profile.educational_qualification.grade_level}</Text>
+            {user?.role === 'student' && (
+              <>
+                {/* 2. Parent / Guardian Details Card */}
+                <View style={styles.detailCard}>
+                  <View style={styles.cardHeaderRow}>
+                    <Icon name="people-outline" size={20} color="#F58220" />
+                    <Text style={styles.cardHeaderTitle}>Parent / Guardian Information</Text>
                   </View>
-                ) : null}
-                {profile.educational_qualification?.institute_name ? (
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>School / Institute</Text>
-                    <Text style={styles.infoValue}>{profile.educational_qualification.institute_name}</Text>
-                  </View>
-                ) : null}
-                <View style={[styles.infoItem, { width: '100%' }]}>
-                  <Text style={styles.infoLabel}>Qualification Details</Text>
-                  <Text style={styles.infoValue}>
-                    {profile.educational_qualification?.details || 'No additional details logged'}
-                  </Text>
-                </View>
-              </View>
-            </View>
+                  <View style={styles.cardDivider} />
 
-            {/* 4. Enrolled Courses Card */}
-            <View style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <Icon name="book-outline" size={20} color="#F58220" />
-                <Text style={styles.cardHeaderTitle}>Enrolled Courses</Text>
-              </View>
-              <View style={styles.cardDivider} />
-
-              {profile.enrolled_courses && profile.enrolled_courses.length > 0 ? (
-                profile.enrolled_courses.map((course: any, idx: number) => (
-                  <View key={course._id || idx} style={styles.courseRowItem}>
-                    <View style={styles.courseBadge}>
-                      <Text style={styles.courseBadgeText}>{course.code || 'COURSE'}</Text>
+                  <View style={styles.infoGrid}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Guardian Name</Text>
+                      <Text style={styles.infoValue}>{profile.guardian?.name || 'Not Provided'}</Text>
                     </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.courseTitleText}>{course.title}</Text>
-                      {course.course_fee !== undefined ? (
-                        <Text style={styles.courseSubFee}>Fee: {formatCurrency(course.course_fee)}</Text>
-                      ) : null}
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Relationship</Text>
+                      <Text style={styles.infoValue}>{profile.guardian?.relationship || 'Not Provided'}</Text>
+                    </View>
+                    <View style={[styles.infoItem, { width: '100%' }]}>
+                      <Text style={styles.infoLabel}>Guardian Contact Phone</Text>
+                      <Text style={styles.infoValue}>{profile.guardian?.phone || 'Not Provided'}</Text>
                     </View>
                   </View>
-                ))
-              ) : (
-                <Text style={styles.emptyText}>No enrolled courses registered yet.</Text>
-              )}
-            </View>
+                </View>
+
+                {/* 3. Educational Background Card */}
+                <View style={styles.detailCard}>
+                  <View style={styles.cardHeaderRow}>
+                    <Icon name="school-outline" size={20} color="#F58220" />
+                    <Text style={styles.cardHeaderTitle}>Educational Qualifications</Text>
+                  </View>
+                  <View style={styles.cardDivider} />
+
+                  <View style={styles.infoGrid}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Highest Level Attained</Text>
+                      <Text style={styles.infoValue}>
+                        {profile.educational_qualification?.highest_level || 'Not Specified'}
+                      </Text>
+                    </View>
+                    {profile.educational_qualification?.grade_level ? (
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Current Grade Level</Text>
+                        <Text style={styles.infoValue}>{profile.educational_qualification.grade_level}</Text>
+                      </View>
+                    ) : null}
+                    {profile.educational_qualification?.institute_name ? (
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>School / Institute</Text>
+                        <Text style={styles.infoValue}>{profile.educational_qualification.institute_name}</Text>
+                      </View>
+                    ) : null}
+                    <View style={[styles.infoItem, { width: '100%' }]}>
+                      <Text style={styles.infoLabel}>Qualification Details</Text>
+                      <Text style={styles.infoValue}>
+                        {profile.educational_qualification?.details || 'No additional details logged'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* 4. Enrolled Courses Card */}
+                <View style={styles.detailCard}>
+                  <View style={styles.cardHeaderRow}>
+                    <Icon name="book-outline" size={20} color="#F58220" />
+                    <Text style={styles.cardHeaderTitle}>Enrolled Courses</Text>
+                  </View>
+                  <View style={styles.cardDivider} />
+
+                  {profile.enrolled_courses && profile.enrolled_courses.length > 0 ? (
+                    profile.enrolled_courses.map((course: any, idx: number) => (
+                      <View key={course._id || idx} style={styles.courseRowItem}>
+                        <View style={styles.courseBadge}>
+                          <Text style={styles.courseBadgeText}>{course.code || 'COURSE'}</Text>
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={styles.courseTitleText}>{course.title}</Text>
+                          {course.course_fee !== undefined ? (
+                            <Text style={styles.courseSubFee}>Fee: {formatCurrency(course.course_fee)}</Text>
+                          ) : null}
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.emptyText}>No enrolled courses registered yet.</Text>
+                  )}
+                </View>
+              </>
+            )}
           </ScrollView>
         </SafeAreaView>
       </Modal>

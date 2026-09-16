@@ -332,7 +332,7 @@ export default function UploadVideoScreen() {
       </View>
 
       {activeTab === 'upload' ? (
-        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Lecturer Video & Study Notes Upload</Text>
 
@@ -531,7 +531,7 @@ export default function UploadVideoScreen() {
             <FlatList
               data={currentList}
               keyExtractor={item => item._id}
-              contentContainerStyle={{ padding: 15, paddingBottom: 40 }}
+              contentContainerStyle={{ padding: 15, paddingBottom: 100 }}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>

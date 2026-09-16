@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Dimensions, Image, Linking, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
 import { API_URL } from '../../config/constants';
@@ -48,9 +48,11 @@ export default function InstructorHomeScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchStats();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -82,18 +84,7 @@ export default function InstructorHomeScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F58220']} />}
       showsVerticalScrollIndicator={false}
     >
-      {/* 1. Custom Brand Header */}
-      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-        <View style={styles.brandContainer}>
-          <View style={styles.logoBadge}>
-            <Icon name="ribbon" size={12} color="#FFF" />
-          </View>
-          <Text style={styles.brandText}>Twintec VTI</Text>
-        </View>
-        <TouchableOpacity style={styles.profileBtn} onPress={() => navigation.navigate('Profile')}>
-          <Icon name="person-circle-outline" size={28} color="#FFF" />
-        </TouchableOpacity>
-      </View>
+
 
       {/* 2. Welcome Banner */}
       <LinearGradient colors={['#2D2D2D', '#111111']} style={styles.bannerContainer}>
@@ -170,13 +161,23 @@ export default function InstructorHomeScreen() {
           const booked = slot.booked_count || 0;
           const max = slot.max_students || 1;
           const percentage = Math.min((booked / max) * 100, 100);
-          return (
+            // Compute the actual date of the slot
+            let slotDateStr = '';
+            if (slot.week_start_date) {
+              const daysArr = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+              const ws = new Date(slot.week_start_date);
+              const dayIdx = daysArr.indexOf(slot.day_of_week);
+              if (dayIdx !== -1) ws.setDate(ws.getDate() + dayIdx);
+              slotDateStr = ws.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            }
+
+            return (
             <View key={slot._id} style={styles.slotCard}>
               <View style={styles.slotHeader}>
                 <View style={styles.slotTimeRow}>
                   <Icon name="calendar-outline" size={14} color="#6B7280" style={{ marginRight: 6 }} />
                   <Text style={styles.slotTimeText}>
-                    {slot.day_of_week} | {slot.start_time} - {slot.end_time}
+                    {slot.day_of_week}{slotDateStr ? `, ${slotDateStr}` : ''} | {slot.start_time} - {slot.end_time}
                   </Text>
                 </View>
                 <View style={styles.bookedBadge}>
@@ -218,8 +219,20 @@ export default function InstructorHomeScreen() {
         </View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollContent}>
-          {stats.recentVideos.map((video) => (
+          {stats.recentVideos.map((video) => {
+            let thumbUrl = video.thumbnail || null;
+            if (!thumbUrl && video.content_type !== 'material' && video.cloudinary_url) {
+              if (video.cloudinary_url.includes('youtube.com') || video.cloudinary_url.includes('youtu.be')) {
+                const match = video.cloudinary_url.match(/[?&]v=([^&]+)/) || video.cloudinary_url.match(/youtu\.be\/([^?]+)/);
+                if (match && match[1]) {
+                  thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+                }
+              } else if (video.cloudinary_url.includes('cloudinary.com')) {
+                thumbUrl = video.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
+              }
+            }
 
+            return (
             <TouchableOpacity 
               key={video._id} 
               style={styles.videoCard}
@@ -240,12 +253,12 @@ export default function InstructorHomeScreen() {
                 }
               }}
             >
-              <View style={styles.videoThumbnailContainer}>
-                {video.thumbnail ? (
-                  <Image source={{ uri: video.thumbnail }} style={styles.videoThumbnail} />
+              <View style={[styles.videoThumbnailContainer, video.content_type === 'material' ? { backgroundColor: '#ECFDF5' } : {}]}>
+                {thumbUrl ? (
+                  <Image source={{ uri: thumbUrl }} style={styles.videoThumbnail} />
                 ) : (
                   <View style={styles.videoThumbnailPlaceholder}>
-                    <Icon name={video.content_type === 'material' ? 'document-text' : 'videocam'} size={28} color="#9CA3AF" />
+                    <Icon name={video.content_type === 'material' ? 'document-text' : 'videocam'} size={32} color={video.content_type === 'material' ? '#10B981' : '#9CA3AF'} />
                   </View>
                 )}
                 {video.content_type !== 'material' && (
@@ -264,7 +277,7 @@ export default function InstructorHomeScreen() {
                 {video.topic ? <Text style={styles.videoTopic} numberOfLines={1}>Topic: {video.topic}</Text> : null}
               </View>
             </TouchableOpacity>
-          ))}
+          )})}
         </ScrollView>
       )}
 

@@ -105,7 +105,7 @@ export default function NotificationsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <View />
         {notifications.some(n => !n.is_read) && (
           <TouchableOpacity onPress={markAllAsRead}>
             <Text style={styles.markReadText}>Mark all as read</Text>

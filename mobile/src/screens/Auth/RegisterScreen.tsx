@@ -201,6 +201,7 @@ export default function RegisterScreen() {
   const handleSendOtp = async () => {
     setOtpError('');
     setOtpSuccessMsg('');
+    setOtpCode('');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim() || !emailRegex.test(formData.email.trim())) {
       setOtpError('Please enter a valid email address before requesting an OTP.');
@@ -215,6 +216,8 @@ export default function RegisterScreen() {
         setOtpSuccessMsg(res.data?.message || 'A 6-digit OTP code has been sent to your email address.');
         if (res.data?.devOtp) {
           setOtpCode(res.data.devOtp);
+        } else {
+          setOtpCode('');
         }
         setResendCooldown(60);
       } else {
@@ -655,12 +658,18 @@ export default function RegisterScreen() {
       {/* DARK NAVY TOP BACKGROUND GRADIENT MATCHING SCREENSHOT */}
       <View style={[styles.topGradientBackground, { paddingTop: insets.top + 8 }]}>
         <View style={styles.topBrandRow}>
-          <Image
-            source={require('../../../assets/icon.png')}
-            style={styles.brandLogoImg}
-            resizeMode="contain"
-          />
-          <Text style={styles.topBrandTitleText}>TVTI Student Portal</Text>
+          <TouchableOpacity style={{ padding: 4 }} onPress={handleGoToLogin}>
+            <Icon name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginHorizontal: 8 }}>
+            <Image
+              source={require('../../../assets/icon.png')}
+              style={styles.brandLogoImg}
+              resizeMode="contain"
+            />
+            <Text style={styles.topBrandTitleText} numberOfLines={1} adjustsFontSizeToFit>TVTI Student Portal</Text>
+          </View>
+          <View style={{ width: 32 }} /> {/* Empty spacer to balance the flex space-between */}
         </View>
       </View>
 
@@ -1327,7 +1336,8 @@ const styles = StyleSheet.create({
   topBrandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
   },
   brandLogoImg: {
     width: 32,
