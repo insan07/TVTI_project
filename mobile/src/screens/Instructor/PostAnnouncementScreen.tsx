@@ -239,16 +239,20 @@ export default function PostAnnouncementScreen() {
         {/* Top Header Bar with Navigation Back Button, Title, and Round + Button */}
         <View style={styles.topHeaderBar}>
           <View style={styles.headerLeftGroup}>
-            {navigation.canGoBack() && (
-              <TouchableOpacity
-                style={styles.backBtn}
-                onPress={() => navigation.goBack()}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="arrow-back" size={20} color="#0F172A" />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  navigation.navigate('Dashboard');
+                }
+              }}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Icon name="arrow-back" size={20} color="#0F172A" />
+            </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle}>Announcements</Text>
               <Text style={styles.headerSubtitle}>

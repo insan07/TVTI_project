@@ -7,16 +7,18 @@ import api from '../../services/api';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import * as DocumentPicker from 'expo-document-picker';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { API_URL } from '../../config/constants';
 import { storage } from '../../utils/storage';
-import { COLORS } from '../../config/theme';
+import { COLORS, FONTS } from '../../config/theme';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500MB
 
 export default function UploadVideoScreen() {
   const route = useRoute<any>();
+  const navigation = useNavigation<any>();
 
   const [batches, setBatches] = useState<any[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
@@ -319,7 +321,27 @@ export default function UploadVideoScreen() {
   const currentLoading = listMode === 'video' ? loadingVideos : loadingMaterials;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* Top Header Bar */}
+      <View style={styles.topHeaderBar}>
+        <View style={styles.headerLeftGroup}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Icon name="arrow-back" size={20} color="#0F172A" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Upload Content</Text>
+            <Text style={styles.headerSubtitle}>
+              Post videos and study materials
+            </Text>
+          </View>
+        </View>
+      </View>
+
       <View style={styles.tabHeader}>
         <TouchableOpacity style={[styles.tab, activeTab === 'upload' && styles.activeTab]} onPress={() => setActiveTab('upload')}>
           <Icon name="cloud-upload-outline" size={16} color={activeTab === 'upload' ? COLORS.primary : '#6B7280'} style={{ marginRight: 5 }} />
@@ -341,13 +363,13 @@ export default function UploadVideoScreen() {
                 style={[styles.modeBtn, uploadMode === 'video' && styles.modeBtnActive]}
                 onPress={() => { setUploadMode('video'); resetForm(); }}
               >
-                <Text style={[styles.modeBtnText, uploadMode === 'video' && styles.modeBtnTextActive]}>🎥 Video Lecture</Text>
+                <Text style={[styles.modeBtnText, uploadMode === 'video' && styles.modeBtnTextActive]}>Video Lecture</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modeBtn, uploadMode === 'material' && styles.modeBtnActive]}
                 onPress={() => { setUploadMode('material'); resetForm(); }}
               >
-                <Text style={[styles.modeBtnText, uploadMode === 'material' && styles.modeBtnTextActive]}>📄 Study Material</Text>
+                <Text style={[styles.modeBtnText, uploadMode === 'material' && styles.modeBtnTextActive]}>Study Material</Text>
               </TouchableOpacity>
             </View>
 
@@ -498,7 +520,7 @@ export default function UploadVideoScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.btnText}>
-                    {uploadMode === 'video' ? '🚀 Post Video to Students' : '📑 Upload Material'}
+                    {uploadMode === 'video' ? 'Post Video to Students' : 'Upload Material'}
                   </Text>
                 )}
               </LinearGradient>
@@ -512,13 +534,13 @@ export default function UploadVideoScreen() {
               style={[styles.modeBtn, listMode === 'video' && styles.modeBtnActive]}
               onPress={() => setListMode('video')}
             >
-              <Text style={[styles.modeBtnText, listMode === 'video' && styles.modeBtnTextActive]}>🎥 Video Lectures ({myVideos.length})</Text>
+              <Text style={[styles.modeBtnText, listMode === 'video' && styles.modeBtnTextActive]}>Video Lectures ({myVideos.length})</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modeBtn, listMode === 'material' && styles.modeBtnActive]}
               onPress={() => setListMode('material')}
             >
-              <Text style={[styles.modeBtnText, listMode === 'material' && styles.modeBtnTextActive]}>📄 Documents ({myMaterials.length})</Text>
+              <Text style={[styles.modeBtnText, listMode === 'material' && styles.modeBtnTextActive]}>Documents ({myMaterials.length})</Text>
             </TouchableOpacity>
           </View>
 
@@ -733,55 +755,114 @@ export default function UploadVideoScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  tabHeader: { flexDirection: 'row', backgroundColor: '#fff', elevation: 2, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  topHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    marginTop: 4,
+    paddingHorizontal: 16,
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    ...Platform.select({
+      web: { boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.04)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      },
+    }),
+  },
+  headerTitle: {
+    fontSize: 22,
+    ...FONTS.bold,
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 12.5,
+    ...FONTS.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  tabHeader: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   tab: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 14, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  activeTab: { borderBottomColor: COLORS.primary },
-  tabText: { fontWeight: 'bold', color: '#6B7280', fontSize: 14 },
-  activeTabText: { color: COLORS.primary },
-  card: { backgroundColor: '#fff', margin: 15, borderRadius: 12, padding: 20, elevation: 2 },
-  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 12, textAlign: 'center' },
-  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  modeRowList: { flexDirection: 'row', gap: 8, padding: 15, paddingBottom: 0 },
-  modeBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#E5E7EB', alignItems: 'center' },
-  modeBtnActive: { backgroundColor: COLORS.primary },
-  modeBtnText: { fontWeight: '700', color: '#374151', fontSize: 13 },
-  modeBtnTextActive: { color: '#fff' },
-  sourceSelectorRow: { flexDirection: 'row', gap: 8, marginTop: 6, marginBottom: 6 },
-  sourceBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#F9FAFB' },
-  sourceBtnActive: { borderColor: COLORS.primary, backgroundColor: '#EFF6FF' },
-  sourceBtnText: { fontSize: 12, fontWeight: '600', color: '#4B5563' },
-  sourceBtnTextActive: { color: COLORS.primary, fontWeight: 'bold' },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginTop: 14, marginBottom: 6 },
+  activeTab: { borderBottomColor: '#F58220' },
+  tabText: { ...FONTS.bold, color: '#6B7280', fontSize: 13.5 },
+  activeTabText: { color: '#F58220' },
+  card: {
+    backgroundColor: '#FFFFFF', margin: 16, borderRadius: 14, padding: 20,
+    borderWidth: 1, borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+    }),
+  },
+  cardTitle: { fontSize: 18, ...FONTS.bold, color: '#0F172A', marginBottom: 14, textAlign: 'center' },
+  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  modeRowList: { flexDirection: 'row', gap: 8, padding: 16, paddingBottom: 0 },
+  modeBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#F1F5F9', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
+  modeBtnActive: { backgroundColor: '#F58220', borderColor: '#F58220' },
+  modeBtnText: { ...FONTS.bold, color: '#475569', fontSize: 13 },
+  modeBtnTextActive: { color: '#FFFFFF' },
+  sourceSelectorRow: { flexDirection: 'row', gap: 8, marginTop: 6, marginBottom: 8 },
+  sourceBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC' },
+  sourceBtnActive: { borderColor: '#F58220', backgroundColor: '#FFF7ED' },
+  sourceBtnText: { fontSize: 12, ...FONTS.semiBold, color: '#475569' },
+  sourceBtnTextActive: { color: '#F58220', ...FONTS.bold },
+  label: { fontSize: 12.5, ...FONTS.bold, color: '#334155', marginTop: 14, marginBottom: 6, letterSpacing: 0.2 },
   noBatchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFBEB', padding: 12, borderRadius: 8, marginBottom: 4 },
   noBatchText: { color: '#92400E', fontSize: 13, marginLeft: 8 },
-  input: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 12, fontSize: 14, color: '#1F2937', marginBottom: 4 },
-  uploadBox: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: COLORS.primary, backgroundColor: '#EFF6FF', padding: 16, borderRadius: 8, marginBottom: 4, gap: 8 },
-  uploadBoxText: { fontSize: 13, fontWeight: 'bold', flex: 1 },
-  btnWrapper: { borderRadius: 10, marginTop: 22, overflow: 'hidden' },
+  input: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, padding: 12, fontSize: 14, color: '#0F172A', marginBottom: 4, ...FONTS.regular },
+  uploadBox: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: '#F58220', backgroundColor: '#FFF7ED', padding: 16, borderRadius: 8, marginBottom: 4, gap: 8 },
+  uploadBoxText: { fontSize: 13, ...FONTS.bold, flex: 1 },
+  btnWrapper: { borderRadius: 10, marginTop: 24, overflow: 'hidden' },
   btn: { flexDirection: 'row', padding: 15, alignItems: 'center', justifyContent: 'center' },
   btnDisabled: { opacity: 0.5 },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  btnText: { color: '#FFFFFF', ...FONTS.bold, fontSize: 15 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 10, color: '#9CA3AF' },
+  loadingText: { marginTop: 10, color: '#64748B', ...FONTS.medium },
   emptyContainer: { alignItems: 'center', marginTop: 60 },
-  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: '#374151', marginTop: 15 },
-  emptySubtitle: { color: '#9CA3AF', fontSize: 14, marginTop: 6, textAlign: 'center' },
-  emptyBtn: { marginTop: 14, backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
-  emptyBtnText: { color: '#fff', fontWeight: 'bold' },
-  videoCard: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 12, padding: 14, elevation: 1, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: '#F3F4F6' },
-  videoCardLeft: { flex: 1, flexDirection: 'row', gap: 12 },
-  videoIcon: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  emptyTitle: { fontSize: 18, ...FONTS.bold, color: '#0F172A', marginTop: 15 },
+  emptySubtitle: { color: '#64748B', fontSize: 14, marginTop: 6, textAlign: 'center', ...FONTS.regular },
+  emptyBtn: { marginTop: 16, backgroundColor: '#F58220', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+  emptyBtnText: { color: '#FFFFFF', ...FONTS.bold },
+  videoCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 14, padding: 16, elevation: 1, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
+    }),
+  },
+  videoCardLeft: { flex: 1, flexDirection: 'row', gap: 14 },
+  videoIcon: { width: 48, height: 48, borderRadius: 10, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' },
   thumbnailImage: { width: '100%', height: '100%', position: 'absolute' },
   thumbnailOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
-  videoTitle: { fontSize: 15, fontWeight: 'bold', color: '#1F2937', marginBottom: 4 },
-  videoMeta: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  videoDate: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+  videoTitle: { fontSize: 15, ...FONTS.bold, color: '#0F172A', marginBottom: 4, letterSpacing: -0.2 },
+  videoMeta: { fontSize: 12.5, color: '#475569', marginTop: 2, ...FONTS.medium },
+  videoDate: { fontSize: 11.5, color: '#94A3B8', marginTop: 4, ...FONTS.medium },
   deleteBtn: { padding: 6, marginLeft: 8 },
 
   // Custom Popup Dialog Modal Styles
