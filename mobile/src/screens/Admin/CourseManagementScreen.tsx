@@ -10,12 +10,15 @@ import {
   Alert,
   Modal,
   Switch,
-  ScrollView
+  ScrollView,
+  Platform
 } from 'react-native';
 import api from '../../services/api';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
+
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 type Tab = 'all' | 'active' | 'archived';
 
@@ -177,8 +180,18 @@ export default function CourseManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Spacer for Upper Margin */}
-      <View style={{ height: 20 }} />
+      <ScreenHeader
+        title="Course Management"
+        subtitle="Create & manage vocational training courses"
+      />
+
+      {/* Top Create Course Action Button */}
+      <View style={styles.actionButtonRow}>
+        <TouchableOpacity style={styles.addCourseBtn} onPress={openAddModal} activeOpacity={0.85}>
+          <Icon name="add" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.addCourseBtnText}>Create Course</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Search Input */}
       <View style={styles.searchContainer}>
@@ -192,26 +205,37 @@ export default function CourseManagementScreen() {
         />
       </View>
 
-      {/* Tabs Header */}
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'all' && styles.activeTabItem]}
-          onPress={() => setActiveTab('all')}
-        >
-          <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'active' && styles.activeTabItem]}
-          onPress={() => setActiveTab('active')}
-        >
-          <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>Active</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'archived' && styles.activeTabItem]}
-          onPress={() => setActiveTab('archived')}
-        >
-          <Text style={[styles.tabText, activeTab === 'archived' && styles.activeTabText]}>Archived</Text>
-        </TouchableOpacity>
+      {/* Sleek Segmented Pill Track Header */}
+      <View style={styles.segmentedTrackContainer}>
+        <View style={styles.segmentedTrack}>
+          <TouchableOpacity
+            style={[styles.segmentedTab, activeTab === 'all' && styles.segmentedTabActive]}
+            onPress={() => setActiveTab('all')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.segmentedTabText, activeTab === 'all' && styles.segmentedTabTextActive]}>
+              All ({courses.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentedTab, activeTab === 'active' && styles.segmentedTabActive]}
+            onPress={() => setActiveTab('active')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.segmentedTabText, activeTab === 'active' && styles.segmentedTabTextActive]}>
+              Active ({courses.filter(c => c.is_active).length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentedTab, activeTab === 'archived' && styles.segmentedTabActive]}
+            onPress={() => setActiveTab('archived')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.segmentedTabText, activeTab === 'archived' && styles.segmentedTabTextActive]}>
+              Archived ({courses.filter(c => !c.is_active).length})
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Course List */}
@@ -226,11 +250,6 @@ export default function CourseManagementScreen() {
           ListEmptyComponent={<Text style={styles.emptyText}>No courses found.</Text>}
         />
       )}
-
-      {/* Floating Action Button (+) */}
-      <TouchableOpacity style={styles.fab} onPress={openAddModal}>
-        <Icon name="add" size={30} color="#FFFFFF" />
-      </TouchableOpacity>
 
       {/* Add / Edit Course Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
@@ -333,55 +352,113 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
   },
+  actionButtonRow: {
+    paddingHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  addCourseBtn: {
+    backgroundColor: '#F58220',
+    borderRadius: 26,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 }
+    }),
+  },
+  addCourseBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
+    borderColor: '#E2E8F0',
+    borderRadius: 26,
     marginHorizontal: 16,
-    paddingHorizontal: 12,
-    height: 44,
-    marginBottom: 14,
+    paddingHorizontal: 16,
+    height: 46,
+    marginTop: 12,
+    marginBottom: 10,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+    }),
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
     color: '#1F2937',
   },
-  tabsContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+  segmentedTrackContainer: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-  },
-  tabItem: {
-    paddingVertical: 12,
     paddingHorizontal: 16,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    paddingTop: 4,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  activeTabItem: {
-    borderBottomColor: '#D97706',
+  segmentedTrack: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 26,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
+      default: {}
+    }),
   },
-  tabText: {
-    fontSize: 15,
+  segmentedTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 22,
+  },
+  segmentedTabActive: {
+    backgroundColor: '#0F172A',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+        elevation: 4,
+      }
+    }),
+  },
+  segmentedTabText: {
+    fontSize: 13.5,
     fontWeight: '600',
-    color: '#4B5563',
+    color: '#64748B',
   },
-  activeTabText: {
-    color: '#D97706',
+  segmentedTabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 18,
+    padding: 18,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    elevation: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 14px rgba(0, 0, 0, 0.05)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }
+    }),
   },
   cardHeader: {
     flexDirection: 'row',
@@ -397,9 +474,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   statusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 14,
   },
   activeBadge: {
     backgroundColor: '#DCFCE7',
@@ -444,8 +521,9 @@ const styles = StyleSheet.create({
   },
   editOutlineBtn: {
     borderWidth: 1,
-    borderColor: '#000000',
-    borderRadius: 8,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 22,
     paddingVertical: 10,
     paddingHorizontal: 16,
     marginRight: 8,
@@ -454,28 +532,34 @@ const styles = StyleSheet.create({
   },
   viewBatchesBtn: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
+    backgroundColor: '#0F172A',
+    borderRadius: 22,
     paddingVertical: 10,
     alignItems: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(15, 23, 42, 0.2)' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 3 }
+    }),
   },
   viewBatchesText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   fab: {
     position: 'absolute',
     bottom: 100,
     right: 20,
-    backgroundColor: '#F97316',
+    backgroundColor: '#F58220',
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 6,
-    boxShadow: '0px 3px 6px rgba(0, 0, 0, 0.25)',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 14px rgba(0, 0, 0, 0.16)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.16, shadowRadius: 6, elevation: 6 }
+    }),
   },
   emptyText: {
     textAlign: 'center',
@@ -513,7 +597,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
     borderColor: '#D1D5DB',
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
@@ -544,19 +628,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 18,
     marginRight: 8,
+    borderRadius: 24,
   },
   cancelModalText: {
     color: '#6B7280',
     fontWeight: '600',
   },
   submitModalBtn: {
-    backgroundColor: '#F97316',
-    borderRadius: 8,
+    backgroundColor: '#F58220',
+    borderRadius: 24,
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 4 }
+    }),
   },
   submitModalText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
 });

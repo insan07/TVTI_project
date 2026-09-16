@@ -238,7 +238,7 @@ export const AppNavigator = () => {
                 <Stack.Screen name="InstructorApp">
                   {props => <InstructorTabs {...props} insets={insets} />}
                 </Stack.Screen>
-                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
+                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>
             ) : normalizedRole === 'admin' ? (
@@ -246,7 +246,7 @@ export const AppNavigator = () => {
                 <Stack.Screen name="AdminApp">
                   {props => <AdminTabs {...props} insets={insets} />}
                 </Stack.Screen>
-                <Stack.Screen name="EnrollStudent" component={EnrollStudentScreen} options={{ ...headerOptions, headerShown: true, title: 'Enroll Students' }} />
+                <Stack.Screen name="EnrollStudent" component={EnrollStudentScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PostAnnouncement" component={PostAnnouncementScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>
@@ -256,7 +256,7 @@ export const AppNavigator = () => {
                   {props => <StudentTabs {...props} unreadCount={unreadCount} insets={insets} />}
                 </Stack.Screen>
                 <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
+                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Results" component={ResultsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>

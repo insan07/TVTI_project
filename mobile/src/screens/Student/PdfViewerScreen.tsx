@@ -14,6 +14,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config/constants';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function PdfViewerScreen() {
   const route = useRoute<any>();
@@ -83,17 +84,17 @@ export default function PdfViewerScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={[styles.topHeaderBar, { paddingTop: insets.top + 6 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('StudentApp'))}>
-          <Icon name="arrow-back" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        <TouchableOpacity style={styles.externalBtn} onPress={handleExternalOpen}>
-          <Icon name="open-outline" size={22} color="#F58220" />
-        </TouchableOpacity>
+      <View style={{ paddingTop: insets.top }}>
+        <ScreenHeader
+          title={title}
+          subtitle="PDF Document Viewer"
+          showBack={true}
+          rightElement={
+            <TouchableOpacity style={styles.externalBtn} onPress={handleExternalOpen}>
+              <Icon name="open-outline" size={20} color="#F58220" />
+            </TouchableOpacity>
+          }
+        />
       </View>
 
       {/* Main Container */}
