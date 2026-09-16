@@ -70,8 +70,8 @@ export const createBatch = async (req: Request, res: Response): Promise<void> =>
   try {
     const batch = await Batch.create(req.body);
     res.status(201).json(batch);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || 'Server error' });
   }
 };
 

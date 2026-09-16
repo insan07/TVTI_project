@@ -221,7 +221,7 @@ export default function InstructorHomeScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollContent}>
           {stats.recentVideos.map((video) => {
             let thumbUrl = video.thumbnail || null;
-            if (!thumbUrl && video.content_type !== 'material' && video.cloudinary_url) {
+            if (!thumbUrl && video.cloudinary_url) {
               if (video.cloudinary_url.includes('youtube.com') || video.cloudinary_url.includes('youtu.be')) {
                 const match = video.cloudinary_url.match(/[?&]v=([^&]+)/) || video.cloudinary_url.match(/youtu\.be\/([^?]+)/);
                 if (match && match[1]) {

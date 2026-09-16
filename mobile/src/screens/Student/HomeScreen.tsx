@@ -62,18 +62,16 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
       : data?.notifications?.filter((n: any) => !n.is_read).length || 0;
 
   // Upcoming Practical Details
-  const nextPractice = data?.next_practice;
-  const nextClass = data?.next_class;
+  const nextPractice = data?.next_practice || data?.next_available_practice;
+  
   const practicalTitle =
     data?.next_practice?.slot_id?.batch_id?.course_id?.title ||
-    data?.next_class?.course_id?.title ||
+    data?.next_available_practice?.batch_id?.course_id?.title ||
     'Course Details Loading...';
   
   const instructorData =
     data?.next_practice?.slot_id?.instructor_id ||
-    (data?.next_class?.instructor_ids && data?.next_class?.instructor_ids.length > 0
-      ? data.next_class.instructor_ids[0]
-      : null);
+    data?.next_available_practice?.instructor_id;
 
   const instructorName = instructorData?.name || 'Instructor TBD';
   const avatarUrl =
@@ -82,13 +80,15 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
   const instructorEmail = instructorData?.email || 'N/A';
   const instructorPhone = instructorData?.phone || 'N/A';
 
-  const timeLocationText = nextPractice?.slot_id
-    ? `${nextPractice.slot_id.start_time || 'TBD'} • ${nextPractice.slot_id.location || 'Location TBD'}`
+  const slotData = data?.next_practice?.slot_id || data?.next_available_practice;
+
+  const timeLocationText = slotData
+    ? `${slotData.start_time || 'TBD'} • ${slotData.location || 'Location TBD'}`
     : 'Time & Location TBD';
 
   let pracMonth = '--';
   let pracDay = '--';
-  const rawDate = nextPractice?.slot_id?.date || nextClass?.date;
+  const rawDate = slotData?.week_start_date;
   if (rawDate) {
     const d = new Date(rawDate);
     if (!isNaN(d.getTime())) {
@@ -142,66 +142,69 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
         contentContainerStyle={styles.scrollContentStyle}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.mainContent}>
+        <View style={styles.mainContent}>        {/* ========================================================================= */}
+        {/* SECTION 1: UPCOMING PRACTICAL (Conditionally Rendered) */}
         {/* ========================================================================= */}
-        {/* SECTION 1: UPCOMING PRACTICAL */}
-        {/* ========================================================================= */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Upcoming Practical</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.upcomingCard}
-          activeOpacity={0.9}
-          onPress={() => navigation.navigate('Schedule')}
-        >
-          {/* Top Row: Date Badge + Title/Time */}
-          <View style={styles.cardTopRow}>
-            {/* Soft Peach Date Badge */}
-            <View style={styles.dateBadgeBox}>
-              <Text style={styles.dateMonthText}>{pracMonth}</Text>
-              <Text style={styles.dateDayText}>{pracDay}</Text>
+        {nextPractice && (
+          <View>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Upcoming Practical</Text>
             </View>
-
-            <View style={styles.cardDetailsColumn}>
-              <Text style={styles.practicalTitle} numberOfLines={1}>
-                {practicalTitle}
-              </Text>
-              <View style={styles.timeLocRow}>
-                <Icon name="time-outline" size={14} color="#6B7280" style={{ marginRight: 4 }} />
-                <Text style={styles.timeLocText} numberOfLines={1}>
-                  {timeLocationText}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Bottom Row: Instructor Avatar + View Slot Button */}
-          <View style={styles.cardBottomRow}>
-            <TouchableOpacity 
-              style={styles.instructorInfoRow} 
-              activeOpacity={0.7}
-              onPress={() => setInstructorModalVisible(true)}
-            >
-              <Image
-                source={{ uri: avatarUrl }}
-                style={styles.instructorAvatar}
-              />
-              <View style={styles.instructorTextColumn}>
-                <Text style={styles.instructorName}>{instructorName}</Text>
-                <Text style={styles.instructorRole}>Course Instructor</Text>
-              </View>
-            </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.viewSlotBtn}
+              style={styles.upcomingCard}
+              activeOpacity={0.9}
               onPress={() => navigation.navigate('Schedule')}
-              activeOpacity={0.8}
             >
-              <Text style={styles.viewSlotBtnText}>View Slot</Text>
+              {/* Top Row: Date Badge + Title/Time */}
+              <View style={styles.cardTopRow}>
+                {/* Soft Peach Date Badge */}
+                <View style={styles.dateBadgeBox}>
+                  <Text style={styles.dateMonthText}>{pracMonth}</Text>
+                  <Text style={styles.dateDayText}>{pracDay}</Text>
+                </View>
+
+                <View style={styles.cardDetailsColumn}>
+                  <Text style={styles.practicalTitle} numberOfLines={1}>
+                    {practicalTitle}
+                  </Text>
+                  <View style={styles.timeLocRow}>
+                    <Icon name="time-outline" size={14} color="#6B7280" style={{ marginRight: 4 }} />
+                    <Text style={styles.timeLocText} numberOfLines={1}>
+                      {timeLocationText}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Bottom Row: Instructor Avatar + View Slot Button */}
+              <View style={styles.cardBottomRow}>
+                <TouchableOpacity 
+                  style={styles.instructorInfoRow} 
+                  activeOpacity={0.7}
+                  onPress={() => setInstructorModalVisible(true)}
+                >
+                  <Image
+                    source={{ uri: avatarUrl }}
+                    style={styles.instructorAvatar}
+                  />
+                  <View style={styles.instructorTextColumn}>
+                    <Text style={styles.instructorName}>{instructorName}</Text>
+                    <Text style={styles.instructorRole}>Course Instructor</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.viewSlotBtn}
+                  onPress={() => navigation.navigate('Schedule')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.viewSlotBtnText}>{data?.next_practice ? 'View Slot' : 'Book Slot'}</Text>
+                </TouchableOpacity>
+              </View>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        )}
 
         {/* ========================================================================= */}
         {/* SECTION 2: RECENT THEORY LESSONS */}
@@ -212,29 +215,49 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
 
         <View style={styles.lessonsListContainer}>
           {theoryLessons.map(lesson => {
-            const isBookmarked = !!bookmarkedLessons[lesson.id];
+            const isBookmarked = !!bookmarkedLessons[lesson._id];
+            let thumbUrl = lesson.thumbnail || null;
+            if (!thumbUrl && lesson.cloudinary_url) {
+              if (lesson.cloudinary_url.includes('youtube.com') || lesson.cloudinary_url.includes('youtu.be')) {
+                const match = lesson.cloudinary_url.match(/[?&]v=([^&]+)/) || lesson.cloudinary_url.match(/youtu\.be\/([^?]+)/);
+                if (match && match[1]) {
+                  thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+                }
+              } else if (lesson.cloudinary_url.includes('cloudinary.com')) {
+                thumbUrl = lesson.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
+              }
+            }
+
             return (
               <TouchableOpacity
-                key={lesson.id}
+                key={lesson._id}
                 style={styles.lessonCard}
                 activeOpacity={0.85}
                 onPress={() => navigation.navigate('Videos')}
               >
                 {/* Thumbnail image with play button overlay */}
                 <View style={styles.thumbnailWrapper}>
-                  <Image source={{ uri: lesson.thumbnail }} style={styles.thumbnailImg} />
-                  <View style={styles.playOverlayCircle}>
-                    <Icon name="play" size={14} color="#FFFFFF" style={{ marginLeft: 2 }} />
-                  </View>
+                  {thumbUrl ? (
+                    <Image source={{ uri: thumbUrl }} style={styles.thumbnailImg} />
+                  ) : (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                      <Icon name={lesson.content_type === 'material' ? 'document-text' : 'videocam'} size={32} color="#9CA3AF" />
+                    </View>
+                  )}
+                  {lesson.content_type !== 'material' && (
+                    <View style={styles.playOverlayCircle}>
+                      <Icon name="play" size={14} color="#FFFFFF" style={{ marginLeft: 2 }} />
+                    </View>
+                  )}
                 </View>
 
                 {/* Lesson Info */}
                 <View style={styles.lessonContentColumn}>
                   <View style={styles.tagDurationRow}>
                     <View style={styles.tagBadgePill}>
-                      <Text style={styles.tagBadgeText}>{lesson.tag}</Text>
+                      <Text style={styles.tagBadgeText}>{(lesson.topic || 'General').toUpperCase()}</Text>
                     </View>
-                    <Text style={styles.durationText}>{lesson.duration}</Text>
+                    <Text style={styles.durationText}>{lesson.duration || '--:--'}</Text>
                   </View>
 
                   <Text style={styles.lessonTitleText} numberOfLines={1}>
@@ -245,7 +268,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
                 {/* Bookmark Icon */}
                 <TouchableOpacity
                   style={styles.bookmarkTouch}
-                  onPress={() => toggleBookmark(lesson.id)}
+                  onPress={() => toggleBookmark(lesson._id)}
                 >
                   <Icon
                     name={isBookmarked ? 'bookmark' : 'bookmark-outline'}

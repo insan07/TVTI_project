@@ -3,6 +3,7 @@ import Enrollment from '../models/Enrollment';
 import Batch from '../models/Batch';
 import Notification from '../models/Notification';
 import SlotBooking from '../models/SlotBooking';
+import PracticeSlot from '../models/PracticeSlot';
 import Video from '../models/Video';
 import { AuthRequest } from '../middleware/authMiddleware';
 
@@ -45,6 +46,15 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
       .sort({ createdAt: -1 })
       .lean();
 
+    let nextAvailablePractice = null;
+    if (!nextPracticeBooking) {
+      nextAvailablePractice = await PracticeSlot.findOne({ batch_id: { $in: batchIds }, is_open: true })
+        .populate({ path: 'batch_id', populate: { path: 'course_id', select: 'title' } })
+        .populate('instructor_id', 'name email phone profile_photo')
+        .sort({ week_start_date: 1 })
+        .lean();
+    }
+
     const theory_lessons = await Video.find({ batch_id: { $in: batchIds } })
       .sort({ createdAt: -1 })
       .limit(3)
@@ -54,6 +64,7 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
       notifications,
       next_class: nextBatch,
       next_practice: nextPracticeBooking,
+      next_available_practice: nextAvailablePractice,
       theory_lessons
     });
   } catch (error) {
