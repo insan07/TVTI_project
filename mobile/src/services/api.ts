@@ -44,4 +44,11 @@ api.interceptors.response.use(
   }
 );
 
+export const authApi = {
+  forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
+  verifyResetOtp: (email: string, otp: string) => api.post('/auth/verify-reset-otp', { email, otp }),
+  resendResetOtp: (email: string) => api.post('/auth/resend-reset-otp', { email }),
+  resetPassword: (resetToken: string, newPassword: string) => api.post('/auth/reset-password', { resetToken, newPassword }),
+};
+
 export default api;

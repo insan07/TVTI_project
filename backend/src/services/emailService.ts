@@ -12,6 +12,11 @@ export interface SendOtpMailOptions {
   otp: string;
 }
 
+export interface SendPasswordResetOtpMailOptions {
+  to: string;
+  otp: string;
+}
+
 export interface SendApplicationSubmissionEmailOptions {
   to: string;
   studentName: string;
@@ -164,6 +169,85 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
 
   console.log(`\n======================================================`);
   console.log(`[DEV OTP EMAIL NOTICE]`);
+  console.log(`To: ${to}`);
+  console.log(`OTP Code: [ ${otp} ]`);
+  console.log(`Valid for 10 minutes`);
+  console.log(`======================================================\n`);
+  return { success: true, simulated: true };
+};
+
+/**
+ * Sends a 6-digit OTP for Password Reset via Nodemailer.
+ */
+export const sendPasswordResetOtpEmail = async ({ to, otp }: SendPasswordResetOtpMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = DEFAULT_FROM_ADDRESS;
+  const transporter = getTransporter();
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>TVTI Password Reset</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
+        .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+        .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 3px solid #ea580c; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .content { padding: 36px 32px; text-align: center; }
+        .title { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
+        .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 28px; }
+        .otp-box { background: #f8fafc; border: 2px solid #cbd5e1; border-radius: 8px; padding: 20px 32px; display: inline-block; margin: 0 auto 24px auto; }
+        .otp-code { font-size: 38px; font-weight: 800; letter-spacing: 10px; color: #ea580c; margin: 0; font-family: 'Courier New', Courier, monospace; }
+        .expiry-note { font-size: 13px; color: #64748b; margin-bottom: 24px; font-weight: 500; }
+        .security-note { font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; line-height: 1.5; text-align: left; }
+        .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        ${renderHeaderCard()}
+        <div class="content">
+          <h2 class="title">Password Reset Verification</h2>
+          <p class="description">
+            We received a request to reset your TVTI account password. Please enter the verification code below to proceed.
+          </p>
+          <div class="otp-box">
+            <div class="otp-code">${otp}</div>
+          </div>
+          <p class="expiry-note">
+            Verification Code Expiry: <strong>10 Minutes</strong>
+          </p>
+          <div class="security-note">
+            <strong>Security Notice:</strong> If you did not request a password reset, you can safely ignore this email.
+          </div>
+        </div>
+        <div class="footer">
+          TVTI - Technical & Vocational Training Institute &bull; Official Communication
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject: `TVTI Password Reset Verification Code: ${otp}`,
+        text: `Your TVTI Password Reset Verification Code is: ${otp}. It expires in 10 minutes. If you did not request a password reset, please ignore this email.`,
+        html: htmlContent,
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.warn(`[RESET OTP EMAIL SMTP WARNING] (${err?.message || err}). Falling back to dev logger.`);
+    }
+  }
+
+  console.log(`\n======================================================`);
+  console.log(`[DEV PASSWORD RESET OTP EMAIL NOTICE]`);
   console.log(`To: ${to}`);
   console.log(`OTP Code: [ ${otp} ]`);
   console.log(`Valid for 10 minutes`);

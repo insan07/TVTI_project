@@ -48,6 +48,10 @@ export interface IUser extends Document {
   must_change_password?: boolean;
   temp_password_expires_at?: Date;
   password_set_at?: Date;
+  passwordResetOtpHash?: string;
+  passwordResetOtpExpiresAt?: Date;
+  passwordResetTokenHash?: string;
+  passwordResetTokenExpiresAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -95,6 +99,10 @@ const userSchema = new Schema<IUser>(
     must_change_password: { type: Boolean, default: false },
     temp_password_expires_at: { type: Date },
     password_set_at: { type: Date },
+    passwordResetOtpHash: { type: String },
+    passwordResetOtpExpiresAt: { type: Date },
+    passwordResetTokenHash: { type: String },
+    passwordResetTokenExpiresAt: { type: Date },
   },
   { timestamps: true }
 );
