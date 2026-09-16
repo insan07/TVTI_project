@@ -10,7 +10,10 @@ export const getEnrolledBatches = async (req: AuthRequest, res: Response): Promi
     const enrollments = await Enrollment.find({ student_id: req.user._id, status: 'active' })
       .populate({
         path: 'batch_id',
-        populate: { path: 'course_id', select: 'title' }
+        populate: [
+          { path: 'course_id', select: 'title' },
+          { path: 'instructor_ids', select: 'name' }
+        ]
       })
       .lean();
     res.json(enrollments.map(e => e.batch_id).filter(Boolean));
