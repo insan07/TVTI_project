@@ -255,9 +255,6 @@ export default function PostAnnouncementScreen() {
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle}>Announcements</Text>
-              <Text style={styles.headerSubtitle}>
-                {announcements.length} {announcements.length === 1 ? 'notice' : 'notices'} published across batches
-              </Text>
             </View>
           </View>
 

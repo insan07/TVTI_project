@@ -119,7 +119,7 @@ export default function InstructorHomeScreen() {
         </View>
 
         <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
+          <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('MyStudents')} activeOpacity={0.8}>
             <View style={styles.statCardTop}>
               <Text style={styles.statLabel}>BATCHES</Text>
               <View style={[styles.statIconBox, { backgroundColor: 'rgba(242, 112, 28, 0.18)' }]}>
@@ -127,9 +127,9 @@ export default function InstructorHomeScreen() {
               </View>
             </View>
             <Text style={styles.statValue}>{stats.totalBatches}</Text>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.statCard}>
+          <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('Uploads', { tab: 'upload' })} activeOpacity={0.8}>
             <View style={styles.statCardTop}>
               <Text style={styles.statLabel}>UPLOADS</Text>
               <View style={[styles.statIconBox, { backgroundColor: 'rgba(242, 112, 28, 0.18)' }]}>
@@ -137,9 +137,9 @@ export default function InstructorHomeScreen() {
               </View>
             </View>
             <Text style={styles.statValue}>{stats.totalVideos}</Text>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.statCard}>
+          <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('Practice')} activeOpacity={0.8}>
             <View style={styles.statCardTop}>
               <Text style={styles.statLabel}>PRACTICE SLOTS</Text>
               <View style={[styles.statIconBox, { backgroundColor: 'rgba(242, 112, 28, 0.18)' }]}>
@@ -147,9 +147,9 @@ export default function InstructorHomeScreen() {
               </View>
             </View>
             <Text style={styles.statValue}>{stats.activeSlots.length}</Text>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.statCard}>
+          <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('PostAnnouncement')} activeOpacity={0.8}>
             <View style={styles.statCardTop}>
               <Text style={styles.statLabel}>NOTICES</Text>
               <View style={[styles.statIconBox, { backgroundColor: 'rgba(242, 112, 28, 0.18)' }]}>
@@ -157,7 +157,7 @@ export default function InstructorHomeScreen() {
               </View>
             </View>
             <Text style={styles.statValue}>{stats.totalAnnouncements}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 

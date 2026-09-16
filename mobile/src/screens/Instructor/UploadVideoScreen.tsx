@@ -335,9 +335,6 @@ export default function UploadVideoScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Upload Content</Text>
-            <Text style={styles.headerSubtitle}>
-              Post videos and study materials
-            </Text>
           </View>
         </View>
       </View>
@@ -356,7 +353,6 @@ export default function UploadVideoScreen() {
       {activeTab === 'upload' ? (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Lecturer Video & Study Notes Upload</Text>
 
             <View style={styles.modeRow}>
               <TouchableOpacity
