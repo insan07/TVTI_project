@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
-  TextInput, TouchableOpacity, RefreshControl, Modal
+  TextInput, TouchableOpacity, RefreshControl, Modal, SafeAreaView
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
-import { COLORS } from '../../config/theme';
+import { COLORS, FONTS } from '../../config/theme';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 
 export default function MyStudentsScreen() {
+  const navigation = useNavigation();
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -85,7 +88,27 @@ export default function MyStudentsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      {/* Top Header Bar */}
+      <View style={styles.topHeaderBar}>
+        <View style={styles.headerLeftGroup}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Icon name="arrow-back" size={20} color="#0F172A" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>My Students</Text>
+            <Text style={styles.headerSubtitle}>
+              Manage and view your assigned batches
+            </Text>
+          </View>
+        </View>
+      </View>
+
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Icon name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
@@ -248,7 +271,7 @@ export default function MyStudentsScreen() {
         </View>
       </Modal>
 
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -263,43 +286,100 @@ function stringToColor(str: string) {
 const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6' },
   loadingText: { marginTop: 12, color: '#9CA3AF', fontSize: 14 },
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  topHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    marginTop: 4,
+    paddingHorizontal: 16,
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    ...Platform.select({
+      web: { boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.04)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      },
+    }),
+  },
+  headerTitle: {
+    fontSize: 22,
+    ...FONTS.bold,
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 12.5,
+    ...FONTS.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
   searchContainer: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
-    margin: 15, borderRadius: 10, paddingHorizontal: 15,
-    borderWidth: 1, borderColor: '#E5E7EB', elevation: 1,
+    marginHorizontal: 16, marginBottom: 12, borderRadius: 10, paddingHorizontal: 15,
+    borderWidth: 1, borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.04)' },
+      default: { elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 },
+    }),
   },
   searchIcon: { marginRight: 10 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: '#1F2937' },
-  filterRow: { marginBottom: 8 },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 14.5, ...FONTS.regular, color: '#0F172A' },
+  filterRow: { marginBottom: 12 },
   filterPill: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', marginRight: 8,
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', marginRight: 10,
   },
-  filterPillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterPillText: { fontSize: 13, color: '#374151', fontWeight: '500' },
-  filterPillTextActive: { color: '#fff', fontWeight: 'bold' },
-  statsBar: { paddingHorizontal: 15, paddingBottom: 8 },
-  statsText: { fontSize: 12, color: '#6B7280' },
+  filterPillActive: { backgroundColor: '#F58220', borderColor: '#F58220' },
+  filterPillText: { fontSize: 13, color: '#475569', ...FONTS.medium },
+  filterPillTextActive: { color: '#FFFFFF', ...FONTS.bold },
+  statsBar: { paddingHorizontal: 16, paddingBottom: 10 },
+  statsText: { fontSize: 12.5, color: '#64748B', ...FONTS.medium },
   emptyContainer: { alignItems: 'center', marginTop: 60 },
-  emptyTitle: { color: '#374151', fontSize: 18, fontWeight: 'bold', marginTop: 15 },
-  emptySubtitle: { color: '#9CA3AF', fontSize: 14, marginTop: 6, textAlign: 'center', paddingHorizontal: 40 },
-  card: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 14, padding: 15, elevation: 2, boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)' },
+  emptyTitle: { color: '#0F172A', fontSize: 17, ...FONTS.bold, marginTop: 15 },
+  emptySubtitle: { color: '#64748B', fontSize: 13, ...FONTS.regular, marginTop: 6, textAlign: 'center', paddingHorizontal: 40 },
+  card: {
+    backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 14, padding: 16,
+    borderWidth: 1, borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+    }),
+  },
   cardHeader: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  avatarText: { fontSize: 20, fontWeight: 'bold', color: '#1E3A8A' },
+  avatar: { width: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  avatarText: { fontSize: 18, ...FONTS.bold, color: '#1E3A8A' },
   info: { flex: 1 },
-  name: { fontSize: 16, fontWeight: 'bold', color: '#1F2937' },
-  email: { color: '#6B7280', fontSize: 13, marginTop: 2 },
-  phone: { color: '#6B7280', fontSize: 12, marginTop: 2 },
+  name: { fontSize: 15.5, ...FONTS.bold, color: '#0F172A', letterSpacing: -0.2 },
+  email: { color: '#64748B', fontSize: 13, ...FONTS.regular, marginTop: 2 },
+  phone: { color: '#64748B', fontSize: 12.5, ...FONTS.medium, marginTop: 3 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  statusText: { fontSize: 11, fontWeight: 'bold', textTransform: 'capitalize' },
-  divider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 12 },
-  batchInfo: { flexDirection: 'column', gap: 6 },
-  badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
-  badgeText: { color: '#92400E', fontSize: 12, fontWeight: 'bold' },
+  statusText: { fontSize: 11, ...FONTS.bold, textTransform: 'capitalize' },
+  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 },
+  batchInfo: { flexDirection: 'column', gap: 8 },
+  badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
+  badgeText: { color: '#C2410C', fontSize: 12, ...FONTS.bold },
   batchDetail: { flexDirection: 'row', alignItems: 'center' },
-  batchName: { color: '#6B7280', fontSize: 13 },
+  batchName: { color: '#475569', fontSize: 13, ...FONTS.medium },
   
   // Custom Popup Dialog Modal Styles
   popupOverlay: {

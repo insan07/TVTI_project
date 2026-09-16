@@ -15,9 +15,10 @@ import {
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
 import { getMyPracticeSlots, updatePracticeSlot, getSlotBookings } from '../../services/practiceService';
-import { COLORS } from '../../config/theme';
+import { COLORS, FONTS } from '../../config/theme';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -57,6 +58,7 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
 };
 
 export default function PracticeSessionsScreen() {
+  const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<'slots' | 'create'>('slots');
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
   const [slots, setSlots] = useState<any[]>([]);
@@ -66,6 +68,8 @@ export default function PracticeSessionsScreen() {
   // Filters
   const [selectedBatchFilter, setSelectedBatchFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed'>('all');
+  const [search, setSearch] = useState('');
+  const [showFilter, setShowFilter] = useState(false);
 
   // Master Data
   const [batches, setBatches] = useState<any[]>([]);
@@ -375,8 +379,37 @@ export default function PracticeSessionsScreen() {
   const totalBooked = slots.reduce((sum, s) => sum + (s.booked_count || 0), 0);
   const openCount = slots.filter(s => s.is_open).length;
 
+  // Search filtering
+  const filteredSlots = slots.filter(slot => {
+    if (!search.trim()) return true;
+    const s = search.toLowerCase();
+    const batchName = (slot.batch_id?.name || '').toLowerCase();
+    const note = (slot.equipment_note || '').toLowerCase();
+    return batchName.includes(s) || note.includes(s);
+  });
+
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* Top Header Bar */}
+      <View style={styles.topHeaderBar}>
+        <View style={styles.headerLeftGroup}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Icon name="arrow-back" size={20} color="#0F172A" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Practice Slots</Text>
+            <Text style={styles.headerSubtitle}>
+              Manage practical sessions & students
+            </Text>
+          </View>
+        </View>
+      </View>
+
       {/* Main Mode Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -427,57 +460,81 @@ export default function PracticeSessionsScreen() {
             </View>
           </View>
 
-          {/* Filter Bar Section */}
-          <View style={styles.filterSection}>
-            {/* Batch Filter */}
-            <Text style={styles.filterGroupLabel}>FILTER BY ASSIGNED BATCH</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-              <TouchableOpacity
-                style={[styles.filterPill, selectedBatchFilter === 'all' && styles.filterPillActive]}
-                onPress={() => setSelectedBatchFilter('all')}
-              >
-                <Text style={selectedBatchFilter === 'all' ? styles.filterPillTextActive : styles.filterPillText}>All Batches</Text>
-              </TouchableOpacity>
-              {batches.map(b => (
-                <TouchableOpacity
-                  key={b._id}
-                  style={[styles.filterPill, selectedBatchFilter === b._id && styles.filterPillActive]}
-                  onPress={() => setSelectedBatchFilter(b._id)}
-                >
-                  <Text style={selectedBatchFilter === b._id ? styles.filterPillTextActive : styles.filterPillText}>
-                    {b.name || 'Batch'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Status Filter */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-              <TouchableOpacity
-                style={[styles.statusPill, statusFilter === 'all' && styles.statusPillActive]}
-                onPress={() => setStatusFilter('all')}
-              >
-                <Text style={statusFilter === 'all' ? styles.statusPillTextActive : styles.statusPillText}>All Status</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.statusPill, statusFilter === 'open' && styles.statusPillActive]}
-                onPress={() => setStatusFilter('open')}
-              >
-                <Text style={statusFilter === 'open' ? styles.statusPillTextActive : styles.statusPillText}>Open Only</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.statusPill, statusFilter === 'closed' && styles.statusPillActive]}
-                onPress={() => setStatusFilter('closed')}
-              >
-                <Text style={statusFilter === 'closed' ? styles.statusPillTextActive : styles.statusPillText}>Closed Only</Text>
-              </TouchableOpacity>
+          {/* Search & Filters */}
+          <View style={styles.searchFilterRow}>
+            <View style={styles.searchBox}>
+              <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search by batch, note..."
+                placeholderTextColor="#9CA3AF"
+                value={search}
+                onChangeText={setSearch}
+              />
             </View>
+            <TouchableOpacity
+              style={[styles.filterBtn, showFilter && styles.filterBtnActive]}
+              onPress={() => setShowFilter(!showFilter)}
+            >
+              <Icon name="options-outline" size={18} color={showFilter ? '#FFFFFF' : '#374151'} style={{ marginRight: 6 }} />
+              <Text style={[styles.filterBtnText, showFilter && { color: '#FFFFFF' }]}>Filters</Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Filter Bar Section */}
+          {showFilter && (
+            <View style={styles.filterSection}>
+              <Text style={styles.filterGroupLabel}>FILTERS</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TouchableOpacity
+                    style={[styles.filterPill, selectedBatchFilter === 'all' && styles.filterPillActive]}
+                    onPress={() => setSelectedBatchFilter('all')}
+                  >
+                    <Text style={selectedBatchFilter === 'all' ? styles.filterPillTextActive : styles.filterPillText}>All Batches</Text>
+                  </TouchableOpacity>
+                  {batches.map(b => (
+                    <TouchableOpacity
+                      key={b._id}
+                      style={[styles.filterPill, selectedBatchFilter === b._id && styles.filterPillActive]}
+                      onPress={() => setSelectedBatchFilter(b._id)}
+                    >
+                      <Text style={selectedBatchFilter === b._id ? styles.filterPillTextActive : styles.filterPillText}>
+                        {b.name || 'Batch'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+
+                  {/* Separator */}
+                  <View style={{ width: 1, backgroundColor: '#CBD5E1', height: 20, marginHorizontal: 6 }} />
+
+                  <TouchableOpacity
+                    style={[styles.statusPill, statusFilter === 'all' && styles.statusPillActive]}
+                    onPress={() => setStatusFilter('all')}
+                  >
+                    <Text style={statusFilter === 'all' ? styles.statusPillTextActive : styles.statusPillText}>All Status</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.statusPill, statusFilter === 'open' && styles.statusPillActive]}
+                    onPress={() => setStatusFilter('open')}
+                  >
+                    <Text style={statusFilter === 'open' ? styles.statusPillTextActive : styles.statusPillText}>Open Only</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.statusPill, statusFilter === 'closed' && styles.statusPillActive]}
+                    onPress={() => setStatusFilter('closed')}
+                  >
+                    <Text style={statusFilter === 'closed' ? styles.statusPillTextActive : styles.statusPillText}>Closed Only</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          )}
 
           {/* Slot Cards List */}
           {loading ? (
-            <ActivityIndicator size="large" color="#D97706" style={{ marginTop: 30 }} />
-          ) : slots.length === 0 ? (
+            <ActivityIndicator size="large" color="#D97706" style={{ marginTop: 40 }} />
+          ) : filteredSlots.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Icon name="calendar-outline" size={54} color="#D1D5DB" />
               <Text style={styles.emptyTitle}>No practical slots found for this week.</Text>
@@ -488,7 +545,7 @@ export default function PracticeSessionsScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            slots.map(slot => {
+            filteredSlots.map((slot) => {
               const booked = slot.booked_count || 0;
               const max = slot.max_students || 1;
               const fillRatio = Math.min(1, booked / max);
@@ -968,61 +1025,157 @@ export default function PracticeSessionsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
-  headerRow: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#0F172A' },
-  headerSubtitle: { fontSize: 13, color: '#64748B', marginTop: 2 },
+  topHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    marginTop: 4,
+    paddingHorizontal: 16,
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    ...Platform.select({
+      web: { boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.04)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      },
+    }),
+  },
+  headerTitle: {
+    fontSize: 22,
+    ...FONTS.bold,
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 12.5,
+    ...FONTS.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
   tabContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   tabItem: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  activeTabItem: { borderBottomColor: '#D97706' },
-  tabText: { fontSize: 13.5, fontWeight: 'bold', color: '#64748B' },
-  activeTabText: { color: '#D97706' },
+  activeTabItem: { borderBottomColor: '#F58220' },
+  tabText: { fontSize: 13.5, ...FONTS.bold, color: '#64748B' },
+  activeTabText: { color: '#F58220' },
   weekPicker: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', paddingVertical: 8, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
-  weekArrow: { padding: 6, borderRadius: 8, backgroundColor: '#FFFBEB' },
-  weekDateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14 },
-  weekText: { fontSize: 13, fontWeight: 'bold', color: '#92400E' },
+  weekArrow: { padding: 6, borderRadius: 8, backgroundColor: '#FFF7ED' },
+  weekDateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14 },
+  weekText: { fontSize: 13, ...FONTS.bold, color: '#C2410C' },
   scrollContent: { padding: 16, paddingBottom: 100 },
   metricsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
   metricCard: { backgroundColor: '#FFFFFF', flex: 1, marginHorizontal: 4, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 },
-  metricNumber: { fontSize: 22, fontWeight: 'bold', color: '#0F172A' },
-  metricLabel: { fontSize: 11, color: '#64748B', marginTop: 2, fontWeight: '600' },
-  filterSection: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: '#E2E8F0' },
-  filterGroupLabel: { fontSize: 11, fontWeight: 'bold', color: '#475569', marginBottom: 6, letterSpacing: 0.5 },
+  metricNumber: { fontSize: 22, ...FONTS.bold, color: '#0F172A' },
+  metricLabel: { fontSize: 11, ...FONTS.medium, color: '#64748B', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  // Search and Filter Row
+  searchFilterRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginHorizontal: 16,
+    marginBottom: 14,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    ...FONTS.regular,
+    color: '#0F172A',
+    height: '100%',
+    outlineStyle: 'none'
+  },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 44,
+  },
+  filterBtnActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  filterBtnText: {
+    fontSize: 14,
+    ...FONTS.medium,
+    color: '#374151',
+  },
+
+  filterSection: { marginHorizontal: 16, marginBottom: 14, backgroundColor: '#FFFFFF', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterGroupLabel: { fontSize: 11, ...FONTS.bold, color: '#94A3B8', marginBottom: 8, letterSpacing: 0.5 },
   filterPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC', marginRight: 8 },
-  filterPillActive: { backgroundColor: '#D97706', borderColor: '#D97706' },
-  filterPillText: { fontSize: 12, color: '#475569', fontWeight: '500' },
-  filterPillTextActive: { fontSize: 12, color: '#FFFFFF', fontWeight: 'bold' },
+  filterPillActive: { backgroundColor: '#F58220', borderColor: '#F58220' },
+  filterPillText: { fontSize: 12, color: '#475569', ...FONTS.medium },
+  filterPillTextActive: { fontSize: 12, color: '#FFFFFF', ...FONTS.bold },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F1F5F9', marginRight: 8 },
   statusPillActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
-  statusPillText: { fontSize: 11.5, color: '#475569', fontWeight: '500' },
-  statusPillTextActive: { fontSize: 11.5, color: '#FFFFFF', fontWeight: 'bold' },
-  slotCard: { backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 14, flexDirection: 'row', overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0', elevation: 2 },
+  statusPillText: { fontSize: 11.5, color: '#475569', ...FONTS.medium },
+  statusPillTextActive: { fontSize: 11.5, color: '#FFFFFF', ...FONTS.bold },
+  slotCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 14, flexDirection: 'row', overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+    }),
+  },
   cardAccentBar: { width: 6, backgroundColor: '#F58220' },
   cardMain: { flex: 1, padding: 14 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   slotBadge: { backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FDBA74', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 6 },
-  slotBadgeText: { fontSize: 10, fontWeight: 'bold', color: '#D97706' },
+  slotBadgeText: { fontSize: 10, ...FONTS.bold, color: '#F58220' },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   statusBadgeOpen: { backgroundColor: '#DCFCE7' },
   statusBadgeClosed: { backgroundColor: '#FEE2E2' },
-  statusBadgeText: { fontSize: 10, fontWeight: 'bold' },
+  statusBadgeText: { fontSize: 10, ...FONTS.bold },
   statusTextOpen: { color: '#15803D' },
   statusTextClosed: { color: '#B91C1C' },
-  courseTitle: { fontSize: 16, fontWeight: 'bold', color: '#0F172A', marginTop: 4 },
-  batchSubtext: { fontSize: 12.5, color: '#64748B', marginTop: 2 },
+  courseTitle: { fontSize: 16, ...FONTS.bold, color: '#0F172A', marginTop: 4, letterSpacing: -0.2 },
+  batchSubtext: { fontSize: 12.5, color: '#64748B', marginTop: 2, ...FONTS.medium },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  infoDateText: { fontSize: 13.5, fontWeight: 'bold', color: '#D97706' },
-  infoText: { fontSize: 13, color: '#475569' },
+  infoDateText: { fontSize: 13.5, ...FONTS.bold, color: '#F58220' },
+  infoText: { fontSize: 13, color: '#475569', ...FONTS.medium },
   dotSeparator: { color: '#CBD5E1', marginHorizontal: 6, fontSize: 12 },
   noteBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 8, borderRadius: 8, marginTop: 8, borderWidth: 1, borderColor: '#F1F5F9' },
-  noteText: { fontSize: 12, color: '#475569', fontStyle: 'italic' },
+  noteText: { fontSize: 12, color: '#475569', fontStyle: 'italic', ...FONTS.regular },
   seatsContainer: { marginTop: 10 },
-  seatsText: { fontSize: 12, fontWeight: 'bold', color: '#334155' },
-  seatsPct: { fontSize: 12, fontWeight: 'bold', color: '#64748B' },
+  seatsText: { fontSize: 12, ...FONTS.bold, color: '#334155' },
+  seatsPct: { fontSize: 12, ...FONTS.bold, color: '#64748B' },
   progressTrack: { height: 6, backgroundColor: '#E2E8F0', borderRadius: 3, overflow: 'hidden' },
   progressFillBar: { height: 6, borderRadius: 3 },
   cardActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
   actionBtnOutline: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, flex: 1, justifyContent: 'center' },
-  actionBtnText: { fontSize: 11.5, fontWeight: 'bold', color: '#475569' },
+  actionBtnText: { fontSize: 11.5, ...FONTS.bold, color: '#475569' },
   actionBtnDanger: { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   createScroll: { flex: 1, padding: 16, paddingBottom: 100 },
   formSectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#0F172A', marginTop: 8, marginBottom: 10 },
