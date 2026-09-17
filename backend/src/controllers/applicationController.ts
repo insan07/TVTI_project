@@ -495,3 +495,20 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
     res.status(500).json({ message: 'Server error updating application status' });
   }
 };
+
+export const deleteApplicationCompletely = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const application = await Application.findById(id);
+    if (!application) {
+      res.status(404).json({ message: 'Application record not found' });
+      return;
+    }
+
+    await Application.findByIdAndDelete(id);
+    res.json({ success: true, message: 'Application record permanently deleted' });
+  } catch (error) {
+    console.error('Error deleting application:', error);
+    res.status(500).json({ message: 'Server error during application deletion' });
+  }
+};

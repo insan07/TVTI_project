@@ -19,6 +19,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../config/theme';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import * as Print from 'expo-print';
 
 interface ApplicationsManagementScreenProps {
   embedded?: boolean;
@@ -62,6 +63,10 @@ export default function ApplicationsManagementScreen({
     email: string;
   } | null>(null);
 
+  // Selection & Permanent Delete States
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedAppIds, setSelectedAppIds] = useState<string[]>([]);
+
   useEffect(() => {
     fetchPendingApplications();
     fetchActiveCourses();
@@ -73,11 +78,125 @@ export default function ApplicationsManagementScreen({
     }
   }, [selectedApp]);
 
+  const toggleAppSelection = (appId: string) => {
+    setSelectedAppIds(prev =>
+      prev.includes(appId) ? prev.filter(id => id !== appId) : [...prev, appId]
+    );
+  };
+
+  const handleDeleteSingleApp = (appId: string, name?: string) => {
+    const appName = name || 'this application';
+    const confirmMsg = `Are you sure you want to PERMANENTLY delete the application for "${appName}"? This action cannot be undone.`;
+
+    if (Platform.OS === 'web') {
+      if (!window.confirm(confirmMsg)) return;
+      execDeleteSingleApp(appId);
+    } else {
+      Alert.alert(
+        '⚠️ Delete Application',
+        confirmMsg,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete Forever', style: 'destructive', onPress: () => execDeleteSingleApp(appId) }
+        ]
+      );
+    }
+  };
+
+  const execDeleteSingleApp = async (appId: string) => {
+    try {
+      await api.delete(`/admin/applications/${appId}`);
+      setReviewModalVisible(false);
+      setSelectedAppForReview(null);
+      const msg = 'Application record permanently deleted.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Deleted', msg);
+      fetchPendingApplications();
+    } catch (e: any) {
+      const msg = e.response?.data?.message || 'Failed to delete application';
+      if (Platform.OS === 'web') window.alert(`Error: ${msg}`);
+      else Alert.alert('Error', msg);
+    }
+  };
+
+  const handleBulkDeleteApps = () => {
+    if (selectedAppIds.length === 0) return;
+    const confirmMsg = `Are you sure you want to PERMANENTLY delete ${selectedAppIds.length} selected application(s)? This action cannot be undone.`;
+
+    const execBulkDelete = async () => {
+      try {
+        setLoading(true);
+        for (const id of selectedAppIds) {
+          try {
+            await api.delete(`/admin/applications/${id}`);
+          } catch (err) {
+            console.warn(`Failed to delete application ${id}`, err);
+          }
+        }
+        setSelectedAppIds([]);
+        setIsSelectMode(false);
+        fetchPendingApplications();
+        const msg = `Permanently deleted ${selectedAppIds.length} application(s).`;
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Deleted', msg);
+      } catch (e) {
+        if (Platform.OS === 'web') window.alert('Bulk deletion failed.');
+        else Alert.alert('Error', 'Bulk deletion failed');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(confirmMsg)) execBulkDelete();
+    } else {
+      Alert.alert(
+        '⚠️ Bulk Delete Applications',
+        confirmMsg,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: `Delete ${selectedAppIds.length}`, style: 'destructive', onPress: execBulkDelete }
+        ]
+      );
+    }
+  };
+
+  const handleExportSelectedApps = () => {
+    const selectedList = (applications || []).filter(a => selectedAppIds.includes(a._id));
+    if (selectedList.length === 0) return;
+
+    const headers = '"Full Name","Email","Phone","NIC","Status","Payment Method","Created At"';
+    const rows = selectedList.map(a => {
+      const name = `"${(a.full_name || '').replace(/"/g, '""')}"`;
+      const email = `"${(a.email || '').replace(/"/g, '""')}"`;
+      const phone = `"${(a.phone || '').replace(/"/g, '""')}"`;
+      const nic = `"${(a.nic || '').replace(/"/g, '""')}"`;
+      const status = `"${(a.status || 'pending').replace(/"/g, '""')}"`;
+      const method = `"${(a.payment_method || 'bank_transfer').replace(/"/g, '""')}"`;
+      const created = `"${a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}"`;
+      return [name, email, phone, nic, status, method, created].join(',');
+    });
+
+    const csvData = '\uFEFF' + [headers, ...rows].join('\n');
+    if (Platform.OS === 'web') {
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `TVTI_Applications_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  };
+
   const fetchPendingApplications = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/admin/applications?status=pending');
-      setApplications(res.data || []);
+      const res = await api.get('/admin/applications?status=all');
+      const nonApproved = (res.data || []).filter((a: any) => a.status !== 'approved');
+      setApplications(nonApproved);
     } catch (e) {
       console.warn('Failed to fetch pending applications', e);
     } finally {
@@ -232,28 +351,58 @@ export default function ApplicationsManagementScreen({
   };
 
   const renderApplicationCard = ({ item }: { item: any }) => {
+    const isRejected = item.status === 'rejected';
+    const isSelected = selectedAppIds.includes(item._id);
     return (
       <TouchableOpacity
-        style={styles.card}
+        style={[
+          styles.card,
+          isRejected && { opacity: 0.6, backgroundColor: '#F8FAFC', borderColor: '#CBD5E1' },
+          isSelectMode && isSelected && styles.whatsappSelectedCard,
+        ]}
         onPress={() => {
-          handleOpenReviewModal(item);
-          if (onSelectAppForReview) {
-            onSelectAppForReview(item);
+          if (isSelectMode) {
+            toggleAppSelection(item._id);
+          } else {
+            handleOpenReviewModal(item);
+            if (onSelectAppForReview) {
+              onSelectAppForReview(item);
+            }
+          }
+        }}
+        onLongPress={() => {
+          if (!isSelectMode) {
+            setIsSelectMode(true);
+            toggleAppSelection(item._id);
           }
         }}
         activeOpacity={0.75}
       >
         <View style={styles.cardHeaderRow}>
-          {item.student_photo ? (
-            <Image source={{ uri: item.student_photo }} style={styles.cardAvatarImg} />
-          ) : (
-            <View style={styles.avatarCircle}>
-              <Icon name="person" size={24} color="#475569" />
-            </View>
-          )}
+          <View style={{ position: 'relative' }}>
+            {item.student_photo ? (
+              <Image source={{ uri: item.student_photo }} style={[styles.cardAvatarImg, isRejected && { opacity: 0.7 }]} />
+            ) : (
+              <View style={[styles.avatarCircle, isRejected && { backgroundColor: '#E2E8F0' }]}>
+                <Icon name="person" size={24} color={isRejected ? "#94A3B8" : "#475569"} />
+              </View>
+            )}
+            {isSelectMode && (
+              <View style={[styles.whatsappCheckBadge, isSelected ? styles.whatsappCheckBadgeActive : styles.whatsappCheckBadgeInactive]}>
+                <Icon name={isSelected ? "checkmark" : "add"} size={12} color={isSelected ? "#FFFFFF" : "#64748B"} />
+              </View>
+            )}
+          </View>
 
           <View style={styles.cardInfoCol}>
-            <Text style={styles.studentName} numberOfLines={1}>{item.full_name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <Text style={[styles.studentName, isRejected && { color: '#64748B' }]} numberOfLines={1}>{item.full_name}</Text>
+              {isRejected && (
+                <View style={styles.rejectedBadge}>
+                  <Text style={styles.rejectedBadgeText}>Rejected</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.studentEmailText} numberOfLines={1}>{item.email}</Text>
             {item.phone ? (
               <Text style={styles.studentPhoneText} numberOfLines={1}>{item.phone}</Text>
@@ -263,11 +412,97 @@ export default function ApplicationsManagementScreen({
           </View>
 
           <View style={styles.arrowContainer}>
-            <Icon name="arrow-forward" size={19} color="#475569" />
+            <Icon name="arrow-forward" size={19} color={isRejected ? "#94A3B8" : "#475569"} />
           </View>
         </View>
       </TouchableOpacity>
     );
+  };
+
+  const handleSavePdf = async () => {
+    if (!selectedAppForReview) return;
+    try {
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Student Application Form - ${selectedAppForReview.full_name}</title>
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 24px; color: #0F172A; }
+            .header { text-align: center; border-bottom: 2px solid #0F172A; padding-bottom: 12px; margin-bottom: 20px; }
+            .header h1 { margin: 0; font-size: 20px; color: #0F172A; text-transform: uppercase; letter-spacing: 0.5px; }
+            .header p { margin: 4px 0 0 0; font-size: 13px; color: #64748B; }
+            .section { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+            .section-title { font-size: 15px; font-weight: bold; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; color: #0F172A; }
+            .row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+            .label { font-weight: 600; color: #475569; }
+            .val { color: #0F172A; text-align: right; }
+            .footer { text-align: center; margin-top: 30px; font-size: 11px; color: #94A3B8; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>TWINTEC VOCATIONAL TRAINING INSTITUTE</h1>
+            <h2 style="margin: 6px 0 0 0; font-size: 16px; color: #475569;">STUDENT APPLICATION FORM</h2>
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Personal & Contact Details</div>
+            <div class="row"><span class="label">Full Name:</span><span class="val">${selectedAppForReview.full_name || 'N/A'}</span></div>
+            <div class="row"><span class="label">Email:</span><span class="val">${selectedAppForReview.email || 'N/A'}</span></div>
+            <div class="row"><span class="label">Phone:</span><span class="val">${selectedAppForReview.phone || 'N/A'}</span></div>
+            <div class="row"><span class="label">NIC Number:</span><span class="val">${selectedAppForReview.nic_number || 'N/A'}</span></div>
+            <div class="row"><span class="label">Date of Birth:</span><span class="val">${selectedAppForReview.date_of_birth || 'N/A'}</span></div>
+            <div class="row"><span class="label">Gender:</span><span class="val">${selectedAppForReview.gender || 'N/A'}</span></div>
+            <div class="row"><span class="label">Address:</span><span class="val">${selectedAppForReview.address || 'N/A'}</span></div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Parent / Guardian Information</div>
+            <div class="row"><span class="label">Guardian Name:</span><span class="val">${selectedAppForReview.guardian?.name || 'N/A'}</span></div>
+            <div class="row"><span class="label">Relationship:</span><span class="val">${selectedAppForReview.guardian?.relationship || 'N/A'}</span></div>
+            <div class="row"><span class="label">Guardian Phone:</span><span class="val">${selectedAppForReview.guardian?.phone || 'N/A'}</span></div>
+            <div class="row"><span class="label">Occupation:</span><span class="val">${selectedAppForReview.guardian?.occupation || 'N/A'}</span></div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Educational Qualifications</div>
+            <div class="row"><span class="label">Highest Level:</span><span class="val">${selectedAppForReview.educational_qualification?.highest_level || 'N/A'}</span></div>
+            <div class="row"><span class="label">Grade / Result:</span><span class="val">${selectedAppForReview.educational_qualification?.grade_level || 'N/A'}</span></div>
+            <div class="row"><span class="label">Institute:</span><span class="val">${selectedAppForReview.educational_qualification?.institute_name || 'N/A'}</span></div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Payment Information</div>
+            <div class="row"><span class="label">Payment Method:</span><span class="val">${selectedAppForReview.payment_method === 'bank_transfer' ? 'Bank Deposit Slip' : 'Cash at Counter'}</span></div>
+            <div class="row"><span class="label">Total Course Fee:</span><span class="val">LKR ${adminTotalFee}</span></div>
+            <div class="row"><span class="label">Amount Paid:</span><span class="val">LKR ${adminAmountPaid}</span></div>
+          </div>
+
+          <div class="footer">
+            <p>Twintec Vocational Training Institute · Official Records</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      if (Platform.OS === 'web') {
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(htmlContent);
+          printWindow.document.close();
+          printWindow.print();
+        }
+      } else {
+        await Print.printAsync({ html: htmlContent });
+      }
+    } catch (e) {
+      console.warn('Failed to print PDF', e);
+      if (Platform.OS === 'web') window.alert('Failed to generate PDF document.');
+      else Alert.alert('Error', 'Failed to generate PDF document.');
+    }
   };
 
   const renderContent = () => {
@@ -275,24 +510,33 @@ export default function ApplicationsManagementScreen({
       return (
         <View style={styles.fullScreenOverlay}>
           <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>
-            {/* Minimal Arrow-Only Top Navigation Header */}
-            <View style={styles.minimalTopNav}>
-              <TouchableOpacity
-                style={styles.minimalBackBtn}
-                onPress={() => {
-                  setSelectedAppForReview(null);
-                  setReviewModalVisible(false);
-                  if (onBack) onBack();
-                }}
-                activeOpacity={0.7}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Icon name="arrow-back" size={24} color="#000000" />
-              </TouchableOpacity>
-            </View>
-
             {/* Scrollable Modern Structured Dossier Body */}
-            <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 12 }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
+              {/* Dossier Header Row: Icon-Only Back Button (Left) & Save PDF Button (Right) */}
+              <View style={styles.dossierBackHeaderRow}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedAppForReview(null);
+                    setReviewModalVisible(false);
+                    if (onBack) onBack();
+                  }}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  style={{ padding: 4 }}
+                >
+                  <Icon name="arrow-back" size={24} color="#0F172A" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.savePdfBtn}
+                  onPress={handleSavePdf}
+                  activeOpacity={0.85}
+                >
+                  <Icon name="document-text-outline" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.savePdfBtnText}>Save PDF</Text>
+                </TouchableOpacity>
+              </View>
+
               {/* 1. Applicant Profile Card */}
               <View style={styles.infoSectionCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
@@ -484,10 +728,19 @@ export default function ApplicationsManagementScreen({
                 )}
               </View>
 
-              {/* Professional Action Buttons with Color */}
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 12, marginBottom: 40 }}>
+              {/* Professional Action Buttons: Small, Equal Size, Right-Aligned, Icon-less */}
+              <View style={styles.rightAlignedActionsRow}>
                 <TouchableOpacity
-                  style={styles.coloredRejectBtn}
+                  style={styles.smallDeleteBtn}
+                  onPress={() => handleDeleteSingleApp(selectedAppForReview._id, selectedAppForReview.full_name)}
+                  disabled={approving || rejectingId !== null}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.smallBtnText}>Delete</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.smallRejectBtn}
                   onPress={handleRejectFromReview}
                   disabled={approving || rejectingId !== null}
                   activeOpacity={0.8}
@@ -495,15 +748,12 @@ export default function ApplicationsManagementScreen({
                   {rejectingId ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
-                    <>
-                      <Icon name="close-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                      <Text style={styles.coloredBtnText}>Reject</Text>
-                    </>
+                    <Text style={styles.smallBtnText}>Reject</Text>
                   )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.coloredApproveBtn}
+                  style={styles.smallApproveBtn}
                   onPress={handleApproveFromReview}
                   disabled={approving}
                   activeOpacity={0.85}
@@ -511,10 +761,7 @@ export default function ApplicationsManagementScreen({
                   {approving ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
-                    <>
-                      <Icon name="checkmark-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                      <Text style={styles.coloredBtnText}>Approve</Text>
-                    </>
+                    <Text style={styles.smallBtnText}>Approve</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -586,6 +833,67 @@ export default function ApplicationsManagementScreen({
 
     return (
       <>
+        {isSelectMode && (
+          <View style={styles.whatsappHeaderBar}>
+            <View style={styles.whatsappHeaderLeft}>
+              <TouchableOpacity
+                style={styles.whatsappHeaderIconBtn}
+                onPress={() => {
+                  setIsSelectMode(false);
+                  setSelectedAppIds([]);
+                }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="arrow-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.whatsappHeaderTitle}>
+                {selectedAppIds.length}
+              </Text>
+            </View>
+
+            <View style={styles.whatsappHeaderActions}>
+              <TouchableOpacity
+                style={styles.whatsappHeaderIconBtn}
+                onPress={() => {
+                  if (selectedAppIds.length === applications.length && applications.length > 0) {
+                    setSelectedAppIds([]);
+                  } else {
+                    setSelectedAppIds(applications.map(a => a._id));
+                  }
+                }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon
+                  name={selectedAppIds.length === applications.length && applications.length > 0 ? "checkmark-done" : "checkmark-done-circle-outline"}
+                  size={24}
+                  color="#FFFFFF"
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.whatsappHeaderIconBtn, selectedAppIds.length === 0 && { opacity: 0.4 }]}
+                disabled={selectedAppIds.length === 0}
+                onPress={handleExportSelectedApps}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="download-outline" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.whatsappHeaderIconBtn, selectedAppIds.length === 0 && { opacity: 0.4 }]}
+                disabled={selectedAppIds.length === 0}
+                onPress={handleBulkDeleteApps}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="trash-outline" size={22} color={selectedAppIds.length > 0 ? "#EF4444" : "#FFFFFF"} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
         {loading ? (
           <ActivityIndicator size="large" color="#000000" style={{ marginTop: 40 }} />
         ) : (
@@ -598,8 +906,8 @@ export default function ApplicationsManagementScreen({
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Icon name="checkmark-circle-outline" size={48} color="#D1D5DB" />
-                <Text style={styles.emptyTitleText}>No Pending Applications</Text>
-                <Text style={styles.emptySubText}>All new student registrations have been reviewed and approved.</Text>
+                <Text style={styles.emptyTitleText}>No Applications Found</Text>
+                <Text style={styles.emptySubText}>New student registration applications will appear here.</Text>
               </View>
             }
           />
@@ -632,20 +940,25 @@ const styles = StyleSheet.create({
     zIndex: 99999,
     backgroundColor: '#F8FAFC',
   },
-  minimalTopNav: {
+  dossierBackHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingVertical: 4,
   },
-  minimalBackBtn: {
-    padding: 6,
-    borderRadius: 8,
-    justifyContent: 'center',
+  savePdfBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  savePdfBtnText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   /* MODERN STRUCTURED DOSSIER CARD STYLES */
   infoSectionCard: {
@@ -953,33 +1266,38 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
-  coloredRejectBtn: {
-    flex: 1,
+  rightAlignedActionsRow: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#DC2626',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)' },
-      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 }
-    }),
+    gap: 10,
+    marginTop: 16,
+    marginBottom: 40,
+    width: '100%',
   },
-  coloredApproveBtn: {
-    flex: 1.5,
-    flexDirection: 'row',
+  smallRejectBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#DC2626',
+    minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  smallApproveBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
     backgroundColor: '#059669',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(5, 150, 105, 0.35)' },
-      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 }
-    }),
+    minWidth: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smallBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   coloredBtnText: {
     color: '#FFFFFF',
@@ -2081,5 +2399,87 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  rejectedBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  rejectedBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#991B1B',
+    textTransform: 'uppercase',
+  },
+  smallDeleteBtn: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70,
+  },
+  whatsappHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    height: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+    marginBottom: 8,
+  },
+  whatsappHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  whatsappHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  whatsappHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  whatsappHeaderIconBtn: {
+    padding: 6,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  whatsappSelectedCard: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    borderLeftColor: '#16A34A',
+  },
+  whatsappCheckBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  whatsappCheckBadgeActive: {
+    backgroundColor: '#16A34A',
+  },
+  whatsappCheckBadgeInactive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#CBD5E1',
   },
 });
