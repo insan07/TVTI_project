@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,12 @@ import {
   Modal,
   ScrollView,
   Platform,
-  Image
+  Image,
+  Animated,
+  LayoutAnimation,
+  UIManager,
+  NativeSyntheticEvent,
+  NativeScrollEvent
 } from 'react-native';
 import api from '../../services/api';
 import CustomDropdown from '../../components/shared/CustomDropdown';
@@ -20,6 +25,10 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
 import ApplicationsManagementScreen from './ApplicationsManagementScreen';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 type Tab = 'pending' | 'approved' | 'instructors';
 
@@ -38,19 +47,133 @@ export default function UserManagementScreen() {
   const [search, setSearch] = useState('');
   const [showFilter, setShowFilter] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const headerAnim = useRef(new Animated.Value(1)).current;
+  const isHeaderVisibleRef = useRef(true);
+  const lastScrollY = useRef(0);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isSearchFocused) return;
+    const currentY = event.nativeEvent.contentOffset.y;
+    const diff = currentY - lastScrollY.current;
+
+    if (currentY <= 15) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff > 8 && currentY > 35) {
+      if (isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = false;
+        Animated.timing(headerAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff < -8) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    }
+    lastScrollY.current = currentY;
+  };
 
   // User Details Modal State
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [userDetails, setUserDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [selectedAppForReview, setSelectedAppForReview] = useState<any>(null);
 
   // Inline WhatsApp 3-Dots Options Menu State
   const [activeMenuUserId, setActiveMenuUserId] = useState<string | null>(null);
 
-  // Add Instructor Modal
+  // Add Instructor Modal & Liquid FAB Animation
   const [instructorModalVisible, setInstructorModalVisible] = useState(false);
   const [instructorForm, setInstructorForm] = useState({ name: '', email: '', phone: '', nic: '' });
   const [creatingInstructor, setCreatingInstructor] = useState(false);
+
+  // Liquid FAB Animation State
+  const wave1Anim = React.useRef(new Animated.Value(0)).current;
+  const wave2Anim = React.useRef(new Animated.Value(0)).current;
+  const buttonScaleAnim = React.useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    let animation: Animated.CompositeAnimation | null = null;
+    if (activeTab === 'instructors') {
+      wave1Anim.setValue(0);
+      wave2Anim.setValue(0);
+
+      animation = Animated.loop(
+        Animated.parallel([
+          Animated.timing(wave1Anim, {
+            toValue: 1,
+            duration: 2200,
+            useNativeDriver: true,
+          }),
+          Animated.sequence([
+            Animated.delay(900),
+            Animated.timing(wave2Anim, {
+              toValue: 1,
+              duration: 2200,
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
+      );
+      animation.start();
+    }
+    return () => {
+      if (animation) animation.stop();
+    };
+  }, [activeTab]);
+
+  const handleFabPressIn = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 0.9,
+      useNativeDriver: true,
+      friction: 5,
+      tension: 100,
+    }).start();
+  };
+
+  const handleFabPressOut = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 4,
+      tension: 80,
+    }).start();
+  };
+
+  const wave1Scale = wave1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.55],
+  });
+
+  const wave1Opacity = wave1Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.45, 0.25, 0],
+  });
+
+  const wave2Scale = wave2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.4],
+  });
+
+  const wave2Opacity = wave2Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.35, 0.18, 0],
+  });
 
   // Assign Batch Modal
   const [assignModalVisible, setAssignModalVisible] = useState(false);
@@ -343,9 +466,13 @@ export default function UserManagementScreen() {
   const renderPendingItem = ({ item }: { item: any }) => (
     <TouchableOpacity style={styles.card} onPress={() => handleOpenDetails(item._id)} activeOpacity={0.7}>
       <View style={styles.cardHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
-        </View>
+        {item.profile_photo ? (
+          <Image source={{ uri: item.profile_photo }} style={styles.avatarImg} />
+        ) : (
+          <View style={styles.avatar}>
+            <Icon name="person" size={24} color="#475569" />
+          </View>
+        )}
         <View style={styles.headerDetails}>
           <Text style={styles.userName}>{item.name}</Text>
           <Text style={styles.userEmail}>{item.email}</Text>
@@ -387,9 +514,13 @@ export default function UserManagementScreen() {
         activeOpacity={0.75}
       >
         <View style={[styles.cardHeader, isMenuOpen && { zIndex: 9999 }]}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
-          </View>
+          {item.profile_photo ? (
+            <Image source={{ uri: item.profile_photo }} style={styles.avatarImg} />
+          ) : (
+            <View style={styles.avatar}>
+              <Icon name="person" size={24} color="#475569" />
+            </View>
+          )}
           <View style={styles.headerDetails}>
             <Text style={styles.userName}>{item.name}</Text>
             <Text style={styles.userEmail}>{item.email}</Text>
@@ -482,9 +613,13 @@ export default function UserManagementScreen() {
         activeOpacity={0.75}
       >
         <View style={[styles.cardHeader, isMenuOpen && { zIndex: 9999 }]}>
-          <View style={[styles.avatar, { backgroundColor: '#FEF3C7' }]}>
-            <Text style={[styles.avatarText, { color: '#92400E' }]}>{getInitials(item.name)}</Text>
-          </View>
+          {item.profile_photo ? (
+            <Image source={{ uri: item.profile_photo }} style={styles.avatarImg} />
+          ) : (
+            <View style={styles.avatar}>
+              <Icon name="person" size={24} color="#475569" />
+            </View>
+          )}
           <View style={styles.headerDetails}>
             <Text style={styles.userName}>{item.name}</Text>
             <Text style={styles.userEmail}>{item.email}</Text>
@@ -498,11 +633,6 @@ export default function UserManagementScreen() {
             >
               <Icon name="ellipsis-vertical" size={20} color={isMenuOpen ? "#0F172A" : "#64748B"} />
             </TouchableOpacity>
-            <View style={[styles.statusBadge, { backgroundColor: item.is_active ? '#DBEAFE' : '#FEE2E2', marginTop: 8 }]}>
-              <Text style={[styles.statusBadgeText, { color: item.is_active ? '#1E40AF' : '#991B1B' }]}>
-                Instructor
-              </Text>
-            </View>
 
             {isMenuOpen && (
               <View style={styles.whatsappMenuContainer}>
@@ -549,6 +679,265 @@ export default function UserManagementScreen() {
       </TouchableOpacity>
     );
   };
+
+  if (selectedAppForReview) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ApplicationsManagementScreen
+          embedded={true}
+          selectedApp={selectedAppForReview}
+          onBack={() => setSelectedAppForReview(null)}
+          onApproved={() => {
+            setSelectedAppForReview(null);
+            fetchUsers();
+          }}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (detailsModalVisible) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {/* Minimal Arrow-Only Top Navigation Header */}
+        <View style={styles.minimalTopNav}>
+          <TouchableOpacity
+            style={styles.minimalBackBtn}
+            onPress={() => {
+              setDetailsModalVisible(false);
+              setUserDetails(null);
+            }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Icon name="arrow-back" size={24} color="#0F172A" />
+          </TouchableOpacity>
+        </View>
+
+        {loadingDetails || !userDetails ? (
+          <View style={styles.modalLoadingContainer}>
+            <ActivityIndicator size="large" color="#000000" />
+            <Text style={styles.modalLoadingText}>Loading complete profile...</Text>
+          </View>
+        ) : (
+          <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+            {/* Scrollable Modern Structured Profile Body */}
+            <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 12 }} showsVerticalScrollIndicator={false}>
+              {/* Profile Top Row Card: Image, Name, Email */}
+              <View style={styles.infoSectionCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {userDetails.user.profile_photo ? (
+                    <Image source={{ uri: userDetails.user.profile_photo }} style={styles.modalAvatarImg} />
+                  ) : (
+                    <View style={styles.infoAvatarCircle}>
+                      <Icon name="person" size={26} color="#FFFFFF" />
+                    </View>
+                  )}
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text style={styles.infoStudentName}>{userDetails.user.name}</Text>
+                    <Text style={styles.infoStudentEmail}>{userDetails.user.email}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* SECTION 1: Personal & Contact Details Card */}
+              <View style={styles.infoSectionCard}>
+                <Text style={styles.sectionCardHeaderTitle}>Personal & Contact Details</Text>
+                <View style={styles.infoDivider} />
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Reg No / Index:</Text>
+                  <Text style={styles.infoVal}>{userDetails.user.index_number || 'Pending Assignment'}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>NIC Number:</Text>
+                  <Text style={styles.infoVal}>{userDetails.user.nic || 'Not Provided'}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Phone Number:</Text>
+                  <Text style={styles.infoVal}>{userDetails.user.phone || 'N/A'}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Date of Birth:</Text>
+                  <Text style={styles.infoVal}>{userDetails.user.date_of_birth || 'Not Provided'}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Gender:</Text>
+                  <Text style={styles.infoVal}>{userDetails.user.gender || 'Not Provided'}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Residential Address:</Text>
+                  <Text style={styles.infoVal}>{userDetails.user.address || 'Not Provided'}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Joined Date:</Text>
+                  <Text style={styles.infoVal}>
+                    {userDetails.user.createdAt ? new Date(userDetails.user.createdAt).toLocaleDateString() : 'N/A'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* SECTION 2: Guardian Details Card */}
+              {userDetails.user.role === 'student' && (
+                <View style={styles.infoSectionCard}>
+                  <Text style={styles.sectionCardHeaderTitle}>Guardian & Emergency Contact</Text>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Guardian Name:</Text>
+                    <Text style={styles.infoVal}>{userDetails.user.guardian?.name || 'Not Provided'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Relationship:</Text>
+                    <Text style={styles.infoVal}>{userDetails.user.guardian?.relationship || 'Not Provided'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Guardian Phone:</Text>
+                    <Text style={styles.infoVal}>{userDetails.user.guardian?.phone || 'Not Provided'}</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* SECTION 3: Educational Qualifications Card */}
+              {userDetails.user.role === 'student' && (
+                <View style={styles.infoSectionCard}>
+                  <Text style={styles.sectionCardHeaderTitle}>Educational Qualifications</Text>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Highest Level:</Text>
+                    <Text style={styles.infoVal}>{userDetails.user.educational_qualification?.highest_level || 'Not Provided'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Grade Level:</Text>
+                    <Text style={styles.infoVal}>{userDetails.user.educational_qualification?.grade_level || 'Not Provided'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>School / Institute:</Text>
+                    <Text style={styles.infoVal}>{userDetails.user.educational_qualification?.institute_name || 'Not Provided'}</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* SECTION 4: Tuition & Payment Record Card */}
+              {userDetails.user.role === 'student' && (
+                <View style={styles.infoSectionCard}>
+                  <Text style={styles.sectionCardHeaderTitle}>Tuition & Payment Record</Text>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Payment Method:</Text>
+                    <Text style={[styles.infoVal, { color: '#2563EB', fontWeight: 'bold' }]}>
+                      {userDetails.user.payment_info?.payment_method === 'bank_transfer'
+                        ? 'Bank Deposit Slip Upload'
+                        : 'Cash Counter Payment'}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Payment Status:</Text>
+                    <Text style={styles.infoVal}>
+                      {userDetails.user.payment_info?.payment_status?.toUpperCase() || 'PENDING'}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Total Course Fee:</Text>
+                    <Text style={styles.infoVal}>Rs. {userDetails.user.payment_info?.total_fee ? userDetails.user.payment_info.total_fee.toLocaleString() : '0'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Amount Paid:</Text>
+                    <Text style={[styles.infoVal, { color: '#059669', fontWeight: 'bold' }]}>
+                      Rs. {userDetails.user.payment_info?.amount_paid ? userDetails.user.payment_info.amount_paid.toLocaleString() : '0'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* SECTION 5: Academic Enrollments Card */}
+              {userDetails.user.role === 'student' && (
+                <View style={styles.infoSectionCard}>
+                  <Text style={styles.sectionCardHeaderTitle}>Academic Enrollments</Text>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Overall Average Marks:</Text>
+                    <Text style={[styles.infoVal, { color: '#2563EB', fontWeight: 'bold' }]}>{userDetails.averageMark}%</Text>
+                  </View>
+                  {(!userDetails.enrollments || userDetails.enrollments.length === 0) ? (
+                    <Text style={{ fontSize: 13, color: '#64748B', marginTop: 4, fontStyle: 'italic' }}>No active batch enrollments yet.</Text>
+                  ) : (
+                    userDetails.enrollments.map((e: any) => (
+                      <View key={e._id} style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+                        <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0F172A' }}>{e.batch_id?.course_id?.title || 'Course'}</Text>
+                        <Text style={{ fontSize: 12.5, color: '#64748B', marginTop: 2 }}>Batch: {e.batch_id?.name || 'Batch'} · {e.batch_id?.course_id?.duration_weeks} Weeks</Text>
+                      </View>
+                    ))
+                  )}
+                </View>
+              )}
+
+              {/* INSTRUCTOR SPECIFIC DETAILS CARD */}
+              {userDetails.user.role === 'instructor' && (
+                <View style={styles.infoSectionCard}>
+                  <Text style={styles.sectionCardHeaderTitle}>Teaching Assignments</Text>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Assigned Batches:</Text>
+                    <Text style={styles.infoVal}>{userDetails.assignedBatches?.length || 0} Active Batches</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Total Enrolled Students:</Text>
+                    <Text style={styles.infoVal}>{userDetails.totalStudents || 0}</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Action Buttons */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14, marginBottom: 40, flexWrap: 'wrap' }}>
+                {userDetails.user.role === 'student' && !userDetails.user.is_active ? (
+                  <>
+                    <TouchableOpacity style={styles.coloredRejectBtn} onPress={() => handleReject(userDetails.user._id, userDetails.user.name)}>
+                      <Icon name="close-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.coloredBtnText}>Reject</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.coloredApproveBtn} onPress={() => handleApprove(userDetails.user._id)}>
+                      <Icon name="checkmark-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.coloredBtnText}>Approve</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    {userDetails.user.role === 'student' && (
+                      <TouchableOpacity
+                        style={styles.coloredAssignBtn}
+                        onPress={() => {
+                          setAssignStudentId(userDetails.user._id);
+                          setAssignModalVisible(true);
+                        }}
+                      >
+                        <Icon name="library-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                        <Text style={styles.coloredBtnText}>Assign Batch</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={userDetails.user.is_active ? styles.coloredDeactivateBtn : styles.coloredActivateBtn}
+                      onPress={() => handleToggleActive(userDetails.user._id, userDetails.user.is_active, userDetails.user.name)}
+                    >
+                      <Icon name={userDetails.user.is_active ? "pause-circle" : "play-circle"} size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.coloredBtnText}>
+                        {userDetails.user.is_active ? 'Deactivate' : 'Activate'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.coloredDeleteBtn}
+                      onPress={() => handleDeleteCompletely(userDetails.user._id, userDetails.user.name, userDetails.user.role)}
+                    >
+                      <Icon name="trash-bin" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.coloredBtnText}>Delete</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        )}
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -626,72 +1015,86 @@ export default function UserManagementScreen() {
 
       {/* Content View */}
       {activeTab === 'pending' ? (
-        <ApplicationsManagementScreen embedded={true} onApproved={fetchUsers} />
+        <ApplicationsManagementScreen
+          embedded={true}
+          onApproved={fetchUsers}
+          onSelectAppForReview={(app) => setSelectedAppForReview(app)}
+        />
       ) : (
         <>
-          {/* Add Instructor Button (only on instructors tab) */}
-          {activeTab === 'instructors' && (
-            <View style={styles.actionButtonRow}>
-              <TouchableOpacity style={styles.addInstructorBtn} onPress={() => setInstructorModalVisible(true)} activeOpacity={0.85}>
-                <Icon name="add" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.addInstructorBtnText}>Add Instructor</Text>
+          {/* Search & Filters with Smooth Animation */}
+          <Animated.View
+            style={{
+              maxHeight: headerAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, showFilter && activeTab === 'approved' ? 120 : 64],
+              }),
+              opacity: headerAnim,
+              transform: [
+                {
+                  translateY: headerAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-12, 0],
+                  }),
+                },
+              ],
+              overflow: 'hidden',
+            }}
+          >
+            <View style={styles.searchFilterRow}>
+              <View style={styles.searchBox}>
+                <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search by name, email, reg no, or NIC..."
+                  placeholderTextColor="#9CA3AF"
+                  value={search}
+                  onChangeText={setSearch}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.filterBtn, showFilter && styles.filterBtnActive]}
+                onPress={() => setShowFilter(!showFilter)}
+              >
+                <Icon name="options-outline" size={18} color={showFilter ? '#FFFFFF' : '#374151'} style={{ marginRight: 6 }} />
+                <Text style={[styles.filterBtnText, showFilter && { color: '#FFFFFF' }]}>Filters</Text>
               </TouchableOpacity>
             </View>
-          )}
 
-          {/* Search & Filters */}
-          <View style={styles.searchFilterRow}>
-            <View style={styles.searchBox}>
-              <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search by name, email, reg no, or NIC..."
-                placeholderTextColor="#9CA3AF"
-                value={search}
-                onChangeText={setSearch}
-              />
-            </View>
-            <TouchableOpacity
-              style={[styles.filterBtn, showFilter && styles.filterBtnActive]}
-              onPress={() => setShowFilter(!showFilter)}
-            >
-              <Icon name="options-outline" size={18} color={showFilter ? '#FFFFFF' : '#374151'} style={{ marginRight: 6 }} />
-              <Text style={[styles.filterBtnText, showFilter && { color: '#FFFFFF' }]}>Filters</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Filter Options Panel for Approved Tab */}
-          {showFilter && activeTab === 'approved' && (
-            <View style={styles.filterOptionsPanel}>
-              <Text style={styles.filterPanelTitle}>Filter Student Status:</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-                <TouchableOpacity
-                  style={[styles.filterChip, statusFilter === 'all' && styles.filterChipActive]}
-                  onPress={() => setStatusFilter('all')}
-                >
-                  <Text style={[styles.filterChipText, statusFilter === 'all' && styles.filterChipTextActive]}>
-                    All ({users.length})
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.filterChip, statusFilter === 'active' && styles.filterChipActive]}
-                  onPress={() => setStatusFilter('active')}
-                >
-                  <Text style={[styles.filterChipText, statusFilter === 'active' && styles.filterChipTextActive]}>
-                    Active ({users.filter(u => u.is_active).length})
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.filterChip, statusFilter === 'inactive' && styles.filterChipActive]}
-                  onPress={() => setStatusFilter('inactive')}
-                >
-                  <Text style={[styles.filterChipText, statusFilter === 'inactive' && styles.filterChipTextActive]}>
-                    Deactivated ({users.filter(u => !u.is_active).length})
-                  </Text>
-                </TouchableOpacity>
+            {/* Filter Options Panel for Approved Tab */}
+            {showFilter && activeTab === 'approved' && (
+              <View style={styles.filterOptionsPanel}>
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  <TouchableOpacity
+                    style={[styles.filterChip, statusFilter === 'all' && styles.filterChipActive]}
+                    onPress={() => setStatusFilter('all')}
+                  >
+                    <Text style={[styles.filterChipText, statusFilter === 'all' && styles.filterChipTextActive]}>
+                      All ({users.length})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterChip, statusFilter === 'active' && styles.filterChipActive]}
+                    onPress={() => setStatusFilter('active')}
+                  >
+                    <Text style={[styles.filterChipText, statusFilter === 'active' && styles.filterChipTextActive]}>
+                      Active ({users.filter(u => u.is_active).length})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterChip, statusFilter === 'inactive' && styles.filterChipActive]}
+                    onPress={() => setStatusFilter('inactive')}
+                  >
+                    <Text style={[styles.filterChipText, statusFilter === 'inactive' && styles.filterChipTextActive]}>
+                      Deactivated ({users.filter(u => !u.is_active).length})
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          )}
+            )}
+          </Animated.View>
 
           {/* Content List */}
           {loading ? (
@@ -700,6 +1103,8 @@ export default function UserManagementScreen() {
             <FlatList
               data={filteredUsers}
               keyExtractor={item => item._id}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
               renderItem={
                 activeTab === 'approved'
                   ? renderStudentItem
@@ -720,356 +1125,60 @@ export default function UserManagementScreen() {
                   </View>
                 );
               }}
-              contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 110 }}
               ListEmptyComponent={<Text style={styles.emptyListText}>No users found in this tab.</Text>}
             />
           )}
         </>
       )}
 
-      {/* ========================================================================= */}
-      {/* COMPREHENSIVE USER DETAILS MODAL */}
-      {/* ========================================================================= */}
-      <Modal visible={detailsModalVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { height: '88%', padding: 0, overflow: 'hidden' }]}>
-            {loadingDetails || !userDetails ? (
-              <View style={styles.modalLoadingContainer}>
-                <ActivityIndicator size="large" color="#000000" />
-                <Text style={styles.modalLoadingText}>Loading complete profile...</Text>
+      {/* Floating Add Instructor Liquid FAB Button */}
+      {activeTab === 'instructors' && (
+        <View style={styles.liquidFabContainer} pointerEvents="box-none">
+          {/* Outer Liquid Ripple Wave Layer 1 */}
+          <Animated.View
+            style={[
+              styles.liquidWaveRing,
+              {
+                transform: [{ scale: wave1Scale }],
+                opacity: wave1Opacity,
+              },
+            ]}
+          />
+
+          {/* Outer Liquid Ripple Wave Layer 2 */}
+          <Animated.View
+            style={[
+              styles.liquidWaveRingSecond,
+              {
+                transform: [{ scale: wave2Scale }],
+                opacity: wave2Opacity,
+              },
+            ]}
+          />
+
+          {/* Main Liquid Glass FAB Button */}
+          <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
+            <TouchableOpacity
+              style={styles.liquidFabButton}
+              onPress={() => setInstructorModalVisible(true)}
+              onPressIn={handleFabPressIn}
+              onPressOut={handleFabPressOut}
+              activeOpacity={0.9}
+            >
+              {/* Glass Sheen Reflection Arc */}
+              <View style={styles.liquidGlassSheen} />
+
+              {/* Glossy Core Icon */}
+              <View style={styles.liquidInnerCore}>
+                <Icon name="add" size={32} color="#FFFFFF" style={styles.liquidPlusIcon} />
               </View>
-            ) : (
-              <View style={{ flex: 1 }}>
-                {/* Profile Modal Top Header */}
-                <View style={styles.detailsHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={[styles.detailsAvatar, { backgroundColor: userDetails.user.role === 'instructor' ? '#FEF3C7' : '#DBEAFE' }]}>
-                      <Text style={[styles.detailsAvatarText, { color: userDetails.user.role === 'instructor' ? '#92400E' : '#1E40AF' }]}>
-                        {getInitials(userDetails.user.name)}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.detailsName}>{userDetails.user.name}</Text>
-                      <Text style={styles.detailsEmail}>{userDetails.user.email}</Text>
-                      <View style={{ flexDirection: 'row', marginTop: 4, gap: 6 }}>
-                        <View style={styles.roleTag}>
-                          <Text style={styles.roleTagText}>{userDetails.user.role?.toUpperCase()}</Text>
-                        </View>
-                        <View style={[styles.roleTag, { backgroundColor: userDetails.user.is_active ? '#D1FAE5' : '#FEE2E2' }]}>
-                          <Text style={[styles.roleTagText, { color: userDetails.user.is_active ? '#065F46' : '#991B1B' }]}>
-                            {userDetails.user.is_active ? 'ACTIVE' : 'PENDING / INACTIVE'}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                  <TouchableOpacity style={styles.closeModalIconBtn} onPress={() => setDetailsModalVisible(false)}>
-                    <Icon name="close" size={22} color="#4B5563" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Scrollable Profile Body */}
-                <ScrollView style={{ flex: 1, padding: 16 }} showsVerticalScrollIndicator={false}>
-                  {/* 1. Personal Contact & Identity Card */}
-                  <View style={styles.detailSectionCard}>
-                    <Text style={styles.detailSectionTitle}>👤 Personal & Contact Info</Text>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Reg No / Index:</Text>
-                      <Text style={[styles.detailValue, { fontWeight: 'bold', color: '#059669' }]}>{userDetails.user.index_number || 'Pending'}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Full Name:</Text>
-                      <Text style={styles.detailValue}>{userDetails.user.name}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Email Address:</Text>
-                      <Text style={styles.detailValue}>{userDetails.user.email}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Phone Number:</Text>
-                      <Text style={styles.detailValue}>{userDetails.user.phone || 'N/A'}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Date of Birth:</Text>
-                      <Text style={styles.detailValue}>{userDetails.user.date_of_birth || 'Not Provided'}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Gender:</Text>
-                      <Text style={styles.detailValue}>{userDetails.user.gender || 'Not Provided'}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>NIC Number:</Text>
-                      <Text style={styles.detailValue}>{userDetails.user.nic || 'Optional / Not Provided'}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Residential Address:</Text>
-                      <Text style={styles.detailValue}>{userDetails.user.address || 'Not Provided'}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Joined Date:</Text>
-                      <Text style={styles.detailValue}>
-                        {userDetails.user.createdAt ? new Date(userDetails.user.createdAt).toLocaleDateString() : 'N/A'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* 2. Parent / Guardian Details Card */}
-                  {userDetails.user.role === 'student' && (
-                    <View style={styles.detailSectionCard}>
-                      <Text style={styles.detailSectionTitle}>👨‍👩‍👦 Parent / Guardian Details</Text>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Guardian Name:</Text>
-                        <Text style={styles.detailValue}>{userDetails.user.guardian?.name || 'Not Provided'}</Text>
-                      </View>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Relationship:</Text>
-                        <Text style={styles.detailValue}>{userDetails.user.guardian?.relationship || 'Not Provided'}</Text>
-                      </View>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Guardian Phone:</Text>
-                        <Text style={styles.detailValue}>{userDetails.user.guardian?.phone || 'Not Provided'}</Text>
-                      </View>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Occupation:</Text>
-                        <Text style={styles.detailValue}>{userDetails.user.guardian?.occupation || 'Not Provided'}</Text>
-                      </View>
-                    </View>
-                  )}
-
-                  {/* 3. Educational Qualifications Card */}
-                  {userDetails.user.role === 'student' && (
-                    <View style={styles.detailSectionCard}>
-                      <Text style={styles.detailSectionTitle}>🎓 Educational Qualifications</Text>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Highest Level:</Text>
-                        <Text style={styles.detailValue}>{userDetails.user.educational_qualification?.highest_level || 'Not Provided'}</Text>
-                      </View>
-                      {userDetails.user.educational_qualification?.grade_level ? (
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>Grade Level:</Text>
-                          <Text style={styles.detailValue}>{userDetails.user.educational_qualification.grade_level}</Text>
-                        </View>
-                      ) : null}
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>School / Institute:</Text>
-                        <Text style={styles.detailValue}>{userDetails.user.educational_qualification?.institute_name || 'Not Provided'}</Text>
-                      </View>
-                    </View>
-                  )}
-
-                  {/* 4. Payment & Deposit Details Card */}
-                  {userDetails.user.role === 'student' && (
-                    <View style={styles.detailSectionCard}>
-                      <Text style={styles.detailSectionTitle}>💳 Payment & Fee Info</Text>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Payment Method:</Text>
-                        <Text style={[styles.detailValue, { fontWeight: 'bold' }]}>
-                          {userDetails.user.payment_info?.payment_method === 'bank_transfer'
-                            ? 'Bank Deposit Slip Upload'
-                            : 'Physical Cash Counter Payment'}
-                        </Text>
-                      </View>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Payment Status:</Text>
-                        <Text style={[styles.detailValue, { fontWeight: 'bold', color: userDetails.user.payment_info?.payment_status === 'paid' ? '#059669' : '#D97706' }]}>
-                          {userDetails.user.payment_info?.payment_status?.toUpperCase() || 'PENDING'}
-                        </Text>
-                      </View>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Total Course Fee:</Text>
-                        <Text style={styles.detailValue}>Rs. {userDetails.user.payment_info?.total_fee ? userDetails.user.payment_info.total_fee.toLocaleString() : '0'}</Text>
-                      </View>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Amount Paid:</Text>
-                        <Text style={styles.detailValue}>Rs. {userDetails.user.payment_info?.amount_paid ? userDetails.user.payment_info.amount_paid.toLocaleString() : '0'}</Text>
-                      </View>
-                      {userDetails.user.payment_info?.payment_slip ? (
-                        <View style={{ marginTop: 8 }}>
-                          <Text style={styles.detailLabel}>Deposit Receipt Slip:</Text>
-                          <Image
-                            source={{ uri: userDetails.user.payment_info.payment_slip }}
-                            style={{ width: '100%', height: 160, borderRadius: 10, marginTop: 6, resizeMode: 'contain', backgroundColor: '#F3F4F6' }}
-                          />
-                        </View>
-                      ) : null}
-                    </View>
-                  )}
-
-                  {/* 5. STUDENT SPECIFIC DETAILS */}
-                  {userDetails.user.role === 'student' && (
-                    <>
-                      {/* Academic Performance Summary */}
-                      <View style={styles.summaryBanner}>
-                        <Text style={styles.summaryBannerTitle}>Overall Average Marks</Text>
-                        <Text style={styles.summaryBannerValue}>{userDetails.averageMark}%</Text>
-                      </View>
-
-                      {/* Enrolled Batches */}
-                      <View style={styles.detailSectionCard}>
-                        <Text style={styles.detailSectionTitle}>📚 Enrolled Courses & Batches</Text>
-                        {(!userDetails.enrollments || userDetails.enrollments.length === 0) ? (
-                          <Text style={styles.emptyDetailText}>No active batch enrollments yet.</Text>
-                        ) : (
-                          userDetails.enrollments.map((e: any) => (
-                            <View key={e._id} style={styles.itemSubCard}>
-                              <Text style={styles.itemSubTitle}>{e.batch_id?.course_id?.title || 'Course'}</Text>
-                              <Text style={styles.itemSubDesc}>Batch: {e.batch_id?.name || 'Batch'}</Text>
-                              <Text style={styles.itemSubMeta}>
-                                Days: {e.batch_id?.schedule_json?.days?.join(', ') || 'N/A'} · Duration: {e.batch_id?.course_id?.duration_weeks} Weeks
-                              </Text>
-                            </View>
-                          ))
-                        )}
-                      </View>
-
-                      {/* Assessment Results */}
-                      <View style={styles.detailSectionCard}>
-                        <Text style={styles.detailSectionTitle}>📊 Assessment Marks & Evaluation</Text>
-                        {(!userDetails.results || userDetails.results.length === 0) ? (
-                          <Text style={styles.emptyDetailText}>No evaluation marks recorded yet.</Text>
-                        ) : (
-                          userDetails.results.map((r: any) => (
-                            <View key={r._id} style={styles.resultItemRow}>
-                              <View style={{ flex: 1 }}>
-                                <Text style={styles.resultName}>{r.assessment_name}</Text>
-                                <Text style={styles.resultBatch}>{r.batch_id?.course_id?.title || r.batch_id?.name}</Text>
-                              </View>
-                              <View style={{ alignItems: 'flex-end' }}>
-                                <Text style={styles.resultScore}>{r.marks?.toFixed(1)}%</Text>
-                                <View style={[styles.gradeChip, { backgroundColor: getGradeColor(r.grade) }]}>
-                                  <Text style={styles.gradeChipText}>{r.grade || 'Pass'}</Text>
-                                </View>
-                              </View>
-                            </View>
-                          ))
-                        )}
-                      </View>
-
-                      {/* Practice Bookings */}
-                      <View style={styles.detailSectionCard}>
-                        <Text style={styles.detailSectionTitle}>🗓️ Practical Workshop Bookings</Text>
-                        {(!userDetails.bookings || userDetails.bookings.length === 0) ? (
-                          <Text style={styles.emptyDetailText}>No practice bookings found.</Text>
-                        ) : (
-                          userDetails.bookings.map((b: any) => (
-                            <View key={b._id} style={styles.itemSubCard}>
-                              <Text style={styles.itemSubTitle}>
-                                {b.slot_id?.day_of_week} Slot ({b.slot_id?.start_time} - {b.slot_id?.end_time})
-                              </Text>
-                              <Text style={styles.itemSubDesc}>Instructor: {b.slot_id?.instructor_id?.name || 'Instructor'}</Text>
-                              <Text style={styles.itemSubMeta}>Status: {b.status?.toUpperCase()}</Text>
-                            </View>
-                          ))
-                        )}
-                      </View>
-                    </>
-                  )}
-
-                  {/* 3. INSTRUCTOR SPECIFIC DETAILS */}
-                  {userDetails.user.role === 'instructor' && (
-                    <>
-                      {/* Instructor Teaching Overview */}
-                      <View style={styles.summaryBannerInstructor}>
-                        <View style={{ alignItems: 'center' }}>
-                          <Text style={styles.summaryBannerTitle}>Assigned Batches</Text>
-                          <Text style={styles.summaryBannerValue}>{userDetails.assignedBatches?.length || 0}</Text>
-                        </View>
-                        <View style={{ height: 30, width: 1, backgroundColor: 'rgba(255,255,255,0.3)' }} />
-                        <View style={{ alignItems: 'center' }}>
-                          <Text style={styles.summaryBannerTitle}>Total Students</Text>
-                          <Text style={styles.summaryBannerValue}>{userDetails.totalStudents || 0}</Text>
-                        </View>
-                      </View>
-
-                      {/* Teaching Batches */}
-                      <View style={styles.detailSectionCard}>
-                        <Text style={styles.detailSectionTitle}>🏫 Assigned Vocational Batches</Text>
-                        {(!userDetails.assignedBatches || userDetails.assignedBatches.length === 0) ? (
-                          <Text style={styles.emptyDetailText}>No batches currently assigned to this instructor.</Text>
-                        ) : (
-                          userDetails.assignedBatches.map((b: any) => (
-                            <View key={b._id} style={styles.itemSubCard}>
-                              <Text style={styles.itemSubTitle}>{b.name}</Text>
-                              <Text style={styles.itemSubDesc}>Course: {b.course_id?.title || 'Vocational Course'}</Text>
-                              <Text style={styles.itemSubMeta}>
-                                Schedule: {b.schedule_json?.days?.join(', ') || 'N/A'} · Max Capacity: {b.capacity} Students
-                              </Text>
-                            </View>
-                          ))
-                        )}
-                      </View>
-
-                      {/* Uploaded Videos */}
-                      <View style={styles.detailSectionCard}>
-                        <Text style={styles.detailSectionTitle}>📹 Course Video Lessons ({userDetails.videos?.length || 0})</Text>
-                        {(!userDetails.videos || userDetails.videos.length === 0) ? (
-                          <Text style={styles.emptyDetailText}>No video lessons uploaded yet.</Text>
-                        ) : (
-                          userDetails.videos.map((v: any) => (
-                            <View key={v._id} style={styles.resultItemRow}>
-                              <View style={{ flex: 1 }}>
-                                <Text style={styles.resultName}>{v.title}</Text>
-                                <Text style={styles.resultBatch}>Batch: {v.batch_id?.name || 'General'}</Text>
-                              </View>
-                              <Text style={{ fontSize: 12, color: '#6B7280' }}>
-                                {v.createdAt ? new Date(v.createdAt).toLocaleDateString() : ''}
-                              </Text>
-                            </View>
-                          ))
-                        )}
-                      </View>
-                    </>
-                  )}
-
-                  <View style={{ height: 40 }} />
-                </ScrollView>
-
-                {/* Profile Bottom Action Bar */}
-                <View style={styles.detailsFooter}>
-                  {userDetails.user.role === 'student' && !userDetails.user.is_active ? (
-                    <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
-                      <TouchableOpacity style={[styles.footerActionBtn, { backgroundColor: '#EF4444' }]} onPress={() => handleReject(userDetails.user._id, userDetails.user.name)}>
-                        <Text style={styles.footerActionText}>Reject Application</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[styles.footerActionBtn, { backgroundColor: '#10B981' }]} onPress={() => handleApprove(userDetails.user._id)}>
-                        <Text style={styles.footerActionText}>Approve Student</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: 'row', gap: 10, width: '100%', flexWrap: 'wrap' }}>
-                      {userDetails.user.role === 'student' && (
-                        <TouchableOpacity
-                          style={[styles.footerActionBtn, { backgroundColor: '#000000' }]}
-                          onPress={() => {
-                            setAssignStudentId(userDetails.user._id);
-                            setAssignModalVisible(true);
-                          }}
-                        >
-                          <Text style={styles.footerActionText}>Assign Batch</Text>
-                        </TouchableOpacity>
-                      )}
-                      <TouchableOpacity
-                        style={[styles.footerActionBtn, { backgroundColor: userDetails.user.is_active ? '#DC2626' : '#2563EB' }]}
-                        onPress={() => handleToggleActive(userDetails.user._id, userDetails.user.is_active, userDetails.user.name)}
-                      >
-                        <Text style={styles.footerActionText}>
-                          {userDetails.user.is_active ? 'Deactivate' : 'Activate'}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.footerActionBtn, { backgroundColor: '#7F1D1D' }]}
-                        onPress={() => handleDeleteCompletely(userDetails.user._id, userDetails.user.name, userDetails.user.role)}
-                      >
-                        <Text style={styles.footerActionText}>Delete Permanently</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              </View>
-            )}
-          </View>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
-      </Modal>
+      )}
+
+
 
 
 
@@ -1337,6 +1446,375 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
+  minimalTopNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  minimalBackBtn: {
+    padding: 6,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  /* PLAIN MINIMAL DESIGN STYLES */
+  plainProfileHeroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  plainAvatarImg: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 14,
+    backgroundColor: '#E5E7EB',
+  },
+  plainAvatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  plainNameText: {
+    fontSize: 19,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+  plainSubText: {
+    fontSize: 13,
+    color: '#4B5563',
+    marginTop: 2,
+  },
+  plainSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginTop: 20,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    paddingBottom: 4,
+  },
+  plainRow: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  plainLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  plainValue: {
+    fontSize: 14,
+    color: '#000000',
+    marginTop: 2,
+  },
+  embeddedActionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 16,
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  /* HARDCOPY PAPER APPLICATION FORM STYLES */
+  hardcopyFormSheet: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  formOfficialHeader: {
+    paddingBottom: 16,
+    marginBottom: 16,
+    borderBottomWidth: 2,
+    borderBottomColor: '#0F172A',
+  },
+  formHeaderCrestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  formCrestBadge: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+  formCrestBadgeText: {
+    color: '#F58220',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  formInstituteTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.8,
+  },
+  formDocumentTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+  formRefMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  formRefNoText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  formStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  formStatusPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#92400E',
+    letterSpacing: 0.4,
+  },
+  pendingDotIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F59E0B',
+    marginRight: 5,
+  },
+  formSectionBanner: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginTop: 16,
+    marginBottom: 10,
+  },
+  formSectionBannerText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  formProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    marginBottom: 8,
+  },
+  formAvatarImg: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1.5,
+    borderColor: '#0F172A',
+    marginRight: 14,
+  },
+  formAvatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  formApplicantFullName: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  formApplicantEmail: {
+    fontSize: 13,
+    color: '#475569',
+    marginTop: 1,
+    fontWeight: '500',
+  },
+  formOtpVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  formOtpVerifiedText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  formFieldRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  formFieldCell: {
+    flex: 1,
+  },
+  formFieldFullRow: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  formCellLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  formCellValue: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginTop: 2,
+  },
+  formBatchItemRow: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  formBatchItemTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  formBatchItemSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  /* EXECUTIVE PROFESSIONAL BUTTONS */
+  profRejectBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DC2626',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(220, 38, 38, 0.28)' },
+      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 6, elevation: 3 }
+    }),
+  },
+  profApproveBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)' },
+      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 }
+    }),
+  },
+  profAssignBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 3px 10px rgba(37, 99, 235, 0.28)' },
+      default: { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.28, shadowRadius: 5, elevation: 3 }
+    }),
+  },
+  profDeactivateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D97706',
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 3px 10px rgba(217, 119, 6, 0.28)' },
+      default: { shadowColor: '#D97706', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.28, shadowRadius: 5, elevation: 3 }
+    }),
+  },
+  profActivateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669',
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 3px 10px rgba(5, 150, 105, 0.28)' },
+      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.28, shadowRadius: 5, elevation: 3 }
+    }),
+  },
+  profDeleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DC2626',
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 3px 10px rgba(220, 38, 38, 0.28)' },
+      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.28, shadowRadius: 5, elevation: 3 }
+    }),
+  },
+  profBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
   topHeaderContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -1378,8 +1856,8 @@ const styles = StyleSheet.create({
   searchFilterRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    marginBottom: 16,
-    marginTop: 16,
+    marginBottom: 8,
+    marginTop: 8,
   },
   searchBox: {
     flex: 1,
@@ -1389,13 +1867,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 24,
-    paddingHorizontal: 16,
-    height: 44,
+    paddingHorizontal: 14,
+    height: 40,
     marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#1F2937',
   },
   filterBtn: {
@@ -1405,8 +1883,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D1D5DB',
     borderRadius: 24,
-    paddingHorizontal: 16,
-    height: 44,
+    paddingHorizontal: 14,
+    height: 40,
     ...Platform.select({
       web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)' },
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 }
@@ -1417,15 +1895,15 @@ const styles = StyleSheet.create({
     borderColor: '#0F172A',
   },
   filterBtnText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '600',
     color: '#374151',
   },
   segmentedTrackContainer: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
@@ -1515,9 +1993,9 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     overflow: 'visible',
@@ -1535,15 +2013,20 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1E40AF',
+  avatarImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
   },
   headerDetails: {
     flex: 1,
@@ -1753,13 +2236,20 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  detailsAvatarText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  detailsAvatarImg: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
   },
   detailsName: {
     fontSize: 18,
@@ -1795,11 +2285,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
+  detailSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailSectionAccent: {
+    width: 3.5,
+    height: 16,
+    borderRadius: 2,
+    backgroundColor: '#F58220',
+    marginRight: 8,
+  },
   detailSectionTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 10,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   detailRow: {
     flexDirection: 'row',
@@ -2131,5 +2632,228 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '500',
     color: '#1E293B',
-  }
+  },
+
+  /* LIQUID FAB STYLES */
+  liquidFabContainer: {
+    position: 'absolute',
+    bottom: 95,
+    right: 20,
+    width: 62,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 998,
+  },
+  liquidWaveRing: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 107, 0, 0.4)',
+  },
+  liquidWaveRingSecond: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
+  },
+  liquidFabButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 26px rgba(255, 107, 0, 0.55), inset 0px 2px 4px rgba(255, 255, 255, 0.4)' },
+      default: {
+        shadowColor: '#FF6B00',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.55,
+        shadowRadius: 12,
+        elevation: 10,
+      },
+    }),
+  },
+  liquidGlassSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '48%',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
+  liquidInnerCore: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  liquidPlusIcon: {
+    ...Platform.select({
+      web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
+    }),
+  },
+
+  /* PROFESSIONAL COLORED ACTION BUTTON STYLES */
+  coloredRejectBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DC2626',
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    minWidth: 140,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)' },
+      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 }
+    }),
+  },
+  coloredApproveBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669',
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    minWidth: 140,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(5, 150, 105, 0.35)' },
+      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 }
+    }),
+  },
+  coloredAssignBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' },
+      default: { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }
+    }),
+  },
+  coloredDeactivateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D97706',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)' },
+      default: { shadowColor: '#D97706', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }
+    }),
+  },
+  coloredActivateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)' },
+      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }
+    }),
+  },
+  coloredDeleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DC2626',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)' },
+      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }
+    }),
+  },
+  coloredBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13.5,
+  },
+
+  /* STRUCTURED CARD STYLES */
+  infoSectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+    }),
+  },
+  sectionCardHeaderTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#0F172A',
+  },
+  infoDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  infoLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  infoVal: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#0F172A',
+    maxWidth: '65%',
+    textAlign: 'right',
+  },
+  modalAvatarImg: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F1F5F9',
+  },
+  infoAvatarCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoStudentName: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#0F172A',
+  },
+  infoStudentEmail: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 1,
+  },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,12 @@ import {
   Platform,
   Alert,
   Modal,
-  ScrollView
+  ScrollView,
+  Animated,
+  LayoutAnimation,
+  UIManager,
+  NativeSyntheticEvent,
+  NativeScrollEvent
 } from 'react-native';
 import api from '../../services/api';
 import CustomDropdown from '../../components/shared/CustomDropdown';
@@ -20,6 +25,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 
 import ScreenHeader from '../../components/shared/ScreenHeader';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function BatchManagementScreen() {
   const [batches, setBatches] = useState<any[]>([]);
@@ -34,6 +43,46 @@ export default function BatchManagementScreen() {
   const [search, setSearch] = useState('');
   const [showFilter, setShowFilter] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'full'>('all');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const headerAnim = useRef(new Animated.Value(1)).current;
+  const isHeaderVisibleRef = useRef(true);
+  const lastScrollY = useRef(0);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isSearchFocused) return;
+    const currentY = event.nativeEvent.contentOffset.y;
+    const diff = currentY - lastScrollY.current;
+
+    if (currentY <= 15) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff > 8 && currentY > 35) {
+      if (isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = false;
+        Animated.timing(headerAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff < -8) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    }
+    lastScrollY.current = currentY;
+  };
 
   // Edit/Add Modal
   const [modalVisible, setModalVisible] = useState(false);
@@ -50,6 +99,74 @@ export default function BatchManagementScreen() {
   });
   const [saving, setSaving] = useState(false);
   const [showPicker, setShowPicker] = useState<'start' | 'end' | null>(null);
+
+  // Liquid FAB Animation State
+  const wave1Anim = React.useRef(new Animated.Value(0)).current;
+  const wave2Anim = React.useRef(new Animated.Value(0)).current;
+  const buttonScaleAnim = React.useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    wave1Anim.setValue(0);
+    wave2Anim.setValue(0);
+
+    const animation = Animated.loop(
+      Animated.parallel([
+        Animated.timing(wave1Anim, {
+          toValue: 1,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.delay(900),
+          Animated.timing(wave2Anim, {
+            toValue: 1,
+            duration: 2200,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+
+  const handleFabPressIn = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 0.9,
+      useNativeDriver: true,
+      friction: 5,
+      tension: 100,
+    }).start();
+  };
+
+  const handleFabPressOut = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 4,
+      tension: 80,
+    }).start();
+  };
+
+  const wave1Scale = wave1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.55],
+  });
+
+  const wave1Opacity = wave1Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.45, 0.25, 0],
+  });
+
+  const wave2Scale = wave2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.4],
+  });
+
+  const wave2Opacity = wave2Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.35, 0.18, 0],
+  });
 
   // Batch Details Modal
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
@@ -315,86 +432,40 @@ export default function BatchManagementScreen() {
         subtitle="Manage vocational training batches"
       />
 
-      {/* Top Create Batch Action Button */}
-      <View style={styles.actionButtonRow}>
-        <TouchableOpacity style={styles.addBatchBtn} onPress={openAddModal} activeOpacity={0.85}>
-          <Icon name="add" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
-          <Text style={styles.addBatchBtnText}>Create Batch</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Search Bar & Filter Toggle Button */}
-      <View style={styles.searchFilterRow}>
-        <View style={styles.searchBox}>
-          <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search batch by name, course, or room..."
-            placeholderTextColor="#9CA3AF"
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
-        <TouchableOpacity
-          style={[styles.filterBtn, showFilter && styles.filterBtnActive]}
-          onPress={() => setShowFilter(!showFilter)}
-          activeOpacity={0.8}
-        >
-          <Icon name="options-outline" size={18} color={showFilter ? '#FFFFFF' : '#374151'} style={{ marginRight: 6 }} />
-          <Text style={[styles.filterBtnText, showFilter && { color: '#FFFFFF' }]}>Filters</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Filter Options Panel */}
-      {showFilter && (
-        <View style={styles.filterOptionsPanel}>
-          <Text style={styles.filterPanelTitle}>Filter Batch Status:</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-            <TouchableOpacity
-              style={[styles.filterChip, statusFilter === 'all' && styles.filterChipActive]}
-              onPress={() => setStatusFilter('all')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.filterChipText, statusFilter === 'all' && styles.filterChipTextActive]}>
-                All ({batches.length})
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterChip, statusFilter === 'active' && styles.filterChipActive]}
-              onPress={() => setStatusFilter('active')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.filterChipText, statusFilter === 'active' && styles.filterChipTextActive]}>
-                Active ({batches.filter(b => (b.enrolled_count || 0) < b.capacity).length})
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterChip, statusFilter === 'full' && styles.filterChipActive]}
-              onPress={() => setStatusFilter('full')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.filterChipText, statusFilter === 'full' && styles.filterChipTextActive]}>
-                Full ({batches.filter(b => (b.enrolled_count || 0) >= b.capacity).length})
-              </Text>
-            </TouchableOpacity>
+      {/* Full-width Search Bar with Smooth Animation */}
+      <Animated.View
+        style={{
+          maxHeight: headerAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 64],
+          }),
+          opacity: headerAnim,
+          transform: [
+            {
+              translateY: headerAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-12, 0],
+              }),
+            },
+          ],
+          overflow: 'hidden',
+        }}
+      >
+        <View style={styles.searchFilterRow}>
+          <View style={[styles.searchBox, { marginRight: 0 }]}>
+            <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search batch by name, course, or room..."
+              placeholderTextColor="#9CA3AF"
+              value={search}
+              onChangeText={setSearch}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+            />
           </View>
         </View>
-      )}
-
-      {/* Filter Banner if active */}
-      {filterCourseId ? (
-        <View style={styles.filterBanner}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <Icon name="options-outline" size={16} color="#78350F" style={{ marginRight: 8 }} />
-            <Text style={styles.filterText} numberOfLines={1}>
-              Filtered by: <Text style={{ fontWeight: 'bold' }}>{courseName}</Text>
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => navigation.setParams({ courseId: null })}>
-            <Icon name="close" size={18} color="#78350F" />
-          </TouchableOpacity>
-        </View>
-      ) : null}
+      </Animated.View>
 
       {/* Batch List */}
       {loading ? (
@@ -406,8 +477,40 @@ export default function BatchManagementScreen() {
           keyExtractor={i => i._id}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           ListEmptyComponent={<Text style={styles.emptyText}>No batches found.</Text>}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         />
       )}
+
+      {/* Floating Create Batch Liquid FAB Button */}
+      <View style={styles.liquidFabContainer} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            styles.liquidWaveRing,
+            { transform: [{ scale: wave1Scale }], opacity: wave1Opacity }
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.liquidWaveRingSecond,
+            { transform: [{ scale: wave2Scale }], opacity: wave2Opacity }
+          ]}
+        />
+        <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
+          <TouchableOpacity
+            style={styles.liquidFabButton}
+            onPress={openAddModal}
+            onPressIn={handleFabPressIn}
+            onPressOut={handleFabPressOut}
+            activeOpacity={0.9}
+          >
+            <View style={styles.liquidGlassSheen} />
+            <View style={styles.liquidInnerCore}>
+              <Icon name="add" size={32} color="#FFFFFF" style={styles.liquidPlusIcon} />
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
 
       {/* ========================================================================= */}
       {/* COMPREHENSIVE BATCH DETAILS MODAL */}
@@ -748,8 +851,8 @@ const styles = StyleSheet.create({
   searchFilterRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    marginBottom: 10,
-    marginTop: 10,
+    marginBottom: 8,
+    marginTop: 8,
   },
   searchBox: {
     flex: 1,
@@ -759,8 +862,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 26,
-    paddingHorizontal: 16,
-    height: 46,
+    paddingHorizontal: 14,
+    height: 40,
     marginRight: 8,
     ...Platform.select({
       web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
@@ -769,7 +872,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#1F2937',
   },
   filterBtn: {
@@ -779,8 +882,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 24,
-    paddingHorizontal: 16,
-    height: 46,
+    paddingHorizontal: 14,
+    height: 40,
     ...Platform.select({
       web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
@@ -850,9 +953,9 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 14,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     ...Platform.select({
@@ -990,17 +1093,73 @@ const styles = StyleSheet.create({
     marginTop: 40,
     fontSize: 15,
   },
-  fab: {
+
+  /* LIQUID FAB STYLES */
+  liquidFabContainer: {
     position: 'absolute',
-    bottom: 100,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#000000',
+    bottom: 95,
+    right: 20,
+    width: 62,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 998,
+  },
+  liquidWaveRing: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 107, 0, 0.4)',
+  },
+  liquidWaveRingSecond: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
+  },
+  liquidFabButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF6B00',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 26px rgba(255, 107, 0, 0.55), inset 0px 2px 4px rgba(255, 255, 255, 0.4)' },
+      default: {
+        shadowColor: '#FF6B00',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.55,
+        shadowRadius: 12,
+        elevation: 10,
+      },
+    }),
+  },
+  liquidGlassSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '48%',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
+  liquidInnerCore: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  liquidPlusIcon: {
+    ...Platform.select({
+      web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
+    }),
   },
 
   /* DETAILS MODAL STYLES */
