@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,22 @@ import {
   Modal,
   FlatList,
   RefreshControl,
-  Platform
+  Platform,
+  Animated,
+  LayoutAnimation,
+  UIManager,
+  NativeSyntheticEvent,
+  NativeScrollEvent
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../services/api';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -128,6 +137,46 @@ export default function AdminSlotManagementScreen() {
 
   // Create Form State
   const [createMode, setCreateMode] = useState<'single' | 'multi'>('single');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const headerAnim = useRef(new Animated.Value(1)).current;
+  const isHeaderVisibleRef = useRef(true);
+  const lastScrollY = useRef(0);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isSearchFocused) return;
+    const currentY = event.nativeEvent.contentOffset.y;
+    const diff = currentY - lastScrollY.current;
+
+    if (currentY <= 15) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff > 8 && currentY > 35) {
+      if (isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = false;
+        Animated.timing(headerAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff < -8) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    }
+    lastScrollY.current = currentY;
+  };
   const [createBatchId, setCreateBatchId] = useState('');
   const [createInstructorId, setCreateInstructorId] = useState('');
   const [createDate, setCreateDate] = useState<Date>(new Date());
@@ -141,6 +190,74 @@ export default function AdminSlotManagementScreen() {
     { day_of_week: 'Monday', start_time: '09:00', end_time: '12:00', max_students: '10', equipment_note: '', location: 'Hardware Lab 01' }
   ]);
   const [creating, setCreating] = useState(false);
+
+  // Liquid FAB Animation State
+  const wave1Anim = React.useRef(new Animated.Value(0)).current;
+  const wave2Anim = React.useRef(new Animated.Value(0)).current;
+  const buttonScaleAnim = React.useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    wave1Anim.setValue(0);
+    wave2Anim.setValue(0);
+
+    const animation = Animated.loop(
+      Animated.parallel([
+        Animated.timing(wave1Anim, {
+          toValue: 1,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.delay(900),
+          Animated.timing(wave2Anim, {
+            toValue: 1,
+            duration: 2200,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+
+  const handleFabPressIn = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 0.9,
+      useNativeDriver: true,
+      friction: 5,
+      tension: 100,
+    }).start();
+  };
+
+  const handleFabPressOut = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 4,
+      tension: 80,
+    }).start();
+  };
+
+  const wave1Scale = wave1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.55],
+  });
+
+  const wave1Opacity = wave1Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.45, 0.25, 0],
+  });
+
+  const wave2Scale = wave2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.4],
+  });
+
+  const wave2Opacity = wave2Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.35, 0.18, 0],
+  });
 
   useEffect(() => {
     fetchMasterData();
@@ -662,18 +779,6 @@ export default function AdminSlotManagementScreen() {
         subtitle="Configure & manage practical training slots"
       />
 
-      {/* Top Action Button: Create Practical Slot */}
-      <View style={styles.actionButtonRow}>
-        <TouchableOpacity
-          style={styles.addSlotBtn}
-          onPress={() => setCreateModalVisible(true)}
-          activeOpacity={0.85}
-        >
-          <Icon name="add" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
-          <Text style={styles.addSlotBtnText}>Create Practical Slot</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Mode View Tabs (Month / Week / Day / List) */}
       <View style={styles.viewToggleRow}>
         {['Month', 'Week', 'Day', 'List'].map(mode => (
@@ -705,23 +810,49 @@ export default function AdminSlotManagementScreen() {
 
       <View style={{ flex: 1 }}>
         {viewMode === 'List' && (
-          <View style={styles.listTopBar}>
-            <View style={styles.metricsRow}>
-              <View style={styles.metricItem}><Text style={styles.metricVal}>{slots.length}</Text><Text style={styles.metricLbl}>TOTAL SLOTS</Text></View>
-              <View style={styles.metricItem}><Text style={[styles.metricVal, { color: '#10B981' }]}>{slots.filter(s => s.is_open).length}</Text><Text style={styles.metricLbl}>OPEN SLOTS</Text></View>
-              <View style={styles.metricItem}><Text style={[styles.metricVal, { color: '#3B82F6' }]}>{slots.reduce((acc, s) => acc + (s.booked_count || 0), 0)}</Text><Text style={styles.metricLbl}>BOOKED SEATS</Text></View>
-            </View>
-            <View style={styles.searchFilterRow}>
-              <View style={styles.searchBox}>
-                <Icon name="search-outline" size={16} color="#9CA3AF" />
-                <TextInput style={styles.searchInput} placeholder="Search by batch, note..." value={search} onChangeText={setSearch} />
+          <Animated.View
+            style={{
+              maxHeight: headerAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 120],
+              }),
+              opacity: headerAnim,
+              transform: [
+                {
+                  translateY: headerAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-12, 0],
+                  }),
+                },
+              ],
+              overflow: 'hidden',
+            }}
+          >
+            <View style={styles.listTopBar}>
+              <View style={styles.metricsRow}>
+                <View style={styles.metricItem}><Text style={styles.metricVal}>{slots.length}</Text><Text style={styles.metricLbl}>TOTAL SLOTS</Text></View>
+                <View style={styles.metricItem}><Text style={[styles.metricVal, { color: '#10B981' }]}>{slots.filter(s => s.is_open).length}</Text><Text style={styles.metricLbl}>OPEN SLOTS</Text></View>
+                <View style={styles.metricItem}><Text style={[styles.metricVal, { color: '#3B82F6' }]}>{slots.reduce((acc, s) => acc + (s.booked_count || 0), 0)}</Text><Text style={styles.metricLbl}>BOOKED SEATS</Text></View>
               </View>
-              <TouchableOpacity style={styles.filterBtnOutline} onPress={() => setShowFilter(true)}>
-                <Icon name="options-outline" size={16} color="#4B5563" />
-                <Text style={styles.filterBtnOutlineText}>Filters</Text>
-              </TouchableOpacity>
+              <View style={styles.searchFilterRow}>
+                <View style={styles.searchBox}>
+                  <Icon name="search-outline" size={16} color="#9CA3AF" />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search by batch, note..."
+                    value={search}
+                    onChangeText={setSearch}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setIsSearchFocused(false)}
+                  />
+                </View>
+                <TouchableOpacity style={styles.filterBtnOutline} onPress={() => setShowFilter(true)}>
+                  <Icon name="options-outline" size={16} color="#4B5563" />
+                  <Text style={styles.filterBtnOutlineText}>Filters</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </Animated.View>
         )}
 
         {loading ? (
@@ -730,7 +861,13 @@ export default function AdminSlotManagementScreen() {
           viewMode === 'Week' ? renderWeekView() :
             viewMode === 'Month' ? renderMonthView() :
               viewMode === 'Day' ? (
-                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+                <ScrollView
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+                  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                  onScroll={handleScroll}
+                  scrollEventThrottle={16}
+                >
                   <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 16, color: '#1F2937' }}>
                     Schedule for {selectedDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                   </Text>
@@ -760,7 +897,13 @@ export default function AdminSlotManagementScreen() {
                   )}
                 </ScrollView>
               ) :
-                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+                <ScrollView
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+                  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                  onScroll={handleScroll}
+                  scrollEventThrottle={16}
+                >
                   {slots.length === 0 ? (
                     <View style={styles.emptyContainer}>
                       <Icon name="calendar-outline" size={48} color="#D1D5DB" />
@@ -1409,6 +1552,35 @@ export default function AdminSlotManagementScreen() {
           </View>
         </View>
       </Modal>
+      {/* Floating Create Practical Slot Liquid FAB Button */}
+      <View style={styles.liquidFabContainer} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            styles.liquidWaveRing,
+            { transform: [{ scale: wave1Scale }], opacity: wave1Opacity }
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.liquidWaveRingSecond,
+            { transform: [{ scale: wave2Scale }], opacity: wave2Opacity }
+          ]}
+        />
+        <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
+          <TouchableOpacity
+            style={styles.liquidFabButton}
+            onPress={() => setCreateModalVisible(true)}
+            onPressIn={handleFabPressIn}
+            onPressOut={handleFabPressOut}
+            activeOpacity={0.9}
+          >
+            <View style={styles.liquidGlassSheen} />
+            <View style={styles.liquidInnerCore}>
+              <Icon name="add" size={32} color="#FFFFFF" style={styles.liquidPlusIcon} />
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -1418,8 +1590,8 @@ const styles = StyleSheet.create({
 
   actionButtonRow: {
     paddingHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 6,
+    marginTop: 8,
+    marginBottom: 4,
   },
   addSlotBtn: {
     backgroundColor: '#F58220',
@@ -1452,7 +1624,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: 26,
     padding: 4,
-    marginTop: 10,
+    marginTop: 6,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     ...Platform.select({
@@ -1562,20 +1734,20 @@ const styles = StyleSheet.create({
   dateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginHorizontal: 16 },
   dateBadgeText: { color: '#F97316', fontWeight: '600', fontSize: 14 },
 
-  listTopBar: { backgroundColor: '#fff', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  metricsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  listTopBar: { backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  metricsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   metricItem: { alignItems: 'center', flex: 1 },
-  metricVal: { fontSize: 18, fontWeight: 'bold', color: '#1F2937' },
-  metricLbl: { fontSize: 10, color: '#6B7280', marginTop: 4, fontWeight: '600' },
+  metricVal: { fontSize: 16, fontWeight: 'bold', color: '#1F2937' },
+  metricLbl: { fontSize: 10, color: '#6B7280', marginTop: 2, fontWeight: '600' },
   searchFilterRow: { flexDirection: 'row', alignItems: 'center' },
-  searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginRight: 12 },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 14, color: '#1F2937' },
-  filterBtnOutline: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
-  filterBtnOutlineText: { marginLeft: 6, color: '#4B5563', fontSize: 14, fontWeight: '500' },
+  searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, marginRight: 12 },
+  searchInput: { flex: 1, marginLeft: 8, fontSize: 13.5, color: '#1F2937' },
+  filterBtnOutline: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
+  filterBtnOutlineText: { marginLeft: 6, color: '#4B5563', fontSize: 13, fontWeight: '500' },
 
-  cardWrapper: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 16, overflow: 'hidden', elevation: 2 },
+  cardWrapper: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 8, overflow: 'hidden', elevation: 2 },
   cardAccent: { width: 6, backgroundColor: '#F97316' },
-  cardInner: { flex: 1, padding: 16 },
+  cardInner: { flex: 1, padding: 12 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   cardTag: { backgroundColor: '#FFF7ED', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
   cardTagText: { color: '#F97316', fontSize: 10, fontWeight: 'bold' },
@@ -1668,6 +1840,75 @@ const styles = StyleSheet.create({
     }),
   },
   submitCreateBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+
+  /* LIQUID FAB STYLES */
+  liquidFabContainer: {
+    position: 'absolute',
+    bottom: 95,
+    right: 20,
+    width: 62,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 998,
+  },
+  liquidWaveRing: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 107, 0, 0.4)',
+  },
+  liquidWaveRingSecond: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
+  },
+  liquidFabButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 26px rgba(255, 107, 0, 0.55), inset 0px 2px 4px rgba(255, 255, 255, 0.4)' },
+      default: {
+        shadowColor: '#FF6B00',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.55,
+        shadowRadius: 12,
+        elevation: 10,
+      },
+    }),
+  },
+  liquidGlassSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '48%',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
+  liquidInnerCore: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  liquidPlusIcon: {
+    ...Platform.select({
+      web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
+    }),
+  },
+
   emptyContainer: { alignItems: 'center', marginVertical: 30, paddingHorizontal: 20 },
   emptyTitle: { fontSize: 16, fontWeight: 'bold', color: '#475569', marginTop: 10 },
   emptySubtitle: { fontSize: 13, color: '#94A3B8', textAlign: 'center', marginTop: 4 },
