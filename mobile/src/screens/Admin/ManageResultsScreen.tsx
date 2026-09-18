@@ -9,12 +9,15 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
-  ScrollView
+  ScrollView,
+  Platform
 } from 'react-native';
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import api from '../../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
+
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function ManageResultsScreen() {
   const [batches, setBatches] = useState<any[]>([]);
@@ -236,8 +239,10 @@ export default function ManageResultsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Spacer for Upper Margin */}
-      <View style={{ height: 20 }} />
+      <ScreenHeader
+        title="Results & Evaluation"
+        subtitle="Student grades & batch scoreboards"
+      />
 
       {/* Controls Bar: Batch Dropdown & Toggle Button */}
       <View style={styles.controlsBar}>
@@ -479,22 +484,36 @@ const styles = StyleSheet.create({
   toggleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E5E7EB',
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 24,
+    paddingHorizontal: 16,
     height: 48,
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   toggleBtnActive: {
-    backgroundColor: '#000000',
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+        elevation: 4,
+      }
+    }),
   },
   toggleBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: '#64748B',
   },
   toggleBtnTextActive: {
     color: '#FFFFFF',
+    fontWeight: '700',
   },
   overviewBanner: {
     flexDirection: 'row',

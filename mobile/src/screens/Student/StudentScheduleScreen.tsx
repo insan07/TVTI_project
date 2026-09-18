@@ -17,6 +17,7 @@ import api from '../../services/api';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 const parseUTCDate = (dateStr: string) => {
   if (!dateStr) return new Date();
@@ -189,11 +190,8 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
   return (
     <View style={styles.container}>
       {/* FIXED STICKY TOP HEADER */}
-      <View style={[styles.stickyHeader, { paddingTop: Math.max(insets.top + 8, 16) }]}>
-        {/* Main Title */}
-        <View style={styles.pageTitleContainer}>
-          <Text style={styles.pageTitle}>Schedule</Text>
-        </View>
+      <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
+        <ScreenHeader title="Schedule" subtitle="Timetable & practical slots" />
 
         {/* Sleek Compact Course Selector Header Bar */}
         <View style={styles.courseSelectContainer}>

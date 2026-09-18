@@ -9,7 +9,8 @@ import {
   RefreshControl,
   ScrollView,
   Platform,
-  Modal
+  Modal,
+  Animated
 } from 'react-native';
 import api from '../../services/api';
 import CustomDropdown from '../../components/shared/CustomDropdown';
@@ -18,6 +19,8 @@ import { COLORS, FONTS } from '../../config/theme';
 import { AuthContext } from '../../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import ScreenHeader from '../../components/shared/ScreenHeader';
+import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
 
 export default function PostAnnouncementScreen() {
   const navigation = useNavigation<any>();
@@ -33,10 +36,76 @@ export default function PostAnnouncementScreen() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Compose & Edit Modal State
+  // Compose & Edit Modal & 3-Dots Menu State
   const [composeModalVisible, setComposeModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  // Liquid FAB Animation State
+  const wave1Anim = React.useRef(new Animated.Value(0)).current;
+  const wave2Anim = React.useRef(new Animated.Value(0)).current;
+  const buttonScaleAnim = React.useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    wave1Anim.setValue(0);
+    wave2Anim.setValue(0);
+
+    const animation = Animated.loop(
+      Animated.parallel([
+        Animated.timing(wave1Anim, {
+          toValue: 1,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(wave2Anim, {
+          toValue: 1,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+
+  const handleFabPressIn = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 0.9,
+      useNativeDriver: true,
+      friction: 5,
+      tension: 100,
+    }).start();
+  };
+
+  const handleFabPressOut = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 4,
+      tension: 80,
+    }).start();
+  };
+
+  const wave1Scale = wave1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.55],
+  });
+
+  const wave1Opacity = wave1Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.45, 0.25, 0],
+  });
+
+  const wave2Scale = wave2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.4],
+  });
+
+  const wave2Opacity = wave2Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.35, 0.18, 0],
+  });
   const [editFormData, setEditFormData] = useState({ batch_id: 'all', title: '', message: '' });
   const [editLoading, setEditLoading] = useState(false);
 
@@ -231,41 +300,17 @@ export default function PostAnnouncementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* Stable Fixed Header Card */}
+      <ScreenHeader
+        title="Announcements"
+        subtitle="Broadcast notices & updates to batches"
+      />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F58220']} />}
       >
-        {/* Top Header Bar with Navigation Back Button, Title, and Round + Button */}
-        <View style={styles.topHeaderBar}>
-          <View style={styles.headerLeftGroup}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => {
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                } else {
-                  navigation.navigate('Dashboard');
-                }
-              }}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="arrow-back" size={20} color="#0F172A" />
-            </TouchableOpacity>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle}>Announcements</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={styles.roundAddBtn}
-            onPress={() => setComposeModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Icon name="add" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
 
         {/* Announcements List */}
         <View style={styles.listSection}>
@@ -290,67 +335,98 @@ export default function PostAnnouncementScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            announcements.map(ann => (
-              <View key={ann._id} style={styles.announcementCard}>
-                {/* Card Top Row: Title + Timestamp */}
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitle}>{ann.title}</Text>
-                  <View style={styles.timestampBadge}>
-                    <Text style={styles.timestampText}>{formatTimestamp(ann.createdAt)}</Text>
+            announcements.map(ann => {
+              const isMenuOpen = activeMenuId === ann._id;
+              return (
+                <View key={ann._id} style={[styles.announcementCard, isMenuOpen && { zIndex: 9999 }]}>
+                  {/* Card Top Row: Title + Timestamp + 3-Dots Menu */}
+                  <View style={styles.cardHeaderRow}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={styles.cardTitle}>{ann.title}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={styles.timestampBadge}>
+                        <Text style={styles.timestampText}>{formatTimestamp(ann.createdAt)}</Text>
+                      </View>
+                      <WhatsAppOptionsMenu
+                        options={[
+                          {
+                            id: 'edit_announcement',
+                            label: 'Edit',
+                            onPress: () => handleOpenEdit(ann),
+                          },
+                          {
+                            id: 'delete_announcement',
+                            label: 'Delete',
+                            destructive: true,
+                            onPress: () => handleDelete(ann._id),
+                          },
+                        ]}
+                      />
+                    </View>
                   </View>
-                </View>
 
-                {/* Target & Author Badges */}
-                <View style={styles.metaRow}>
-                  <View style={styles.targetBadge}>
-                    <Icon
-                      name={ann.batch_id ? "people-outline" : "globe-outline"}
-                      size={13}
-                      color="#F58220"
-                      style={{ marginRight: 4 }}
-                    />
-                    <Text style={styles.targetBadgeText}>
-                      {ann.batch_id ? (ann.batch_id.name || ann.batch_id.course_id?.title || 'Target Batch') : 'All Batches'}
-                    </Text>
-                  </View>
-                  {ann.posted_by && (
-                    <View style={styles.authorBadge}>
-                      <Icon name="person-circle-outline" size={13} color="#6B7280" style={{ marginRight: 4 }} />
-                      <Text style={styles.authorBadgeText}>
-                        {ann.posted_by.name || 'Staff'} {ann.posted_by.role ? `(${ann.posted_by.role})` : ''}
+                  {/* Target & Author Badges */}
+                  <View style={styles.metaRow}>
+                    <View style={styles.targetBadge}>
+                      <Icon
+                        name={ann.batch_id ? "people-outline" : "globe-outline"}
+                        size={13}
+                        color="#F58220"
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={styles.targetBadgeText}>
+                        {ann.batch_id ? (ann.batch_id.name || ann.batch_id.course_id?.title || 'Target Batch') : 'All Batches'}
                       </Text>
                     </View>
-                  )}
+                    {ann.posted_by && (
+                      <View style={styles.authorBadge}>
+                        <Icon name="person-circle-outline" size={13} color="#6B7280" style={{ marginRight: 4 }} />
+                        <Text style={styles.authorBadgeText}>
+                          {ann.posted_by.name || 'Staff'} {ann.posted_by.role ? `(${ann.posted_by.role})` : ''}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Message Body */}
+                  <Text style={styles.cardBody}>{ann.message}</Text>
                 </View>
-
-                {/* Message Body */}
-                <Text style={styles.cardBody}>{ann.message}</Text>
-
-                {/* Actions Row: Edit and Delete */}
-                <View style={styles.cardActionRow}>
-                  <TouchableOpacity
-                    style={styles.cardEditBtn}
-                    onPress={() => handleOpenEdit(ann)}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="create-outline" size={15} color="#F58220" style={{ marginRight: 5 }} />
-                    <Text style={styles.cardEditText}>Edit</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.cardDeleteBtn}
-                    onPress={() => handleDelete(ann._id)}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="trash-outline" size={15} color="#EF4444" style={{ marginRight: 5 }} />
-                    <Text style={styles.cardDeleteText}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
+
+      {/* Floating Create Announcement Liquid FAB Button */}
+      <View style={styles.liquidFabContainer} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            styles.liquidWaveRing,
+            { transform: [{ scale: wave1Scale }], opacity: wave1Opacity }
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.liquidWaveRingSecond,
+            { transform: [{ scale: wave2Scale }], opacity: wave2Opacity }
+          ]}
+        />
+        <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
+          <TouchableOpacity
+            style={styles.liquidFabButton}
+            onPress={() => setComposeModalVisible(true)}
+            onPressIn={handleFabPressIn}
+            onPressOut={handleFabPressOut}
+            activeOpacity={0.9}
+          >
+            <View style={styles.liquidGlassSheen} />
+            <View style={styles.liquidInnerCore}>
+              <Icon name="add" size={32} color="#FFFFFF" style={styles.liquidPlusIcon} />
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
 
       {/* CREATE / POST ANNOUNCEMENT MODAL */}
       <Modal
@@ -725,6 +801,48 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 8,
+    position: 'relative',
+  },
+  threeDotsBtn: {
+    padding: 3,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  optionsMenuContainer: {
+    position: 'absolute',
+    top: 28,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 4,
+    width: 120,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    zIndex: 9999,
+    ...Platform.select({
+      web: { boxShadow: '0px 10px 25px rgba(0, 0, 0, 0.15)' },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        elevation: 8,
+      },
+    }),
+  },
+  optionsMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  optionsMenuText: {
+    fontSize: 13,
+    color: '#334155',
+    ...FONTS.semiBold,
   },
   cardTitle: {
     fontSize: 15.5,
@@ -1083,5 +1201,73 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     ...FONTS.bold,
     fontSize: 14.5
-  }
+  },
+
+  /* Liquid Glass FAB + Button Styles */
+  liquidFabContainer: {
+    position: 'absolute',
+    bottom: 25,
+    right: 20,
+    width: 62,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 998,
+  },
+  liquidWaveRing: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 107, 0, 0.4)',
+  },
+  liquidWaveRingSecond: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
+  },
+  liquidFabButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 26px rgba(255, 107, 0, 0.55), inset 0px 2px 4px rgba(255, 255, 255, 0.4)' },
+      default: {
+        shadowColor: '#FF6B00',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.55,
+        shadowRadius: 12,
+        elevation: 10,
+      },
+    }),
+  },
+  liquidGlassSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '48%',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
+  liquidInnerCore: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  liquidPlusIcon: {
+    ...Platform.select({
+      web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
+    }),
+  },
 });

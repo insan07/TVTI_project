@@ -18,6 +18,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 const formatUploadedTime = (dateStr?: string) => {
   if (!dateStr) return 'Upload date unknown';
@@ -106,13 +107,12 @@ export default function VideoPlayerScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('StudentApp'))}>
-          <Icon name="arrow-back" size={22} color="#1A1A1A" />
-        </TouchableOpacity>
-        <Text style={styles.pageHeaderTitle}>Video Player</Text>
-        <View style={{ width: 32 }} />
+      <View style={{ paddingTop: insets.top }}>
+        <ScreenHeader
+          title="Video Player"
+          subtitle={videoData?.title || 'Course Lesson'}
+          showBack={true}
+        />
       </View>
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>

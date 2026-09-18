@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config/constants';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 if (Platform.OS === 'android') {
   if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -152,9 +153,8 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
   return (
     <View style={styles.container}>
       {/* FIXED STICKY TOP HEADER */}
-      <View style={[styles.stickyHeader, { paddingTop: Math.max(insets.top + 8, 16) }]}>
-        {/* Main Heading */}
-        <Text style={styles.mainTitle}>Uploads</Text>
+      <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
+        <ScreenHeader title="Uploads" subtitle="Course videos & study materials" />
 
         {/* Course Selector Dropdown Pill */}
         <TouchableOpacity
@@ -629,30 +629,43 @@ const styles = StyleSheet.create({
   },
   compactFilterRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 26,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     marginBottom: 20,
+    ...Platform.select({
+      web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
+      default: {}
+    }),
   },
   compactFilterPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderRadius: 22,
   },
   compactFilterPillActive: {
-    backgroundColor: '#18181B',
-    borderColor: '#18181B',
+    backgroundColor: '#0F172A',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+        elevation: 4,
+      }
+    }),
   },
   compactFilterText: {
-    fontSize: 12,
+    fontSize: 12.5,
     ...FONTS.medium,
-    color: '#52525B',
+    color: '#64748B',
   },
   compactFilterTextActive: {
     color: '#FFFFFF',

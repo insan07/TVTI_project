@@ -19,7 +19,7 @@ export const getMyPracticeSlots = async (params: { batchId?: string; weekStart?:
   return response.data;
 };
 
-export const updatePracticeSlot = async (slotId: string, data: Partial<{ max_students: number; equipment_note: string; is_open: boolean }>) => {
+export const updatePracticeSlot = async (slotId: string, data: Partial<{ max_students: number; equipment_note: string; is_open: boolean; location?: string }>) => {
   const response = await api.patch(`/instructors/practice-slots/${slotId}`, data);
   return response.data;
 };

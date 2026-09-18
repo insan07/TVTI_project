@@ -9,7 +9,7 @@ import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
 import { sendNotification } from '../services/notificationService';
 import { isEmailVerified, consumeEmailVerification } from '../services/otpService';
-import { sendApplicationSubmissionEmail, sendApprovalEmail } from '../services/emailService';
+import { sendApplicationSubmissionEmail, sendApprovalEmail, sendRejectionEmail } from '../services/emailService';
 
 /**
  * Generates a sequential, unique Registration Number in the format TVTI-YYYY-00001
@@ -163,10 +163,10 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
       }
     }
 
-    // If an un-approved application with this email already exists in pending status, clean it up so the new submission replaces it seamlessly
+    // If an un-approved application with this email already exists in pending or rejected status, clean it up so the new submission replaces it seamlessly
     await Application.deleteMany({
       email: cleanEmail,
-      status: 'pending'
+      status: { $in: ['pending', 'rejected'] }
     });
 
     // Normalize date of birth, gender, address
@@ -280,7 +280,7 @@ export const getApplications = async (req: Request, res: Response): Promise<void
 export const updateApplicationStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { status, assigned_course_ids, total_course_fee, amount_paid, payment_status } = req.body;
+    const { status, assigned_course_ids, total_course_fee, amount_paid, payment_status, rejection_reason } = req.body;
 
     const application = await Application.findById(id).populate('course_id').populate('course_ids');
     if (!application) {
@@ -297,6 +297,14 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
     }
 
     application.status = status;
+    if (status === 'rejected') {
+      if (rejection_reason && rejection_reason.trim()) {
+        application.rejection_reason = rejection_reason.trim();
+      } else if (!application.rejection_reason) {
+        application.rejection_reason = 'Application details did not meet entry requirements.';
+      }
+    }
+
     if (assigned_course_ids && Array.isArray(assigned_course_ids) && assigned_course_ids.length > 0) {
       application.course_ids = assigned_course_ids as any;
       application.course_id = assigned_course_ids[0] as any;
@@ -316,6 +324,21 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
     let regNumber = application.registration_number;
     let emailSent = false;
     let emailError: string | undefined = undefined;
+
+    if (status === 'rejected') {
+      try {
+        const mailRes = await sendRejectionEmail({
+          to: application.email,
+          name: application.full_name,
+          rejectionReason: application.rejection_reason || 'Application details did not meet entry requirements.'
+        });
+        emailSent = mailRes.success;
+      } catch (mailErr: any) {
+        console.error('Failed to send rejection email:', mailErr);
+        emailSent = false;
+        emailError = mailErr?.message || String(mailErr);
+      }
+    }
 
     if (status === 'approved') {
       const orConditions: any[] = [{ email: application.email.toLowerCase() }];
@@ -493,5 +516,22 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
   } catch (error) {
     console.error('Error updating application status:', error);
     res.status(500).json({ message: 'Server error updating application status' });
+  }
+};
+
+export const deleteApplicationCompletely = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const application = await Application.findById(id);
+    if (!application) {
+      res.status(404).json({ message: 'Application record not found' });
+      return;
+    }
+
+    await Application.findByIdAndDelete(id);
+    res.json({ success: true, message: 'Application record permanently deleted' });
+  } catch (error) {
+    console.error('Error deleting application:', error);
+    res.status(500).json({ message: 'Server error during application deletion' });
   }
 };

@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
-  TextInput, TouchableOpacity, RefreshControl, Modal, SafeAreaView
+  TextInput, TouchableOpacity, RefreshControl, Modal, SafeAreaView,
+  Animated, NativeSyntheticEvent, NativeScrollEvent
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
 import { COLORS, FONTS } from '../../config/theme';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { Platform } from 'react-native';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function MyStudentsScreen() {
   const navigation = useNavigation();
@@ -17,6 +19,46 @@ export default function MyStudentsScreen() {
   const [search, setSearch] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('all');
   const [batches, setBatches] = useState<string[]>([]);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const headerAnim = useRef(new Animated.Value(1)).current;
+  const isHeaderVisibleRef = useRef(true);
+  const lastScrollY = useRef(0);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isSearchFocused) return;
+    const currentY = event.nativeEvent.contentOffset.y;
+    const diff = currentY - lastScrollY.current;
+
+    if (currentY <= 15) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff > 8 && currentY > 35) {
+      if (isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = false;
+        Animated.timing(headerAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff < -8) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    }
+    lastScrollY.current = currentY;
+  };
 
   // Custom Alert Popup State
   const [alertModal, setAlertModal] = useState<{
@@ -89,65 +131,72 @@ export default function MyStudentsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={styles.topHeaderBar}>
-        <View style={styles.headerLeftGroup}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Icon name="arrow-back" size={20} color="#0F172A" />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>My Students</Text>
-            <Text style={styles.headerSubtitle}>
-              Manage and view your assigned batches
-            </Text>
-          </View>
-        </View>
-      </View>
+      <ScreenHeader
+        title="My Students"
+        subtitle="Manage & view your assigned batches"
+      />
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Icon name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name, email or batch..."
-          value={search}
-          onChangeText={setSearch}
-          placeholderTextColor="#9CA3AF"
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Icon name="close-circle" size={18} color="#9CA3AF" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Batch Filter Pills */}
-      {batches.length > 1 && (
-        <View style={styles.filterRow}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={['all', ...batches]}
-            keyExtractor={item => item}
-            contentContainerStyle={{ paddingHorizontal: 15 }}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.filterPill, selectedBatch === item && styles.filterPillActive]}
-                onPress={() => setSelectedBatch(item)}
-              >
-                <Text style={[styles.filterPillText, selectedBatch === item && styles.filterPillTextActive]}>
-                  {item === 'all' ? 'All Batches' : item}
-                </Text>
-              </TouchableOpacity>
-            )}
+      {/* Search Bar & Batch Filter Pills with Smooth Animation */}
+      <Animated.View
+        style={{
+          maxHeight: headerAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, batches.length > 1 ? 120 : 64],
+          }),
+          opacity: headerAnim,
+          transform: [
+            {
+              translateY: headerAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-12, 0],
+              }),
+            },
+          ],
+          overflow: 'hidden',
+        }}
+      >
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Icon name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by name, email or batch..."
+            value={search}
+            onChangeText={setSearch}
+            placeholderTextColor="#9CA3AF"
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
           />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Icon name="close-circle" size={18} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
         </View>
-      )}
+
+        {/* Batch Filter Pills */}
+        {batches.length > 1 && (
+          <View style={styles.filterRow}>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={['all', ...batches]}
+              keyExtractor={item => item}
+              contentContainerStyle={{ paddingHorizontal: 15 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.filterPill, selectedBatch === item && styles.filterPillActive]}
+                  onPress={() => setSelectedBatch(item)}
+                >
+                  <Text style={[styles.filterPillText, selectedBatch === item && styles.filterPillTextActive]}>
+                    {item === 'all' ? 'All Batches' : item}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
+      </Animated.View>
 
       {/* Stats Bar */}
       <View style={styles.statsBar}>
@@ -161,6 +210,8 @@ export default function MyStudentsScreen() {
         keyExtractor={item => item._id}
         contentContainerStyle={{ padding: 15, paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Icon name="people-outline" size={64} color="#D1D5DB" />

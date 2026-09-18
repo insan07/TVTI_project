@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Activity
 import api from '../../services/api';
 import { useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function EnrollStudentScreen() {
   const route = useRoute<any>();
@@ -69,10 +70,11 @@ export default function EnrollStudentScreen() {
     <SafeAreaView style={{flex: 1, backgroundColor: '#F3F4F6'}} edges={['top']}>
       <KeyboardAvoidingView style={{flex: 1}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Enroll Students</Text>
-        <Text style={styles.stats}>Capacity: {enrolledStudents.length} / {capacity}</Text>
-      </View>
+          <ScreenHeader
+            title="Enroll Students"
+            subtitle={`Capacity: ${enrolledStudents.length} / ${capacity} Enrolled`}
+            showBack={true}
+          />
 
       <TextInput style={styles.search} placeholder="Search available students..." value={search} onChangeText={setSearch} />
 

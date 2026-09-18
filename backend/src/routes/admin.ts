@@ -3,7 +3,7 @@ import { getUsers, getUserDetails, approveUser, rejectUser, deactivateUser, dele
 import { getAdminCourses, createCourse, updateCourse, archiveCourse } from '../controllers/courseController';
 import { getAdminBatches, getBatchDetails, createBatch, updateBatch, getBatchStudents, enrollStudents, deleteBatchCompletely } from '../controllers/batchController';
 import { getBatchResults, createResult, updateResult } from '../controllers/resultController';
-import { getApplications, updateApplicationStatus } from '../controllers/applicationController';
+import { getApplications, updateApplicationStatus, deleteApplicationCompletely } from '../controllers/applicationController';
 import { protect } from '../middleware/authMiddleware';
 import { checkRole } from '../middleware/roleMiddleware';
 
@@ -18,6 +18,7 @@ router.get('/activities', getAdminActivities);
 // Applications
 router.get('/applications', getApplications);
 router.put('/applications/:id/status', updateApplicationStatus);
+router.delete('/applications/:id', deleteApplicationCompletely);
 router.get('/users', getUsers);
 router.get('/users/:id/details', getUserDetails);
 router.put('/users/:id/approve', approveUser);

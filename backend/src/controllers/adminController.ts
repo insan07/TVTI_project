@@ -11,7 +11,7 @@ import Application from '../models/Application';
 import Announcement from '../models/Announcement';
 import bcrypt from 'bcryptjs';
 import { generateUniqueIndexNumber } from './applicationController';
-import { sendApprovalCredentialsEmail } from '../services/emailService';
+import { sendApprovalCredentialsEmail, sendDeactivationEmail } from '../services/emailService';
 
 const formatTimeAgo = (date: any): string => {
   if (!date) return 'Recently';
@@ -393,6 +393,24 @@ export const deactivateUser = async (req: Request, res: Response): Promise<void>
     }
     user.is_active = !user.is_active; // Toggle active status
     await user.save();
+
+    if (!user.is_active && user.role === 'student') {
+      try {
+        await sendDeactivationEmail({
+          to: user.email,
+          studentName: user.name,
+          registrationNumber: user.index_number || user.registration_number || 'N/A'
+        });
+        user.deactivation_email_sent = true;
+        user.deactivation_email_sent_at = new Date();
+        user.deactivation_email_error = undefined;
+      } catch (err: any) {
+        user.deactivation_email_sent = false;
+        user.deactivation_email_error = err.message || String(err);
+      }
+      await user.save();
+    }
+
     res.json({ message: `User ${user.is_active ? 'activated' : 'deactivated'} successfully` });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
