@@ -742,11 +742,112 @@ export const sendBatchAssignmentEmail = async ({
       return { success: true };
     } catch (err: any) {
       console.warn(`[BATCH ASSIGNMENT EMAIL WARNING] (${err?.message || err}).`);
-      throw err; // Re-throw so controller can catch and log DB error status
+      throw err;
     }
   }
 
   return { success: true, simulated: true };
+};
+
+export interface SendRejectionMailOptions {
+  to: string;
+  name: string;
+  rejectionReason: string;
+}
+
+/**
+ * Sends a rejection notification email with the specified reason and resubmission instructions via Nodemailer.
+ */
+export const sendRejectionEmail = async ({
+  to,
+  name,
+  rejectionReason,
+}: SendRejectionMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = process.env.MAIL_FROM || process.env.SMTP_FROM || `"TVTI Institute" <${process.env.SMTP_USER || 'admissions@tvti.edu'}>`;
+  const transporter = getTransporter();
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>TVTI Application Status Update</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; color: #1a1a1a; }
+        .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: 1px solid #e5e7eb; }
+        .header { background: #0f172a; padding: 28px 24px; text-align: center; border-bottom: 3px solid #ef4444; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .content { padding: 32px 28px; }
+        .badge { display: inline-block; background: #fef2f2; color: #dc2626; font-weight: 700; font-size: 12px; padding: 4px 12px; border-radius: 9999px; margin-bottom: 16px; border: 1px solid #fecaca; }
+        .title { font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
+        .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 20px; }
+        .reason-card { background: #fff5f5; border: 1.5px solid #feb2b2; border-radius: 10px; padding: 18px; margin: 20px 0; }
+        .reason-label { font-size: 12px; font-weight: 800; text-transform: uppercase; color: #9b2c2c; margin-bottom: 6px; letter-spacing: 0.5px; }
+        .reason-text { font-size: 14.5px; line-height: 1.5; color: #742a2a; font-weight: 500; }
+        .resubmit-note { font-size: 13.5px; line-height: 1.6; color: #1e293b; background: #f8fafc; border-left: 4px solid #ea580c; padding: 14px; border-radius: 4px; margin: 20px 0; }
+        .footer { background: #f8fafc; padding: 16px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>TVTI Institute</h1>
+          <p>Application Status Notice</p>
+        </div>
+        <div class="content">
+          <div class="badge">APPLICATION REJECTED</div>
+          <h2 class="title">Dear ${name},</h2>
+          <p class="description">
+            Thank you for your interest in enrolling at Twintec Vocational Training Institute. After reviewing your submitted application details, we regret to inform you that your application could not be approved at this time.
+          </p>
+          
+          <div class="reason-card">
+            <div class="reason-label">Reason for Rejection:</div>
+            <div class="reason-text">${rejectionReason || 'Details/documents provided do not meet the minimum entry requirements.'}</div>
+          </div>
+
+          <div class="resubmit-note">
+            💡 <strong>Next Steps / Resubmission:</strong><br>
+            You are welcome to correct or update your application details and resubmit a new application anytime via our official website registration portal.
+          </div>
+
+          <p class="description" style="margin-top: 24px;">
+            If you have any questions or require further assistance, please contact the admissions department.<br><br>
+            Regards,<br>
+            <strong>Admissions Team &bull; TVTI Institute</strong>
+          </p>
+        </div>
+        <div class="footer">
+          &copy; ${new Date().getFullYear()} TVTI - Technical & Vocational Training Institute. All rights reserved.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (!transporter) {
+    console.log(`\n======================================================`);
+    console.log(`[DEV REJECTION EMAIL NOTICE]`);
+    console.log(`To: ${to} (${name})`);
+    console.log(`Reason: ${rejectionReason}`);
+    console.log(`======================================================\n`);
+    return { success: true, simulated: true };
+  }
+
+  try {
+    await transporter.sendMail({
+      from,
+      to,
+      subject: `TVTI Application Status — Rejection Notice & Resubmission Information`,
+      text: `Dear ${name},\n\nYour application to TVTI has been rejected.\n\nReason: ${rejectionReason}\n\nYou may resubmit your application through our official website portal.\n\nRegards,\nTVTI Institute`,
+      html: htmlContent,
+    });
+    return { success: true };
+  } catch (err: any) {
+    console.warn(`[REJECTION EMAIL SMTP WARNING] (${err?.message || err}).`);
+    return { success: false };
+  }
 };
 
 export interface SendDeactivationMailOptions {
@@ -844,3 +945,29 @@ export const sendDeactivationEmail = async ({
 
   return { success: true, simulated: true };
 };
+=======
+  if (!transporter) {
+    console.log(`\n======================================================`);
+    console.log(`[DEV REJECTION EMAIL NOTICE]`);
+    console.log(`To: ${to} (${name})`);
+    console.log(`Reason: ${rejectionReason}`);
+    console.log(`======================================================\n`);
+    return { success: true, simulated: true };
+  }
+
+  try {
+    await transporter.sendMail({
+      from,
+      to,
+      subject: `TVTI Application Status — Rejection Notice & Resubmission Information`,
+      text: `Dear ${name},\n\nYour application to TVTI has been rejected.\n\nReason: ${rejectionReason}\n\nYou may resubmit your application through our official website portal.\n\nRegards,\nTVTI Institute`,
+      html: htmlContent,
+    });
+    return { success: true };
+  } catch (err: any) {
+    console.warn(`[REJECTION EMAIL SMTP WARNING] (${err?.message || err}).`);
+    return { success: false };
+  }
+};
+
+>>>>>>> e5d10d7 (feat(admin): implement rejection reason modal, email notification, resubmission support, and dossier button conditional visibility)

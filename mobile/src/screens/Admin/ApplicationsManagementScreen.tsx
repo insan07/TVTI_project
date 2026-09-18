@@ -11,7 +11,8 @@ import {
   ScrollView,
   Platform,
   Alert,
-  TextInput
+  TextInput,
+  Share
 } from 'react-native';
 import { Image } from 'expo-image';
 import api from '../../services/api';
@@ -62,6 +63,10 @@ export default function ApplicationsManagementScreen({
     temp_password: string;
     email: string;
   } | null>(null);
+
+  // Rejection Reason Modal States
+  const [rejectReasonModalVisible, setRejectReasonModalVisible] = useState(false);
+  const [rejectionReasonText, setRejectionReasonText] = useState('');
 
   // Selection & Permanent Delete States
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -306,31 +311,24 @@ export default function ApplicationsManagementScreen({
     }
   };
 
-  const handleRejectFromReview = async () => {
+  const handleRejectFromReview = () => {
     if (!selectedAppForReview) return;
-    const confirmMsg = `Are you sure you want to reject the application for "${selectedAppForReview.full_name}"?`;
-
-    if (Platform.OS === 'web') {
-      if (!window.confirm(confirmMsg)) return;
-      processReject(selectedAppForReview._id);
-    } else {
-      Alert.alert(
-        'Reject Application',
-        confirmMsg,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Reject Application', style: 'destructive', onPress: () => processReject(selectedAppForReview._id) }
-        ]
-      );
-    }
+    setRejectionReasonText('');
+    setRejectReasonModalVisible(true);
   };
 
-  const processReject = async (appId: string) => {
+  const processReject = async (appId: string, reason: string) => {
     setRejectingId(appId);
     try {
-      await api.put(`/admin/applications/${appId}/status`, { status: 'rejected' });
+      const finalReason = reason.trim() || 'Application details did not meet entry requirements.';
+      await api.put(`/admin/applications/${appId}/status`, {
+        status: 'rejected',
+        rejection_reason: finalReason
+      });
+      setRejectReasonModalVisible(false);
       setReviewModalVisible(false);
-      const msg = 'Application rejected successfully.';
+      setSelectedAppForReview(null);
+      const msg = 'Application rejected successfully. Rejection reason email sent to student.';
       if (Platform.OS === 'web') window.alert(msg);
       else Alert.alert('Success', msg);
       fetchPendingApplications();
@@ -505,269 +503,389 @@ export default function ApplicationsManagementScreen({
     }
   };
 
+  const handleSharePdf = async () => {
+    if (!selectedAppForReview) return;
+    try {
+      const app = selectedAppForReview;
+      const shareMessage = `Twintec VTI - Student Application Dossier\nName: ${app.full_name}\nEmail: ${app.email}\nNIC: ${app.nic_number || 'N/A'}\nPhone: ${app.phone || 'N/A'}`;
+
+      if (Platform.OS === 'web') {
+        if (typeof navigator !== 'undefined' && (navigator as any).share) {
+          await (navigator as any).share({
+            title: `Student Application - ${app.full_name}`,
+            text: shareMessage,
+          });
+        } else {
+          handleSavePdf();
+        }
+      } else {
+        const { uri } = await Print.printToFileAsync({
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <title>Student Application Form - ${app.full_name}</title>
+              <style>
+                body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 24px; color: #0F172A; }
+                .header { text-align: center; border-bottom: 2px solid #0F172A; padding-bottom: 12px; margin-bottom: 20px; }
+                .header h1 { margin: 0; font-size: 20px; color: #0F172A; text-transform: uppercase; letter-spacing: 0.5px; }
+                .header p { margin: 4px 0 0 0; font-size: 13px; color: #64748B; }
+                .section { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+                .section-title { font-size: 15px; font-weight: bold; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; color: #0F172A; }
+                .row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+                .label { font-weight: 600; color: #475569; }
+                .val { color: #0F172A; text-align: right; }
+                .footer { text-align: center; margin-top: 30px; font-size: 11px; color: #94A3B8; }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h1>TWINTEC VOCATIONAL TRAINING INSTITUTE</h1>
+                <h2 style="margin: 6px 0 0 0; font-size: 16px; color: #475569;">STUDENT APPLICATION FORM</h2>
+                <p>Generated on ${new Date().toLocaleDateString()}</p>
+              </div>
+              <div class="section">
+                <div class="section-title">Personal & Contact Details</div>
+                <div class="row"><span class="label">Full Name:</span><span class="val">${app.full_name || 'N/A'}</span></div>
+                <div class="row"><span class="label">Email:</span><span class="val">${app.email || 'N/A'}</span></div>
+                <div class="row"><span class="label">Phone:</span><span class="val">${app.phone || 'N/A'}</span></div>
+                <div class="row"><span class="label">NIC Number:</span><span class="val">${app.nic_number || 'N/A'}</span></div>
+                <div class="row"><span class="label">Date of Birth:</span><span class="val">${app.date_of_birth || 'N/A'}</span></div>
+                <div class="row"><span class="label">Gender:</span><span class="val">${app.gender || 'N/A'}</span></div>
+                <div class="row"><span class="label">Address:</span><span class="val">${app.address || 'N/A'}</span></div>
+              </div>
+              <div class="footer">
+                <p>Twintec Vocational Training Institute · Official Records</p>
+              </div>
+            </body>
+            </html>
+          `
+        });
+        await Share.share({
+          message: shareMessage,
+          url: uri,
+          title: `Student Application - ${app.full_name}`
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to share PDF document', e);
+    }
+  };
+
   const renderContent = () => {
     if (selectedAppForReview) {
       return (
-        <View style={styles.fullScreenOverlay}>
-          <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>
-            {/* Scrollable Modern Structured Dossier Body */}
-            <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
-              {/* Dossier Header Row: Icon-Only Back Button (Left) & Save PDF Button (Right) */}
-              <View style={styles.dossierBackHeaderRow}>
-                <TouchableOpacity
-                  onPress={() => {
-                    setSelectedAppForReview(null);
-                    setReviewModalVisible(false);
-                    if (onBack) onBack();
-                  }}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  style={{ padding: 4 }}
-                >
-                  <Icon name="arrow-back" size={24} color="#0F172A" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.savePdfBtn}
-                  onPress={handleSavePdf}
-                  activeOpacity={0.85}
-                >
-                  <Icon name="document-text-outline" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.savePdfBtnText}>Save PDF</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 1. Applicant Profile Card */}
-              <View style={styles.infoSectionCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                  {selectedAppForReview.student_photo ? (
-                    <Image source={{ uri: selectedAppForReview.student_photo }} style={styles.modalAvatarImg} />
-                  ) : (
-                    <View style={styles.infoAvatarCircle}>
-                      <Text style={styles.infoAvatarText}>{getInitials(selectedAppForReview.full_name)}</Text>
-                    </View>
-                  )}
-
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.infoStudentName}>{selectedAppForReview.full_name}</Text>
-                    <Text style={styles.infoStudentEmail}>{selectedAppForReview.email}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.infoDivider} />
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Date of Birth:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.date_of_birth || 'Not Provided'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Gender:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.gender || 'Not Provided'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Residential Address:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.address || 'Not Provided'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Phone Number:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.phone || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>NIC Number:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.nic_number || 'Not Provided'}</Text>
-                </View>
-              </View>
-
-              {/* 2. Parent / Guardian Information Card */}
-              <View style={styles.infoSectionCard}>
-                <Text style={styles.sectionCardHeaderTitle}>Parent / Guardian Details</Text>
-                <View style={styles.infoDivider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Guardian Name:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.guardian?.name || 'Not Provided'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Relationship:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.guardian?.relationship || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Contact Phone:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.guardian?.phone || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Occupation:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.guardian?.occupation || 'N/A'}</Text>
-                </View>
-              </View>
-
-              {/* 3. Educational Qualifications Card */}
-              <View style={styles.infoSectionCard}>
-                <Text style={styles.sectionCardHeaderTitle}>Educational Qualifications</Text>
-                <View style={styles.infoDivider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Highest Qualification:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.educational_qualification?.highest_level || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Grade Level / Result:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.educational_qualification?.grade_level || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>School / Institute:</Text>
-                  <Text style={styles.infoVal}>{selectedAppForReview.educational_qualification?.institute_name || 'N/A'}</Text>
-                </View>
-              </View>
-
-              {/* 4. Payment Method & Deposit Slip Review Card */}
-              <View style={styles.infoSectionCard}>
-                <Text style={styles.sectionCardHeaderTitle}>Payment Method & Receipt Slip</Text>
-                <View style={styles.infoDivider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Selected Payment Method:</Text>
-                  <Text style={[styles.infoVal, { fontWeight: 'bold', color: '#2563EB' }]}>
-                    {selectedAppForReview.payment_method === 'bank_transfer'
-                      ? 'Bank Deposit Slip Upload'
-                      : 'Physical Cash Payment at Counter'}
-                  </Text>
-                </View>
-
-                {selectedAppForReview.payment_slip ? (
-                  <View style={{ marginTop: 10 }}>
-                    <Text style={styles.infoLabel}>Uploaded Bank Deposit Receipt Slip:</Text>
-                    <TouchableOpacity onPress={() => setSlipZoomModalVisible(true)} style={styles.slipThumbnailBox}>
-                      <Image source={{ uri: selectedAppForReview.payment_slip }} style={styles.slipThumbnailImg} contentFit="contain" />
-                      <View style={styles.zoomOverlayBadge}>
-                        <Icon name="scan-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-                        <Text style={styles.zoomOverlayText}>Tap to View Full Slip</Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={styles.noSlipBox}>
-                    <Text style={styles.noSlipText}>
-                      {selectedAppForReview.payment_method === 'bank_transfer'
-                        ? 'No deposit slip uploaded'
-                        : 'Student will pay cash physically at TVTI Finance Counter on Registration Day.'}
+        <Modal
+          visible={Boolean(selectedAppForReview)}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => {
+            setSelectedAppForReview(null);
+            setReviewModalVisible(false);
+            if (onBack) onBack();
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { height: '88%', width: '92%', maxWidth: 650, padding: 0, overflow: 'hidden' }]}>
+              <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+                {/* Dossier Header Row with Save PDF, Share, and Close Icon Shortcuts */}
+                <View style={styles.detailsHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.detailsName}>{selectedAppForReview.full_name}</Text>
+                    <Text style={styles.detailsEmail}>
+                      {selectedAppForReview.email} • APPLICATION
                     </Text>
                   </View>
-                )}
-              </View>
-
-              {/* 5. Admin Payment Amount & Status Editor Card */}
-              <View style={styles.adminFeeEditorCard}>
-                <Text style={styles.adminFeeTitle}>Admin Fee & Tuition Editor</Text>
-                <Text style={styles.adminFeeSub}>Adjust course tuition, amount received, and payment status:</Text>
-
-                <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.feeInputLabel}>Total Course Fee (LKR):</Text>
-                    <TextInput
-                      style={styles.feeInput}
-                      keyboardType="number-pad"
-                      value={adminTotalFee}
-                      onChangeText={setAdminTotalFee}
-                      placeholder="e.g. 25000"
-                    />
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.feeInputLabel}>Amount Paid (LKR):</Text>
-                    <TextInput
-                      style={styles.feeInput}
-                      keyboardType="number-pad"
-                      value={adminAmountPaid}
-                      onChangeText={setAdminAmountPaid}
-                      placeholder="e.g. 10000"
-                    />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TouchableOpacity
+                      style={styles.closeModalIconBtn}
+                      onPress={handleSavePdf}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon name="document-text-outline" size={20} color="#4B5563" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.closeModalIconBtn}
+                      onPress={handleSharePdf}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon name="share-social-outline" size={20} color="#4B5563" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.closeModalIconBtn}
+                      onPress={() => {
+                        setSelectedAppForReview(null);
+                        setReviewModalVisible(false);
+                        if (onBack) onBack();
+                      }}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon name="close" size={22} color="#4B5563" />
+                    </TouchableOpacity>
                   </View>
                 </View>
 
-                {(() => {
-                  const balance = Math.max(0, (Number(adminTotalFee) || 0) - (Number(adminAmountPaid) || 0));
-                  return (
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#334155' }}>
-                      <Text style={{ fontSize: 13, color: '#94A3B8' }}>Remaining Balance Due:</Text>
-                      <Text style={{ fontSize: 15, fontWeight: 'bold', color: balance > 0 ? '#F59E0B' : '#10B981' }}>
-                        LKR {balance.toLocaleString()}
+                {/* Scrollable Body */}
+                <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 12 }} showsVerticalScrollIndicator={false}>
+                  {selectedAppForReview?.status === 'rejected' && (
+                    <View style={styles.rejectionNoticeBox}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <Icon name="alert-circle" size={18} color="#DC2626" />
+                        <Text style={styles.rejectionNoticeTitle}>Application Rejected</Text>
+                      </View>
+                      <Text style={styles.rejectionNoticeReason}>
+                        <Text style={{ fontWeight: '700' }}>Reason sent to applicant:</Text>{' '}
+                        {selectedAppForReview.rejection_reason || 'Details/documents provided did not meet entry requirements.'}
                       </Text>
                     </View>
-                  );
-                })()}
-              </View>
+                  )}
 
-              {/* 6. Course Assignments Card */}
-              <View style={styles.infoSectionCard}>
-                <Text style={styles.sectionCardHeaderTitle}>Assigned Academic Courses</Text>
-                <View style={styles.infoDivider} />
-                {loadingCourses ? (
-                  <ActivityIndicator color="#059669" style={{ marginVertical: 10 }} />
-                ) : (
-                  allAvailableCourses.map(course => {
-                    const isSelected = assignedCourseIds.includes(course._id);
-                    return (
+                  {/* 1. Applicant Profile Card */}
+                  <View style={styles.infoSectionCard}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                      {selectedAppForReview.student_photo ? (
+                        <Image source={{ uri: selectedAppForReview.student_photo }} style={styles.modalAvatarImg} />
+                      ) : (
+                        <View style={styles.infoAvatarCircle}>
+                          <Text style={styles.infoAvatarText}>{getInitials(selectedAppForReview.full_name)}</Text>
+                        </View>
+                      )}
+
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.infoStudentName}>{selectedAppForReview.full_name}</Text>
+                        <Text style={styles.infoStudentEmail}>{selectedAppForReview.email}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.infoDivider} />
+
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Date of Birth:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.date_of_birth || 'Not Provided'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Gender:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.gender || 'Not Provided'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Residential Address:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.address || 'Not Provided'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Phone Number:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.phone || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>NIC Number:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.nic_number || 'Not Provided'}</Text>
+                    </View>
+                  </View>
+
+                  {/* 2. Parent / Guardian Information Card */}
+                  <View style={styles.infoSectionCard}>
+                    <Text style={styles.sectionCardHeaderTitle}>Parent / Guardian Details</Text>
+                    <View style={styles.infoDivider} />
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Guardian Name:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.guardian?.name || 'Not Provided'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Relationship:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.guardian?.relationship || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Contact Phone:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.guardian?.phone || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Occupation:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.guardian?.occupation || 'N/A'}</Text>
+                    </View>
+                  </View>
+
+                  {/* 3. Educational Qualifications Card */}
+                  <View style={styles.infoSectionCard}>
+                    <Text style={styles.sectionCardHeaderTitle}>Educational Qualifications</Text>
+                    <View style={styles.infoDivider} />
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Highest Qualification:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.educational_qualification?.highest_level || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Grade Level / Result:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.educational_qualification?.grade_level || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>School / Institute:</Text>
+                      <Text style={styles.infoVal}>{selectedAppForReview.educational_qualification?.institute_name || 'N/A'}</Text>
+                    </View>
+                  </View>
+
+                  {/* 4. Payment Method & Deposit Slip Review Card */}
+                  <View style={styles.infoSectionCard}>
+                    <Text style={styles.sectionCardHeaderTitle}>Payment Method & Receipt Slip</Text>
+                    <View style={styles.infoDivider} />
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Selected Payment Method:</Text>
+                      <Text style={[styles.infoVal, { fontWeight: 'bold', color: '#2563EB' }]}>
+                        {selectedAppForReview.payment_method === 'bank_transfer'
+                          ? 'Bank Deposit Slip Upload'
+                          : 'Physical Cash Payment at Counter'}
+                      </Text>
+                    </View>
+
+                    {selectedAppForReview.payment_slip ? (
+                      <View style={{ marginTop: 10 }}>
+                        <Text style={styles.infoLabel}>Uploaded Bank Deposit Receipt Slip:</Text>
+                        <TouchableOpacity onPress={() => setSlipZoomModalVisible(true)} style={styles.slipThumbnailBox}>
+                          <Image source={{ uri: selectedAppForReview.payment_slip }} style={styles.slipThumbnailImg} contentFit="contain" />
+                          <View style={styles.zoomOverlayBadge}>
+                            <Icon name="scan-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                            <Text style={styles.zoomOverlayText}>Tap to View Full Slip</Text>
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={styles.noSlipBox}>
+                        <Text style={styles.noSlipText}>
+                          {selectedAppForReview.payment_method === 'bank_transfer'
+                            ? 'No deposit slip uploaded'
+                            : 'Student will pay cash physically at TVTI Finance Counter on Registration Day.'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* 5. Admin Payment Amount & Status Editor Card */}
+                  <View style={styles.adminFeeEditorCard}>
+                    <Text style={styles.adminFeeTitle}>Admin Fee & Tuition Editor</Text>
+                    <Text style={styles.adminFeeSub}>Adjust course tuition, amount received, and payment status:</Text>
+
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.feeInputLabel}>Total Course Fee (LKR):</Text>
+                        <TextInput
+                          style={styles.feeInput}
+                          keyboardType="number-pad"
+                          value={adminTotalFee}
+                          onChangeText={setAdminTotalFee}
+                          placeholder="e.g. 25000"
+                        />
+                      </View>
+
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.feeInputLabel}>Amount Paid (LKR):</Text>
+                        <TextInput
+                          style={styles.feeInput}
+                          keyboardType="number-pad"
+                          value={adminAmountPaid}
+                          onChangeText={setAdminAmountPaid}
+                          placeholder="e.g. 10000"
+                        />
+                      </View>
+                    </View>
+
+                    {(() => {
+                      const balance = Math.max(0, (Number(adminTotalFee) || 0) - (Number(adminAmountPaid) || 0));
+                      return (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#334155' }}>
+                          <Text style={{ fontSize: 13, color: '#94A3B8' }}>Remaining Balance Due:</Text>
+                          <Text style={{ fontSize: 15, fontWeight: 'bold', color: balance > 0 ? '#F59E0B' : '#10B981' }}>
+                            LKR {balance.toLocaleString()}
+                          </Text>
+                        </View>
+                      );
+                    })()}
+                  </View>
+
+                  {/* 6. Course Assignments Card */}
+                  <View style={styles.infoSectionCard}>
+                    <Text style={styles.sectionCardHeaderTitle}>Assigned Academic Courses</Text>
+                    <View style={styles.infoDivider} />
+                    {loadingCourses ? (
+                      <ActivityIndicator color="#059669" style={{ marginVertical: 10 }} />
+                    ) : (
+                      allAvailableCourses.map(course => {
+                        const isSelected = assignedCourseIds.includes(course._id);
+                        return (
+                          <TouchableOpacity
+                            key={course._id}
+                            style={[styles.courseSelectItem, isSelected && styles.courseSelectItemActive]}
+                            onPress={() => toggleAssignedCourse(course._id)}
+                            activeOpacity={0.8}
+                          >
+                            <View style={[styles.courseCheckbox, isSelected && styles.courseCheckboxActive]}>
+                              {isSelected && <Icon name="checkmark" size={12} color="#FFFFFF" />}
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.courseSelectTitle, isSelected && styles.courseSelectTitleActive]}>
+                                {course.title}
+                              </Text>
+                              <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                                {course.fee ? `Tuition: LKR ${course.fee.toLocaleString()}` : 'Free'} · {course.duration_weeks || 12} Weeks
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </View>
+
+                  <View style={{ height: 20 }} />
+                </ScrollView>
+
+                {/* Stable Bottom Actions matching Student Dossier popup */}
+                <View style={styles.detailsFooter}>
+                  {selectedAppForReview?.status === 'rejected' ? (
+                    <TouchableOpacity
+                      style={[styles.footerActionBtn, { backgroundColor: '#F58220', flex: 1 }]}
+                      onPress={handleApproveFromReview}
+                      disabled={approving}
+                      activeOpacity={0.85}
+                    >
+                      {approving ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={styles.footerActionText}>Approve Application</Text>
+                      )}
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={{ flexDirection: 'row', gap: 10, flex: 1 }}>
                       <TouchableOpacity
-                        key={course._id}
-                        style={[styles.courseSelectItem, isSelected && styles.courseSelectItemActive]}
-                        onPress={() => toggleAssignedCourse(course._id)}
+                        style={[styles.footerActionBtn, { backgroundColor: '#E2E8F0', flex: 1 }]}
+                        onPress={handleRejectFromReview}
+                        disabled={approving || rejectingId !== null}
                         activeOpacity={0.8}
                       >
-                        <View style={[styles.courseCheckbox, isSelected && styles.courseCheckboxActive]}>
-                          {isSelected && <Icon name="checkmark" size={12} color="#FFFFFF" />}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.courseSelectTitle, isSelected && styles.courseSelectTitleActive]}>
-                            {course.title}
-                          </Text>
-                          <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
-                            {course.fee ? `Tuition: LKR ${course.fee.toLocaleString()}` : 'Free'} · {course.duration_weeks || 12} Weeks
-                          </Text>
-                        </View>
+                        {rejectingId ? (
+                          <ActivityIndicator color="#1E293B" size="small" />
+                        ) : (
+                          <Text style={[styles.footerActionText, { color: '#1E293B' }]}>Reject</Text>
+                        )}
                       </TouchableOpacity>
-                    );
-                  })
-                )}
-              </View>
 
-              {/* Professional Action Buttons: Small, Equal Size, Right-Aligned, Icon-less */}
-              <View style={styles.rightAlignedActionsRow}>
-                <TouchableOpacity
-                  style={styles.smallDeleteBtn}
-                  onPress={() => handleDeleteSingleApp(selectedAppForReview._id, selectedAppForReview.full_name)}
-                  disabled={approving || rejectingId !== null}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.smallBtnText}>Delete</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.smallRejectBtn}
-                  onPress={handleRejectFromReview}
-                  disabled={approving || rejectingId !== null}
-                  activeOpacity={0.8}
-                >
-                  {rejectingId ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={styles.smallBtnText}>Reject</Text>
+                      <TouchableOpacity
+                        style={[styles.footerActionBtn, { backgroundColor: '#F58220', flex: 1 }]}
+                        onPress={handleApproveFromReview}
+                        disabled={approving}
+                        activeOpacity={0.85}
+                      >
+                        {approving ? (
+                          <ActivityIndicator color="#FFFFFF" size="small" />
+                        ) : (
+                          <Text style={styles.footerActionText}>Approve</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.smallApproveBtn}
-                  onPress={handleApproveFromReview}
-                  disabled={approving}
-                  activeOpacity={0.85}
-                >
-                  {approving ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={styles.smallBtnText}>Approve</Text>
-                  )}
-                </TouchableOpacity>
+                </View>
               </View>
-
-              <View style={{ height: 40 }} />
-            </ScrollView>
+            </View>
+          </View>
 
           {/* Slip Image Full Screen Zoom Modal */}
           <Modal visible={slipZoomModalVisible} animationType="fade" transparent={true}>
@@ -826,8 +944,92 @@ export default function ApplicationsManagementScreen({
               </View>
             </View>
           </Modal>
-          </SafeAreaView>
-        </View>
+
+          {/* REJECTION REASON INPUT MODAL */}
+          <Modal visible={rejectReasonModalVisible} animationType="fade" transparent={true}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.rejectModalCard}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center' }}>
+                      <Icon name="close-circle" size={20} color="#DC2626" />
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 18, fontWeight: '700', color: '#0F172A' }}>Reject Application</Text>
+                      <Text style={{ fontSize: 12, color: '#64748B' }}>{selectedAppForReview?.full_name}</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity onPress={() => setRejectReasonModalVisible(false)}>
+                    <Icon name="close" size={22} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={{ fontSize: 13, color: '#475569', marginBottom: 12, lineHeight: 18 }}>
+                  Please specify the reason for rejecting this application. This explanation will be sent directly to the applicant's email address.
+                </Text>
+
+                {/* Quick Reason Chips */}
+                <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#64748B', marginBottom: 8, textTransform: 'uppercase' }}>Quick Presets:</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                  {[
+                    'Incomplete / Unclear Documents',
+                    'Invalid Payment Deposit Slip',
+                    'Does Not Meet Entry Criteria',
+                    'Duplicate Application Request'
+                  ].map(preset => (
+                    <TouchableOpacity
+                      key={preset}
+                      style={[
+                        styles.presetChip,
+                        rejectionReasonText === preset && styles.presetChipActive
+                      ]}
+                      onPress={() => setRejectionReasonText(preset)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.presetChipText, rejectionReasonText === preset && styles.presetChipTextActive]}>
+                        {preset}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#64748B', marginBottom: 6, textTransform: 'uppercase' }}>Reason / Remarks:</Text>
+                <TextInput
+                  style={styles.rejectionTextInput}
+                  placeholder="Type specific rejection reason here..."
+                  placeholderTextColor="#94A3B8"
+                  value={rejectionReasonText}
+                  onChangeText={setRejectionReasonText}
+                  multiline={true}
+                  numberOfLines={3}
+                />
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: '#F1F5F9', flex: 1 }]}
+                    onPress={() => setRejectReasonModalVisible(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ color: '#475569', fontWeight: '600', fontSize: 14 }}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: '#DC2626', flex: 1.5 }]}
+                    onPress={() => processReject(selectedAppForReview?._id, rejectionReasonText)}
+                    disabled={rejectingId !== null}
+                    activeOpacity={0.85}
+                  >
+                    {rejectingId ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Send Rejection Email</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        </Modal>
       );
     }
 
@@ -1177,6 +1379,33 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     marginTop: 2,
   },
+  detailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    marginBottom: 12,
+  },
+  detailsName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  detailsEmail: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  closeModalIconBtn: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   plainSectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
@@ -1276,22 +1505,34 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   smallRejectBtn: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
     paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#DC2626',
+    borderRadius: 24,
+    backgroundColor: '#E2E8F0',
     minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  smallRejectBtnText: {
+    color: '#1E293B',
+    fontSize: 13.5,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   smallApproveBtn: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
     paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#059669',
+    borderRadius: 24,
+    backgroundColor: '#F58220',
     minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  smallApproveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   smallBtnText: {
     color: '#FFFFFF',
@@ -1479,6 +1720,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     maxWidth: 260,
+  },
+  detailsFooter: {
+    padding: 14,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  footerActionBtn: {
+    flex: 1,
+    borderRadius: 24,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.2)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 }
+    }),
+  },
+  footerActionText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '88%',
+    elevation: 6,
   },
   modalOverlay: {
     flex: 1,
@@ -2481,5 +2752,73 @@ const styles = StyleSheet.create({
   whatsappCheckBadgeInactive: {
     backgroundColor: '#F8FAFC',
     borderColor: '#CBD5E1',
+  },
+  rejectionNoticeBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  rejectionNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#991B1B',
+    textTransform: 'uppercase',
+  },
+  rejectionNoticeReason: {
+    fontSize: 13,
+    color: '#7F1D1D',
+    lineHeight: 18,
+  },
+  rejectModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    width: '90%',
+    maxWidth: 500,
+    ...Platform.select({
+      web: { boxShadow: '0px 10px 25px rgba(0, 0, 0, 0.25)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 15, elevation: 8 }
+    }),
+  },
+  presetChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  presetChipActive: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
+  },
+  presetChipText: {
+    fontSize: 11.5,
+    color: '#475569',
+    fontWeight: '500',
+  },
+  presetChipTextActive: {
+    color: '#991B1B',
+    fontWeight: '700',
+  },
+  rejectionTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 13,
+    color: '#0F172A',
+    minHeight: 75,
+    textAlignVertical: 'top',
+  },
+  modalBtn: {
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

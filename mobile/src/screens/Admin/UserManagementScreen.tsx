@@ -16,7 +16,8 @@ import {
   LayoutAnimation,
   UIManager,
   NativeSyntheticEvent,
-  NativeScrollEvent
+  NativeScrollEvent,
+  Share
 } from 'react-native';
 import api from '../../services/api';
 import CustomDropdown from '../../components/shared/CustomDropdown';
@@ -663,8 +664,9 @@ export default function UserManagementScreen() {
                 if (isSelectMode) toggleUserSelection(item._id);
                 else handleReject(item._id, item.name);
               }}
+              activeOpacity={0.8}
             >
-              <Text style={styles.smallBtnText}>Reject</Text>
+              <Text style={styles.smallRejectBtnText}>Reject</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.smallApproveBtn}
@@ -672,8 +674,9 @@ export default function UserManagementScreen() {
                 if (isSelectMode) toggleUserSelection(item._id);
                 else handleApprove(item._id);
               }}
+              activeOpacity={0.8}
             >
-              <Text style={styles.smallBtnText}>Approve</Text>
+              <Text style={styles.smallApproveBtnText}>Approve</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1022,273 +1025,86 @@ export default function UserManagementScreen() {
     }
   };
 
-  if (detailsModalVisible) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        {loadingDetails || !userDetails ? (
-          <View style={styles.modalLoadingContainer}>
-            <View style={{ width: '100%', paddingHorizontal: 16, paddingTop: 16 }}>
-              <TouchableOpacity
-                onPress={() => {
-                  setDetailsModalVisible(false);
-                  setUserDetails(null);
-                }}
-                activeOpacity={0.7}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={{ padding: 4 }}
-              >
-                <Icon name="arrow-back" size={24} color="#0F172A" />
-              </TouchableOpacity>
-            </View>
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <ActivityIndicator size="large" color="#000000" />
-              <Text style={styles.modalLoadingText}>Loading complete profile...</Text>
-            </View>
-          </View>
-        ) : (
-          <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-            {/* Scrollable Modern Structured Profile Body */}
-            <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
-              {/* Profile Card Header */}
-              <View style={styles.infoSectionCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  {userDetails.user.profile_photo ? (
-                    <Image source={{ uri: userDetails.user.profile_photo }} style={styles.modalAvatarImg} />
-                  ) : (
-                    <View style={styles.infoAvatarCircle}>
-                      <Icon name="person" size={26} color="#FFFFFF" />
-                    </View>
-                  )}
-                  <View style={{ marginLeft: 14, flex: 1 }}>
-                    <Text style={styles.infoStudentName}>{userDetails.user.name}</Text>
-                    <Text style={styles.infoStudentEmail}>{userDetails.user.email}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 }}>
-                      <View style={[styles.statusBadge, { backgroundColor: userDetails.user.is_active ? '#D1FAE5' : '#FEE2E2' }]}>
-                        <Text style={[styles.statusBadgeText, { color: userDetails.user.is_active ? '#065F46' : '#991B1B' }]}>
-                          {userDetails.user.is_active ? 'Active' : 'Deactivated'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
+  const handleShareUserPdf = async () => {
+    if (!userDetails || !userDetails.user) return;
+    try {
+      const u = userDetails.user;
+      const shareMessage = `Twintec VTI - User Profile Dossier\nName: ${u.name}\nEmail: ${u.email}\nReg No: ${u.index_number || u.nic || 'N/A'}\nRole: ${u.role ? u.role.toUpperCase() : 'STUDENT'}`;
 
-                {/* Back and PDF Save Buttons */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
-                  <TouchableOpacity
-                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#F1F5F9' }}
-                    onPress={() => {
-                      setDetailsModalVisible(false);
-                      setUserDetails(null);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="arrow-back" size={16} color="#475569" style={{ marginRight: 4 }} />
-                    <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#475569' }}>Back to Users</Text>
-                  </TouchableOpacity>
+      if (Platform.OS === 'web') {
+        if (typeof navigator !== 'undefined' && (navigator as any).share) {
+          await (navigator as any).share({
+            title: `User Dossier - ${u.name}`,
+            text: shareMessage,
+          });
+        } else {
+          handleSaveUserPdf();
+        }
+      } else {
+        const { uri } = await Print.printToFileAsync({
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <title>User Profile Form - ${u.name}</title>
+              <style>
+                body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 24px; color: #0F172A; }
+                .header { text-align: center; border-bottom: 2px solid #0F172A; padding-bottom: 12px; margin-bottom: 20px; }
+                .header h1 { margin: 0; font-size: 20px; color: #0F172A; text-transform: uppercase; letter-spacing: 0.5px; }
+                .header p { margin: 4px 0 0 0; font-size: 13px; color: #64748B; }
+                .section { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+                .section-title { font-size: 15px; font-weight: bold; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; color: #0F172A; }
+                .row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+                .label { font-weight: 600; color: #475569; }
+                .val { color: #0F172A; text-align: right; }
+                .footer { text-align: center; margin-top: 30px; font-size: 11px; color: #94A3B8; }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h1>TWINTEC VOCATIONAL TRAINING INSTITUTE</h1>
+                <h2 style="margin: 6px 0 0 0; font-size: 16px; color: #475569;">USER PROFILE FORM</h2>
+                <p>Generated on ${new Date().toLocaleDateString()}</p>
+              </div>
+              <div class="section">
+                <div class="section-title">Personal & Contact Details</div>
+                <div class="row"><span class="label">Full Name:</span><span class="val">${u.name || 'N/A'}</span></div>
+                <div class="row"><span class="label">Email:</span><span class="val">${u.email || 'N/A'}</span></div>
+                <div class="row"><span class="label">Role:</span><span class="val">${u.role ? u.role.toUpperCase() : 'STUDENT'}</span></div>
+                <div class="row"><span class="label">Reg No / Index:</span><span class="val">${u.index_number || 'N/A'}</span></div>
+                <div class="row"><span class="label">NIC Number:</span><span class="val">${u.nic || 'N/A'}</span></div>
+                <div class="row"><span class="label">Phone:</span><span class="val">${u.phone || 'N/A'}</span></div>
+                <div class="row"><span class="label">Date of Birth:</span><span class="val">${u.date_of_birth || 'N/A'}</span></div>
+                <div class="row"><span class="label">Gender:</span><span class="val">${u.gender || 'N/A'}</span></div>
+                <div class="row"><span class="label">Address:</span><span class="val">${u.address || 'N/A'}</span></div>
+              </div>
+              ${u.guardian ? `
+              <div class="section">
+                <div class="section-title">Guardian Information</div>
+                <div class="row"><span class="label">Guardian Name:</span><span class="val">${u.guardian.name || 'N/A'}</span></div>
+                <div class="row"><span class="label">Relationship:</span><span class="val">${u.guardian.relationship || 'N/A'}</span></div>
+                <div class="row"><span class="label">Guardian Phone:</span><span class="val">${u.guardian.phone || 'N/A'}</span></div>
+              </div>
+              ` : ''}
+              <div class="footer">
+                <p>Twintec Vocational Training Institute · Official Records</p>
+              </div>
+            </body>
+            </html>
+          `
+        });
+        await Share.share({
+          message: shareMessage,
+          url: uri,
+          title: `User Dossier - ${u.name}`
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to share PDF document', e);
+    }
+  };
 
-                  <TouchableOpacity
-                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: '#0F172A' }}
-                    onPress={handleSaveUserPdf}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="document-text-outline" size={15} color="#FFFFFF" style={{ marginRight: 5 }} />
-                    <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#FFFFFF' }}>Save PDF</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* SECTION 1: Personal Information Card */}
-              <View style={styles.infoSectionCard}>
-                <Text style={styles.sectionCardHeaderTitle}>Personal Information</Text>
-                <View style={styles.infoDivider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Full Name:</Text>
-                  <Text style={styles.infoVal}>{userDetails.user.name || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Email Address:</Text>
-                  <Text style={styles.infoVal}>{userDetails.user.email || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Reg No / Index:</Text>
-                  <Text style={styles.infoVal}>{userDetails.user.index_number || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>NIC Number:</Text>
-                  <Text style={styles.infoVal}>{userDetails.user.nic || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Phone Number:</Text>
-                  <Text style={styles.infoVal}>{userDetails.user.phone || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Date of Birth:</Text>
-                  <Text style={styles.infoVal}>{userDetails.user.date_of_birth || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Gender:</Text>
-                  <Text style={styles.infoVal}>{userDetails.user.gender || 'N/A'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Address:</Text>
-                  <Text style={styles.infoVal}>{userDetails.user.address || 'N/A'}</Text>
-                </View>
-              </View>
-
-              {/* SECTION 2: Guardian Information */}
-              {userDetails.user.guardian && (
-                <View style={styles.infoSectionCard}>
-                  <Text style={styles.sectionCardHeaderTitle}>Guardian Information</Text>
-                  <View style={styles.infoDivider} />
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Guardian Name:</Text>
-                    <Text style={styles.infoVal}>{userDetails.user.guardian.name || 'N/A'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Relationship:</Text>
-                    <Text style={styles.infoVal}>{userDetails.user.guardian.relationship || 'N/A'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Guardian Phone:</Text>
-                    <Text style={styles.infoVal}>{userDetails.user.guardian.phone || 'N/A'}</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* SECTION 3: Educational Qualifications */}
-              {userDetails.user.educational_qualification && (
-                <View style={styles.infoSectionCard}>
-                  <Text style={styles.sectionCardHeaderTitle}>Educational Qualifications</Text>
-                  <View style={styles.infoDivider} />
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Highest Qualification:</Text>
-                    <Text style={styles.infoVal}>{userDetails.user.educational_qualification.highest_level || 'N/A'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Grade / Result:</Text>
-                    <Text style={styles.infoVal}>{userDetails.user.educational_qualification.grade_level || 'N/A'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Institute Name:</Text>
-                    <Text style={styles.infoVal}>{userDetails.user.educational_qualification.institute_name || 'N/A'}</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* SECTION 4: Tuition & Financial Info */}
-              {userDetails.user.payment_info && (
-                <View style={styles.infoSectionCard}>
-                  <Text style={styles.sectionCardHeaderTitle}>Tuition & Financial Info</Text>
-                  <View style={styles.infoDivider} />
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Payment Method:</Text>
-                    <Text style={styles.infoVal}>{userDetails.user.payment_info.payment_method === 'bank_transfer' ? 'Bank Deposit Slip' : 'Cash at Counter'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Payment Status:</Text>
-                    <Text style={[styles.infoVal, { fontWeight: 'bold', color: userDetails.user.payment_info.payment_status === 'paid' ? '#059669' : '#D97706' }]}>
-                      {userDetails.user.payment_info.payment_status ? userDetails.user.payment_info.payment_status.toUpperCase() : 'PENDING'}
-                    </Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Total Course Fee:</Text>
-                    <Text style={styles.infoVal}>LKR {userDetails.user.payment_info.total_fee ? userDetails.user.payment_info.total_fee.toLocaleString() : '0'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Amount Paid:</Text>
-                    <Text style={[styles.infoVal, { color: '#059669', fontWeight: 'bold' }]}>LKR {userDetails.user.payment_info.amount_paid ? userDetails.user.payment_info.amount_paid.toLocaleString() : '0'}</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* SECTION 5: Academic Enrollments Card */}
-              {userDetails.user.role === 'student' && (
-                <View style={styles.infoSectionCard}>
-                  <Text style={styles.sectionCardHeaderTitle}>Academic Enrollments</Text>
-                  <View style={styles.infoDivider} />
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Overall Average Marks:</Text>
-                    <Text style={[styles.infoVal, { color: '#2563EB', fontWeight: 'bold' }]}>{userDetails.averageMark}%</Text>
-                  </View>
-                  {(!userDetails.enrollments || userDetails.enrollments.length === 0) ? (
-                    <Text style={{ fontSize: 13, color: '#64748B', marginTop: 4, fontStyle: 'italic' }}>No active batch enrollments yet.</Text>
-                  ) : (
-                    userDetails.enrollments.map((e: any) => (
-                      <View key={e._id} style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
-                        <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0F172A' }}>{e.batch_id?.course_id?.title || 'Course'}</Text>
-                        <Text style={{ fontSize: 12.5, color: '#64748B', marginTop: 2 }}>Batch: {e.batch_id?.name || 'Batch'} · {e.batch_id?.course_id?.duration_weeks} Weeks</Text>
-                      </View>
-                    ))
-                  )}
-                </View>
-              )}
-
-              {/* INSTRUCTOR SPECIFIC DETAILS CARD */}
-              {userDetails.user.role === 'instructor' && (
-                <View style={styles.infoSectionCard}>
-                  <Text style={styles.sectionCardHeaderTitle}>Teaching Assignments</Text>
-                  <View style={styles.infoDivider} />
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Assigned Batches:</Text>
-                    <Text style={styles.infoVal}>{userDetails.assignedBatches?.length || 0} Active Batches</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Total Enrolled Students:</Text>
-                    <Text style={styles.infoVal}>{userDetails.totalStudents || 0}</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Action Buttons */}
-              <View style={{ marginTop: 14, marginBottom: 40 }}>
-                {userDetails.user.role === 'student' && !userDetails.user.is_active ? (
-                  <View style={styles.rightAlignedActionsRow}>
-                    <TouchableOpacity style={styles.smallRejectBtn} onPress={() => handleReject(userDetails.user._id, userDetails.user.name)}>
-                      <Text style={styles.smallBtnText}>Reject</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.smallApproveBtn} onPress={() => handleApprove(userDetails.user._id)}>
-                      <Text style={styles.smallBtnText}>Approve</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-                    {userDetails.user.role === 'student' && (
-                      <TouchableOpacity
-                        style={styles.coloredAssignBtn}
-                        onPress={() => {
-                          setAssignStudentId(userDetails.user._id);
-                          setAssignModalVisible(true);
-                        }}
-                      >
-                        <Icon name="library-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                        <Text style={styles.coloredBtnText}>Assign Batch</Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      style={userDetails.user.is_active ? styles.coloredDeactivateBtn : styles.coloredActivateBtn}
-                      onPress={() => handleToggleActive(userDetails.user._id, userDetails.user.is_active, userDetails.user.name)}
-                    >
-                      <Icon name={userDetails.user.is_active ? "pause-circle" : "play-circle"} size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                      <Text style={styles.coloredBtnText}>
-                        {userDetails.user.is_active ? 'Deactivate' : 'Activate'}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.coloredDeleteBtn}
-                      onPress={() => handleDeleteCompletely(userDetails.user._id, userDetails.user.name, userDetails.user.role)}
-                    >
-                      <Icon name="trash-bin" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                      <Text style={styles.coloredBtnText}>Delete</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            </ScrollView>
-          </View>
-        )}
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -1971,6 +1787,310 @@ export default function UserManagementScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* USER DOSSIER DETAILS MODAL (POPUP) */}
+      <Modal
+        visible={detailsModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setDetailsModalVisible(false);
+          setUserDetails(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { height: '88%', width: '92%', maxWidth: 650, padding: 0, overflow: 'hidden' }]}>
+            {loadingDetails || !userDetails ? (
+              <View style={styles.modalLoadingContainer}>
+                <View style={{ width: '100%', paddingHorizontal: 16, paddingTop: 16, alignItems: 'flex-end' }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setDetailsModalVisible(false);
+                      setUserDetails(null);
+                    }}
+                    activeOpacity={0.7}
+                    style={{ padding: 4 }}
+                  >
+                    <Icon name="close" size={22} color="#4B5563" />
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                  <ActivityIndicator size="large" color="#000000" />
+                  <Text style={styles.modalLoadingText}>Loading complete profile...</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+                {/* Dossier Header matching Batch viewing modal */}
+                <View style={styles.detailsHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.detailsName}>{userDetails.user.name}</Text>
+                    <Text style={styles.detailsEmail}>
+                      {userDetails.user.email} • {userDetails.user.role ? userDetails.user.role.toUpperCase() : ''}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TouchableOpacity
+                      style={styles.closeModalIconBtn}
+                      onPress={handleSaveUserPdf}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon name="document-text-outline" size={20} color="#4B5563" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.closeModalIconBtn}
+                      onPress={handleShareUserPdf}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon name="share-social-outline" size={20} color="#4B5563" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.closeModalIconBtn}
+                      onPress={() => {
+                        setDetailsModalVisible(false);
+                        setUserDetails(null);
+                      }}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon name="close" size={22} color="#4B5563" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Scrollable Body */}
+                <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 14 }} showsVerticalScrollIndicator={false}>
+                  {/* Profile Summary Header Card */}
+                  <View style={styles.infoSectionCard}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      {userDetails.user.profile_photo ? (
+                        <Image source={{ uri: userDetails.user.profile_photo }} style={styles.modalAvatarImg} />
+                      ) : (
+                        <View style={styles.infoAvatarCircle}>
+                          <Icon name="person" size={26} color="#FFFFFF" />
+                        </View>
+                      )}
+                      <View style={{ marginLeft: 14, flex: 1 }}>
+                        <Text style={styles.infoStudentName}>{userDetails.user.name}</Text>
+                        <Text style={styles.infoStudentEmail}>{userDetails.user.email}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 }}>
+                          <View style={[styles.statusBadge, { backgroundColor: userDetails.user.is_active ? '#D1FAE5' : '#FEE2E2' }]}>
+                            <Text style={[styles.statusBadgeText, { color: userDetails.user.is_active ? '#065F46' : '#991B1B' }]}>
+                              {userDetails.user.is_active ? 'Active' : 'Deactivated'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* SECTION 1: Personal Information Card */}
+                  <View style={styles.infoSectionCard}>
+                    <Text style={styles.sectionCardHeaderTitle}>Personal Information</Text>
+                    <View style={styles.infoDivider} />
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Full Name:</Text>
+                      <Text style={styles.infoVal}>{userDetails.user.name || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Email Address:</Text>
+                      <Text style={styles.infoVal}>{userDetails.user.email || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Reg No / Index:</Text>
+                      <Text style={styles.infoVal}>{userDetails.user.index_number || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>NIC Number:</Text>
+                      <Text style={styles.infoVal}>{userDetails.user.nic || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Phone Number:</Text>
+                      <Text style={styles.infoVal}>{userDetails.user.phone || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Date of Birth:</Text>
+                      <Text style={styles.infoVal}>{userDetails.user.date_of_birth || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Gender:</Text>
+                      <Text style={styles.infoVal}>{userDetails.user.gender || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Address:</Text>
+                      <Text style={styles.infoVal}>{userDetails.user.address || 'N/A'}</Text>
+                    </View>
+                  </View>
+
+                  {/* SECTION 2: Guardian Information */}
+                  {userDetails.user.guardian && (
+                    <View style={styles.infoSectionCard}>
+                      <Text style={styles.sectionCardHeaderTitle}>Guardian Information</Text>
+                      <View style={styles.infoDivider} />
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Guardian Name:</Text>
+                        <Text style={styles.infoVal}>{userDetails.user.guardian.name || 'N/A'}</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Relationship:</Text>
+                        <Text style={styles.infoVal}>{userDetails.user.guardian.relationship || 'N/A'}</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Guardian Phone:</Text>
+                        <Text style={styles.infoVal}>{userDetails.user.guardian.phone || 'N/A'}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* SECTION 3: Educational Qualifications */}
+                  {userDetails.user.educational_qualification && (
+                    <View style={styles.infoSectionCard}>
+                      <Text style={styles.sectionCardHeaderTitle}>Educational Qualifications</Text>
+                      <View style={styles.infoDivider} />
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Highest Qualification:</Text>
+                        <Text style={styles.infoVal}>{userDetails.user.educational_qualification.highest_level || 'N/A'}</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Grade / Result:</Text>
+                        <Text style={styles.infoVal}>{userDetails.user.educational_qualification.grade_level || 'N/A'}</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Institute Name:</Text>
+                        <Text style={styles.infoVal}>{userDetails.user.educational_qualification.institute_name || 'N/A'}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* SECTION 4: Tuition & Financial Info */}
+                  {userDetails.user.payment_info && (
+                    <View style={styles.infoSectionCard}>
+                      <Text style={styles.sectionCardHeaderTitle}>Tuition & Financial Info</Text>
+                      <View style={styles.infoDivider} />
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Payment Method:</Text>
+                        <Text style={styles.infoVal}>{userDetails.user.payment_info.payment_method === 'bank_transfer' ? 'Bank Deposit Slip' : 'Cash at Counter'}</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Payment Status:</Text>
+                        <Text style={[styles.infoVal, { fontWeight: 'bold', color: userDetails.user.payment_info.payment_status === 'paid' ? '#059669' : '#D97706' }]}>
+                          {userDetails.user.payment_info.payment_status ? userDetails.user.payment_info.payment_status.toUpperCase() : 'PENDING'}
+                        </Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Total Course Fee:</Text>
+                        <Text style={styles.infoVal}>LKR {userDetails.user.payment_info.total_fee ? userDetails.user.payment_info.total_fee.toLocaleString() : '0'}</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Amount Paid:</Text>
+                        <Text style={[styles.infoVal, { color: '#059669', fontWeight: 'bold' }]}>LKR {userDetails.user.payment_info.amount_paid ? userDetails.user.payment_info.amount_paid.toLocaleString() : '0'}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* SECTION 5: Academic Enrollments Card */}
+                  {userDetails.user.role === 'student' && (
+                    <View style={styles.infoSectionCard}>
+                      <Text style={styles.sectionCardHeaderTitle}>Academic Enrollments</Text>
+                      <View style={styles.infoDivider} />
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Overall Average Marks:</Text>
+                        <Text style={[styles.infoVal, { color: '#2563EB', fontWeight: 'bold' }]}>{userDetails.averageMark}%</Text>
+                      </View>
+                      {(!userDetails.enrollments || userDetails.enrollments.length === 0) ? (
+                        <Text style={{ fontSize: 13, color: '#64748B', marginTop: 4, fontStyle: 'italic' }}>No active batch enrollments yet.</Text>
+                      ) : (
+                        userDetails.enrollments.map((e: any) => (
+                          <View key={e._id} style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+                            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0F172A' }}>{e.batch_id?.course_id?.title || 'Course'}</Text>
+                            <Text style={{ fontSize: 12.5, color: '#64748B', marginTop: 2 }}>Batch: {e.batch_id?.name || 'Batch'} · {e.batch_id?.course_id?.duration_weeks} Weeks</Text>
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  )}
+
+                  {/* INSTRUCTOR SPECIFIC DETAILS CARD */}
+                  {userDetails.user.role === 'instructor' && (
+                    <View style={styles.infoSectionCard}>
+                      <Text style={styles.sectionCardHeaderTitle}>Teaching Assignments</Text>
+                      <View style={styles.infoDivider} />
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Assigned Batches:</Text>
+                        <Text style={styles.infoVal}>{userDetails.assignedBatches?.length || 0} Active Batches</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Total Enrolled Students:</Text>
+                        <Text style={styles.infoVal}>{userDetails.totalStudents || 0}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={{ height: 20 }} />
+                </ScrollView>
+
+                {/* Stable Bottom Actions matching Batch dossier */}
+                <View style={styles.detailsFooter}>
+                  {userDetails.user.role === 'student' && !userDetails.user.is_active ? (
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <TouchableOpacity
+                        style={[styles.footerActionBtn, { backgroundColor: '#E2E8F0' }]}
+                        onPress={() => handleReject(userDetails.user._id, userDetails.user.name)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.footerActionText, { color: '#1E293B' }]}>Reject</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.footerActionBtn, { backgroundColor: '#F58220' }]}
+                        onPress={() => handleApprove(userDetails.user._id)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.footerActionText}>Approve</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {userDetails.user.role === 'student' && (
+                        <TouchableOpacity
+                          style={[styles.footerActionBtn, { backgroundColor: '#2563EB' }]}
+                          onPress={() => {
+                            setAssignStudentId(userDetails.user._id);
+                            setAssignModalVisible(true);
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Icon name="library-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                          <Text style={styles.footerActionText}>Assign Batch</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        style={[styles.footerActionBtn, { backgroundColor: userDetails.user.is_active ? '#D97706' : '#10B981' }]}
+                        onPress={() => handleToggleActive(userDetails.user._id, userDetails.user.is_active, userDetails.user.name)}
+                        activeOpacity={0.8}
+                      >
+                        <Icon name={userDetails.user.is_active ? "pause-circle" : "play-circle"} size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                        <Text style={styles.footerActionText}>
+                          {userDetails.user.is_active ? 'Deactivate' : 'Activate'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.footerActionBtn, { backgroundColor: '#7F1D1D' }]}
+                        onPress={() => handleDeleteCompletely(userDetails.user._id, userDetails.user.name, userDetails.user.role)}
+                        activeOpacity={0.8}
+                      >
+                        <Icon name="trash-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                        <Text style={styles.footerActionText}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -2010,22 +2130,34 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   smallRejectBtn: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
     paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#DC2626',
+    borderRadius: 24,
+    backgroundColor: '#E2E8F0',
     minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  smallRejectBtnText: {
+    color: '#1E293B',
+    fontSize: 13.5,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   smallApproveBtn: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
     paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#059669',
+    borderRadius: 24,
+    backgroundColor: '#F58220',
     minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  smallApproveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   smallBtnText: {
     color: '#FFFFFF',
@@ -2987,7 +3119,9 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 24,
     paddingVertical: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     ...Platform.select({
       web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.2)' },
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 }

@@ -47,6 +47,7 @@ export interface IApplication extends Document {
   approval_email_sent?: boolean;
   approval_email_sent_at?: Date;
   approval_email_error?: string;
+  rejection_reason?: string;
 }
 
 const applicationSchema = new Schema<IApplication>(
@@ -92,7 +93,8 @@ const applicationSchema = new Schema<IApplication>(
     email_verified: { type: Boolean, default: false },
     approval_email_sent: { type: Boolean, default: false },
     approval_email_sent_at: { type: Date },
-    approval_email_error: { type: String }
+    approval_email_error: { type: String },
+    rejection_reason: { type: String }
   },
   { timestamps: true }
 );
