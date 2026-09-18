@@ -945,29 +945,3 @@ export const sendDeactivationEmail = async ({
 
   return { success: true, simulated: true };
 };
-=======
-  if (!transporter) {
-    console.log(`\n======================================================`);
-    console.log(`[DEV REJECTION EMAIL NOTICE]`);
-    console.log(`To: ${to} (${name})`);
-    console.log(`Reason: ${rejectionReason}`);
-    console.log(`======================================================\n`);
-    return { success: true, simulated: true };
-  }
-
-  try {
-    await transporter.sendMail({
-      from,
-      to,
-      subject: `TVTI Application Status — Rejection Notice & Resubmission Information`,
-      text: `Dear ${name},\n\nYour application to TVTI has been rejected.\n\nReason: ${rejectionReason}\n\nYou may resubmit your application through our official website portal.\n\nRegards,\nTVTI Institute`,
-      html: htmlContent,
-    });
-    return { success: true };
-  } catch (err: any) {
-    console.warn(`[REJECTION EMAIL SMTP WARNING] (${err?.message || err}).`);
-    return { success: false };
-  }
-};
-
->>>>>>> e5d10d7 (feat(admin): implement rejection reason modal, email notification, resubmission support, and dossier button conditional visibility)
