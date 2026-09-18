@@ -7,11 +7,29 @@ import mongoose from 'mongoose';
 
 let io: SocketIOServer | null = null;
 
+const getAllowedOrigins = (): string[] => {
+  const value = process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173';
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+};
+
 export const initSocket = (server: HttpServer): SocketIOServer => {
+  const allowedOrigins = getAllowedOrigins();
+
   io = new SocketIOServer(server, {
     cors: {
-      origin: '*',
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error('Not allowed by Socket.IO CORS'));
+      },
       methods: ['GET', 'POST'],
+      credentials: true,
     },
   });
 
@@ -97,105 +115,40 @@ export const sendNotification = async (options: SendNotificationOptions): Promis
       }
     }
 
-    // Deduplicate user IDs
-    targetUserIds = Array.from(new Set(targetUserIds));
-
     if (targetUserIds.length === 0) {
-      console.warn('[NotificationService] No target users found for notification:', options.title);
       return [];
     }
 
-    // 2. Bulk insert notifications in database
-    const notificationDocs = targetUserIds.map((uid) => ({
-      user_id: new mongoose.Types.ObjectId(uid),
-      title,
-      message,
-      type,
-      related_id: relatedId ? new mongoose.Types.ObjectId(relatedId.toString()) : undefined,
-      link,
-      is_read: false,
-    }));
-
-    const createdNotifications = await Notification.insertMany(notificationDocs);
-
-    // 3. Emit real-time Socket.io events to target user rooms
-    if (io) {
-      createdNotifications.forEach((notif) => {
-        const userIdStr = notif.user_id.toString();
-        io?.to(`user_${userIdStr}`).emit('notification', notif);
-      });
-
-      // Also emit to batch or role rooms if applicable for live room listeners
-      if (batchId) {
-        io.to(`batch_${batchId.toString()}`).emit('notification', {
+    const notificationDocs = await Promise.all(
+      targetUserIds.map(async (userId) => {
+        const notification = await Notification.create({
+          user_id: userId,
           title,
           message,
           type,
-          relatedId,
+          related_id: relatedId,
           link,
-          createdAt: new Date(),
+          is_read: false,
         });
-      }
 
-      if (role && role !== 'all') {
-        io.to(`role_${role}`).emit('notification', {
-          title,
-          message,
-          type,
-          relatedId,
-          link,
-          createdAt: new Date(),
-        });
-      }
-    }
-
-    // 4. Send Mobile Push Notifications to phone notification bar (FCM / Expo Push)
-    try {
-      const usersWithTokens = await User.find({
-        _id: { $in: targetUserIds },
-        $or: [
-          { expo_push_token: { $exists: true, $ne: '' } },
-          { fcm_token: { $exists: true, $ne: '' } }
-        ]
-      }).select('expo_push_token fcm_token');
-
-      const expoTokens: string[] = [];
-      usersWithTokens.forEach((u) => {
-        const token = u.expo_push_token || u.fcm_token;
-        if (token && token.trim()) {
-          expoTokens.push(token.trim());
+        if (io) {
+          io.to(`user_${userId}`).emit('notification', {
+            _id: notification._id,
+            title: notification.title,
+            message: notification.message,
+            type: notification.type,
+            link: notification.link,
+            createdAt: notification.createdAt,
+          });
         }
-      });
 
-      if (expoTokens.length > 0) {
-        console.log(`[NotificationService] Sending push notification to ${expoTokens.length} mobile devices...`);
-        const pushMessages = expoTokens.map((token) => ({
-          to: token,
-          sound: 'default',
-          title: title,
-          body: message,
-          data: { type, relatedId: relatedId?.toString() || '', link: link || '' },
-        }));
+        return notification;
+      })
+    );
 
-        // Send via Expo Push API
-        fetch('https://exp.host/--/api/v2/push/send', {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Accept-encoding': 'gzip, deflate',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(pushMessages),
-        }).catch((err) => console.warn('[NotificationService] Push API call error:', err));
-      }
-    } catch (pushErr) {
-      console.warn('[NotificationService] Mobile push notification error:', pushErr);
-    }
-
-    console.log(`[NotificationService] Sent "${title}" to ${targetUserIds.length} users.`);
-    return createdNotifications as unknown as INotification[];
+    return notificationDocs;
   } catch (error) {
-    console.error('[NotificationService] Error sending notification:', error);
+    console.error('[NotificationService] sendNotification failed:', error);
     return [];
   }
 };
