@@ -6,8 +6,16 @@ import jwt from 'jsonwebtoken';
 import { sendOtp, verifyOtp, isEmailVerified, consumeEmailVerification } from '../services/otpService';
 import { sendPasswordResetEmail } from '../services/emailService';
 
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) {
+    throw new Error('JWT_SECRET must be configured');
+  }
+  return secret;
+};
+
 const generateToken = (id: string, expiresIn: any = '7d') => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
+  return jwt.sign({ id }, getJwtSecret(), {
     expiresIn,
   });
 };
@@ -337,7 +345,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   const { password } = req.body;
 
   try {
-    const decoded = jwt.verify(token as string, process.env.JWT_SECRET || 'secret') as any;
+    const decoded = jwt.verify(token as string, getJwtSecret()) as any;
     const user = await User.findById(decoded.id);
 
     if (!user) {
