@@ -41,7 +41,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     if (!user.is_active) {
-      res.status(401).json({ message: 'Account is pending approval or inactive' });
+      if (user.role === 'student' && user.index_number) {
+        res.status(401).json({ message: 'Your account has been deactivated. Please contact the TVTI administration.' });
+      } else {
+        res.status(401).json({ message: 'Account is pending approval or inactive' });
+      }
       return;
     }
 
