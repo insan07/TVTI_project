@@ -7,8 +7,16 @@ import { sendOtp, verifyOtp, isEmailVerified, consumeEmailVerification } from '.
 import { sendPasswordResetOtpEmail } from '../services/emailService';
 import crypto from 'crypto';
 
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) {
+    throw new Error('JWT_SECRET must be configured');
+  }
+  return secret;
+};
+
 const generateToken = (id: string, expiresIn: any = '7d') => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
+  return jwt.sign({ id }, getJwtSecret(), {
     expiresIn,
   });
 };
@@ -453,27 +461,8 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   }
 
   try {
-    // We need to find the user. Since the frontend doesn't send email again (unless we require it),
-    // and we stored a hashed token, we cannot directly search by plaintext token.
-    // However, if the frontend doesn't send the email, we'd have to search all users who have a tokenHash and compare.
-    // A better approach is to require the email in the request or change the resetToken to include the userId (e.g. JWT or id:token).
-    // Let's decode if it's a JWT. Wait, I generated crypto.randomBytes. 
-    // To easily find the user, let's include the user id in the resetToken we sent: `${user._id}:${resetTokenHex}`.
-    // I need to adjust `verifyResetOtp` to send `${user._id}:${resetToken}`. Or I can just require email in resetPassword.
-    // Let's just require email in the resetPassword request! But the requirements don't mention sending email in step 10 request.
-    // Example: { "resetToken": "...", "newPassword": "..." }
-    
-    // If I use a JWT for the resetToken, I can decode the ID, but the prompt says:
-    // "The reset token must NOT be a normal login JWT. It should only be usable for resetting the password."
-    // A JWT with a specific secret or payload works. Or we can structure the resetToken as `${userId}:${cryptoToken}`.
-    
-    // Let's assume the resetToken contains the userId: userId.token
-    const parts = resetToken.split('.');
-    if (parts.length !== 2) {
-      res.status(400).json({ message: 'Invalid reset token format.' });
-      return;
-    }
-    const [userId, rawToken] = parts;
+    const decoded = jwt.verify(token as string, getJwtSecret()) as any;
+    const user = await User.findById(decoded.id);
 
     const user = await User.findById(userId);
     if (!user || !user.passwordResetTokenHash || !user.passwordResetTokenExpiresAt) {

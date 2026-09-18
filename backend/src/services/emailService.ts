@@ -170,7 +170,7 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
   console.log(`\n======================================================`);
   console.log(`[DEV OTP EMAIL NOTICE]`);
   console.log(`To: ${to}`);
-  console.log(`OTP Code: [ ${otp} ]`);
+  console.log(`OTP Code: [REDACTED]`);
   console.log(`Valid for 10 minutes`);
   console.log(`======================================================\n`);
   return { success: true, simulated: true };
@@ -304,7 +304,7 @@ export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendAp
           <div class="info-card">
             <div class="info-card-title">Official Portal Credentials Notice</div>
             <div class="info-card-text">
-              Upon approval of your application by the Twintec Admissions Board, your official <strong>Registration Number (Index No)</strong> and temporary login password will be dispatched to this email address.
+              Upon approval of your application by the Twintec Admissions Board, your official <strong>Registration Number (Index No)</strong> and temporary login password will be dispatched to the email address linked to your application.
             </div>
           </div>
         </div>
@@ -369,7 +369,7 @@ export const sendApprovalCredentialsEmail = async ({
         .subtitle { font-size: 13px; font-weight: 700; color: #059669; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 24px; }
         .description { font-size: 14.5px; line-height: 1.6; color: #334155; margin-bottom: 32px; }
         .cred-card { background: #0f172a; border-radius: 8px; padding: 28px; color: #ffffff; margin-bottom: 32px; box-shadow: 0 4px 12px rgba(15,23,42,0.15); }
-        .cred-card-header { font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 20px; }
+        .cred-card-header { font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 18px; }
         .cred-group { margin-bottom: 20px; }
         .cred-group:last-child { margin-bottom: 0; }
         .cred-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
@@ -387,7 +387,7 @@ export const sendApprovalCredentialsEmail = async ({
           <h2 class="title">Student Access Credentials</h2>
           <p class="description">
             Dear <strong>${studentName}</strong>,<br><br>
-            Your application for course admission has been formally <strong>Approved</strong> by the Twintec Admissions Office. Below are your official institutional credentials for accessing the Student Learning Management System portal.
+            Your application for course admission has been formally <strong>Approved</strong> by the Twintec Admissions Office. Below are your official institutional credentials for accessing the student portal.
           </p>
 
           <div class="cred-card">
@@ -443,7 +443,7 @@ export const sendApprovalCredentialsEmail = async ({
   console.log(`To: ${to}`);
   console.log(`Student: ${studentName}`);
   console.log(`Registration No: [ ${indexNumber} ]`);
-  console.log(`Temporary Password: [ ${tempPassword} ]`);
+  console.log(`Temporary Password: [REDACTED]`);
   console.log(`======================================================\n`);
   return { success: true, simulated: true };
 };
@@ -610,14 +610,14 @@ export const sendApprovalEmail = async ({
     </html>
   `;
 
-  const textContent = `TVTI Institute\nApplication Approved\n\nDear ${name},\n\nCongratulations!\n\nYour TVTI application has been approved.\n\nYour account details are:\n\nRegistration Number:\n${registrationNumber}\n\nTemporary Password:\n${temporaryPassword}\n\nPlease use these credentials to log in to the TVTI system.\n\nFor security reasons, please change your temporary password after your first login.\n\nRegards,\nTVTI Institute`;
+  const textContent = `TVTI Institute\nApplication Approved\n\nDear ${name},\n\nCongratulations!\n\nYour TVTI application has been approved.\n\nYour account details are:\n\nRegistration Number:\n${registrationNumber}\nTemporary Password:\n${temporaryPassword}\n\nPlease change your password after logging in.\n`;
 
   if (!transporter) {
     console.log(`\n======================================================`);
     console.log(`[DEV APPROVAL EMAIL NOTICE]`);
     console.log(`To: ${to} (${name})`);
     console.log(`Registration No: ${registrationNumber}`);
-    console.log(`Temp Password: ${temporaryPassword}`);
+    console.log(`Temp Password: [REDACTED]`);
     console.log(`======================================================\n`);
     return { success: true, simulated: true };
   }
