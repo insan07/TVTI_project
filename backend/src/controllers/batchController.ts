@@ -5,7 +5,8 @@ import Result from '../models/Result';
 import Video from '../models/Video';
 import PracticeSlot from '../models/PracticeSlot';
 import SlotBooking from '../models/SlotBooking';
-
+import User from '../models/User';
+import { sendBatchAssignmentEmail } from '../services/emailService';
 export const getAdminBatches = async (req: Request, res: Response): Promise<void> => {
   try {
     const batches = await Batch.find()
@@ -166,7 +167,36 @@ export const enrollStudents = async (req: Request, res: Response): Promise<void>
       status: 'active'
     }));
 
-    await Enrollment.insertMany(enrollmentsToCreate);
+    const createdEnrollments = await Enrollment.insertMany(enrollmentsToCreate);
+
+    const Course = (await import('../models/Course')).default;
+    const course = await Course.findById(batch.course_id);
+
+    for (const enrollment of createdEnrollments) {
+      const student = await User.findById(enrollment.student_id);
+      if (student && course) {
+        try {
+          await sendBatchAssignmentEmail({
+            to: student.email,
+            studentName: student.name,
+            registrationNumber: student.index_number || student.registration_number || 'N/A',
+            courseName: (course as any).title || 'TVTI Course',
+            batchName: batch.name,
+            startDate: new Date(batch.start_date).toLocaleDateString(),
+            endDate: new Date(batch.end_date).toLocaleDateString()
+          });
+          await Enrollment.findByIdAndUpdate(enrollment._id, {
+            batch_assignment_email_sent: true,
+            batch_assignment_email_sent_at: new Date()
+          });
+        } catch (emailErr: any) {
+          await Enrollment.findByIdAndUpdate(enrollment._id, {
+            batch_assignment_email_sent: false,
+            batch_assignment_email_error: emailErr.message || String(emailErr)
+          });
+        }
+      }
+    }
 
     res.json({ message: 'Students enrolled successfully' });
   } catch (error) {

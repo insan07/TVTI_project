@@ -52,6 +52,9 @@ export interface IUser extends Document {
   passwordResetOtpExpiresAt?: Date;
   passwordResetTokenHash?: string;
   passwordResetTokenExpiresAt?: Date;
+  deactivation_email_sent?: boolean;
+  deactivation_email_sent_at?: Date;
+  deactivation_email_error?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -103,6 +106,9 @@ const userSchema = new Schema<IUser>(
     passwordResetOtpExpiresAt: { type: Date },
     passwordResetTokenHash: { type: String },
     passwordResetTokenExpiresAt: { type: Date },
+    deactivation_email_sent: { type: Boolean, default: false },
+    deactivation_email_sent_at: { type: Date },
+    deactivation_email_error: { type: String },
   },
   { timestamps: true }
 );
