@@ -20,6 +20,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../config/theme';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import WhatsAppSelectionHeader from '../../components/shared/WhatsAppSelectionHeader';
 import * as Print from 'expo-print';
 
 interface ApplicationsManagementScreenProps {
@@ -84,9 +85,13 @@ export default function ApplicationsManagementScreen({
   }, [selectedApp]);
 
   const toggleAppSelection = (appId: string) => {
-    setSelectedAppIds(prev =>
-      prev.includes(appId) ? prev.filter(id => id !== appId) : [...prev, appId]
-    );
+    setSelectedAppIds(prev => {
+      const next = prev.includes(appId) ? prev.filter(id => id !== appId) : [...prev, appId];
+      if (next.length === 0) {
+        setIsSelectMode(false);
+      }
+      return next;
+    });
   };
 
   const handleDeleteSingleApp = (appId: string, name?: string) => {
@@ -1035,67 +1040,41 @@ export default function ApplicationsManagementScreen({
 
     return (
       <>
-        {isSelectMode && (
-          <View style={styles.whatsappHeaderBar}>
-            <View style={styles.whatsappHeaderLeft}>
-              <TouchableOpacity
-                style={styles.whatsappHeaderIconBtn}
-                onPress={() => {
-                  setIsSelectMode(false);
+        <WhatsAppSelectionHeader
+          visible={isSelectMode}
+          selectedCount={selectedAppIds.length}
+          onClearSelection={() => {
+            setIsSelectMode(false);
+            setSelectedAppIds([]);
+          }}
+          actions={[
+            {
+              id: 'select_all',
+              icon: selectedAppIds.length === applications.length && applications.length > 0 ? "checkmark-done" : "checkmark-done-circle-outline",
+              onPress: () => {
+                if (selectedAppIds.length === applications.length && applications.length > 0) {
                   setSelectedAppIds([]);
-                }}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="arrow-back" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.whatsappHeaderTitle}>
-                {selectedAppIds.length}
-              </Text>
-            </View>
-
-            <View style={styles.whatsappHeaderActions}>
-              <TouchableOpacity
-                style={styles.whatsappHeaderIconBtn}
-                onPress={() => {
-                  if (selectedAppIds.length === applications.length && applications.length > 0) {
-                    setSelectedAppIds([]);
-                  } else {
-                    setSelectedAppIds(applications.map(a => a._id));
-                  }
-                }}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon
-                  name={selectedAppIds.length === applications.length && applications.length > 0 ? "checkmark-done" : "checkmark-done-circle-outline"}
-                  size={24}
-                  color="#FFFFFF"
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.whatsappHeaderIconBtn, selectedAppIds.length === 0 && { opacity: 0.4 }]}
-                disabled={selectedAppIds.length === 0}
-                onPress={handleExportSelectedApps}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="download-outline" size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.whatsappHeaderIconBtn, selectedAppIds.length === 0 && { opacity: 0.4 }]}
-                disabled={selectedAppIds.length === 0}
-                onPress={handleBulkDeleteApps}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="trash-outline" size={22} color={selectedAppIds.length > 0 ? "#EF4444" : "#FFFFFF"} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+                  setIsSelectMode(false);
+                } else {
+                  setSelectedAppIds(applications.map(a => a._id));
+                }
+              },
+            },
+            {
+              id: 'export_csv',
+              icon: 'download-outline',
+              disabled: selectedAppIds.length === 0,
+              onPress: handleExportSelectedApps,
+            },
+            {
+              id: 'bulk_delete',
+              icon: 'trash-outline',
+              disabled: selectedAppIds.length === 0,
+              color: selectedAppIds.length > 0 ? '#EF4444' : '#FFFFFF',
+              onPress: handleBulkDeleteApps,
+            },
+          ]}
+        />
         {loading ? (
           <ActivityIndicator size="large" color="#000000" style={{ marginTop: 40 }} />
         ) : (

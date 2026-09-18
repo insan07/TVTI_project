@@ -27,6 +27,7 @@ import { useRoute } from '@react-navigation/native';
 import ApplicationsManagementScreen from './ApplicationsManagementScreen';
 import ScreenHeader from '../../components/shared/ScreenHeader';
 import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
+import WhatsAppSelectionHeader from '../../components/shared/WhatsAppSelectionHeader';
 import * as Print from 'expo-print';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -481,9 +482,13 @@ export default function UserManagementScreen() {
   });
 
   const toggleUserSelection = (userId: string) => {
-    setSelectedUserIds(prev =>
-      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
-    );
+    setSelectedUserIds(prev => {
+      const next = prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId];
+      if (next.length === 0) {
+        setIsSelectMode(false);
+      }
+      return next;
+    });
   };
 
   const openExportModal = (target: 'all_filtered' | 'selected') => {
@@ -1067,65 +1072,41 @@ export default function UserManagementScreen() {
         />
       )}
       {isSelectMode ? (
-        <View style={styles.whatsappHeaderBar}>
-          <View style={styles.whatsappHeaderLeft}>
-            <TouchableOpacity
-              style={styles.whatsappHeaderIconBtn}
-              onPress={() => {
-                setIsSelectMode(false);
-                setSelectedUserIds([]);
-              }}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="arrow-back" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.whatsappHeaderTitle}>
-              {selectedUserIds.length}
-            </Text>
-          </View>
-
-          <View style={styles.whatsappHeaderActions}>
-            <TouchableOpacity
-              style={styles.whatsappHeaderIconBtn}
-              onPress={() => {
+        <WhatsAppSelectionHeader
+          visible={isSelectMode}
+          selectedCount={selectedUserIds.length}
+          onClearSelection={() => {
+            setIsSelectMode(false);
+            setSelectedUserIds([]);
+          }}
+          actions={[
+            {
+              id: 'select_all',
+              icon: selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0 ? "checkmark-done" : "checkmark-done-circle-outline",
+              onPress: () => {
                 if (selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0) {
                   setSelectedUserIds([]);
+                  setIsSelectMode(false);
                 } else {
                   setSelectedUserIds(filteredUsers.map(u => u._id));
                 }
-              }}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon
-                name={selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0 ? "checkmark-done" : "checkmark-done-circle-outline"}
-                size={24}
-                color="#FFFFFF"
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.whatsappHeaderIconBtn, selectedUserIds.length === 0 && { opacity: 0.4 }]}
-              disabled={selectedUserIds.length === 0}
-              onPress={() => openExportModal('selected')}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="download-outline" size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.whatsappHeaderIconBtn, selectedUserIds.length === 0 && { opacity: 0.4 }]}
-              disabled={selectedUserIds.length === 0}
-              onPress={handleBulkDelete}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="trash-outline" size={22} color={selectedUserIds.length > 0 ? "#EF4444" : "#FFFFFF"} />
-            </TouchableOpacity>
-          </View>
-        </View>
+              },
+            },
+            {
+              id: 'export_csv',
+              icon: 'download-outline',
+              disabled: selectedUserIds.length === 0,
+              onPress: () => openExportModal('selected'),
+            },
+            {
+              id: 'bulk_delete',
+              icon: 'trash-outline',
+              disabled: selectedUserIds.length === 0,
+              color: selectedUserIds.length > 0 ? '#EF4444' : '#FFFFFF',
+              onPress: handleBulkDelete,
+            },
+          ]}
+        />
       ) : (
         <ScreenHeader
           title="User Management"
