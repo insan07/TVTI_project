@@ -26,6 +26,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
 import ApplicationsManagementScreen from './ApplicationsManagementScreen';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
 import * as Print from 'expo-print';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -734,74 +735,43 @@ export default function UserManagementScreen() {
             <Text style={styles.userEmail}>{item.email}</Text>
             <Text style={styles.userSubtext}>Reg No: {item.index_number || item.nic || 'N/A'}</Text>
           </View>
-          <View style={[styles.rightCardCol, isMenuOpen && { zIndex: 9999 }]}>
+          <View style={styles.rightCardCol}>
             {!isSelectMode && (
-              <TouchableOpacity
-                style={styles.threeDotsBtn}
-                onPress={() => setActiveMenuUserId(isMenuOpen ? null : item._id)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="ellipsis-vertical" size={20} color={isMenuOpen ? "#0F172A" : "#64748B"} />
-              </TouchableOpacity>
+              <WhatsAppOptionsMenu
+                options={[
+                  {
+                    id: 'view_profile',
+                    label: 'View Profile',
+                    onPress: () => handleOpenDetails(item._id),
+                  },
+                  {
+                    id: 'assign_batch',
+                    label: 'Assign Batch',
+                    onPress: () => {
+                      setAssignStudentId(item._id);
+                      setAssignModalVisible(true);
+                    },
+                  },
+                  {
+                    id: 'toggle_active',
+                    label: item.is_active ? 'Deactivate' : 'Activate',
+                    destructive: item.is_active,
+                    onPress: () => handleToggleActive(item._id, item.is_active, item.name),
+                  },
+                  {
+                    id: 'delete',
+                    label: 'Delete',
+                    destructive: true,
+                    onPress: () => handleDeleteCompletely(item._id, item.name, item.role),
+                  },
+                ]}
+              />
             )}
             <View style={[styles.statusBadge, { backgroundColor: item.is_active ? '#D1FAE5' : '#FEE2E2', marginTop: 8 }]}>
               <Text style={[styles.statusBadgeText, { color: item.is_active ? '#065F46' : '#991B1B' }]}>
                 {item.is_active ? 'Active' : 'Deactivated'}
               </Text>
             </View>
-
-            {!isSelectMode && isMenuOpen && (
-              <View style={styles.whatsappMenuContainer}>
-                <TouchableOpacity
-                  style={styles.whatsappMenuItem}
-                  onPress={() => {
-                    setActiveMenuUserId(null);
-                    handleOpenDetails(item._id);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.whatsappMenuText}>View Profile</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.whatsappMenuItem}
-                  onPress={() => {
-                    setActiveMenuUserId(null);
-                    setAssignStudentId(item._id);
-                    setAssignModalVisible(true);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.whatsappMenuText}>Assign Batch</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.whatsappMenuItem}
-                  onPress={() => {
-                    setActiveMenuUserId(null);
-                    handleToggleActive(item._id, item.is_active, item.name);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.whatsappMenuText, { color: item.is_active ? "#DC2626" : "#2563EB" }]}>
-                    {item.is_active ? 'Deactivate' : 'Activate'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.whatsappMenuItem, { borderBottomWidth: 0 }]}
-                  onPress={() => {
-                    setActiveMenuUserId(null);
-                    handleDeleteCompletely(item._id, item.name, item.role);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.whatsappMenuText, { color: '#DC2626', fontWeight: '600' }]}>
-                    Delete
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -857,56 +827,29 @@ export default function UserManagementScreen() {
             <Text style={styles.userEmail}>{item.email}</Text>
             {item.phone ? <Text style={styles.userSubtext}>{item.phone}</Text> : null}
           </View>
-          <View style={[styles.rightCardCol, isMenuOpen && { zIndex: 9999 }]}>
+          <View style={styles.rightCardCol}>
             {!isSelectMode && (
-              <TouchableOpacity
-                style={styles.threeDotsBtn}
-                onPress={() => setActiveMenuUserId(isMenuOpen ? null : item._id)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="ellipsis-vertical" size={20} color={isMenuOpen ? "#0F172A" : "#64748B"} />
-              </TouchableOpacity>
-            )}
-
-            {!isSelectMode && isMenuOpen && (
-              <View style={styles.whatsappMenuContainer}>
-                <TouchableOpacity
-                  style={styles.whatsappMenuItem}
-                  onPress={() => {
-                    setActiveMenuUserId(null);
-                    handleOpenDetails(item._id);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.whatsappMenuText}>View Profile</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.whatsappMenuItem}
-                  onPress={() => {
-                    setActiveMenuUserId(null);
-                    handleToggleActive(item._id, item.is_active, item.name);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.whatsappMenuText, { color: item.is_active ? "#DC2626" : "#2563EB" }]}>
-                    {item.is_active ? 'Deactivate' : 'Activate'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.whatsappMenuItem, { borderBottomWidth: 0 }]}
-                  onPress={() => {
-                    setActiveMenuUserId(null);
-                    handleDeleteCompletely(item._id, item.name, item.role);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.whatsappMenuText, { color: '#DC2626', fontWeight: '600' }]}>
-                    Delete
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <WhatsAppOptionsMenu
+                options={[
+                  {
+                    id: 'view_profile',
+                    label: 'View Profile',
+                    onPress: () => handleOpenDetails(item._id),
+                  },
+                  {
+                    id: 'toggle_active',
+                    label: item.is_active ? 'Deactivate' : 'Activate',
+                    destructive: item.is_active,
+                    onPress: () => handleToggleActive(item._id, item.is_active, item.name),
+                  },
+                  {
+                    id: 'delete',
+                    label: 'Delete',
+                    destructive: true,
+                    onPress: () => handleDeleteCompletely(item._id, item.name, item.role),
+                  },
+                ]}
+              />
             )}
           </View>
         </View>
@@ -1187,50 +1130,18 @@ export default function UserManagementScreen() {
         <ScreenHeader
           title="User Management"
           subtitle="Manage student admissions & instructor staff"
-          rightElement={
-            <View style={{ position: 'relative', zIndex: 99999 }}>
-              <TouchableOpacity
-                style={{
-                  padding: 6,
-                  borderRadius: 8,
-                  backgroundColor: headerMenuOpen ? '#F1F5F9' : 'transparent',
-                }}
-                onPress={() => setHeaderMenuOpen(!headerMenuOpen)}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="ellipsis-vertical" size={22} color="#0F172A" />
-              </TouchableOpacity>
-
-              {headerMenuOpen && (
-                <View style={styles.headerDropdownMenu}>
-                  <TouchableOpacity
-                    style={styles.headerDropdownItem}
-                    onPress={() => {
-                      setHeaderMenuOpen(false);
-                      setIsSelectMode(true);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="checkbox-outline" size={18} color="#0F172A" style={{ marginRight: 10 }} />
-                    <Text style={styles.headerDropdownText}>Select Mode</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.headerDropdownItem, { borderBottomWidth: 0 }]}
-                    onPress={() => {
-                      setHeaderMenuOpen(false);
-                      openExportModal('all_filtered');
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="download-outline" size={18} color="#0F172A" style={{ marginRight: 10 }} />
-                    <Text style={styles.headerDropdownText}>Export Excel Sheet</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          }
+          options={[
+            {
+              id: 'select_mode',
+              label: 'Select Mode',
+              onPress: () => setIsSelectMode(true),
+            },
+            {
+              id: 'export_excel',
+              label: 'Export Excel Sheet',
+              onPress: () => openExportModal('all_filtered'),
+            },
+          ]}
         />
       )}
       {/* Sleek Segmented Pill Track Header */}

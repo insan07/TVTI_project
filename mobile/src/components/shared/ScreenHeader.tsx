@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { HEADER_THEME } from '../../config/headerTheme';
+import { WhatsAppOptionsMenu, MenuOption } from './WhatsAppOptionsMenu';
 
 export interface ScreenHeaderProps {
   title: string;
@@ -10,6 +11,7 @@ export interface ScreenHeaderProps {
   showBack?: boolean;
   onBackPress?: () => void;
   rightElement?: React.ReactNode;
+  options?: MenuOption[];
   containerStyle?: object;
 }
 
@@ -19,6 +21,7 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
   showBack,
   onBackPress,
   rightElement,
+  options,
   containerStyle,
 }) => {
   const navigation = useNavigation<any>();
@@ -63,7 +66,13 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
           ) : null}
         </View>
       </View>
-      {rightElement ? <View style={styles.rightGroup}>{rightElement}</View> : null}
+      {options && options.length > 0 ? (
+        <View style={styles.rightGroup}>
+          <WhatsAppOptionsMenu options={options} />
+        </View>
+      ) : rightElement ? (
+        <View style={styles.rightGroup}>{rightElement}</View>
+      ) : null}
     </View>
   );
 };

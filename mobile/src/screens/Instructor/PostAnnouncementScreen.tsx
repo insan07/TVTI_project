@@ -20,6 +20,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
 
 export default function PostAnnouncementScreen() {
   const navigation = useNavigation<any>();
@@ -347,43 +348,22 @@ export default function PostAnnouncementScreen() {
                       <View style={styles.timestampBadge}>
                         <Text style={styles.timestampText}>{formatTimestamp(ann.createdAt)}</Text>
                       </View>
-                      <TouchableOpacity
-                        style={styles.threeDotsBtn}
-                        onPress={() => setActiveMenuId(isMenuOpen ? null : ann._id)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <Icon name="ellipsis-vertical" size={18} color={isMenuOpen ? "#0F172A" : "#64748B"} />
-                      </TouchableOpacity>
+                      <WhatsAppOptionsMenu
+                        options={[
+                          {
+                            id: 'edit_announcement',
+                            label: 'Edit',
+                            onPress: () => handleOpenEdit(ann),
+                          },
+                          {
+                            id: 'delete_announcement',
+                            label: 'Delete',
+                            destructive: true,
+                            onPress: () => handleDelete(ann._id),
+                          },
+                        ]}
+                      />
                     </View>
-
-                    {/* 3-Dots Popover Dropdown Menu */}
-                    {isMenuOpen && (
-                      <View style={styles.optionsMenuContainer}>
-                        <TouchableOpacity
-                          style={styles.optionsMenuItem}
-                          onPress={() => {
-                            setActiveMenuId(null);
-                            handleOpenEdit(ann);
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.optionsMenuText}>Edit</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.optionsMenuItem, { borderBottomWidth: 0 }]}
-                          onPress={() => {
-                            setActiveMenuId(null);
-                            handleDelete(ann._id);
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.optionsMenuText, { color: '#EF4444', fontWeight: '600' }]}>
-                            Delete
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
                   </View>
 
                   {/* Target & Author Badges */}
