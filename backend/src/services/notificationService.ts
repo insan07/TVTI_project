@@ -1,8 +1,10 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import jwt from 'jsonwebtoken';
 import Notification, { INotification } from '../models/Notification';
 import Enrollment from '../models/Enrollment';
 import User from '../models/User';
+import Batch from '../models/Batch';
 import mongoose from 'mongoose';
 
 let io: SocketIOServer | null = null;
@@ -13,6 +15,48 @@ const getAllowedOrigins = (): string[] => {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+};
+
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) {
+    throw new Error('JWT_SECRET must be configured');
+  }
+  return secret;
+};
+
+const authenticateSocket = async (socket: Socket): Promise<{ _id: string; role: string } | null> => {
+  const authToken =
+    socket.handshake.auth?.token ||
+    socket.handshake.headers.authorization?.toString().replace(/^Bearer\s+/i, '');
+
+  if (!authToken) {
+    return null;
+  }
+
+  try {
+    const decoded = jwt.verify(authToken, getJwtSecret()) as { id?: string };
+    if (!decoded?.id) {
+      return null;
+    }
+
+    const user = await User.findById(decoded.id).select('_id role is_active');
+    if (!user || !user.is_active) {
+      return null;
+    }
+
+    socket.data.user = {
+      _id: user._id.toString(),
+      role: user.role,
+    };
+
+    return {
+      _id: user._id.toString(),
+      role: user.role,
+    };
+  } catch {
+    return null;
+  }
 };
 
 export const initSocket = (server: HttpServer): SocketIOServer => {
@@ -33,34 +77,96 @@ export const initSocket = (server: HttpServer): SocketIOServer => {
     },
   });
 
+  io.use(async (socket, next) => {
+    const user = await authenticateSocket(socket);
+    if (!user) {
+      return next(new Error('Unauthorized socket connection'));
+    }
+    return next();
+  });
+
   io.on('connection', (socket: Socket) => {
+    const requester = socket.data.user as { _id: string; role: string } | undefined;
     console.log(`[Socket.io] Client connected: ${socket.id}`);
 
     // Join personal user room
-    socket.on('join_user', (userId: string) => {
-      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-        const roomName = `user_${userId}`;
-        socket.join(roomName);
-        console.log(`[Socket.io] Socket ${socket.id} joined room ${roomName}`);
+    socket.on('join_user', async (userId: string) => {
+      if (!requester) {
+        socket.emit('error', 'Unauthorized');
+        return;
       }
+
+      const targetUserId = String(userId || '');
+      if (!targetUserId || !mongoose.Types.ObjectId.isValid(targetUserId)) {
+        socket.emit('error', 'Invalid user ID');
+        return;
+      }
+
+      if (requester._id !== targetUserId) {
+        socket.emit('error', 'You are not allowed to join this room');
+        return;
+      }
+
+      const roomName = `user_${targetUserId}`;
+      socket.join(roomName);
+      console.log(`[Socket.io] Socket ${socket.id} joined room ${roomName}`);
     });
 
     // Join role room
-    socket.on('join_role', (role: string) => {
-      if (['student', 'instructor', 'admin'].includes(role)) {
-        const roomName = `role_${role}`;
-        socket.join(roomName);
-        console.log(`[Socket.io] Socket ${socket.id} joined room ${roomName}`);
+    socket.on('join_role', async (role: string) => {
+      if (!requester) {
+        socket.emit('error', 'Unauthorized');
+        return;
       }
+
+      const requestedRole = String(role || '');
+      if (!['student', 'instructor', 'admin'].includes(requestedRole)) {
+        socket.emit('error', 'Invalid role');
+        return;
+      }
+
+      if (requester.role !== requestedRole) {
+        socket.emit('error', 'You are not allowed to join this role room');
+        return;
+      }
+
+      const roomName = `role_${requestedRole}`;
+      socket.join(roomName);
+      console.log(`[Socket.io] Socket ${socket.id} joined room ${roomName}`);
     });
 
     // Join batch room
-    socket.on('join_batch', (batchId: string) => {
-      if (batchId) {
-        const roomName = `batch_${batchId}`;
-        socket.join(roomName);
-        console.log(`[Socket.io] Socket ${socket.id} joined room ${roomName}`);
+    socket.on('join_batch', async (batchId: string) => {
+      if (!requester) {
+        socket.emit('error', 'Unauthorized');
+        return;
       }
+
+      const targetBatchId = String(batchId || '');
+      if (!targetBatchId || !mongoose.Types.ObjectId.isValid(targetBatchId)) {
+        socket.emit('error', 'Invalid batch ID');
+        return;
+      }
+
+      const isAdmin = requester.role === 'admin';
+      const isInstructor = await Batch.exists({
+        _id: targetBatchId,
+        instructor_ids: requester._id,
+      });
+      const isStudent = await Enrollment.exists({
+        batch_id: targetBatchId,
+        student_id: requester._id,
+        status: 'active',
+      });
+
+      if (!isAdmin && !isInstructor && !isStudent) {
+        socket.emit('error', 'You are not allowed to join this batch room');
+        return;
+      }
+
+      const roomName = `batch_${targetBatchId}`;
+      socket.join(roomName);
+      console.log(`[Socket.io] Socket ${socket.id} joined room ${roomName}`);
     });
 
     socket.on('disconnect', () => {
