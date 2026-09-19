@@ -1,4 +1,3 @@
-import http from 'http';
 import express, { Application, Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -6,15 +5,10 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
-import dns from 'dns';
 import multer from 'multer';
 
-// Force Google DNS servers to resolve MongoDB Atlas queryTxt/SRV lookups reliably
-// Server reloaded after installing missing dependencies
-dns.setServers(['8.8.8.8', '8.8.4.4']);
-
-// Import Socket initialization
-import { initSocket } from './services/notificationService';
+// Note: Socket.io is not supported on Vercel serverless.
+// Notifications are saved to DB; real-time push relies on client polling.
 
 // Import Routes
 import authRoutes from './routes/auth';
@@ -36,24 +30,21 @@ dotenv.config();
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
-// Create HTTP server
-const server = http.createServer(app);
-
-// Initialize Socket.io
-initSocket(server);
-
 import path from 'path';
 
 // Middleware
 app.use(helmet({ crossOriginResourcePolicy: false }));
-// CORS Configuration
+// CORS Configuration — set CORS_ORIGINS env var for production
+// e.g. CORS_ORIGINS=https://your-app.vercel.app,https://your-mobile.vercel.app
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:8081',
   'http://127.0.0.1:8081',
   'http://localhost:19000',
-  'exp://localhost:8081' // Expo go
-  // TODO: Add production frontend URLs here
+  'exp://localhost:8081',
+  ...(process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+    : []),
 ];
 app.use(cors({
   origin: (origin, callback) => {
@@ -108,15 +99,14 @@ const apiLimiter = rateLimit({
 });
 app.use('/api', apiLimiter);
 
-// Database Connection
+// Database Connection — lazy connect for Vercel serverless
 let isConnected = false;
 const connectDB = async () => {
   if (isConnected) return;
   try {
     const mongoURI = process.env.MONGO_URI;
     if (!mongoURI) {
-      console.error('CRITICAL ERROR: MONGO_URI is not defined in your .env file! Please set MONGO_URI in backend/.env');
-      process.exit(1);
+      throw new Error('CRITICAL ERROR: MONGO_URI is not defined. Please set MONGO_URI in environment variables.');
     }
     await mongoose.connect(mongoURI);
     isConnected = true;
@@ -139,8 +129,19 @@ const connectDB = async () => {
     }
   } catch (err: any) {
     console.error('MongoDB connection error:', err.message);
+    throw err; // Let the request fail visibly instead of silently proceeding
   }
 };
+
+// Middleware: ensure DB is connected before handling any request (critical for serverless)
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(503).json({ success: false, message: 'Database connection failed' });
+  }
+});
 
 // Use Routes
 app.get('/', (req: Request, res: Response) => {
@@ -192,18 +193,14 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Connect Database & Start Server
-const startServer = async () => {
-  await connectDB();
-
-  if (process.env.NODE_ENV !== 'production') {
-    server.listen(PORT, () => {
-      console.log(`Server & Socket.io running on port ${PORT}`);
+// Start server for local development only (Vercel uses the default export directly)
+if (process.env.NODE_ENV !== 'production') {
+  connectDB().then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
     });
-  }
-};
-
-startServer();
+  });
+}
 
 export default app;
 
