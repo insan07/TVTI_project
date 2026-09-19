@@ -567,9 +567,6 @@ export default function UploadVideoScreen() {
                   <Icon name={listMode === 'video' ? 'videocam-outline' : 'document-text-outline'} size={64} color="#D1D5DB" />
                   <Text style={styles.emptyTitle}>No {listMode === 'video' ? 'videos' : 'materials'} uploaded yet</Text>
                   <Text style={styles.emptySubtitle}>Upload your first {listMode === 'video' ? 'course video' : 'document material'}</Text>
-                  <TouchableOpacity style={styles.emptyBtn} onPress={() => setActiveTab('upload')}>
-                    <Text style={styles.emptyBtnText}>Upload Now</Text>
-                  </TouchableOpacity>
                 </View>
               }
               renderItem={({ item }) => (
