@@ -461,8 +461,12 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   }
 
   try {
-    const decoded = jwt.verify(token as string, getJwtSecret()) as any;
-    const user = await User.findById(decoded.id);
+    const parts = resetToken.split('.');
+    if (parts.length !== 2) {
+      res.status(400).json({ message: 'Invalid reset token format.' });
+      return;
+    }
+    const [userId, rawToken] = parts;
 
     const user = await User.findById(userId);
     if (!user || !user.passwordResetTokenHash || !user.passwordResetTokenExpiresAt) {

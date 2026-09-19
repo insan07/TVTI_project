@@ -69,7 +69,7 @@ const getAuthorizedVideo = async (req: AuthRequest, videoId: string) => {
 
 export const getVideoStreamUrl = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { videoId } = req.params;
+    const videoId = req.params.videoId as string;
     const { video, forbidden } = await getAuthorizedVideo(req, videoId);
     if (!video) {
       res.status(404).json({ message: 'Video not found' });
@@ -115,7 +115,7 @@ export const getVideoStreamUrl = async (req: AuthRequest, res: Response): Promis
 
 export const downloadVideo = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { videoId } = req.params;
+    const videoId = req.params.videoId as string;
     const { video, forbidden } = await getAuthorizedVideo(req, videoId);
     if (!video) {
       res.status(404).json({ message: 'Video not found' });
