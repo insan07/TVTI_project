@@ -36,6 +36,13 @@ export default function UploadVideoScreen() {
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  
+  const [expandedModules, setExpandedModules] = useState<{ [key: string]: boolean }>({});
+  const toggleModule = (topic: string) => {
+    setExpandedModules(prev => ({ ...prev, [topic]: !prev[topic] }));
+  };
+
+
 
   // Custom Confirmation & Alert Dialog Popup State
   const [confirmModal, setConfirmModal] = useState<{
@@ -347,6 +354,15 @@ export default function UploadVideoScreen() {
   const currentList = listMode === 'video' ? myVideos : myMaterials;
   const currentLoading = listMode === 'video' ? loadingVideos : loadingMaterials;
 
+  const groupedItems = React.useMemo(() => {
+    return currentList.reduce((acc: any, item: any) => {
+      const t = item.topic || 'General';
+      if (!acc[t]) acc[t] = [];
+      acc[t].push(item);
+      return acc;
+    }, {});
+  }, [currentList]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScreenHeader
@@ -556,116 +572,157 @@ export default function UploadVideoScreen() {
               <ActivityIndicator size="large" color={COLORS.primary} />
               <Text style={styles.loadingText}>Loading {listMode === 'video' ? 'videos' : 'materials'}...</Text>
             </View>
-          ) : (
-            <FlatList
-              data={currentList}
-              keyExtractor={item => item._id}
-              contentContainerStyle={{ padding: 15, paddingBottom: 100 }}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon name={listMode === 'video' ? 'videocam-outline' : 'document-text-outline'} size={64} color="#D1D5DB" />
-                  <Text style={styles.emptyTitle}>No {listMode === 'video' ? 'videos' : 'materials'} uploaded yet</Text>
-                  <Text style={styles.emptySubtitle}>Upload your first {listMode === 'video' ? 'course video' : 'document material'}</Text>
-                </View>
-              }
-              renderItem={({ item }) => (
-                <View style={styles.videoCard}>
-                  <TouchableOpacity 
-                    style={styles.videoCardLeft}
-                    onPress={() => {
-                      let url = item.content_type === 'material' ? item.cloudinary_url : (item.cloudinary_url || item.youtube_url);
-                      if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
-                        url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
-                      }
-                      if (url) {
-                        if (Platform.OS === 'web') {
-                          window.open(url, '_blank');
-                        } else {
-                          Linking.openURL(url);
-                        }
-                      }
-                    }}
-                  >
-                    <View style={styles.videoIcon}>
-                      {(() => {
-                        let thumbUrl = null;
-                        let isLocalVideo = false;
-                        let localVideoUrl = '';
+          ) : Object.keys(groupedItems).length > 0 ? (
+            <ScrollView contentContainerStyle={{ padding: 15, paddingBottom: 120 }}>
+              {Object.keys(groupedItems).sort().map((topic, idx) => {
+                const isExpanded = !!expandedModules[topic];
+                return (
+                  <View key={topic} style={styles.moduleSectionBox}>
+                    <TouchableOpacity
+                      style={[styles.moduleHeader, { marginBottom: isExpanded ? 12 : 0 }]}
+                      activeOpacity={0.8}
+                      onPress={() => toggleModule(topic)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.moduleTag}>MODULE {idx + 1}</Text>
+                        <Text style={styles.moduleTitle}>{topic}</Text>
+                      </View>
+                      <Icon name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color="#1A1A1A" />
+                    </TouchableOpacity>
+                    
+                    {isExpanded && (
+                      <View style={styles.moduleVideosContainer}>
+                        {groupedItems[topic].map((item: any, itemIdx: number) => {
+                          let thumbUrl = null;
+                          let isLocalVideo = false;
+                          let localVideoUrl = '';
 
-                        if (item.youtube_url) {
-                          const match = item.youtube_url.match(/[?&]v=([^&]+)/) || item.youtube_url.match(/youtu\.be\/([^?]+)/);
-                          if (match && match[1]) {
-                            thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
-                          }
-                        } else if (item.cloudinary_url) {
-                          if (item.cloudinary_url.includes('cloudinary.com')) {
-                            // Cloudinary can generate thumbnails for videos and PDFs by changing the extension to .jpg
-                            thumbUrl = item.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
-                          } else if (item.cloudinary_url.startsWith('/uploads/')) {
-                            if (item.content_type !== 'material') {
-                              isLocalVideo = true;
-                              localVideoUrl = `${API_URL.replace(/\/api\/?$/, '')}${item.cloudinary_url}`;
+                          if (item.youtube_url) {
+                            const match = item.youtube_url.match(/[?&]v=([^&]+)/) || item.youtube_url.match(/youtu\.be\/([^?]+)/);
+                            if (match && match[1]) {
+                              thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+                            }
+                          } else if (item.cloudinary_url) {
+                            if (item.cloudinary_url.includes('cloudinary.com')) {
+                              thumbUrl = item.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
+                            } else if (item.cloudinary_url.startsWith('/uploads/')) {
+                              if (item.content_type !== 'material') {
+                                isLocalVideo = true;
+                                localVideoUrl = `${API_URL.replace(/\/api\/?$/, '')}${item.cloudinary_url}`;
+                              }
                             }
                           }
-                        }
-                        
-                        if (thumbUrl) {
-                          return (
-                            <>
-                              <Image source={{ uri: thumbUrl }} style={styles.thumbnailImage} resizeMode="cover" />
-                              <View style={styles.thumbnailOverlay}>
-                                <Icon
-                                  name={item.content_type === 'material' ? 'document-text' : item.youtube_url ? 'logo-youtube' : 'videocam'}
-                                  size={22}
-                                  color="#FFFFFF"
-                                />
+
+                          if (listMode === 'video') {
+                            return (
+                              <View key={item._id || itemIdx} style={{ position: 'relative', marginBottom: 16 }}>
+                                <TouchableOpacity
+                                  style={styles.youtubeVideoCard}
+                                  activeOpacity={0.88}
+                                  onPress={() => {
+                                    let url = item.cloudinary_url || item.youtube_url;
+                                    if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
+                                      url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                                    }
+                                    if (url) {
+                                      if (Platform.OS === 'web') window.open(url, '_blank');
+                                      else Linking.openURL(url);
+                                    }
+                                  }}
+                                >
+                                  <View style={styles.widescreenThumbWrapper}>
+                                    {thumbUrl ? (
+                                      <Image source={{ uri: thumbUrl }} style={styles.widescreenThumbImage} resizeMode="cover" />
+                                    ) : isLocalVideo && Platform.OS === 'web' ? (
+                                      (() => {
+                                        const VideoElement = 'video' as any;
+                                        return (
+                                          <VideoElement
+                                            src={localVideoUrl}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                            preload="metadata"
+                                            muted
+                                          />
+                                        );
+                                      })()
+                                    ) : (
+                                      <View style={styles.placeholderThumbBox}>
+                                        <Icon name="logo-youtube" size={48} color="#FF0000" />
+                                      </View>
+                                    )}
+                                    <View style={styles.thumbPlayOverlay}>
+                                      <View style={styles.youtubePlayCircle}>
+                                        <Icon name="play" size={24} color="#FFFFFF" style={{ marginLeft: 3 }} />
+                                      </View>
+                                    </View>
+                                    <View style={styles.durationPill}>
+                                      <Text style={styles.durationPillText}>--:--</Text>
+                                    </View>
+                                  </View>
+                                  <View style={styles.youtubeVideoMeta}>
+                                    <View style={styles.metaHeaderRow}>
+                                      <View style={styles.topicBadgePill}>
+                                        <Text style={styles.topicBadgeText}>{(item.topic || 'LECTURE').toUpperCase()}</Text>
+                                      </View>
+                                    </View>
+                                    <Text style={styles.youtubeVideoTitle} numberOfLines={2}>{item.title}</Text>
+                                    <View style={styles.youtubeChannelRow}>
+                                      <Icon name="time-outline" size={14} color="#71717A" style={{ marginRight: 4 }} />
+                                      <Text style={styles.youtubeChannelText}>Uploaded just now</Text>
+                                    </View>
+                                  </View>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity onPress={() => handleDeleteVideo(item._id, item.title)} style={styles.cardDeleteBtn}>
+                                  <Icon name="trash-outline" size={18} color="#EF4444" />
+                                </TouchableOpacity>
                               </View>
-                            </>
-                          );
-                        } else if (isLocalVideo && Platform.OS === 'web') {
-                          const VideoElement = 'video' as any;
-                          return (
-                            <>
-                              <VideoElement 
-                                src={localVideoUrl} 
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} 
-                                preload="metadata" 
-                                muted 
-                              />
-                              <View style={styles.thumbnailOverlay}>
-                                <Icon
-                                  name="videocam"
-                                  size={22}
-                                  color="#FFFFFF"
-                                />
+                            );
+                          } else {
+                            // Document / Material Card
+                            return (
+                              <View key={item._id || itemIdx} style={styles.videoCard}>
+                                <TouchableOpacity style={styles.videoCardLeft} onPress={() => {
+                                    let url = item.cloudinary_url;
+                                    if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
+                                      url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                                    }
+                                    if (url) {
+                                      if (Platform.OS === 'web') window.open(url, '_blank');
+                                      else Linking.openURL(url);
+                                    }
+                                }}>
+                                  <View style={[styles.videoIcon, { backgroundColor: 'transparent' }]}>
+                                    {thumbUrl ? (
+                                      <Image source={{ uri: thumbUrl }} style={[styles.thumbnailImage, { borderRadius: 8 }]} resizeMode="cover" />
+                                    ) : (
+                                      <Icon name="document-text" size={26} color="#F58220" />
+                                    )}
+                                  </View>
+                                  <View style={{ flex: 1, paddingLeft: 6 }}>
+                                    <Text style={styles.videoTitle}>{item.title}</Text>
+                                    <Text style={styles.videoDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                                  </View>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleDeleteVideo(item._id, item.title)} style={styles.deleteBtn}>
+                                  <Icon name="trash-outline" size={18} color="#EF4444" />
+                                </TouchableOpacity>
                               </View>
-                            </>
-                          );
-                        }
-                        return (
-                          <Icon
-                            name={item.content_type === 'material' ? 'document-text' : item.youtube_url ? 'logo-youtube' : 'videocam'}
-                            size={22}
-                            color={item.content_type === 'material' ? '#10B981' : item.youtube_url ? '#EF4444' : COLORS.primary}
-                          />
-                        );
-                      })()}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.videoTitle} numberOfLines={2}>{item.title}</Text>
-                      <Text style={styles.videoMeta}>Topic: {item.topic || 'No topic'}</Text>
-                      <Text style={styles.videoMeta}>Batch: {item.batch_id?.name || 'Unknown Batch'}</Text>
-                      <Text style={styles.videoDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
-                    </View>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity onPress={() => handleDeleteVideo(item._id, item.title)} style={styles.deleteBtn}>
-                    <Icon name="trash-outline" size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
+                            );
+                          }
+                        })}
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Icon name={listMode === 'video' ? 'videocam-outline' : 'document-text-outline'} size={64} color="#D1D5DB" />
+              <Text style={styles.emptyTitle}>No {listMode === 'video' ? 'videos' : 'materials'} uploaded yet</Text>
+              <Text style={styles.emptySubtitle}>Upload your first {listMode === 'video' ? 'course video' : 'document material'}</Text>
+            </View>
           )}  
         </View>
       )}
@@ -1029,6 +1086,67 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 15
+  },
+
+  /* Accordion Module UI */
+  moduleSectionBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0,0,0,0.03)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }
+    })
+  },
+  moduleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  moduleTag: { fontSize: 11, fontWeight: '800', color: '#C2410C', letterSpacing: 0.5, marginBottom: 2 },
+  moduleTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
+  moduleVideosContainer: { paddingTop: 4 },
+  youtubeVideoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    overflow: 'hidden',
+  },
+  widescreenThumbWrapper: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000',
+    position: 'relative'
+  },
+  widescreenThumbImage: { width: '100%', height: '100%' },
+  placeholderThumbBox: { flex: 1, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center' },
+  thumbPlayOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' },
+  youtubePlayCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#F97316', justifyContent: 'center', alignItems: 'center' },
+  durationPill: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.8)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  durationPillText: { color: '#FFF', fontSize: 11, fontWeight: '600' },
+  youtubeVideoMeta: { padding: 16 },
+  metaHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, justifyContent: 'space-between' },
+  topicBadgePill: { backgroundColor: '#FFF7ED', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  topicBadgeText: { color: '#F58220', fontSize: 10, fontWeight: '700' },
+  youtubeVideoTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginBottom: 6, lineHeight: 22 },
+  youtubeChannelRow: { flexDirection: 'row', alignItems: 'center' },
+  youtubeChannelText: { fontSize: 13, color: '#71717A' },
+
+  cardDeleteBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10
   },
 
   /* Liquid Glass FAB + Button Styles */

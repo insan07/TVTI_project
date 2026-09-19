@@ -158,6 +158,14 @@ export default function PracticeSessionsScreen() {
   const [confirmModal, setConfirmModal] = useState<any>({ visible: false, title: '', message: '', onConfirm: () => {} });
   const [alertModal, setAlertModal] = useState<any>({ visible: false, title: '', message: '' });
 
+  const [actionMenuVisible, setActionMenuVisible] = useState(false);
+  const [actionMenuSlot, setActionMenuSlot] = useState<any>(null);
+
+  const openSlotActions = (slot: any) => {
+    setActionMenuSlot(slot);
+    setActionMenuVisible(true);
+  };
+
   const openEditModal = (slot: any) => {
     setSelectedSlot(slot);
     setEditMaxStudents(slot.max_students?.toString() || '');
@@ -196,6 +204,25 @@ export default function PracticeSessionsScreen() {
       console.log('Error fetching bookings', e);
     } finally {
       setBookingsLoading(false);
+    }
+  };
+
+  const handleApproveCancellation = async (bookingId: string) => {
+    try {
+      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}/approve-cancellation`);
+      showAlert('Success', 'Cancellation approved', () => handleViewBookings(selectedSlot), 'success');
+      fetchSlots();
+    } catch (e: any) {
+      showAlert('Error', e.response?.data?.message || 'Failed to approve cancellation', undefined, 'error');
+    }
+  };
+
+  const handleRejectCancellation = async (bookingId: string) => {
+    try {
+      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}/reject-cancellation`);
+      showAlert('Success', 'Cancellation rejected', () => handleViewBookings(selectedSlot), 'success');
+    } catch (e: any) {
+      showAlert('Error', e.response?.data?.message || 'Failed to reject cancellation', undefined, 'error');
     }
   };
 
@@ -374,12 +401,48 @@ export default function PracticeSessionsScreen() {
         <View style={styles.cardInner}>
           <View style={styles.cardHeaderRow}>
             <View style={styles.cardTag}><Text style={styles.cardTagText}>PRACTICAL SLOT</Text></View>
-            <View style={[styles.statusPill, slot.is_open ? styles.statusOpen : styles.statusLocked]}>
-              <Text style={[styles.statusPillText, slot.is_open ? styles.textOpen : styles.textLocked]}>
-                {slot.is_open ? 'OPEN' : 'LOCKED'}
-              </Text>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <View style={[styles.statusPill, slot.is_open ? styles.statusOpen : styles.statusLocked]}>
+                <Text style={[styles.statusPillText, slot.is_open ? styles.textOpen : styles.textLocked]}>
+                  {slot.is_open ? 'OPEN' : 'LOCKED'}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.dotsBtn} onPress={() => {
+                if (actionMenuVisible && actionMenuSlot?._id === slot._id) {
+                  setActionMenuVisible(false);
+                  setActionMenuSlot(null);
+                } else {
+                  setActionMenuSlot(slot);
+                  setActionMenuVisible(true);
+                }
+              }}>
+                <Icon name="ellipsis-vertical" size={20} color="#111827" />
+              </TouchableOpacity>
             </View>
           </View>
+          
+          {/* Inline Popover Menu */}
+          {actionMenuVisible && actionMenuSlot?._id === slot._id && (
+            <View style={styles.inlinePopoverContainer}>
+              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); handleViewBookings(slot); }}>
+                <Text style={styles.popoverMenuText}>View Students</Text>
+              </TouchableOpacity>
+              <View style={styles.popoverMenuDivider} />
+              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); openEditModal(slot); }}>
+                <Text style={styles.popoverMenuText}>Edit Slot</Text>
+              </TouchableOpacity>
+              <View style={styles.popoverMenuDivider} />
+              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); toggleSlotStatus(slot); }}>
+                <Text style={[styles.popoverMenuText, {color: slot.is_open ? '#DC2626' : '#374151'}]}>
+                  {slot.is_open ? 'Lock Slot' : 'Open Slot'}
+                </Text>
+              </TouchableOpacity>
+              <View style={styles.popoverMenuDivider} />
+              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); handleDeleteSlot(slot._id); }}>
+                <Text style={styles.popoverMenuTextDanger}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           
           <Text style={styles.cardCourseTitle}>{slot.batch_id?.course_id?.title || slot.batch_id?.name || 'Practical Session'}</Text>
           <Text style={styles.cardBatchText}>Batch: {slot.batch_id?.name || 'N/A'}</Text>
@@ -391,14 +454,14 @@ export default function PracticeSessionsScreen() {
             <Text style={styles.cardInfoText}>{slot.start_time} - {slot.end_time}</Text>
           </View>
           
-          {slot.instructor_id?.name && (
+          {!!slot.instructor_id?.name && (
             <View style={styles.cardInfoRow}>
               <Icon name="person-outline" size={14} color="#3B82F6" />
               <Text style={[styles.cardInfoText, {color: '#1E3A8A', fontWeight: '600'}]}>Inst. {slot.instructor_id.name}</Text>
             </View>
           )}
 
-          {slot.location && (
+          {!!slot.location && (
             <View style={styles.cardInfoRow}>
               <Icon name="location-outline" size={14} color="#6B7280" />
               <Text style={styles.cardInfoText}>{slot.location}</Text>
@@ -413,24 +476,6 @@ export default function PracticeSessionsScreen() {
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${fillRatio * 100}%`, backgroundColor: fillRatio >= 1 ? '#EF4444' : '#F97316' }]} />
             </View>
-          </View>
-          
-          <View style={styles.cardActions}>
-            <TouchableOpacity style={styles.actionBtnBlue} onPress={() => handleViewBookings(slot)}>
-              <Icon name="people" size={14} color="#2563EB" />
-              <Text style={styles.actionBtnBlueText}>Students ({booked})</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtnOutline} onPress={() => openEditModal(slot)}>
-              <Icon name="create-outline" size={14} color="#4B5563" />
-              <Text style={styles.actionBtnOutlineText}>Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtnOutline} onPress={() => toggleSlotStatus(slot)}>
-              <Icon name={slot.is_open ? "lock-closed-outline" : "lock-open-outline"} size={14} color={slot.is_open ? "#DC2626" : "#16A34A"} />
-              <Text style={[styles.actionBtnOutlineText, { color: slot.is_open ? '#DC2626' : '#16A34A' }]}>{slot.is_open ? 'Lock' : 'Open'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtnDanger} onPress={() => handleDeleteSlot(slot._id)}>
-              <Icon name="trash-outline" size={14} color="#DC2626" />
-            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -536,13 +581,7 @@ export default function PracticeSessionsScreen() {
         subtitle="Schedule & manage practical sessions"
       />
 
-      {/* Top Create Practical Slot Action Button */}
-      <View style={styles.actionButtonRow}>
-        <TouchableOpacity style={styles.addSlotBtn} onPress={() => setCreateModalVisible(true)} activeOpacity={0.85}>
-          <Icon name="add" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
-          <Text style={styles.addSlotBtnText}>Create Practical Slot</Text>
-        </TouchableOpacity>
-      </View>
+
 
       <View style={styles.viewToggleRow}>
         {['Month', 'Week', 'Day', 'List'].map(mode => (
@@ -740,9 +779,29 @@ export default function PracticeSessionsScreen() {
               <ScrollView style={{marginBottom: 20}}>
                 {slotBookings.length === 0 ? <Text style={{color: '#6B7280'}}>No students booked yet.</Text> : 
                   slotBookings.map((b: any) => (
-                    <View key={b._id} style={{paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6'}}>
-                      <Text style={{fontWeight: '500', color: '#1F2937'}}>{b.student_id?.name || 'Unknown Student'}</Text>
-                      <Text style={{fontSize: 12, color: '#6B7280'}}>{b.student_id?.email || ''}</Text>
+                    <View key={b._id} style={{paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <View style={{flex: 1}}>
+                        <Text style={{fontWeight: '500', color: '#1F2937'}}>{b.student_id?.name || 'Unknown Student'}</Text>
+                        <Text style={{fontSize: 12, color: '#6B7280'}}>{b.student_id?.email || ''}</Text>
+                        {b.status === 'cancellation_requested' && (
+                          <View>
+                            <Text style={{fontSize: 12, color: '#F59E0B', fontWeight: '600', marginTop: 2}}>Cancellation Requested</Text>
+                            {b.cancellation_reason ? (
+                              <Text style={{fontSize: 12, color: '#6B7280', fontStyle: 'italic', marginTop: 2}}>Reason: {b.cancellation_reason}</Text>
+                            ) : null}
+                          </View>
+                        )}
+                      </View>
+                      {b.status === 'cancellation_requested' && (
+                        <View style={{flexDirection: 'row', gap: 8}}>
+                          <TouchableOpacity style={{backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6}} onPress={() => handleApproveCancellation(b._id)}>
+                            <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>Approve</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={{backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6}} onPress={() => handleRejectCancellation(b._id)}>
+                            <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>Reject</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
                   ))
                 }
@@ -785,7 +844,6 @@ export default function PracticeSessionsScreen() {
           </View>
         </View>
       </Modal>
-
       {/* Floating Create Practical Slot Liquid FAB Button */}
       <View style={styles.liquidFabContainer} pointerEvents="box-none">
         <Animated.View
@@ -896,8 +954,8 @@ const styles = StyleSheet.create({
   filterBtnOutline: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
   filterBtnOutlineText: { marginLeft: 6, color: '#4B5563', fontSize: 14, fontWeight: '500' },
 
-  cardWrapper: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 16, overflow: 'hidden', elevation: 2 },
-  cardAccent: { width: 6, backgroundColor: '#F97316' },
+  cardWrapper: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 16, elevation: 2, zIndex: 1 },
+  cardAccent: { width: 6, backgroundColor: '#F97316', borderTopLeftRadius: 12, borderBottomLeftRadius: 12 },
   cardInner: { flex: 1, padding: 16 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   cardTag: { backgroundColor: '#FFF7ED', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
@@ -941,13 +999,13 @@ const styles = StyleSheet.create({
   slotBlockTitle: { fontSize: 10, fontWeight: 'bold', color: '#1E3A8A' },
   slotBlockTime: { fontSize: 9, color: '#1E3A8A' },
 
-  monthGridContainer: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  monthHeaderRow: { flexDirection: 'row', marginBottom: 12 },
-  monthHeaderText: { flex: 1, textAlign: 'center', fontSize: 12, color: '#6B7280', fontWeight: '500' },
+  monthGridContainer: { flex: 1, padding: 16 },
+  monthHeaderRow: { flexDirection: 'row', marginBottom: 8 },
+  monthHeaderText: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 'bold', color: '#6B7280' },
   monthDaysWrapper: { flexDirection: 'row', flexWrap: 'wrap' },
-  monthCell: { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  monthCell: { width: '14.28%', height: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: '#E5E7EB' },
   monthCellText: { fontSize: 14, color: '#1F2937' },
-  monthSlotIndicator: { position: 'absolute', bottom: '15%', width: 24, height: 4, backgroundColor: '#93C5FD', borderRadius: 2 },
+  monthSlotIndicator: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#F97316', marginTop: 4 },
 
   createScroll: { flex: 1, backgroundColor: '#fff', padding: 16 },
   createFormTitle: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
@@ -1058,6 +1116,48 @@ const styles = StyleSheet.create({
   },
 
   /* LIQUID FAB STYLES */
+  inlinePopoverContainer: {
+    position: 'absolute',
+    top: 45,
+    right: 15,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    width: 200,
+    paddingVertical: 4,
+    zIndex: 999,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.15)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+      }
+    }),
+  },
+  popoverMenuItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  popoverMenuText: {
+    fontSize: 15,
+    color: '#374151',
+    fontWeight: '400',
+  },
+  popoverMenuTextDanger: {
+    fontSize: 15,
+    color: '#DC2626',
+    fontWeight: '500',
+  },
+  popoverMenuDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+  },
+  dotsBtn: {
+    padding: 8,
+    marginLeft: 12,
+  },
   liquidFabContainer: {
     position: 'absolute',
     bottom: 95,

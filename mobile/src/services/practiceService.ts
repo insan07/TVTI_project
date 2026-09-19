@@ -40,8 +40,8 @@ export const bookPracticeSlot = async (slotId: string) => {
   return response.data;
 };
 
-export const cancelPracticeBooking = async (slotId: string) => {
-  const response = await api.delete(`/students/practice-slots/${slotId}/book`);
+export const cancelPracticeBooking = async (slotId: string, reason?: string) => {
+  const response = await api.delete(`/students/practice-slots/${slotId}/book`, { data: { reason } });
   return response.data;
 };
 

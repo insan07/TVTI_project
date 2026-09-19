@@ -142,7 +142,8 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
         contentContainerStyle={styles.scrollContentStyle}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.mainContent}>        {/* ========================================================================= */}
+        <View style={styles.mainContent}>
+        {/* ========================================================================= */}
         {/* SECTION 1: UPCOMING PRACTICAL (Conditionally Rendered) */}
         {/* ========================================================================= */}
         {nextPractice && (

@@ -125,14 +125,6 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
         tabBarLabel: 'Profile',
       }}
     />
-    <Tab.Screen
-      name="MyStudents"
-      component={MyStudentsScreen}
-      options={{
-        tabBarButton: () => null,
-        tabBarItemStyle: { display: 'none' },
-      }}
-    />
   </Tab.Navigator>
 );
 
@@ -238,6 +230,7 @@ export const AppNavigator = () => {
                 <Stack.Screen name="InstructorApp">
                   {props => <InstructorTabs {...props} insets={insets} />}
                 </Stack.Screen>
+                <Stack.Screen name="MyStudents" component={MyStudentsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>

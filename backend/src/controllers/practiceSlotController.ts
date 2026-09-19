@@ -169,7 +169,7 @@ export const getMySlots = async (req: AuthRequest, res: Response): Promise<void>
 // GET /api/instructor/practice-slots/:slotId/bookings
 export const getSlotBookings = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const bookings = await SlotBooking.find({ slot_id: req.params.slotId, status: 'confirmed' })
+    const bookings = await SlotBooking.find({ slot_id: req.params.slotId, status: { $in: ['confirmed', 'cancellation_requested'] } })
       .populate('student_id', 'name email phone index_number nic');
     res.json(bookings);
   } catch (error) {
@@ -296,6 +296,36 @@ export const addStudentBookingByAdmin = async (req: AuthRequest, res: Response):
     });
 
     res.status(201).json(booking);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /api/instructors/practice-slots/:slotId/bookings/:bookingId/approve-cancellation
+export const approveCancellation = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const booking = await SlotBooking.findOneAndUpdate(
+      { _id: req.params.bookingId, status: 'cancellation_requested' },
+      { status: 'cancelled' },
+      { new: true }
+    );
+    if (!booking) { res.status(404).json({ message: 'Pending cancellation not found' }); return; }
+    res.json({ message: 'Cancellation approved' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /api/instructors/practice-slots/:slotId/bookings/:bookingId/reject-cancellation
+export const rejectCancellation = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const booking = await SlotBooking.findOneAndUpdate(
+      { _id: req.params.bookingId, status: 'cancellation_requested' },
+      { status: 'confirmed' },
+      { new: true }
+    );
+    if (!booking) { res.status(404).json({ message: 'Pending cancellation not found' }); return; }
+    res.json({ message: 'Cancellation rejected (re-confirmed)' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

@@ -10,6 +10,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Platform,
+  TextInput,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getOpenPracticeSlots, bookPracticeSlot, cancelPracticeBooking } from '../../services/practiceService';
@@ -52,6 +53,20 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelSlotId, setCancelSlotId] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+
+  const [alertModal, setAlertModal] = useState<{ visible: boolean; title: string; message: string; onOk?: () => void }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (title: string, message: string, onOk?: () => void) => {
+    setAlertModal({ visible: true, title, message, onOk });
+  };
 
   // Generate next 14 days for the calendar strip
   const calendarDays = Array.from({ length: 14 }).map((_, i) => {
@@ -113,29 +128,29 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
   const handleBookSlot = async (slotId: string) => {
     try {
       await bookPracticeSlot(slotId);
-      Alert.alert('Success', 'Practice session booked successfully!');
+      showAlert('Success', 'Practice session booked successfully!');
       fetchSlots();
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to book slot');
+      showAlert('Error', e.response?.data?.message || 'Failed to book slot');
     }
   };
 
   const handleCancelBooking = async (slotId: string) => {
-    Alert.alert('Confirm', 'Are you sure you want to cancel this booking?', [
-      { text: 'No' },
-      {
-        text: 'Yes',
-        onPress: async () => {
-          try {
-            await cancelPracticeBooking(slotId);
-            Alert.alert('Success', 'Booking cancelled');
-            fetchSlots();
-          } catch (e) {
-            Alert.alert('Error', 'Failed to cancel booking');
-          }
-        },
-      },
-    ]);
+    setCancelSlotId(slotId);
+    setCancelReason('');
+    setCancelModalVisible(true);
+  };
+
+  const confirmCancelBooking = async () => {
+    setCancelModalVisible(false);
+    try {
+      await cancelPracticeBooking(cancelSlotId, cancelReason);
+      showAlert('Success', 'Cancellation requested successfully! Please wait for instructor approval.');
+      fetchSlots();
+    } catch (e: any) {
+      console.error('Cancellation error', e.response?.data || e.message);
+      showAlert('Error', e.response?.data?.message || 'Failed to cancel booking');
+    }
   };
 
   const getLocalDateString = (d: Date) => {
@@ -354,12 +369,18 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                         <Text style={styles.fullText}>FULL</Text>
                       </View>
                     ) : slot.already_booked ? (
-                      <TouchableOpacity
-                        style={styles.cancelBookingButton}
-                        onPress={() => handleCancelBooking(slot._id)}
-                      >
-                        <Text style={styles.cancelBookingButtonText}>Cancel Booking</Text>
-                      </TouchableOpacity>
+                      slot.booking_status === 'cancellation_requested' ? (
+                        <View style={[styles.cancelBookingButton, { borderColor: '#F59E0B' }]}>
+                          <Text style={[styles.cancelBookingButtonText, { color: '#F59E0B' }]}>Pending Cancellation</Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.cancelBookingButton}
+                          onPress={() => handleCancelBooking(slot._id)}
+                        >
+                          <Text style={styles.cancelBookingButtonText}>Cancel Booking</Text>
+                        </TouchableOpacity>
+                      )
                     ) : (
                       <TouchableOpacity
                         style={[styles.bookSlotButton, disabled && styles.disabledButton]}
@@ -461,6 +482,71 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
           </TouchableWithoutFeedback>
         </TouchableOpacity>
       </Modal>
+
+      {/* Cancellation Reason Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setCancelModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.modalContent, { maxWidth: 400 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <Text style={styles.modalTitle}>Cancel Booking</Text>
+                  <TouchableOpacity onPress={() => setCancelModalVisible(false)} style={{ padding: 6 }}>
+                    <Icon name="close" size={24} color="#666" />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>
+                  Are you sure you want to cancel this practice session? Please provide a reason for the instructor.
+                </Text>
+
+                <TextInput
+                  style={{ borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, height: 80, textAlignVertical: 'top', padding: 12, fontSize: 14, color: '#1F2937' }}
+                  placeholder="Reason for cancellation (optional)"
+                  multiline
+                  numberOfLines={3}
+                  value={cancelReason}
+                  onChangeText={setCancelReason}
+                />
+
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
+                  <TouchableOpacity
+                    style={{ padding: 10, marginRight: 15 }}
+                    onPress={() => setCancelModalVisible(false)}
+                  >
+                    <Text style={{ color: '#666', ...FONTS.bold }}>Keep Booking</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#F58220', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+                    onPress={confirmCancelBooking}
+                  >
+                    <Text style={{ color: '#FFF', ...FONTS.bold }}>Submit Request</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ALERT MODAL */}
+      <Modal visible={alertModal.visible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{alertModal.title}</Text>
+            <Text style={{color: '#4B5563', marginBottom: 20}}>{alertModal.message}</Text>
+            <TouchableOpacity style={styles.submitBtn} onPress={() => { setAlertModal({...alertModal, visible: false}); if (alertModal.onOk) alertModal.onOk(); }}>
+              <Text style={styles.submitBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -850,5 +936,35 @@ const styles = StyleSheet.create({
     ...FONTS.bold,
     letterSpacing: 1,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxWidth: 440,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+  submitBtn: { 
+    flex: 1, 
+    paddingVertical: 12, 
+    alignItems: 'center', 
+    backgroundColor: '#0F172A', 
+    borderRadius: 24 
+  },
+  submitBtnText: { 
+    color: '#FFFFFF', 
+    fontWeight: 'bold' 
+  },
 });
-
