@@ -6,6 +6,13 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
+import dns from 'dns';
+
+// Force Google DNS for local dev (MongoDB Atlas SRV lookups fail with some ISP DNS).
+// Skipped on Vercel (production) where dns.setServers is not allowed.
+if (process.env.NODE_ENV !== 'production') {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+}
 
 // Note: Socket.io is not supported on Vercel serverless.
 // Notifications are saved to DB; real-time push relies on client polling.

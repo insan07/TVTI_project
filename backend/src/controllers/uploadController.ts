@@ -5,7 +5,6 @@ import Video from '../models/Video';
 import cloudinary from '../config/cloudinary';
 import { sendNotification } from '../services/notificationService';
 import { saveBufferToGridFS } from '../services/fileStorage';
-import { fromBuffer } from 'pdf2pic';
 import os from 'os';
 
 const saveFileToDisk = (buffer: Buffer, originalName: string, subfolder: 'videos' | 'notes' | 'materials'): string => {
@@ -94,6 +93,9 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
     let thumbnail_url = undefined;
     if (materialFile.mimetype === 'application/pdf') {
       try {
+        // pdf2pic requires GraphicsMagick — not available on Vercel serverless.
+        // Gracefully skip thumbnail generation if it fails.
+        const { fromBuffer } = await import('pdf2pic');
         const options = {
           density: 100,
           saveFilename: `thumb_${Date.now()}`,
@@ -113,7 +115,7 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
           thumbnail_url = `/api/files/${thumbId}`;
         }
       } catch (pdfErr) {
-        console.error('Failed to generate PDF thumbnail:', pdfErr);
+        console.warn('[uploadMaterial] PDF thumbnail skipped (GraphicsMagick may not be available):', (pdfErr as Error).message);
       }
     }
 
