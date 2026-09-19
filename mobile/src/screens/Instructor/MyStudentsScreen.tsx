@@ -290,16 +290,16 @@ export default function MyStudentsScreen() {
                   alertModal.type === 'success'
                     ? 'checkmark-circle-outline'
                     : alertModal.type === 'error'
-                    ? 'close-circle-outline'
-                    : 'information-circle-outline'
+                      ? 'close-circle-outline'
+                      : 'information-circle-outline'
                 }
                 size={28}
                 color={
                   alertModal.type === 'success'
                     ? '#16A34A'
                     : alertModal.type === 'error'
-                    ? '#DC2626'
-                    : '#2563EB'
+                      ? '#DC2626'
+                      : '#2563EB'
                 }
               />
             </View>
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   badgeText: { color: '#C2410C', fontSize: 12, ...FONTS.bold },
   batchDetail: { flexDirection: 'row', alignItems: 'center' },
   batchName: { color: '#475569', fontSize: 13, ...FONTS.medium },
-  
+
   // Custom Popup Dialog Modal Styles
   popupOverlay: {
     flex: 1,

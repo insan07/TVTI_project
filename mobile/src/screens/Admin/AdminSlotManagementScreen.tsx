@@ -177,6 +177,9 @@ export default function AdminSlotManagementScreen() {
     }
     lastScrollY.current = currentY;
   };
+  const [actionMenuVisible, setActionMenuVisible] = useState(false);
+  const [actionMenuSlot, setActionMenuSlot] = useState<any>(null);
+
   const [createBatchId, setCreateBatchId] = useState('');
   const [createInstructorId, setCreateInstructorId] = useState('');
   const [createDate, setCreateDate] = useState<Date>(new Date());
@@ -610,12 +613,48 @@ export default function AdminSlotManagementScreen() {
         <View style={styles.cardInner}>
           <View style={styles.cardHeaderRow}>
             <View style={styles.cardTag}><Text style={styles.cardTagText}>PRACTICAL SLOT</Text></View>
-            <View style={[styles.statusPillBadge, slot.is_open ? styles.statusOpen : styles.statusLocked]}>
-              <Text style={[styles.statusPillBadgeText, slot.is_open ? styles.textOpen : styles.textLocked]}>
-                {slot.is_open ? 'OPEN' : 'LOCKED'}
-              </Text>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <View style={[styles.statusPillBadge, slot.is_open ? styles.statusOpen : styles.statusLocked]}>
+                <Text style={[styles.statusPillBadgeText, slot.is_open ? styles.textOpen : styles.textLocked]}>
+                  {slot.is_open ? 'OPEN' : 'LOCKED'}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.dotsBtn} onPress={() => {
+                if (actionMenuVisible && actionMenuSlot?._id === slot._id) {
+                  setActionMenuVisible(false);
+                  setActionMenuSlot(null);
+                } else {
+                  setActionMenuSlot(slot);
+                  setActionMenuVisible(true);
+                }
+              }}>
+                <Icon name="ellipsis-vertical" size={20} color="#111827" />
+              </TouchableOpacity>
             </View>
           </View>
+          
+          {/* Inline Popover Menu */}
+          {actionMenuVisible && actionMenuSlot?._id === slot._id && (
+            <View style={styles.inlinePopoverContainer}>
+              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); openBookingsModal(slot); }}>
+                <Text style={styles.popoverMenuText}>View Students</Text>
+              </TouchableOpacity>
+              <View style={styles.popoverMenuDivider} />
+              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); openEditModal(slot); }}>
+                <Text style={styles.popoverMenuText}>Edit Slot</Text>
+              </TouchableOpacity>
+              <View style={styles.popoverMenuDivider} />
+              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); toggleSlotStatus(slot); }}>
+                <Text style={[styles.popoverMenuText, {color: slot.is_open ? '#DC2626' : '#374151'}]}>
+                  {slot.is_open ? 'Lock Slot' : 'Open Slot'}
+                </Text>
+              </TouchableOpacity>
+              <View style={styles.popoverMenuDivider} />
+              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); handleDeleteSlot(slot._id); }}>
+                <Text style={styles.popoverMenuTextDanger}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <Text style={styles.cardCourseTitle}>{slot.batch_id?.course_id?.title || slot.batch_id?.name || 'Practical Session'}</Text>
           <Text style={styles.cardBatchText}>Batch: {slot.batch_id?.name || 'N/A'}</Text>
@@ -627,7 +666,7 @@ export default function AdminSlotManagementScreen() {
             <Text style={styles.cardInfoText}>{slot.start_time} - {slot.end_time}</Text>
           </View>
 
-          {slot.instructor_id?.name && (
+          {!!slot.instructor_id?.name && (
             <View style={styles.cardInfoRow}>
               <Icon name="person-outline" size={14} color="#3B82F6" />
               <Text style={[styles.cardInfoText, { color: '#1E3A8A', fontWeight: '600' }]}>Inst. {slot.instructor_id.name}</Text>
@@ -656,24 +695,6 @@ export default function AdminSlotManagementScreen() {
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${fillRatio * 100}%`, backgroundColor: fillRatio >= 1 ? '#EF4444' : '#F97316' }]} />
             </View>
-          </View>
-
-          <View style={styles.cardActions}>
-            <TouchableOpacity style={styles.actionBtnBlue} onPress={() => openBookingsModal(slot)}>
-              <Icon name="people" size={14} color="#2563EB" />
-              <Text style={styles.actionBtnBlueText}>Students ({booked})</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtnOutline} onPress={() => openEditModal(slot)}>
-              <Icon name="create-outline" size={14} color="#4B5563" />
-              <Text style={styles.actionBtnOutlineText}>Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtnOutline} onPress={() => toggleSlotStatus(slot)}>
-              <Icon name={slot.is_open ? "lock-closed-outline" : "lock-open-outline"} size={14} color={slot.is_open ? "#DC2626" : "#16A34A"} />
-              <Text style={[styles.actionBtnOutlineText, { color: slot.is_open ? '#DC2626' : '#16A34A' }]}>{slot.is_open ? 'Lock' : 'Open'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtnDanger} onPress={() => handleDeleteSlot(slot._id)}>
-              <Icon name="trash-outline" size={14} color="#DC2626" />
-            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -1745,8 +1766,8 @@ const styles = StyleSheet.create({
   filterBtnOutline: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
   filterBtnOutlineText: { marginLeft: 6, color: '#4B5563', fontSize: 13, fontWeight: '500' },
 
-  cardWrapper: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 8, overflow: 'hidden', elevation: 2 },
-  cardAccent: { width: 6, backgroundColor: '#F97316' },
+  cardWrapper: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 8, elevation: 2, zIndex: 1 },
+  cardAccent: { width: 6, backgroundColor: '#F97316', borderTopLeftRadius: 12, borderBottomLeftRadius: 12 },
   cardInner: { flex: 1, padding: 12 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   cardTag: { backgroundColor: '#FFF7ED', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
@@ -1907,6 +1928,50 @@ const styles = StyleSheet.create({
       web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
     }),
+  },
+  
+  /* INLINE POPOVER STYLES */
+  inlinePopoverContainer: {
+    position: 'absolute',
+    top: 45,
+    right: 15,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    width: 200,
+    paddingVertical: 4,
+    zIndex: 999,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.15)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+      }
+    }),
+  },
+  popoverMenuItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  popoverMenuText: {
+    fontSize: 15,
+    color: '#374151',
+    fontWeight: '400',
+  },
+  popoverMenuTextDanger: {
+    fontSize: 15,
+    color: '#DC2626',
+    fontWeight: '500',
+  },
+  popoverMenuDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+  },
+  dotsBtn: {
+    padding: 8,
+    marginLeft: 12,
   },
 
   emptyContainer: { alignItems: 'center', marginVertical: 30, paddingHorizontal: 20 },

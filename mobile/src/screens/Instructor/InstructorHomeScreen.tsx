@@ -250,17 +250,17 @@ export default function InstructorHomeScreen() {
           const booked = slot.booked_count || 0;
           const max = slot.max_students || 1;
           const percentage = Math.min((booked / max) * 100, 100);
-            // Compute the actual date of the slot
-            let slotDateStr = '';
-            if (slot.week_start_date) {
-              const daysArr = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-              const ws = new Date(slot.week_start_date);
-              const dayIdx = daysArr.indexOf(slot.day_of_week);
-              if (dayIdx !== -1) ws.setDate(ws.getDate() + dayIdx);
-              slotDateStr = ws.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-            }
+          // Compute the actual date of the slot
+          let slotDateStr = '';
+          if (slot.week_start_date) {
+            const daysArr = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const ws = new Date(slot.week_start_date);
+            const dayIdx = daysArr.indexOf(slot.day_of_week);
+            if (dayIdx !== -1) ws.setDate(ws.getDate() + dayIdx);
+            slotDateStr = ws.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+          }
 
-            return (
+          return (
             <View key={slot._id} style={styles.slotCard}>
               <View style={styles.slotHeader}>
                 <View style={styles.slotTimeRow}>
@@ -322,51 +322,52 @@ export default function InstructorHomeScreen() {
             }
 
             return (
-            <TouchableOpacity 
-              key={video._id} 
-              style={styles.videoCard}
-              onPress={() => {
-                let url = video.cloudinary_url || video.youtube_url;
-                if (!url && video.content_type === 'material') {
-                  url = video.cloudinary_url; // Materials use cloudinary_url
-                }
-                if (url) {
-                  if (url.startsWith('/uploads/') || url.startsWith('/api/files/')) {
-                    url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+              <TouchableOpacity
+                key={video._id}
+                style={styles.videoCard}
+                onPress={() => {
+                  let url = video.cloudinary_url || video.youtube_url;
+                  if (!url && video.content_type === 'material') {
+                    url = video.cloudinary_url; // Materials use cloudinary_url
                   }
-                  if (Platform.OS === 'web') {
-                    window.open(url, '_blank');
-                  } else {
-                    Linking.openURL(url);
+                  if (url) {
+                    if (url.startsWith('/uploads/') || url.startsWith('/api/files/')) {
+                      url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                    }
+                    if (Platform.OS === 'web') {
+                      window.open(url, '_blank');
+                    } else {
+                      Linking.openURL(url);
+                    }
                   }
-                }
-              }}
-            >
-              <View style={[styles.videoThumbnailContainer, video.content_type === 'material' ? { backgroundColor: '#ECFDF5' } : {}]}>
-                {thumbUrl ? (
-                  <Image source={{ uri: thumbUrl }} style={styles.videoThumbnail} />
-                ) : (
-                  <View style={styles.videoThumbnailPlaceholder}>
-                    <Icon name={video.content_type === 'material' ? 'document-text' : 'videocam'} size={32} color={video.content_type === 'material' ? '#10B981' : '#9CA3AF'} />
-                  </View>
-                )}
-                {video.content_type !== 'material' && (
-                  <View style={styles.playOverlay}>
-                    <View style={styles.playCircle}>
-                      <Icon name="play" size={16} color="#000" style={{ marginLeft: 2 }} />
+                }}
+              >
+                <View style={[styles.videoThumbnailContainer, video.content_type === 'material' ? { backgroundColor: '#ECFDF5' } : {}]}>
+                  {thumbUrl ? (
+                    <Image source={{ uri: thumbUrl }} style={styles.videoThumbnail} />
+                  ) : (
+                    <View style={styles.videoThumbnailPlaceholder}>
+                      <Icon name={video.content_type === 'material' ? 'document-text' : 'videocam'} size={32} color={video.content_type === 'material' ? '#10B981' : '#9CA3AF'} />
                     </View>
-                  </View>
-                )}
-              </View>
-              <View style={styles.videoInfo}>
-                <Text style={styles.videoCategory} numberOfLines={1}>
-                  {(video.batch_id?.name || 'Class Video').toUpperCase()}
-                </Text>
-                <Text style={styles.videoTitle} numberOfLines={2}>{video.title}</Text>
-                {video.topic ? <Text style={styles.videoTopic} numberOfLines={1}>Topic: {video.topic}</Text> : null}
-              </View>
-            </TouchableOpacity>
-          )})}
+                  )}
+                  {video.content_type !== 'material' && (
+                    <View style={styles.playOverlay}>
+                      <View style={styles.playCircle}>
+                        <Icon name="play" size={16} color="#000" style={{ marginLeft: 2 }} />
+                      </View>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.videoInfo}>
+                  <Text style={styles.videoCategory} numberOfLines={1}>
+                    {(video.batch_id?.name || 'Class Video').toUpperCase()}
+                  </Text>
+                  <Text style={styles.videoTitle} numberOfLines={2}>{video.title}</Text>
+                  {video.topic ? <Text style={styles.videoTopic} numberOfLines={1}>Topic: {video.topic}</Text> : null}
+                </View>
+              </TouchableOpacity>
+            )
+          })}
         </ScrollView>
       )}
 
