@@ -34,7 +34,12 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-type Tab = 'pending' | 'approved' | 'instructors';
+export type ModeType = 'applications' | 'students' | 'payments' | 'instructors';
+
+export type ApplicationsSubFilter = 'pending' | 'approved' | 'rejected';
+export type StudentsSubFilter = 'all' | 'active' | 'deactive' | 'completed';
+export type PaymentsSubFilter = 'pending' | 'completed';
+export type InstructorsSubFilter = 'active' | 'deactive';
 
 const EXPORT_AVAILABLE_FIELDS = [
   { key: 'name', label: 'Full Name', defaultChecked: true },
@@ -53,15 +58,29 @@ const EXPORT_AVAILABLE_FIELDS = [
 ];
 
 export default function UserManagementScreen() {
-  let initialTab: Tab = 'pending';
+  let initialMode: ModeType = 'applications';
+  let initialView: 'hub' | 'detail' = 'hub';
   try {
     const route = useRoute<any>();
     if (route?.params?.initialTab) {
-      initialTab = route.params.initialTab;
+      initialView = 'detail';
+      const tab = route.params.initialTab;
+      if (tab === 'pending') initialMode = 'applications';
+      else if (tab === 'approved') initialMode = 'students';
+      else if (tab === 'instructors') initialMode = 'instructors';
     }
   } catch (e) {}
 
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  const [currentView, setCurrentView] = useState<'hub' | 'detail'>(initialView);
+  const [activeMode, setActiveMode] = useState<ModeType>(initialMode);
+  const [applicationsSubFilter, setApplicationsSubFilter] = useState<ApplicationsSubFilter>('pending');
+  const [studentsSubFilter, setStudentsSubFilter] = useState<StudentsSubFilter>('all');
+  const [paymentsSubFilter, setPaymentsSubFilter] = useState<PaymentsSubFilter>('pending');
+  const [instructorsSubFilter, setInstructorsSubFilter] = useState<InstructorsSubFilter>('active');
+
+  const [applicationsList, setApplicationsList] = useState<any[]>([]);
+  const [studentsList, setStudentsList] = useState<any[]>([]);
+  const [instructorsList, setInstructorsList] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -143,7 +162,7 @@ export default function UserManagementScreen() {
 
   useEffect(() => {
     let animation: Animated.CompositeAnimation | null = null;
-    if (activeTab === 'instructors') {
+    if (activeMode === 'instructors') {
       wave1Anim.setValue(0);
       wave2Anim.setValue(0);
 
@@ -169,7 +188,7 @@ export default function UserManagementScreen() {
     return () => {
       if (animation) animation.stop();
     };
-  }, [activeTab]);
+  }, [activeMode]);
 
   const handleFabPressIn = () => {
     Animated.spring(buttonScaleAnim, {
@@ -258,12 +277,24 @@ export default function UserManagementScreen() {
     });
   };
 
+  // Payment Management & Dossier States
+  const [adminPaymentsList, setAdminPaymentsList] = useState<any[]>([]);
+  const [paymentDossierModalVisible, setPaymentDossierModalVisible] = useState(false);
+  const [paymentDossierData, setPaymentDossierData] = useState<any>(null);
+  const [loadingDossier, setLoadingDossier] = useState(false);
+  const [manualPayModalVisible, setManualPayModalVisible] = useState(false);
+  const [manualPayForm, setManualPayForm] = useState({ amount: '', payment_method: 'physical_cash', notes: '' });
+  const [recordingManualPay, setRecordingManualPay] = useState(false);
+  const [rejectSlipModalVisible, setRejectSlipModalVisible] = useState(false);
+  const [rejectSlipForm, setRejectSlipForm] = useState({ slipId: '', reason: '' });
+  const [rejectingSlip, setRejectingSlip] = useState(false);
+  const [verifyingSlipId, setVerifyingSlipId] = useState<string | null>(null);
+  const [dossierZoomImage, setDossierZoomImage] = useState<string | null>(null);
+
   useEffect(() => {
-    if (activeTab !== 'pending') {
-      fetchUsers();
-      fetchBatches();
-    }
-  }, [activeTab]);
+    fetchAllDashboardData();
+    fetchBatches();
+  }, []);
 
   const fetchBatches = async () => {
     try {
@@ -275,21 +306,142 @@ export default function UserManagementScreen() {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchAllDashboardData = async () => {
     setLoading(true);
     try {
-      let url = '/admin/users';
-      if (activeTab === 'approved') {
-        url += '?role=student';
-      } else if (activeTab === 'instructors') {
-        url += '?role=instructor';
+      const [appsRes, studentsRes, instRes, paymentsRes] = await Promise.allSettled([
+        api.get('/admin/applications?status=all'),
+        api.get('/admin/users?role=student'),
+        api.get('/admin/users?role=instructor'),
+        api.get('/admin/payments'),
+      ]);
+
+      if (appsRes.status === 'fulfilled') {
+        setApplicationsList(appsRes.value.data || []);
       }
-      const res = await api.get(url);
-      setUsers(res.data);
+      if (studentsRes.status === 'fulfilled') {
+        setStudentsList(studentsRes.value.data || []);
+      }
+      if (instRes.status === 'fulfilled') {
+        setInstructorsList(instRes.value.data || []);
+      }
+      if (paymentsRes.status === 'fulfilled') {
+        setAdminPaymentsList(paymentsRes.value.data || []);
+      }
     } catch (e: any) {
-      console.warn('Failed to fetch users', e);
+      console.warn('Failed to fetch dashboard data', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsers = () => {
+    fetchAllDashboardData();
+  };
+
+  const handleOpenPaymentDossier = async (studentId: string) => {
+    setPaymentDossierModalVisible(true);
+    setLoadingDossier(true);
+    try {
+      const res = await api.get(`/admin/payments/${studentId}/dossier`);
+      setPaymentDossierData(res.data);
+    } catch (e: any) {
+      showAlert('Error', 'Failed to load student payment dossier', undefined, 'error');
+      setPaymentDossierModalVisible(false);
+    } finally {
+      setLoadingDossier(false);
+    }
+  };
+
+  const handleVerifySlip = async (slipId: string) => {
+    setVerifyingSlipId(slipId);
+    try {
+      await api.put(`/admin/payments/slips/${slipId}/verify`);
+      showAlert('Success', 'Payment slip verified and credited to student account!', undefined, 'success');
+      if (paymentDossierData?.student?._id) {
+        handleOpenPaymentDossier(paymentDossierData.student._id);
+      }
+      fetchAllDashboardData();
+    } catch (e: any) {
+      showAlert('Error', e.response?.data?.message || 'Verification failed', undefined, 'error');
+    } finally {
+      setVerifyingSlipId(null);
+    }
+  };
+
+  const handlePromptVerifySlip = (slip: any) => {
+    if (paymentDossierModalVisible) {
+      setPaymentDossierModalVisible(false);
+    }
+    const studentName = paymentDossierData?.student?.name || 'this student';
+    setConfirmModal({
+      visible: true,
+      title: 'Approve Payment Slip',
+      message: `Are you sure you want to verify this payment slip of LKR ${(slip.amount || 0).toLocaleString()} for ${studentName}?\n\nThis amount will be credited to their official account balance.`,
+      type: 'info',
+      confirmText: 'Approve & Credit',
+      cancelText: 'Cancel',
+      onConfirm: () => {
+        handleVerifySlip(slip._id);
+      }
+    });
+  };
+
+  const handlePromptRejectSlip = (slip: any) => {
+    if (paymentDossierModalVisible) {
+      setPaymentDossierModalVisible(false);
+    }
+    const studentName = paymentDossierData?.student?.name || 'this student';
+    setConfirmModal({
+      visible: true,
+      title: 'Reject Payment Slip',
+      message: `Are you sure you want to reject the payment slip of LKR ${(slip.amount || 0).toLocaleString()} for ${studentName}?`,
+      type: 'danger',
+      confirmText: 'Reject Slip',
+      cancelText: 'Cancel',
+      onConfirm: () => {
+        setRejectSlipForm({ slipId: slip._id, reason: '' });
+        setRejectSlipModalVisible(true);
+      }
+    });
+  };
+
+  const handleRejectSlipSubmit = async () => {
+    if (!rejectSlipForm.slipId) return;
+    setRejectingSlip(true);
+    try {
+      await api.put(`/admin/payments/slips/${rejectSlipForm.slipId}/reject`, { reason: rejectSlipForm.reason });
+      showAlert('Slip Rejected', 'Payment slip rejected and student notified.', undefined, 'info');
+      setRejectSlipModalVisible(false);
+      setRejectSlipForm({ slipId: '', reason: '' });
+      if (paymentDossierData?.student?._id) {
+        handleOpenPaymentDossier(paymentDossierData.student._id);
+      }
+      fetchAllDashboardData();
+    } catch (e: any) {
+      showAlert('Error', e.response?.data?.message || 'Rejection failed', undefined, 'error');
+    } finally {
+      setRejectingSlip(false);
+    }
+  };
+
+  const handleRecordManualPaySubmit = async () => {
+    if (!paymentDossierData?.student?._id) return;
+    if (!manualPayForm.amount || isNaN(Number(manualPayForm.amount)) || Number(manualPayForm.amount) <= 0) {
+      return showAlert('Error', 'Please enter a valid cash amount', undefined, 'error');
+    }
+    setRecordingManualPay(true);
+    try {
+      await api.post(`/admin/payments/${paymentDossierData.student._id}/record-manual`, manualPayForm);
+      showAlert('Payment Recorded', 'Manual cash/bank payment recorded successfully!', undefined, 'success');
+      setManualPayModalVisible(false);
+      setManualPayForm({ amount: '', payment_method: 'physical_cash', notes: '' });
+      handleOpenPaymentDossier(paymentDossierData.student._id);
+      fetchAllDashboardData();
+    } catch (e: any) {
+      showAlert('Error', e.response?.data?.message || 'Failed to record manual payment', undefined, 'error');
+    } finally {
+      setRecordingManualPay(false);
     }
   };
 
@@ -308,24 +460,39 @@ export default function UserManagementScreen() {
     }
   };
 
-  const handleApprove = async (id: string) => {
-    try {
-      const res = await api.put(`/admin/users/${id}/approve`);
-      if (res.data.credentials) {
-        setApprovedCredentials(res.data.credentials);
-        setCredentialsModalVisible(true);
-      } else {
-        showAlert('Approved', 'User application approved successfully.', undefined, 'success');
-      }
+  const handleApprove = (id: string, userName?: string) => {
+    if (detailsModalVisible) {
       setDetailsModalVisible(false);
-      fetchUsers();
-    } catch (e: any) {
-      const msg = e.response?.data?.message || 'Approval failed';
-      showAlert('Error', msg, undefined, 'error');
     }
+    setConfirmModal({
+      visible: true,
+      title: 'Approve Application',
+      message: `Are you sure you want to approve registration for ${userName || 'this applicant'}?\n\nAn official student index number and credentials will be generated and dispatched via email.`,
+      type: 'info',
+      confirmText: 'Approve',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          const res = await api.put(`/admin/users/${id}/approve`);
+          if (res.data.credentials) {
+            setApprovedCredentials(res.data.credentials);
+            setCredentialsModalVisible(true);
+          } else {
+            showAlert('Approved', 'User application approved successfully.', undefined, 'success');
+          }
+          fetchUsers();
+        } catch (e: any) {
+          const msg = e.response?.data?.message || 'Approval failed';
+          showAlert('Error', msg, undefined, 'error');
+        }
+      }
+    });
   };
 
   const handleReject = (id: string, userName?: string) => {
+    if (detailsModalVisible) {
+      setDetailsModalVisible(false);
+    }
     setConfirmModal({
       visible: true,
       title: 'Reject Registration',
@@ -336,7 +503,6 @@ export default function UserManagementScreen() {
       onConfirm: async () => {
         try {
           await api.put(`/admin/users/${id}/reject`, { reason: 'Rejected by admin' });
-          setDetailsModalVisible(false);
           fetchUsers();
           showAlert('Success', 'Application rejected successfully.', undefined, 'success');
         } catch (e) {
@@ -367,6 +533,9 @@ export default function UserManagementScreen() {
 
   const handleToggleActive = (id: string, currentStatus: boolean, userName?: string) => {
     const isDeactivating = currentStatus;
+    if (detailsModalVisible) {
+      setDetailsModalVisible(false);
+    }
     setConfirmModal({
       visible: true,
       title: isDeactivating ? 'Deactivate Account' : 'Activate Account',
@@ -380,9 +549,6 @@ export default function UserManagementScreen() {
         try {
           await api.put(`/admin/users/${id}/deactivate`);
           fetchUsers();
-          if (detailsModalVisible) {
-            handleOpenDetails(id);
-          }
           showAlert(
             'Success',
             `Account successfully ${isDeactivating ? 'deactivated' : 'activated'}.`,
@@ -396,8 +562,64 @@ export default function UserManagementScreen() {
     });
   };
 
+  const handleMarkCompleted = (id: string, userName?: string) => {
+    if (detailsModalVisible) {
+      setDetailsModalVisible(false);
+    }
+    setConfirmModal({
+      visible: true,
+      title: 'Mark Student Completed',
+      message: `Are you sure you want to mark ${userName || 'this student'} as Completed & Graduated?\n\nThis will move the student to the Completed records section.`,
+      type: 'info',
+      confirmText: 'Mark Completed',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await api.put(`/admin/users/${id}/complete`);
+          fetchUsers();
+          showAlert('Success', `${userName || 'Student'} marked as Completed & Graduated.`, undefined, 'success');
+        } catch (e: any) {
+          showAlert('Error', e.response?.data?.message || 'Failed to update student status', undefined, 'error');
+        }
+      }
+    });
+  };
+
+  const handleResendCredentials = (id: string, studentName?: string) => {
+    if (detailsModalVisible) {
+      setDetailsModalVisible(false);
+    }
+    setConfirmModal({
+      visible: true,
+      title: 'Resend Credentials',
+      message: `Are you sure you want to resend login credentials to ${studentName || 'this student'}?\n\nA fresh temporary password will be generated and dispatched to their email address.`,
+      type: 'info',
+      confirmText: 'Resend Credentials',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          const res = await api.put(`/admin/users/${id}/resend-credentials`);
+          if (res.data.credentials) {
+            setApprovedCredentials(res.data.credentials);
+            setCredentialsModalVisible(true);
+          } else {
+            showAlert('Credentials Resent', `Official login credentials email resent to ${studentName || 'student'}.`, undefined, 'success');
+          }
+        } catch (e: any) {
+          showAlert('Error', e.response?.data?.message || 'Failed to resend credentials email', undefined, 'error');
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+  };
+
   const handleDeleteCompletely = (id: string, userName?: string, role?: string) => {
-    const roleLabel = role === 'instructor' ? 'instructor' : 'student';
+    if (detailsModalVisible) {
+      setDetailsModalVisible(false);
+    }
+    setUserDetails(null);
     setConfirmModal({
       visible: true,
       title: '⚠️ Permanently Delete',
@@ -409,10 +631,6 @@ export default function UserManagementScreen() {
         try {
           await api.delete(`/admin/users/${id}/delete`);
           fetchUsers();
-          if (detailsModalVisible) {
-            setDetailsModalVisible(false);
-            setUserDetails(null);
-          }
           showAlert(
             'Deleted',
             `${userName || 'User'} and all related data have been permanently removed.`,
@@ -450,10 +668,11 @@ export default function UserManagementScreen() {
         showAlert('Success', 'Instructor created successfully', undefined, 'success');
       }
 
-      if (activeTab === 'instructors') {
-        fetchUsers();
+      if (activeMode === 'instructors') {
+        fetchAllDashboardData();
       } else {
-        setActiveTab('instructors');
+        setActiveMode('instructors');
+        fetchAllDashboardData();
       }
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Failed to create instructor';
@@ -463,23 +682,127 @@ export default function UserManagementScreen() {
     }
   };
 
-  const filteredUsers = (users || []).filter(u => {
-    const term = (search || '').toLowerCase().trim();
-    const matchesSearch =
-      !term ||
-      (u?.name || '').toLowerCase().includes(term) ||
-      (u?.email || '').toLowerCase().includes(term) ||
-      (u?.index_number || '').toLowerCase().includes(term) ||
-      (u?.nic || '').toLowerCase().includes(term);
+  const appMetrics = {
+    pending: (applicationsList || []).filter(a => a.status === 'pending' || !a.status).length,
+    approved: (applicationsList || []).filter(a => a.status === 'approved').length,
+    rejected: (applicationsList || []).filter(a => a.status === 'rejected').length,
+    total: (applicationsList || []).length,
+  };
 
-    if (activeTab === 'approved') {
-      if (statusFilter === 'active') return matchesSearch && u.is_active === true;
-      if (statusFilter === 'inactive') return matchesSearch && u.is_active === false;
-      return matchesSearch;
+  const studentsMetrics = {
+    all: (studentsList || []).length,
+    active: (studentsList || []).filter(s => s.is_active === true).length,
+    deactive: (studentsList || []).filter(s => s.is_active === false).length,
+    completed: (studentsList || []).filter(s => s.status === 'completed' || s.is_graduated).length,
+  };
+
+  const sourcePayments = (adminPaymentsList && adminPaymentsList.length > 0) ? adminPaymentsList : [
+    ...(studentsList || []).map(s => ({
+      _id: s._id,
+      name: s.name,
+      email: s.email,
+      phone: s.phone,
+      index_number: s.index_number,
+      nic: s.nic,
+      payment_status: s.payment_info?.payment_status || 'pending',
+      payment_method: s.payment_info?.payment_method || 'bank_transfer',
+      amount_paid: s.payment_info?.amount_paid || 0,
+      total_fee: s.payment_info?.total_fee || 25000,
+      category: (s.payment_info?.amount_paid || 0) >= (s.payment_info?.total_fee || 25000) ? 'completed' : 'pending',
+    })),
+  ];
+
+  const paymentsMetrics = {
+    pending: sourcePayments.filter((p: any) => p.category === 'pending' || p.amount_paid < p.total_fee || (p.payment_status !== 'paid' && p.payment_status !== 'waived')).length,
+    completed: sourcePayments.filter((p: any) => p.category === 'completed' || p.amount_paid >= p.total_fee || p.payment_status === 'paid' || p.payment_status === 'waived').length,
+  };
+
+  const instructorsMetrics = {
+    active: (instructorsList || []).filter(i => i.is_active !== false).length,
+    deactive: (instructorsList || []).filter(i => i.is_active === false).length,
+    total: (instructorsList || []).length,
+  };
+
+  const getFilteredData = () => {
+    const term = (search || '').toLowerCase().trim();
+
+    if (activeMode === 'applications') {
+      return (applicationsList || []).filter(a => {
+        const name = a.full_name || a.fullName || a.name || a.student_name || 'Applicant';
+        const email = a.email || '';
+        const nic = a.nic_number || a.nic || '';
+        const regNo = a.generated_index_number || a.index_number || '';
+        const status = a.status || 'pending';
+
+        const matchesSearch =
+          !term ||
+          name.toLowerCase().includes(term) ||
+          email.toLowerCase().includes(term) ||
+          nic.toLowerCase().includes(term) ||
+          regNo.toLowerCase().includes(term);
+
+        if (applicationsSubFilter === 'pending') return matchesSearch && (status === 'pending' || !status);
+        if (applicationsSubFilter === 'approved') return matchesSearch && status === 'approved';
+        if (applicationsSubFilter === 'rejected') return matchesSearch && status === 'rejected';
+        return matchesSearch;
+      });
     }
 
-    return matchesSearch;
-  });
+    if (activeMode === 'students') {
+      return (studentsList || []).filter(s => {
+        const matchesSearch =
+          !term ||
+          (s?.name || '').toLowerCase().includes(term) ||
+          (s?.email || '').toLowerCase().includes(term) ||
+          (s?.index_number || '').toLowerCase().includes(term) ||
+          (s?.nic || '').toLowerCase().includes(term);
+
+        if (studentsSubFilter === 'active') return matchesSearch && s.is_active === true;
+        if (studentsSubFilter === 'deactive') return matchesSearch && s.is_active === false;
+        if (studentsSubFilter === 'completed') return matchesSearch && (s.status === 'completed' || s.is_graduated);
+        return matchesSearch;
+      });
+    }
+
+    if (activeMode === 'payments') {
+      return sourcePayments.filter((p: any) => {
+        const matchesSearch =
+          !term ||
+          (p?.name || '').toLowerCase().includes(term) ||
+          (p?.email || '').toLowerCase().includes(term) ||
+          (p?.index_number || '').toLowerCase().includes(term) ||
+          (p?.nic || '').toLowerCase().includes(term);
+
+        const isCompleted = p.category === 'completed' || p.amount_paid >= p.total_fee || p.payment_status === 'paid' || p.payment_status === 'waived';
+
+        if (paymentsSubFilter === 'completed') {
+          return matchesSearch && isCompleted;
+        }
+        if (paymentsSubFilter === 'pending') {
+          return matchesSearch && !isCompleted;
+        }
+        return matchesSearch;
+      });
+    }
+
+    if (activeMode === 'instructors') {
+      return (instructorsList || []).filter(i => {
+        const matchesSearch =
+          !term ||
+          (i?.name || '').toLowerCase().includes(term) ||
+          (i?.email || '').toLowerCase().includes(term) ||
+          (i?.nic || '').toLowerCase().includes(term);
+
+        if (instructorsSubFilter === 'active') return matchesSearch && i.is_active !== false;
+        if (instructorsSubFilter === 'deactive') return matchesSearch && i.is_active === false;
+        return matchesSearch;
+      });
+    }
+
+    return [];
+  };
+
+  const filteredUsers = getFilteredData();
 
   const toggleUserSelection = (userId: string) => {
     setSelectedUserIds(prev => {
@@ -523,7 +846,8 @@ export default function UserManagementScreen() {
     const rows = targetList.map(u => {
       return fieldsToExport.map(f => {
         let val = '';
-        if (f.key === 'guardian_name') val = u.guardian?.name || '';
+        if (f.key === 'name') val = u.name || u.full_name || u.fullName || '';
+        else if (f.key === 'guardian_name') val = u.guardian?.name || '';
         else if (f.key === 'guardian_phone') val = u.guardian?.phone || '';
         else if (f.key === 'is_active') val = u.is_active ? 'Active' : 'Deactivated';
         else if (f.key === 'createdAt') val = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '';
@@ -539,7 +863,7 @@ export default function UserManagementScreen() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `TVTI_Users_Export_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute('download', `TVTI_Users_Export_${activeMode}_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -605,17 +929,27 @@ export default function UserManagementScreen() {
 
   const renderPendingItem = ({ item }: { item: any }) => {
     const isSelected = selectedUserIds.includes(item._id);
+    const isMenuOpen = activeMenuUserId === item._id;
+    const name = item.full_name || item.fullName || item.name || item.student_name || 'Applicant';
+    const status = item.status || 'pending';
+    const photo = item.student_photo || item.profile_photo;
+
     return (
       <TouchableOpacity
         style={[
           styles.card,
+          isMenuOpen && { zIndex: 9999, elevation: 25 },
           isSelectMode && isSelected && styles.whatsappSelectedCard,
         ]}
         onPress={() => {
           if (isSelectMode) {
             toggleUserSelection(item._id);
+          } else if (activeMenuUserId) {
+            setActiveMenuUserId(null);
+          } else if (item.user_id) {
+            handleOpenDetails(item.user_id);
           } else {
-            handleOpenDetails(item._id);
+            setSelectedAppForReview(item);
           }
         }}
         onLongPress={() => {
@@ -627,10 +961,10 @@ export default function UserManagementScreen() {
         }}
         activeOpacity={0.75}
       >
-        <View style={styles.cardHeader}>
+        <View style={[styles.cardHeader, isMenuOpen && { zIndex: 9999 }]}>
           <View style={{ position: 'relative' }}>
-            {item.profile_photo ? (
-              <Image source={{ uri: item.profile_photo }} style={styles.avatarImg} />
+            {photo ? (
+              <Image source={{ uri: photo }} style={styles.avatarImg} />
             ) : (
               <View style={styles.avatar}>
                 <Icon name="person" size={24} color="#475569" />
@@ -644,48 +978,91 @@ export default function UserManagementScreen() {
           </View>
 
           <View style={styles.headerDetails}>
-            <Text style={styles.userName}>{item.name}</Text>
+            <Text style={styles.userName}>{name}</Text>
             <Text style={styles.userEmail}>{item.email}</Text>
-            {item.index_number || item.nic ? <Text style={styles.userSubtext}>Reg No: {item.index_number || item.nic}</Text> : null}
+            <Text style={styles.userSubtext}>NIC / Reg: {item.nic_number || item.nic || item.index_number || 'N/A'}</Text>
           </View>
-          <View style={styles.newBadge}>
-            <Text style={styles.newBadgeText}>Pending</Text>
+
+          <View style={styles.rightCardCol}>
+            {!isSelectMode && (
+              <WhatsAppOptionsMenu
+                options={[
+                  {
+                    id: 'view_app',
+                    label: 'View Application',
+                    onPress: () => {
+                      if (item.user_id) handleOpenDetails(item.user_id);
+                      else setSelectedAppForReview(item);
+                    },
+                  },
+                  ...(status === 'pending' ? [
+                    {
+                      id: 'approve',
+                      label: 'Approve',
+                      onPress: () => handleApprove(item.user_id || item._id),
+                    },
+                    {
+                      id: 'reject',
+                      label: 'Reject',
+                      destructive: true,
+                      onPress: () => handleReject(item.user_id || item._id, name),
+                    }
+                  ] : []),
+                  ...(status === 'approved' ? [
+                    {
+                      id: 'resend_creds',
+                      label: 'Resend Credentials',
+                      onPress: () => handleResendCredentials(item.user_id || item._id, name),
+                    }
+                  ] : []),
+                  {
+                    id: 'delete',
+                    label: 'Delete',
+                    destructive: true,
+                    onPress: () => handleDeleteCompletely(item._id, name, 'application'),
+                  }
+                ]}
+              />
+            )}
+            {status !== 'rejected' && (
+              <View style={[styles.statusBadge, { backgroundColor: status === 'approved' ? '#D1FAE5' : '#FEF3C7', marginTop: 8 }]}>
+                <Text style={[styles.statusBadgeText, { color: status === 'approved' ? '#065F46' : '#D97706' }]}>
+                  {status === 'approved' ? 'Approved' : 'Pending'}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
-        <View style={styles.cardActions}>
-          <TouchableOpacity
-            style={styles.viewProfileBtn}
-            onPress={() => {
-              if (isSelectMode) toggleUserSelection(item._id);
-              else handleOpenDetails(item._id);
-            }}
-          >
-            <Text style={styles.viewProfileText}>View Profile →</Text>
-          </TouchableOpacity>
-          <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+        {!isSelectMode && status === 'pending' && (
+          <View style={styles.cardActions}>
             <TouchableOpacity
-              style={styles.smallRejectBtn}
+              style={styles.viewProfileBtn}
               onPress={() => {
-                if (isSelectMode) toggleUserSelection(item._id);
-                else handleReject(item._id, item.name);
+                if (item.user_id) handleOpenDetails(item.user_id);
+                else setSelectedAppForReview(item);
               }}
-              activeOpacity={0.8}
             >
-              <Text style={styles.smallRejectBtnText}>Reject</Text>
+              <Text style={styles.viewProfileText}>View Profile →</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.smallApproveBtn}
-              onPress={() => {
-                if (isSelectMode) toggleUserSelection(item._id);
-                else handleApprove(item._id);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.smallApproveBtnText}>Approve</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+              <TouchableOpacity
+                style={styles.smallRejectBtn}
+                onPress={() => handleReject(item.user_id || item._id, name)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.smallRejectBtnText}>Reject</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.smallApproveBtn}
+                onPress={() => handleApprove(item.user_id || item._id)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.smallApproveBtnText}>Approve</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
       </TouchableOpacity>
     );
   };
@@ -693,11 +1070,13 @@ export default function UserManagementScreen() {
   const renderStudentItem = ({ item }: { item: any }) => {
     const isMenuOpen = activeMenuUserId === item._id;
     const isSelected = selectedUserIds.includes(item._id);
+    const isDeactivated = !item.is_active;
+
     return (
       <TouchableOpacity
         style={[
           styles.card,
-          !item.is_active && { opacity: 0.65 },
+          isDeactivated && { opacity: 0.65 },
           isMenuOpen && { zIndex: 9999, elevation: 25 },
           isSelectMode && isSelected && styles.whatsappSelectedCard,
         ]}
@@ -706,6 +1085,8 @@ export default function UserManagementScreen() {
             toggleUserSelection(item._id);
           } else if (activeMenuUserId) {
             setActiveMenuUserId(null);
+          } else if (isDeactivated) {
+            handleToggleActive(item._id, false, item.name);
           } else {
             handleOpenDetails(item._id);
           }
@@ -742,35 +1123,50 @@ export default function UserManagementScreen() {
           </View>
           <View style={styles.rightCardCol}>
             {!isSelectMode && (
-              <WhatsAppOptionsMenu
-                options={[
-                  {
-                    id: 'view_profile',
-                    label: 'View Profile',
-                    onPress: () => handleOpenDetails(item._id),
-                  },
-                  {
-                    id: 'assign_batch',
-                    label: 'Assign Batch',
-                    onPress: () => {
-                      setAssignStudentId(item._id);
-                      setAssignModalVisible(true);
+              isDeactivated ? (
+                <TouchableOpacity
+                  style={{ padding: 6 }}
+                  onPress={() => handleToggleActive(item._id, false, item.name)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Icon name="ellipsis-vertical" size={18} color="#94A3B8" />
+                </TouchableOpacity>
+              ) : (
+                <WhatsAppOptionsMenu
+                  options={[
+                    {
+                      id: 'view_profile',
+                      label: 'View Profile',
+                      onPress: () => handleOpenDetails(item._id),
                     },
-                  },
-                  {
-                    id: 'toggle_active',
-                    label: item.is_active ? 'Deactivate' : 'Activate',
-                    destructive: item.is_active,
-                    onPress: () => handleToggleActive(item._id, item.is_active, item.name),
-                  },
-                  {
-                    id: 'delete',
-                    label: 'Delete',
-                    destructive: true,
-                    onPress: () => handleDeleteCompletely(item._id, item.name, item.role),
-                  },
-                ]}
-              />
+                    {
+                      id: 'assign_batch',
+                      label: 'Assign Batch',
+                      onPress: () => {
+                        setAssignStudentId(item._id);
+                        setAssignModalVisible(true);
+                      },
+                    },
+                    {
+                      id: 'mark_completed',
+                      label: 'Mark Completed',
+                      onPress: () => handleMarkCompleted(item._id, item.name),
+                    },
+                    {
+                      id: 'toggle_active',
+                      label: 'Deactivate',
+                      destructive: true,
+                      onPress: () => handleToggleActive(item._id, true, item.name),
+                    },
+                    {
+                      id: 'delete',
+                      label: 'Delete',
+                      destructive: true,
+                      onPress: () => handleDeleteCompletely(item._id, item.name, item.role),
+                    },
+                  ]}
+                />
+              )
             )}
             <View style={[styles.statusBadge, { backgroundColor: item.is_active ? '#D1FAE5' : '#FEE2E2', marginTop: 8 }]}>
               <Text style={[styles.statusBadgeText, { color: item.is_active ? '#065F46' : '#991B1B' }]}>
@@ -857,6 +1253,85 @@ export default function UserManagementScreen() {
               />
             )}
           </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderPaymentItem = ({ item }: { item: any }) => {
+    const isPaid = item.category === 'completed' || item.amount_paid >= item.total_fee || item.payment_status === 'paid' || item.payment_status === 'waived';
+    const amountPaid = item.amount_paid || 0;
+    const totalFee = item.total_fee || 25000;
+    const hasPendingSlips = (item.pending_slips_count || 0) > 0;
+    const isSelected = selectedUserIds.includes(item._id);
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.card,
+          isSelectMode && isSelected && styles.whatsappSelectedCard,
+        ]}
+        onPress={() => {
+          if (isSelectMode) {
+            toggleUserSelection(item._id);
+          } else {
+            handleOpenPaymentDossier(item._id);
+          }
+        }}
+        onLongPress={() => {
+          if (!isSelectMode) {
+            setActiveMenuUserId(null);
+            setIsSelectMode(true);
+            toggleUserSelection(item._id);
+          }
+        }}
+        activeOpacity={0.75}
+      >
+        <View style={styles.cardHeader}>
+          <View style={{ position: 'relative' }}>
+            <View style={[styles.avatar, { backgroundColor: '#FEF3C7' }]}>
+              <Icon name="wallet" size={24} color="#F59E0B" />
+            </View>
+            {isSelectMode && (
+              <View style={[styles.whatsappCheckBadge, isSelected ? styles.whatsappCheckBadgeActive : styles.whatsappCheckBadgeInactive]}>
+                <Icon name={isSelected ? "checkmark" : "add"} size={12} color={isSelected ? "#FFFFFF" : "#64748B"} />
+              </View>
+            )}
+          </View>
+
+          <View style={styles.headerDetails}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <Text style={styles.userName}>{item.name}</Text>
+              {hasPendingSlips && (
+                <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#D97706' }}>NEW SLIP</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.userEmail}>{item.email}</Text>
+            <Text style={styles.userSubtext}>
+              Reg/Index: {item.index_number || item.nic || 'N/A'} • {item.payment_method === 'bank_transfer' ? 'Bank Deposit' : 'Cash Deposit'}
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: isPaid ? '#D1FAE5' : amountPaid > 0 ? '#FFEDD5' : '#FEE2E2' }]}>
+            <Text style={[styles.statusBadgeText, { color: isPaid ? '#065F46' : amountPaid > 0 ? '#C2410C' : '#991B1B' }]}>
+              {isPaid ? 'Fully Paid' : amountPaid > 0 ? 'Partially Paid' : 'Pending'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: '#475569' }}>
+            Paid: LKR {amountPaid.toLocaleString()} / {totalFee.toLocaleString()}
+          </Text>
+          {!isSelectMode && (
+            <TouchableOpacity
+              style={styles.viewProfileBtn}
+              onPress={() => handleOpenPaymentDossier(item._id)}
+            >
+              <Text style={styles.viewProfileText}>Open Dossier →</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -1071,141 +1546,280 @@ export default function UserManagementScreen() {
           }}
         />
       )}
-      {isSelectMode ? (
-        <WhatsAppSelectionHeader
-          visible={isSelectMode}
-          selectedCount={selectedUserIds.length}
-          onClearSelection={() => {
-            setIsSelectMode(false);
-            setSelectedUserIds([]);
-          }}
-          actions={[
-            {
-              id: 'select_all',
-              icon: selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0 ? "checkmark-done" : "checkmark-done-circle-outline",
-              onPress: () => {
-                if (selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0) {
-                  setSelectedUserIds([]);
-                  setIsSelectMode(false);
-                } else {
-                  setSelectedUserIds(filteredUsers.map(u => u._id));
-                }
-              },
-            },
-            {
-              id: 'export_csv',
-              icon: 'download-outline',
-              disabled: selectedUserIds.length === 0,
-              onPress: () => openExportModal('selected'),
-            },
-            {
-              id: 'bulk_delete',
-              icon: 'trash-outline',
-              disabled: selectedUserIds.length === 0,
-              color: selectedUserIds.length > 0 ? '#EF4444' : '#FFFFFF',
-              onPress: handleBulkDelete,
-            },
-          ]}
-        />
-      ) : (
-        <ScreenHeader
-          title="User Management"
-          subtitle="Manage student admissions & instructor staff"
-          options={[
-            {
-              id: 'select_mode',
-              label: 'Select Mode',
-              onPress: () => setIsSelectMode(true),
-            },
-            {
-              id: 'export_excel',
-              label: 'Export Excel Sheet',
-              onPress: () => openExportModal('all_filtered'),
-            },
-          ]}
-        />
-      )}
-      {/* Sleek Segmented Pill Track Header */}
-      <View style={styles.segmentedTrackContainer}>
-        <View style={styles.segmentedTrack}>
-          <TouchableOpacity
-            style={[styles.segmentedTab, activeTab === 'pending' && styles.segmentedTabActive]}
-            onPress={() => setActiveTab('pending')}
-            activeOpacity={0.8}
-          >
-            <Icon
-              name={activeTab === 'pending' ? 'document-text' : 'document-text-outline'}
-              size={16}
-              color={activeTab === 'pending' ? '#FFFFFF' : '#64748B'}
-              style={{ marginRight: 6 }}
-            />
-            <Text style={[styles.segmentedTabText, activeTab === 'pending' && styles.segmentedTabTextActive]}>
-              Applications
-            </Text>
-          </TouchableOpacity>
+      {currentView === 'hub' ? (
+        <>
+          <ScreenHeader
+            title="User Management"
+            subtitle="Choose a category to manage"
+            showBack={true}
+          />
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 100 }}>
+            <Text style={styles.hubSectionHeaderTitle}>Choose Activity</Text>
 
-          <TouchableOpacity
-            style={[styles.segmentedTab, activeTab === 'approved' && styles.segmentedTabActive]}
-            onPress={() => setActiveTab('approved')}
-            activeOpacity={0.8}
-          >
-            <Icon
-              name={activeTab === 'approved' ? 'people' : 'people-outline'}
-              size={16}
-              color={activeTab === 'approved' ? '#FFFFFF' : '#64748B'}
-              style={{ marginRight: 6 }}
-            />
-            <Text style={[styles.segmentedTabText, activeTab === 'approved' && styles.segmentedTabTextActive]}>
-              Students
-            </Text>
-          </TouchableOpacity>
+            {/* 1. Applications Card */}
+            <TouchableOpacity
+              style={styles.hubVerticalCard}
+              onPress={() => {
+                setActiveMode('applications');
+                setApplicationsSubFilter('pending');
+                setCurrentView('detail');
+              }}
+              activeOpacity={0.75}
+            >
+              <View style={styles.hubVerticalIconBox}>
+                <Icon name="document-text-outline" size={24} color="#F59E0B" />
+              </View>
+              <View style={styles.hubVerticalTextCol}>
+                <Text style={styles.hubVerticalTitle}>Applications</Text>
+                <Text style={styles.hubVerticalSub}>{appMetrics.pending} Pending Applications</Text>
+              </View>
+              <Icon name="chevron-forward" size={18} color="#D4D4D8" />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.segmentedTab, activeTab === 'instructors' && styles.segmentedTabActive]}
-            onPress={() => setActiveTab('instructors')}
-            activeOpacity={0.8}
-          >
-            <Icon
-              name={activeTab === 'instructors' ? 'school' : 'school-outline'}
-              size={16}
-              color={activeTab === 'instructors' ? '#FFFFFF' : '#64748B'}
-              style={{ marginRight: 6 }}
-            />
-            <Text style={[styles.segmentedTabText, activeTab === 'instructors' && styles.segmentedTabTextActive]}>
-              Instructors
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+            {/* 2. Students Card */}
+            <TouchableOpacity
+              style={styles.hubVerticalCard}
+              onPress={() => {
+                setActiveMode('students');
+                setStudentsSubFilter('all');
+                setCurrentView('detail');
+              }}
+              activeOpacity={0.75}
+            >
+              <View style={styles.hubVerticalIconBox}>
+                <Icon name="people-outline" size={24} color="#F59E0B" />
+              </View>
+              <View style={styles.hubVerticalTextCol}>
+                <Text style={styles.hubVerticalTitle}>Students</Text>
+                <Text style={styles.hubVerticalSub}>{studentsMetrics.all} Enrolled Students</Text>
+              </View>
+              <Icon name="chevron-forward" size={18} color="#D4D4D8" />
+            </TouchableOpacity>
 
-      {/* Content View */}
-      {activeTab === 'pending' ? (
-        <ApplicationsManagementScreen
-          embedded={true}
-          onApproved={fetchUsers}
-          onSelectAppForReview={(app) => setSelectedAppForReview(app)}
-        />
+            {/* 3. Payments Card */}
+            <TouchableOpacity
+              style={styles.hubVerticalCard}
+              onPress={() => {
+                setActiveMode('payments');
+                setPaymentsSubFilter('pending');
+                setCurrentView('detail');
+              }}
+              activeOpacity={0.75}
+            >
+              <View style={styles.hubVerticalIconBox}>
+                <Icon name="wallet-outline" size={24} color="#F59E0B" />
+              </View>
+              <View style={styles.hubVerticalTextCol}>
+                <Text style={styles.hubVerticalTitle}>Payments</Text>
+                <Text style={styles.hubVerticalSub}>{paymentsMetrics.pending} Pending Slips</Text>
+              </View>
+              <Icon name="chevron-forward" size={18} color="#D4D4D8" />
+            </TouchableOpacity>
+
+            {/* 4. Instructors Card */}
+            <TouchableOpacity
+              style={styles.hubVerticalCard}
+              onPress={() => {
+                setActiveMode('instructors');
+                setInstructorsSubFilter('active');
+                setCurrentView('detail');
+              }}
+              activeOpacity={0.75}
+            >
+              <View style={styles.hubVerticalIconBox}>
+                <Icon name="school-outline" size={24} color="#F59E0B" />
+              </View>
+              <View style={styles.hubVerticalTextCol}>
+                <Text style={styles.hubVerticalTitle}>Instructors</Text>
+                <Text style={styles.hubVerticalSub}>{instructorsMetrics.active} Active Staff</Text>
+              </View>
+              <Icon name="chevron-forward" size={18} color="#D4D4D8" />
+            </TouchableOpacity>
+          </ScrollView>
+        </>
       ) : (
         <>
-          {/* Search & Filters with Smooth Animation */}
-          <Animated.View
-            style={{
-              maxHeight: headerAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, showFilter && activeTab === 'approved' ? 120 : 64],
-              }),
-              opacity: headerAnim,
-              transform: [
+          {isSelectMode ? (
+            <WhatsAppSelectionHeader
+              visible={isSelectMode}
+              selectedCount={selectedUserIds.length}
+              onClearSelection={() => {
+                setIsSelectMode(false);
+                setSelectedUserIds([]);
+              }}
+              actions={[
                 {
-                  translateY: headerAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-12, 0],
-                  }),
+                  id: 'select_all',
+                  icon: selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0 ? "checkmark-done" : "checkmark-done-circle-outline",
+                  onPress: () => {
+                    if (selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0) {
+                      setSelectedUserIds([]);
+                      setIsSelectMode(false);
+                    } else {
+                      setSelectedUserIds(filteredUsers.map(u => u._id));
+                    }
+                  },
                 },
-              ],
-              overflow: 'hidden',
-            }}
-          >
+                {
+                  id: 'export_csv',
+                  icon: 'download-outline',
+                  disabled: selectedUserIds.length === 0,
+                  onPress: () => openExportModal('selected'),
+                },
+                {
+                  id: 'bulk_delete',
+                  icon: 'trash-outline',
+                  disabled: selectedUserIds.length === 0,
+                  color: selectedUserIds.length > 0 ? '#EF4444' : '#FFFFFF',
+                  onPress: handleBulkDelete,
+                },
+              ]}
+            />
+          ) : (
+            <ScreenHeader
+              title={
+                activeMode === 'applications'
+                  ? 'Applications'
+                  : activeMode === 'students'
+                  ? 'Students'
+                  : activeMode === 'payments'
+                  ? 'Payments'
+                  : 'Instructors'
+              }
+              subtitle={`Manage ${activeMode} records`}
+              showBack={true}
+              onBackPress={() => setCurrentView('hub')}
+              options={[
+                {
+                  id: 'select_mode',
+                  label: 'Select Mode',
+                  onPress: () => setIsSelectMode(true),
+                },
+                {
+                  id: 'export_excel',
+                  label: 'Export Excel Sheet',
+                  onPress: () => openExportModal('all_filtered'),
+                },
+              ]}
+            />
+          )}
+
+          {/* Sub-Filter Pill Bar */}
+          <View style={styles.subFilterBarSection}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subFilterBarScroll}>
+              {activeMode === 'applications' && (
+                <>
+                  <TouchableOpacity
+                    style={[styles.subFilterPill, applicationsSubFilter === 'pending' && styles.subFilterPillActive]}
+                    onPress={() => setApplicationsSubFilter('pending')}
+                  >
+                    <Text style={[styles.subFilterPillText, applicationsSubFilter === 'pending' && styles.subFilterPillTextActive]}>
+                      Pending ({appMetrics.pending})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.subFilterPill, applicationsSubFilter === 'approved' && styles.subFilterPillActive]}
+                    onPress={() => setApplicationsSubFilter('approved')}
+                  >
+                    <Text style={[styles.subFilterPillText, applicationsSubFilter === 'approved' && styles.subFilterPillTextActive]}>
+                      Approved ({appMetrics.approved})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.subFilterPill, applicationsSubFilter === 'rejected' && styles.subFilterPillActive]}
+                    onPress={() => setApplicationsSubFilter('rejected')}
+                  >
+                    <Text style={[styles.subFilterPillText, applicationsSubFilter === 'rejected' && styles.subFilterPillTextActive]}>
+                      Rejected ({appMetrics.rejected})
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {activeMode === 'students' && (
+                <>
+                  <TouchableOpacity
+                    style={[styles.subFilterPill, studentsSubFilter === 'all' && styles.subFilterPillActive]}
+                    onPress={() => setStudentsSubFilter('all')}
+                  >
+                    <Text style={[styles.subFilterPillText, studentsSubFilter === 'all' && styles.subFilterPillTextActive]}>
+                      All ({studentsMetrics.all})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.subFilterPill, studentsSubFilter === 'active' && styles.subFilterPillActive]}
+                    onPress={() => setStudentsSubFilter('active')}
+                  >
+                    <Text style={[styles.subFilterPillText, studentsSubFilter === 'active' && styles.subFilterPillTextActive]}>
+                      Active ({studentsMetrics.active})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.subFilterPill, studentsSubFilter === 'deactive' && styles.subFilterPillActive]}
+                    onPress={() => setStudentsSubFilter('deactive')}
+                  >
+                    <Text style={[styles.subFilterPillText, studentsSubFilter === 'deactive' && styles.subFilterPillTextActive]}>
+                      Deactive ({studentsMetrics.deactive})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.subFilterPill, studentsSubFilter === 'completed' && styles.subFilterPillActive]}
+                    onPress={() => setStudentsSubFilter('completed')}
+                  >
+                    <Text style={[styles.subFilterPillText, studentsSubFilter === 'completed' && styles.subFilterPillTextActive]}>
+                      Completed ({studentsMetrics.completed})
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {activeMode === 'payments' && (
+                <>
+                  <TouchableOpacity
+                    style={[styles.subFilterPill, paymentsSubFilter === 'pending' && styles.subFilterPillActive]}
+                    onPress={() => setPaymentsSubFilter('pending')}
+                  >
+                    <Text style={[styles.subFilterPillText, paymentsSubFilter === 'pending' && styles.subFilterPillTextActive]}>
+                      Pending Slips ({paymentsMetrics.pending})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.subFilterPill, paymentsSubFilter === 'completed' && styles.subFilterPillActive]}
+                    onPress={() => setPaymentsSubFilter('completed')}
+                  >
+                    <Text style={[styles.subFilterPillText, paymentsSubFilter === 'completed' && styles.subFilterPillTextActive]}>
+                      Completed ({paymentsMetrics.completed})
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {activeMode === 'instructors' && (
+                <>
+                  <TouchableOpacity
+                    style={[styles.subFilterPill, instructorsSubFilter === 'active' && styles.subFilterPillActive]}
+                    onPress={() => setInstructorsSubFilter('active')}
+                  >
+                    <Text style={[styles.subFilterPillText, instructorsSubFilter === 'active' && styles.subFilterPillTextActive]}>
+                      Active Staff ({instructorsMetrics.active})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.subFilterPill, instructorsSubFilter === 'deactive' && styles.subFilterPillActive]}
+                    onPress={() => setInstructorsSubFilter('deactive')}
+                  >
+                    <Text style={[styles.subFilterPillText, instructorsSubFilter === 'deactive' && styles.subFilterPillTextActive]}>
+                      Deactivated ({instructorsMetrics.deactive})
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </ScrollView>
+          </View>
+
+          {/* Main Content Area */}
+          <>
+            {/* Search Box */}
             <View style={styles.searchFilterRow}>
               <View style={styles.searchBox}>
                 <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
@@ -1219,86 +1833,51 @@ export default function UserManagementScreen() {
                   onBlur={() => setIsSearchFocused(false)}
                 />
               </View>
-              <TouchableOpacity
-                style={[styles.filterBtn, showFilter && styles.filterBtnActive]}
-                onPress={() => setShowFilter(!showFilter)}
-              >
-                <Icon name="options-outline" size={18} color={showFilter ? '#FFFFFF' : '#374151'} style={{ marginRight: 6 }} />
-                <Text style={[styles.filterBtnText, showFilter && { color: '#FFFFFF' }]}>Filters</Text>
-              </TouchableOpacity>
             </View>
 
-            {/* Filter Options Panel for Approved Tab */}
-            {showFilter && activeTab === 'approved' && (
-              <View style={styles.filterOptionsPanel}>
-                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                  <TouchableOpacity
-                    style={[styles.filterChip, statusFilter === 'all' && styles.filterChipActive]}
-                    onPress={() => setStatusFilter('all')}
-                  >
-                    <Text style={[styles.filterChipText, statusFilter === 'all' && styles.filterChipTextActive]}>
-                      All ({users.length})
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.filterChip, statusFilter === 'active' && styles.filterChipActive]}
-                    onPress={() => setStatusFilter('active')}
-                  >
-                    <Text style={[styles.filterChipText, statusFilter === 'active' && styles.filterChipTextActive]}>
-                      Active ({users.filter(u => u.is_active).length})
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.filterChip, statusFilter === 'inactive' && styles.filterChipActive]}
-                    onPress={() => setStatusFilter('inactive')}
-                  >
-                    <Text style={[styles.filterChipText, statusFilter === 'inactive' && styles.filterChipTextActive]}>
-                      Deactivated ({users.filter(u => !u.is_active).length})
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </Animated.View>
-
-          {/* Content List */}
-          {loading ? (
-            <ActivityIndicator size="large" color="#000000" style={{ marginTop: 40 }} />
-          ) : (
-            <FlatList
-              data={filteredUsers}
-              keyExtractor={item => item._id}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-              renderItem={
-                activeTab === 'approved'
-                  ? renderStudentItem
-                  : renderInstructorItem
-              }
-              CellRendererComponent={({ children, index, style, ...props }: any) => {
-                const item = filteredUsers[index];
-                const isMenuOpen = item && activeMenuUserId === item._id;
-                return (
-                  <View
-                    style={[
-                      style,
-                      { zIndex: isMenuOpen ? 99999 : (filteredUsers.length || 100) - index }
-                    ]}
-                    {...props}
-                  >
-                    {children}
-                  </View>
-                );
-              }}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 110 }}
-              ListEmptyComponent={<Text style={styles.emptyListText}>No users found in this tab.</Text>}
-            />
-          )}
-        </>
-      )}
+            {/* Content List */}
+            {loading ? (
+              <ActivityIndicator size="large" color="#F58220" style={{ marginTop: 40 }} />
+            ) : (
+              <FlatList
+                data={filteredUsers}
+                keyExtractor={item => item._id}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
+                renderItem={
+                  activeMode === 'applications'
+                    ? renderPendingItem
+                    : activeMode === 'students'
+                    ? renderStudentItem
+                    : activeMode === 'payments'
+                    ? renderPaymentItem
+                    : renderInstructorItem
+                }
+                  CellRendererComponent={({ children, index, style, ...props }: any) => {
+                    const item = filteredUsers[index];
+                    const isMenuOpen = item && activeMenuUserId === item._id;
+                    return (
+                      <View
+                        style={[
+                          style,
+                          { zIndex: isMenuOpen ? 99999 : (filteredUsers.length || 100) - index }
+                        ]}
+                        {...props}
+                      >
+                        {children}
+                      </View>
+                    );
+                  }}
+                  contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 110 }}
+                  ListEmptyComponent={<Text style={styles.emptyListText}>No records found for this filter.</Text>}
+                />
+              )}
+            </>
+          </>
+        )}
 
       {/* Floating Add Instructor Liquid FAB Button */}
-      {activeTab === 'instructors' && (
+      {currentView === 'detail' && activeMode === 'instructors' && !isSelectMode && (
         <View style={styles.liquidFabContainer} pointerEvents="box-none">
           {/* Outer Liquid Ripple Wave Layer 1 */}
           <Animated.View
@@ -1925,61 +2504,496 @@ export default function UserManagementScreen() {
 
                 {/* Stable Bottom Actions matching Batch dossier */}
                 <View style={styles.detailsFooter}>
-                  {userDetails.user.role === 'student' && !userDetails.user.is_active ? (
+                  {userDetails.user.role === 'applicant' ? (
                     <View style={{ flexDirection: 'row', gap: 10 }}>
-                      <TouchableOpacity
-                        style={[styles.footerActionBtn, { backgroundColor: '#E2E8F0' }]}
-                        onPress={() => handleReject(userDetails.user._id, userDetails.user.name)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.footerActionText, { color: '#1E293B' }]}>Reject</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.footerActionBtn, { backgroundColor: '#F58220' }]}
-                        onPress={() => handleApprove(userDetails.user._id)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.footerActionText}>Approve</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      {userDetails.user.role === 'student' && (
+                      {userDetails.user.status === 'approved' ? (
                         <TouchableOpacity
-                          style={[styles.footerActionBtn, { backgroundColor: '#2563EB' }]}
+                          style={[styles.footerActionBtn, { backgroundColor: '#0D9488' }]}
                           onPress={() => {
-                            setAssignStudentId(userDetails.user._id);
-                            setAssignModalVisible(true);
+                            setDetailsModalVisible(false);
+                            handleResendCredentials(userDetails.user._id, userDetails.user.name || userDetails.user.full_name);
                           }}
                           activeOpacity={0.8}
                         >
-                          <Icon name="library-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
-                          <Text style={styles.footerActionText}>Assign Batch</Text>
+                          <Icon name="mail-unread-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                          <Text style={styles.footerActionText}>Resend Credentials</Text>
                         </TouchableOpacity>
+                      ) : (
+                        <>
+                          <TouchableOpacity
+                            style={[styles.footerActionBtn, { backgroundColor: '#E2E8F0' }]}
+                            onPress={() => {
+                              setDetailsModalVisible(false);
+                              handleReject(userDetails.user._id, userDetails.user.name || userDetails.user.full_name);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={[styles.footerActionText, { color: '#1E293B' }]}>Reject</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.footerActionBtn, { backgroundColor: '#F58220' }]}
+                            onPress={() => {
+                              setDetailsModalVisible(false);
+                              handleApprove(userDetails.user._id, userDetails.user.name || userDetails.user.full_name);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.footerActionText}>Approve</Text>
+                          </TouchableOpacity>
+                        </>
                       )}
-                      <TouchableOpacity
-                        style={[styles.footerActionBtn, { backgroundColor: userDetails.user.is_active ? '#D97706' : '#10B981' }]}
-                        onPress={() => handleToggleActive(userDetails.user._id, userDetails.user.is_active, userDetails.user.name)}
-                        activeOpacity={0.8}
-                      >
-                        <Icon name={userDetails.user.is_active ? "pause-circle" : "play-circle"} size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
-                        <Text style={styles.footerActionText}>
-                          {userDetails.user.is_active ? 'Deactivate' : 'Activate'}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.footerActionBtn, { backgroundColor: '#7F1D1D' }]}
-                        onPress={() => handleDeleteCompletely(userDetails.user._id, userDetails.user.name, userDetails.user.role)}
-                        activeOpacity={0.8}
-                      >
-                        <Icon name="trash-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
-                        <Text style={styles.footerActionText}>Delete</Text>
-                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      {userDetails.user.role === 'student' ? (
+                        <>
+                          <TouchableOpacity
+                            style={[styles.footerActionBtn, { backgroundColor: '#2563EB' }]}
+                            onPress={() => {
+                              setDetailsModalVisible(false);
+                              setAssignStudentId(userDetails.user._id);
+                              setAssignModalVisible(true);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Icon name="library-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                            <Text style={styles.footerActionText}>Assign Batch</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.footerActionBtn, { backgroundColor: userDetails.user.is_active ? '#D97706' : '#10B981' }]}
+                            onPress={() => {
+                              setDetailsModalVisible(false);
+                              handleToggleActive(userDetails.user._id, userDetails.user.is_active, userDetails.user.name || userDetails.user.full_name);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Icon name={userDetails.user.is_active ? "pause-circle" : "play-circle"} size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                            <Text style={styles.footerActionText}>
+                              {userDetails.user.is_active ? 'Deactivate' : 'Activate'}
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.footerActionBtn, { backgroundColor: '#F58220' }]}
+                            onPress={() => {
+                              setDetailsModalVisible(false);
+                              handleMarkCompleted(userDetails.user._id, userDetails.user.name || userDetails.user.full_name);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Icon name="checkmark-done-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                            <Text style={styles.footerActionText}>Completed</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.footerActionBtn, { backgroundColor: '#0D9488' }]}
+                            onPress={() => {
+                              setDetailsModalVisible(false);
+                              handleResendCredentials(userDetails.user._id, userDetails.user.name || userDetails.user.full_name);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Icon name="mail-unread-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                            <Text style={styles.footerActionText}>Resend Credentials</Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : (
+                        <>
+                          <TouchableOpacity
+                            style={[styles.footerActionBtn, { backgroundColor: userDetails.user.is_active ? '#D97706' : '#10B981' }]}
+                            onPress={() => {
+                              setDetailsModalVisible(false);
+                              handleToggleActive(userDetails.user._id, userDetails.user.is_active, userDetails.user.name || userDetails.user.full_name);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Icon name={userDetails.user.is_active ? "pause-circle" : "play-circle"} size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                            <Text style={styles.footerActionText}>
+                              {userDetails.user.is_active ? 'Deactivate' : 'Activate'}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.footerActionBtn, { backgroundColor: '#7F1D1D' }]}
+                            onPress={() => {
+                              setDetailsModalVisible(false);
+                              handleDeleteCompletely(userDetails.user._id, userDetails.user.name || userDetails.user.full_name, userDetails.user.role);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Icon name="trash-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                            <Text style={styles.footerActionText}>Delete</Text>
+                          </TouchableOpacity>
+                        </>
+                      )}
                     </View>
                   )}
                 </View>
               </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* STUDENT PAYMENT DOSSIER MODAL (ADMIN VIEW) */}
+      {/* ========================================================================= */}
+      <Modal visible={paymentDossierModalVisible} animationType="slide" transparent={true}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.65)', justifyContent: 'flex-end' }}>
+          <View style={{ height: '92%', backgroundColor: '#F8FAFC', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' }}>
+            {/* Modal Header Bar */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
+              <TouchableOpacity
+                onPress={() => setPaymentDossierModalVisible(false)}
+                style={{ padding: 4 }}
+              >
+                <Icon name="close" size={24} color="#0F172A" />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: '#0F172A' }}>Student Payment Dossier</Text>
+              <TouchableOpacity
+                style={{ backgroundColor: '#0F172A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                onPress={() => {
+                  setPaymentDossierModalVisible(false);
+                  setManualPayModalVisible(true);
+                }}
+              >
+                <Icon name="add-circle-outline" size={16} color="#FFFFFF" />
+                <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 12 }}>+ Cash Pay</Text>
+              </TouchableOpacity>
+            </View>
+
+            {loadingDossier ? (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#F59E0B" />
+                <Text style={{ marginTop: 10, color: '#64748B', fontSize: 13 }}>Loading payment dossier...</Text>
+              </View>
+            ) : paymentDossierData ? (
+              <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }}>
+                {/* 1. Student Profile Banner Card */}
+                <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', flexDirection: 'row', alignItems: 'center' }}>
+                  {paymentDossierData.student?.profile_photo ? (
+                    <Image source={{ uri: paymentDossierData.student.profile_photo }} style={{ width: 54, height: 54, borderRadius: 27, marginRight: 14, backgroundColor: '#F1F5F9' }} />
+                  ) : (
+                    <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
+                      <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 18 }}>{getInitials(paymentDossierData.student?.name)}</Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 17, fontWeight: '700', color: '#0F172A' }}>{paymentDossierData.student?.name}</Text>
+                    <Text style={{ fontSize: 12.5, color: '#64748B', marginTop: 1 }}>{paymentDossierData.student?.email}</Text>
+                    <Text style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
+                      Reg No: {paymentDossierData.student?.index_number || paymentDossierData.student?.nic || 'N/A'} • {paymentDossierData.student?.phone || 'No Phone'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 2. Financial Totals & Progress Bar */}
+                <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', marginBottom: 12 }}>Fee Breakdown & Settlement</Text>
+                  
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <View>
+                      <Text style={{ fontSize: 12, color: '#64748B' }}>Total Fee</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A' }}>
+                        LKR {(paymentDossierData.summary?.total_fee || 25000).toLocaleString()}
+                      </Text>
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 12, color: '#64748B' }}>Settled Amount</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#10B981' }}>
+                        LKR {(paymentDossierData.summary?.amount_paid || 0).toLocaleString()}
+                      </Text>
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 12, color: '#64748B' }}>Balance Due</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: (paymentDossierData.summary?.remaining_balance || 0) > 0 ? '#EF4444' : '#10B981' }}>
+                        LKR {(paymentDossierData.summary?.remaining_balance || 0).toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Progress Bar */}
+                  <View style={{ height: 8, backgroundColor: '#E2E8F0', borderRadius: 4, overflow: 'hidden', marginVertical: 8 }}>
+                    <View
+                      style={{
+                        height: '100%',
+                        backgroundColor: (paymentDossierData.summary?.remaining_balance || 0) === 0 ? '#10B981' : '#F59E0B',
+                        width: `${Math.min(100, Math.round(((paymentDossierData.summary?.amount_paid || 0) / (paymentDossierData.summary?.total_fee || 25000)) * 100))}%`,
+                      }}
+                    />
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                    <Text style={{ fontSize: 12, color: '#64748B' }}>
+                      Settlement Rate: {Math.min(100, Math.round(((paymentDossierData.summary?.amount_paid || 0) / (paymentDossierData.summary?.total_fee || 25000)) * 100))}%
+                    </Text>
+                    <View style={{ backgroundColor: paymentDossierData.summary?.category === 'completed' ? '#D1FAE5' : '#FEF3C7', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 }}>
+                      <Text style={{ fontSize: 11.5, fontWeight: '700', color: paymentDossierData.summary?.category === 'completed' ? '#065F46' : '#D97706' }}>
+                        {paymentDossierData.summary?.category === 'completed' ? 'COMPLETED' : 'PENDING'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* 3. Initial Registration Payment Slip Info (if present) */}
+                {paymentDossierData.registration_info && (
+                  <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 6 }}>Initial Registration Payment</Text>
+                    <Text style={{ fontSize: 12.5, color: '#64748B' }}>
+                      Method: {paymentDossierData.registration_info.payment_method === 'bank_transfer' ? 'Bank Deposit Slip' : 'Physical Cash at Counter'}
+                    </Text>
+                    {paymentDossierData.registration_info.payment_slip ? (
+                      <TouchableOpacity
+                        style={{ marginTop: 8, height: 90, borderRadius: 8, overflow: 'hidden', backgroundColor: '#F1F5F9' }}
+                        onPress={() => setDossierZoomImage(paymentDossierData.registration_info.payment_slip)}
+                      >
+                        <Image source={{ uri: paymentDossierData.registration_info.payment_slip }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                )}
+
+                {/* 4. Submitted Payment Slips Timeline */}
+                <View>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', marginBottom: 10 }}>
+                    Payment Slips History ({paymentDossierData.slips?.length || 0})
+                  </Text>
+
+                  {(!paymentDossierData.slips || paymentDossierData.slips.length === 0) ? (
+                    <View style={{ backgroundColor: '#FFFFFF', padding: 20, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' }}>
+                      <Icon name="document-text-outline" size={30} color="#94A3B8" />
+                      <Text style={{ color: '#64748B', fontSize: 13, marginTop: 6 }}>No payment slips uploaded yet.</Text>
+                    </View>
+                  ) : (
+                    paymentDossierData.slips.map((slip: any, index: number) => {
+                      const isVerified = slip.status === 'verified';
+                      const isRejected = slip.status === 'rejected';
+                      const isPending = slip.status === 'pending';
+
+                      return (
+                        <View
+                          key={slip._id || index}
+                          style={{
+                            backgroundColor: '#FFFFFF',
+                            borderRadius: 14,
+                            padding: 14,
+                            marginBottom: 12,
+                            borderWidth: 1,
+                            borderColor: isVerified ? '#BBF7D0' : isRejected ? '#FECDD3' : '#FDE68A',
+                          }}
+                        >
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A' }}>
+                              LKR {(slip.amount || 0).toLocaleString()}
+                            </Text>
+                            <View style={{ backgroundColor: isVerified ? '#D1FAE5' : isRejected ? '#FFE4E6' : '#FEF3C7', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 }}>
+                              <Text style={{ fontSize: 11.5, fontWeight: '700', color: isVerified ? '#065F46' : isRejected ? '#BE123C' : '#D97706' }}>
+                                {isVerified ? 'VERIFIED' : isRejected ? 'REJECTED' : 'PENDING VERIFICATION'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <Text style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
+                            Method: {slip.payment_method === 'bank_transfer' ? 'Bank Deposit' : slip.payment_method === 'online_transfer' ? 'Online Bank Transfer' : 'Cash'} • Date: {slip.createdAt ? new Date(slip.createdAt).toLocaleString() : 'N/A'}
+                          </Text>
+
+                          {slip.notes ? <Text style={{ fontSize: 12, color: '#475569', fontStyle: 'italic', marginTop: 2 }}>Notes: {slip.notes}</Text> : null}
+                          {isRejected && slip.rejection_reason ? <Text style={{ fontSize: 12, color: '#BE123C', fontWeight: '600', marginTop: 4 }}>Rejection Reason: {slip.rejection_reason}</Text> : null}
+
+                          {slip.slip_url ? (
+                            <TouchableOpacity
+                              style={{ marginTop: 10, height: 110, borderRadius: 8, overflow: 'hidden', backgroundColor: '#F1F5F9', position: 'relative' }}
+                              onPress={() => setDossierZoomImage(slip.slip_url)}
+                              activeOpacity={0.8}
+                            >
+                              <Image source={{ uri: slip.slip_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                              <View style={{ position: 'absolute', bottom: 6, right: 6, backgroundColor: 'rgba(15, 23, 42, 0.8)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                <Icon name="expand" size={12} color="#FFFFFF" />
+                                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '600' }}>Tap to Zoom</Text>
+                              </View>
+                            </TouchableOpacity>
+                          ) : null}
+
+                          {/* Admin Action Buttons on Pending Slip */}
+                          {isPending && (
+                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                              <TouchableOpacity
+                                style={{ flex: 1, backgroundColor: '#10B981', paddingVertical: 9, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}
+                                onPress={() => handlePromptVerifySlip(slip)}
+                                disabled={verifyingSlipId === slip._id}
+                              >
+                                {verifyingSlipId === slip._id ? (
+                                  <ActivityIndicator size="small" color="#FFFFFF" />
+                                ) : (
+                                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12.5 }}>Approve & Credit LKR {slip.amount?.toLocaleString()}</Text>
+                                )}
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                style={{ backgroundColor: '#EF4444', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}
+                                onPress={() => handlePromptRejectSlip(slip)}
+                              >
+                                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12.5 }}>Reject</Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* RECORD MANUAL CASH PAYMENT MODAL */}
+      {/* ========================================================================= */}
+      <Modal visible={manualPayModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Record Manual Payment</Text>
+              <TouchableOpacity onPress={() => setManualPayModalVisible(false)}>
+                <Icon name="close" size={22} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputLabel}>Cash Amount (LKR) *</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={manualPayForm.amount}
+              onChangeText={t => setManualPayForm({ ...manualPayForm, amount: t })}
+              placeholder="e.g. 15000"
+              keyboardType="numeric"
+              placeholderTextColor="#9CA3AF"
+            />
+
+            <Text style={styles.inputLabel}>Payment Method</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+              {[
+                { id: 'physical_cash', label: 'Cash at Counter' },
+                { id: 'bank_transfer', label: 'Direct Bank Deposit' },
+              ].map(m => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 9,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: manualPayForm.payment_method === m.id ? '#0F172A' : '#E2E8F0',
+                    backgroundColor: manualPayForm.payment_method === m.id ? '#0F172A' : '#FFFFFF',
+                    alignItems: 'center',
+                  }}
+                  onPress={() => setManualPayForm({ ...manualPayForm, payment_method: m.id })}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: manualPayForm.payment_method === m.id ? '#FFFFFF' : '#475569' }}>
+                    {m.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.inputLabel}>Notes / Counter Receipt Reference</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={manualPayForm.notes}
+              onChangeText={t => setManualPayForm({ ...manualPayForm, notes: t })}
+              placeholder="Receipt # or admin remark"
+              placeholderTextColor="#9CA3AF"
+            />
+
+            <View style={styles.modalFooterBtns}>
+              <TouchableOpacity
+                style={styles.cancelModalBtn}
+                onPress={() => setManualPayModalVisible(false)}
+                disabled={recordingManualPay}
+              >
+                <Text style={styles.cancelModalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveModalBtn, recordingManualPay && { opacity: 0.6 }]}
+                onPress={handleRecordManualPaySubmit}
+                disabled={recordingManualPay}
+              >
+                {recordingManualPay ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveModalBtnText}>Record Payment</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* REJECT SLIP REASON MODAL */}
+      {/* ========================================================================= */}
+      <Modal visible={rejectSlipModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Reject Payment Slip</Text>
+              <TouchableOpacity onPress={() => setRejectSlipModalVisible(false)}>
+                <Icon name="close" size={22} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 12 }}>
+              Specify the reason for rejecting this payment slip. The student will be notified via email and in-app message.
+            </Text>
+
+            <Text style={styles.inputLabel}>Rejection Reason *</Text>
+            <TextInput
+              style={[styles.modalInput, { height: 74, textAlignVertical: 'top' }]}
+              multiline
+              numberOfLines={3}
+              value={rejectSlipForm.reason}
+              onChangeText={t => setRejectSlipForm({ ...rejectSlipForm, reason: t })}
+              placeholder="e.g. Image blur or transaction reference not matching"
+              placeholderTextColor="#9CA3AF"
+            />
+
+            <View style={styles.modalFooterBtns}>
+              <TouchableOpacity
+                style={styles.cancelModalBtn}
+                onPress={() => setRejectSlipModalVisible(false)}
+                disabled={rejectingSlip}
+              >
+                <Text style={styles.cancelModalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[{ flex: 1.5, backgroundColor: '#EF4444', paddingVertical: 11, borderRadius: 8, alignItems: 'center' }, rejectingSlip && { opacity: 0.6 }]}
+                onPress={handleRejectSlipSubmit}
+                disabled={rejectingSlip}
+              >
+                {rejectingSlip ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13.5 }}>Reject Slip</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* DOSSIER FULL-SCREEN IMAGE ZOOM MODAL */}
+      {/* ========================================================================= */}
+      <Modal visible={Boolean(dossierZoomImage)} transparent animationType="fade">
+        <View style={styles.zoomModalOverlay}>
+          <TouchableOpacity style={styles.zoomCloseBtn} onPress={() => setDossierZoomImage(null)}>
+            <Icon name="close" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.zoomImageContainer}>
+            {dossierZoomImage ? (
+              <Image source={{ uri: dossierZoomImage }} style={styles.fullZoomImage} resizeMode="contain" />
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -3389,6 +4403,154 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
   },
 
+  /* VERTICAL CATEGORY HUB STYLES (MATCHING USER REFERENCE IMAGE) */
+  hubSectionHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 16,
+    letterSpacing: -0.3,
+  },
+  hubVerticalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.03)',
+    ...Platform.select({
+      web: { boxShadow: '0 4px 14px rgba(15, 23, 42, 0.04)' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 }
+    }),
+  },
+  hubVerticalIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  hubVerticalTextCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  hubVerticalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  hubVerticalSub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 3,
+    fontWeight: '500',
+  },
+
+  /* 4 MODE CARDS DASHBOARD STYLES */
+  modeCardsSection: {
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modeCardsScroll: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  modeCardItem: {
+    width: 170,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderLeftWidth: 4,
+    borderLeftColor: '#64748B',
+    ...Platform.select({
+      web: { boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+    }),
+  },
+  modeCardItemActive: {
+    borderColor: '#F58220',
+    borderWidth: 1.5,
+    backgroundColor: '#FAFAF9',
+    ...Platform.select({
+      web: { boxShadow: '0 6px 16px rgba(245, 130, 32, 0.15)' },
+      default: { shadowColor: '#F58220', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5 }
+    }),
+  },
+  modeCardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modeCardIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modeCardCountBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  modeCardCountText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  modeCardTitleText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modeCardSubtext: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* SUB-FILTER PILL BAR STYLES */
+  subFilterBarSection: {
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  subFilterBarScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  subFilterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  subFilterPillActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  subFilterPillText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  subFilterPillTextActive: {
+    color: '#FFFFFF',
+  },
+
   /* STRUCTURED CARD STYLES */
   infoSectionCard: {
     backgroundColor: '#FFFFFF',
@@ -3705,5 +4867,77 @@ const styles = StyleSheet.create({
   whatsappCheckBadgeInactive: {
     backgroundColor: '#F8FAFC',
     borderColor: '#CBD5E1',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  modalInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  modalFooterBtns: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+    gap: 10,
+  },
+  cancelModalBtnText: {
+    color: '#64748B',
+    fontWeight: 'bold',
+    fontSize: 13.5,
+  },
+  saveModalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveModalBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 13.5,
+  },
+  zoomModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  zoomCloseBtn: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+  },
+  zoomImageContainer: {
+    width: '95%',
+    height: '80%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullZoomImage: {
+    width: '100%',
+    height: '100%',
   },
 });

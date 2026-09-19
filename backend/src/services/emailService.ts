@@ -945,3 +945,23 @@ export const sendDeactivationEmail = async ({
 
   return { success: true, simulated: true };
 };
+
+export const sendRawEmail = async (to: string, subject: string, body: string) => {
+  const transporter = getTransporter();
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@tvti.edu.lk';
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject,
+        text: body,
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.warn(`[RAW EMAIL WARNING] (${err?.message || err}).`);
+    }
+  }
+  return { success: true, simulated: true };
+};
+

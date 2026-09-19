@@ -9,6 +9,7 @@ import PracticeSlot from '../models/PracticeSlot';
 import SlotBooking from '../models/SlotBooking';
 import Application from '../models/Application';
 import Announcement from '../models/Announcement';
+import PaymentSlip from '../models/PaymentSlip';
 import bcrypt from 'bcryptjs';
 import { generateUniqueIndexNumber } from './applicationController';
 import { sendApprovalCredentialsEmail, sendDeactivationEmail } from '../services/emailService';
@@ -31,14 +32,15 @@ const formatTimeAgo = (date: any): string => {
 
 export const fetchSystemActivities = async (limit = 20) => {
   try {
-    const [users, announcements, courses, batches, applications, slotBookings, videos] = await Promise.all([
+    const [users, announcements, courses, batches, applications, slotBookings, videos, paymentSlips] = await Promise.all([
       User.find().sort({ createdAt: -1 }).limit(limit).select('name role is_active createdAt'),
       Announcement.find().sort({ createdAt: -1 }).limit(limit).select('title createdAt'),
       Course.find().sort({ createdAt: -1 }).limit(limit).select('title createdAt'),
       Batch.find().populate('course_id', 'title').sort({ createdAt: -1 }).limit(limit).select('name course_id createdAt'),
       Application.find().populate('course_id', 'title').sort({ createdAt: -1 }).limit(limit).select('fullName course_id status createdAt'),
       SlotBooking.find().populate('student_id', 'name').sort({ createdAt: -1 }).limit(limit).select('student_id booking_date status createdAt'),
-      Video.find().sort({ createdAt: -1 }).limit(limit).select('title content_type createdAt')
+      Video.find().sort({ createdAt: -1 }).limit(limit).select('title content_type createdAt'),
+      PaymentSlip.find().populate('student_id', 'name index_number').sort({ createdAt: -1 }).limit(limit).select('student_id amount status createdAt')
     ]);
 
     const items: Array<{
@@ -135,6 +137,21 @@ export const fetchSystemActivities = async (limit = 20) => {
         time: formatTimeAgo(v.createdAt),
         color: '#6366F1',
         icon: v.content_type === 'material' ? 'document-attach-outline' : 'play-circle-outline'
+      });
+    });
+
+    paymentSlips.forEach((ps: any) => {
+      const studentName = ps.student_id?.name || 'Student';
+      const amountStr = (ps.amount || 0).toLocaleString();
+      const statusLabel = ps.status === 'verified' ? ' (Verified)' : ps.status === 'rejected' ? ' (Rejected)' : ' (Pending review)';
+      items.push({
+        id: `slip-${ps._id}`,
+        text: `Payment slip of LKR ${amountStr} submitted by "${studentName}"${statusLabel}`,
+        type: 'payment',
+        createdAt: ps.createdAt || new Date(),
+        time: formatTimeAgo(ps.createdAt),
+        color: ps.status === 'verified' ? '#10B981' : ps.status === 'rejected' ? '#EF4444' : '#F59E0B',
+        icon: 'receipt-outline'
       });
     });
 
@@ -414,6 +431,89 @@ export const deactivateUser = async (req: Request, res: Response): Promise<void>
     res.json({ message: `User ${user.is_active ? 'activated' : 'deactivated'} successfully` });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// PUT /api/admin/users/:id/complete — mark student status as completed/graduated
+export const markUserCompleted = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    user.status = 'completed';
+    user.is_graduated = true;
+    await user.save();
+
+    res.json({ message: 'Student status updated to completed & graduated successfully', user });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// PUT /api/admin/users/:id/resend-credentials — regenerate & resend credentials email
+export const resendUserCredentials = async (req: Request, res: Response): Promise<void> => {
+  try {
+    let user = await User.findById(req.params.id);
+
+    // If ID belongs to an application or student not found by direct ID, search by application or email
+    if (!user) {
+      const application = await Application.findById(req.params.id);
+      if (application) {
+        user = await User.findOne({
+          $or: [
+            { email: application.email.toLowerCase() },
+            { nic: application.nic_number }
+          ]
+        });
+      }
+    }
+
+    if (!user) {
+      res.status(404).json({ message: 'Approved student user account not found.' });
+      return;
+    }
+
+    // Generate fresh index number if not present
+    if (!user.index_number) {
+      user.index_number = await generateUniqueIndexNumber();
+    }
+
+    // Generate fresh temporary password e.g. TVTI#8392
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    const tempPassword = `TVTI#${randomDigits}`;
+    const salt = await bcrypt.genSalt(10);
+    user.password_hash = await bcrypt.hash(tempPassword, salt);
+    user.must_change_password = true;
+    user.temp_password_expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await user.save();
+
+    // Send credentials email
+    try {
+      await sendApprovalCredentialsEmail({
+        to: user.email,
+        studentName: user.name,
+        indexNumber: user.index_number,
+        tempPassword: tempPassword
+      });
+    } catch (emailErr) {
+      console.warn('Warning: Failed to send approval credentials email:', emailErr);
+    }
+
+    res.json({
+      message: 'Credentials email resent successfully!',
+      credentials: {
+        index_number: user.index_number,
+        temp_password: tempPassword,
+        email: user.email,
+        student_id: user._id
+      }
+    });
+  } catch (error) {
+    console.error('Error resending user credentials:', error);
+    res.status(500).json({ message: 'Server error during credentials email resend' });
   }
 };
 

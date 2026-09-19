@@ -52,6 +52,8 @@ export interface IUser extends Document {
   passwordResetOtpExpiresAt?: Date;
   passwordResetTokenHash?: string;
   passwordResetTokenExpiresAt?: Date;
+  status?: string;
+  is_graduated?: boolean;
   deactivation_email_sent?: boolean;
   deactivation_email_sent_at?: Date;
   deactivation_email_error?: string;
@@ -68,6 +70,8 @@ const userSchema = new Schema<IUser>(
     phone: { type: String },
     profile_photo: { type: String },
     is_active: { type: Boolean, default: true },
+    status: { type: String },
+    is_graduated: { type: Boolean, default: false },
     nic: { type: String },
     date_of_birth: { type: String },
     gender: { type: String },
