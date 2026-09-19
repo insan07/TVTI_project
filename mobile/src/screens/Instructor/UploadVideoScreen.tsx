@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, FlatList, RefreshControl, Platform, Linking, Modal, Image
+  TextInput, ActivityIndicator, FlatList, RefreshControl, Platform, Linking, Modal, Image,
+  Animated
 } from 'react-native';
 import api from '../../services/api';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -25,7 +26,7 @@ export default function UploadVideoScreen() {
   const [batchesLoading, setBatchesLoading] = useState(true);
   const [topics, setTopics] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'my_videos'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'my_videos'>('my_videos');
   const [uploadMode, setUploadMode] = useState<'video' | 'material'>('video');
   const [videoSource, setVideoSource] = useState<'youtube' | 'file'>('youtube');
   const [listMode, setListMode] = useState<'video' | 'material'>('video');
@@ -58,11 +59,36 @@ export default function UploadVideoScreen() {
     message: string;
     type?: 'success' | 'error' | 'info';
     onOk?: () => void;
-  }>({
-    visible: false,
-    title: '',
-    message: '',
-  });
+  }>({ visible: false, title: '', message: '' });
+
+  // Liquid FAB Animation State
+  const wave1Anim = React.useRef(new Animated.Value(0)).current;
+  const wave2Anim = React.useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const createWaveAnimation = (animInfo: Animated.Value, delay: number = 0) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.parallel([
+            Animated.timing(animInfo, {
+              toValue: 1,
+              duration: 2500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(animInfo, {
+              toValue: 1,
+              duration: 2500,
+              useNativeDriver: true,
+            })
+          ])
+        ])
+      );
+    };
+
+    createWaveAnimation(wave1Anim).start();
+    createWaveAnimation(wave2Anim, 1000).start();
+  }, []);
 
   const [formData, setFormData] = useState({
     batch_id: '',
@@ -328,45 +354,16 @@ export default function UploadVideoScreen() {
         subtitle="Publish video lessons & study materials"
       />
 
-      <View style={styles.segmentedTrackContainer}>
-        <View style={styles.segmentedTrack}>
-          <TouchableOpacity
-            style={[styles.segmentedTab, activeTab === 'upload' && styles.segmentedTabActive]}
-            onPress={() => setActiveTab('upload')}
-            activeOpacity={0.8}
-          >
-            <Icon
-              name={activeTab === 'upload' ? 'cloud-upload' : 'cloud-upload-outline'}
-              size={16}
-              color={activeTab === 'upload' ? '#FFFFFF' : '#64748B'}
-              style={{ marginRight: 6 }}
-            />
-            <Text style={[styles.segmentedTabText, activeTab === 'upload' && styles.segmentedTabTextActive]}>
-              Upload Portal
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.segmentedTab, activeTab === 'my_videos' && styles.segmentedTabActive]}
-            onPress={() => setActiveTab('my_videos')}
-            activeOpacity={0.8}
-          >
-            <Icon
-              name={activeTab === 'my_videos' ? 'layers' : 'layers-outline'}
-              size={16}
-              color={activeTab === 'my_videos' ? '#FFFFFF' : '#64748B'}
-              style={{ marginRight: 6 }}
-            />
-            <Text style={[styles.segmentedTabText, activeTab === 'my_videos' && styles.segmentedTabTextActive]}>
-              My Uploads
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
       {activeTab === 'upload' ? (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>New Upload</Text>
+              <TouchableOpacity onPress={() => setActiveTab('my_videos')} style={{ padding: 4, backgroundColor: '#F1F5F9', borderRadius: 20 }}>
+                <Icon name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.modeRow}>
               <TouchableOpacity
@@ -765,6 +762,40 @@ export default function UploadVideoScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Liquid Glass FAB */}
+      {activeTab === 'my_videos' && (
+        <View style={styles.liquidFabContainer}>
+          <Animated.View
+            style={[
+              styles.liquidWaveRing,
+              {
+                transform: [{ scale: wave1Anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }],
+                opacity: wave1Anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] })
+              }
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.liquidWaveRingSecond,
+              {
+                transform: [{ scale: wave2Anim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.2] }) }],
+                opacity: wave2Anim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] })
+              }
+            ]}
+          />
+          <TouchableOpacity
+            style={styles.liquidFabButton}
+            activeOpacity={0.85}
+            onPress={() => setActiveTab('upload')}
+          >
+            <View style={styles.liquidGlassSheen} />
+            <View style={styles.liquidInnerCore}>
+              <Icon name="add" size={32} color="#FFFFFF" style={styles.liquidPlusIcon} />
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -1001,5 +1032,73 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 15
-  }
+  },
+
+  /* Liquid Glass FAB + Button Styles */
+  liquidFabContainer: {
+    position: 'absolute',
+    bottom: 95,
+    right: 20,
+    width: 62,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 998,
+  },
+  liquidWaveRing: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 107, 0, 0.4)',
+  },
+  liquidWaveRingSecond: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
+  },
+  liquidFabButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 26px rgba(255, 107, 0, 0.55), inset 0px 2px 4px rgba(255, 255, 255, 0.4)' },
+      default: {
+        shadowColor: '#FF6B00',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.55,
+        shadowRadius: 12,
+        elevation: 10,
+      },
+    }),
+  },
+  liquidGlassSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '48%',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
+  liquidInnerCore: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  liquidPlusIcon: {
+    ...Platform.select({
+      web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
+    }),
+  },
 });

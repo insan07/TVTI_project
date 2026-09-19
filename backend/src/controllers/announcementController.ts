@@ -113,7 +113,7 @@ export const getStudentAnnouncements = async (req: AuthRequest, res: Response): 
 export const deleteAnnouncement = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const announcement = await Announcement.findById(req.params.id);
-    
+
     if (!announcement) {
       res.status(404).json({ message: 'Announcement not found' });
       return;
