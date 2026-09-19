@@ -4,14 +4,20 @@ import { getMyResults } from '../controllers/resultController';
 import { getEnrolledBatches, getBatchVideos, getBatchMaterials, getVideoStreamUrl, getNotesUrl } from '../controllers/studentVideoController';
 import { getOpenSlots, bookSlot, cancelBooking as cancelPracticeBooking, getMyBookings as getMyPracticeBookings } from '../controllers/studentPracticeController';
 import { getStudentAnnouncements } from '../controllers/announcementController';
+import { uploadPaymentSlip, getMyPaymentSlips } from '../controllers/paymentController';
 import { protect } from '../middleware/authMiddleware';
 import { checkRole } from '../middleware/roleMiddleware';
+import { upload } from '../middleware/uploadMiddleware';
 
 const router = express.Router();
 
 router.use(protect, checkRole(['student']));
 router.get('/my-schedule', getMySchedule);
 router.get('/home', getHomeDashboard);
+
+// Payments
+router.get('/payments/my-slips', getMyPaymentSlips);
+router.post('/payments/upload-slip', upload.single('slip_file'), uploadPaymentSlip);
 
 router.get('/batches', getEnrolledBatches);
 router.get('/batches/:batchId/videos', getBatchVideos);

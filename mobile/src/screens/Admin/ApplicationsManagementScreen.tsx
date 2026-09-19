@@ -29,6 +29,7 @@ interface ApplicationsManagementScreenProps {
   selectedApp?: any;
   onSelectAppForReview?: (app: any) => void;
   onBack?: () => void;
+  statusFilter?: 'pending' | 'approved' | 'rejected' | 'all';
 }
 
 export default function ApplicationsManagementScreen({
@@ -37,6 +38,7 @@ export default function ApplicationsManagementScreen({
   selectedApp,
   onSelectAppForReview,
   onBack,
+  statusFilter,
 }: ApplicationsManagementScreenProps) {
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,6 +74,22 @@ export default function ApplicationsManagementScreen({
   // Selection & Permanent Delete States
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedAppIds, setSelectedAppIds] = useState<string[]>([]);
+
+  // Custom Confirmation Acknowledgment Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info' | 'lock';
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     fetchPendingApplications();
@@ -205,8 +223,7 @@ export default function ApplicationsManagementScreen({
     try {
       setLoading(true);
       const res = await api.get('/admin/applications?status=all');
-      const nonApproved = (res.data || []).filter((a: any) => a.status !== 'approved');
-      setApplications(nonApproved);
+      setApplications(res.data || []);
     } catch (e) {
       console.warn('Failed to fetch pending applications', e);
     } finally {
@@ -214,6 +231,14 @@ export default function ApplicationsManagementScreen({
       setRefreshing(false);
     }
   };
+
+  const displayedApplications = (applications || []).filter((app: any) => {
+    if (statusFilter === 'pending') return app.status === 'pending' || !app.status;
+    if (statusFilter === 'approved') return app.status === 'approved';
+    if (statusFilter === 'rejected') return app.status === 'rejected';
+    if (statusFilter === 'all') return true;
+    return app.status !== 'approved';
+  });
 
   const fetchActiveCourses = async () => {
     try {
@@ -271,6 +296,74 @@ export default function ApplicationsManagementScreen({
         return prev.filter(id => id !== courseId);
       } else {
         return [...prev, courseId];
+      }
+    });
+  };
+  const handlePromptApprove = () => {
+    if (!selectedAppForReview) return;
+    if (assignedCourseIds.length === 0) {
+      const msg = 'Please select at least one course to assign.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Error', msg);
+      return;
+    }
+    setReviewModalVisible(false);
+    setConfirmModal({
+      visible: true,
+      title: 'Approve Application',
+      message: `Are you sure you want to approve registration for ${selectedAppForReview.full_name}?\n\nAn official student index number and credentials will be generated and dispatched via email.`,
+      type: 'info',
+      confirmText: 'Approve',
+      cancelText: 'Cancel',
+      onConfirm: () => {
+        handleApproveFromReview();
+      }
+    });
+  };
+
+  const handlePromptReject = () => {
+    if (!selectedAppForReview) return;
+    setReviewModalVisible(false);
+    setConfirmModal({
+      visible: true,
+      title: 'Reject Application',
+      message: `Are you sure you want to reject registration for ${selectedAppForReview.full_name}?`,
+      type: 'danger',
+      confirmText: 'Continue Rejection',
+      cancelText: 'Cancel',
+      onConfirm: () => {
+        setRejectionReasonText('');
+        setRejectReasonModalVisible(true);
+      }
+    });
+  };
+
+  const handlePromptResendCredentials = () => {
+    if (!selectedAppForReview) return;
+    setReviewModalVisible(false);
+    setConfirmModal({
+      visible: true,
+      title: 'Resend Credentials',
+      message: `Are you sure you want to resend login credentials to ${selectedAppForReview.full_name}?\n\nA fresh temporary password will be generated and dispatched to their email.`,
+      type: 'info',
+      confirmText: 'Resend Credentials',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          const res = await api.put(`/admin/users/${selectedAppForReview._id}/resend-credentials`);
+          if (res.data.credentials) {
+            setApprovedCredentials(res.data.credentials);
+            setCredentialsModalVisible(true);
+          } else {
+            const msg = `Official login credentials email resent to ${selectedAppForReview.full_name}.`;
+            if (Platform.OS === 'web') window.alert(msg);
+            else Alert.alert('Credentials Resent', msg);
+          }
+        } catch (e: any) {
+          const msg = e.response?.data?.message || 'Failed to resend credentials';
+          if (Platform.OS === 'web') window.alert(`Error: ${msg}`);
+          else Alert.alert('Error', msg);
+        }
       }
     });
   };
@@ -400,11 +493,6 @@ export default function ApplicationsManagementScreen({
           <View style={styles.cardInfoCol}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <Text style={[styles.studentName, isRejected && { color: '#64748B' }]} numberOfLines={1}>{item.full_name}</Text>
-              {isRejected && (
-                <View style={styles.rejectedBadge}>
-                  <Text style={styles.rejectedBadgeText}>Rejected</Text>
-                </View>
-              )}
             </View>
             <Text style={styles.studentEmailText} numberOfLines={1}>{item.email}</Text>
             {item.phone ? (
@@ -581,19 +669,20 @@ export default function ApplicationsManagementScreen({
   const renderContent = () => {
     if (selectedAppForReview) {
       return (
-        <Modal
-          visible={Boolean(selectedAppForReview)}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => {
-            setSelectedAppForReview(null);
-            setReviewModalVisible(false);
-            if (onBack) onBack();
-          }}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalCard, { height: '88%', width: '92%', maxWidth: 650, padding: 0, overflow: 'hidden' }]}>
-              <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+        <>
+          <Modal
+            visible={Boolean(selectedAppForReview) && reviewModalVisible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => {
+              setSelectedAppForReview(null);
+              setReviewModalVisible(false);
+              if (onBack) onBack();
+            }}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalCard, { height: '88%', width: '92%', maxWidth: 650, padding: 0, overflow: 'hidden' }]}>
+                <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
                 {/* Dossier Header Row with Save PDF, Share, and Close Icon Shortcuts */}
                 <View style={styles.detailsHeader}>
                   <View style={{ flex: 1 }}>
@@ -845,10 +934,19 @@ export default function ApplicationsManagementScreen({
 
                 {/* Stable Bottom Actions matching Student Dossier popup */}
                 <View style={styles.detailsFooter}>
-                  {selectedAppForReview?.status === 'rejected' ? (
+                  {selectedAppForReview?.status === 'approved' ? (
+                    <TouchableOpacity
+                      style={[styles.footerActionBtn, { backgroundColor: '#0D9488', flex: 1 }]}
+                      onPress={handlePromptResendCredentials}
+                      activeOpacity={0.85}
+                    >
+                      <Icon name="mail-unread-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.footerActionText}>Resend Credentials</Text>
+                    </TouchableOpacity>
+                  ) : selectedAppForReview?.status === 'rejected' ? (
                     <TouchableOpacity
                       style={[styles.footerActionBtn, { backgroundColor: '#F58220', flex: 1 }]}
-                      onPress={handleApproveFromReview}
+                      onPress={handlePromptApprove}
                       disabled={approving}
                       activeOpacity={0.85}
                     >
@@ -862,7 +960,7 @@ export default function ApplicationsManagementScreen({
                     <View style={{ flexDirection: 'row', gap: 10, flex: 1 }}>
                       <TouchableOpacity
                         style={[styles.footerActionBtn, { backgroundColor: '#E2E8F0', flex: 1 }]}
-                        onPress={handleRejectFromReview}
+                        onPress={handlePromptReject}
                         disabled={approving || rejectingId !== null}
                         activeOpacity={0.8}
                       >
@@ -875,7 +973,7 @@ export default function ApplicationsManagementScreen({
 
                       <TouchableOpacity
                         style={[styles.footerActionBtn, { backgroundColor: '#F58220', flex: 1 }]}
-                        onPress={handleApproveFromReview}
+                        onPress={handlePromptApprove}
                         disabled={approving}
                         activeOpacity={0.85}
                       >
@@ -891,6 +989,7 @@ export default function ApplicationsManagementScreen({
               </View>
             </View>
           </View>
+        </Modal>
 
           {/* Slip Image Full Screen Zoom Modal */}
           <Modal visible={slipZoomModalVisible} animationType="fade" transparent={true}>
@@ -942,7 +1041,13 @@ export default function ApplicationsManagementScreen({
 
                 <TouchableOpacity
                   style={styles.closeCredModalBtn}
-                  onPress={() => setCredentialsModalVisible(false)}
+                  onPress={() => {
+                    setCredentialsModalVisible(false);
+                    setSelectedAppForReview(null);
+                    setReviewModalVisible(false);
+                    if (onApproved) onApproved();
+                    if (onBack) onBack();
+                  }}
                 >
                   <Text style={styles.closeCredModalBtnText}>Close & Return</Text>
                 </TouchableOpacity>
@@ -1034,7 +1139,71 @@ export default function ApplicationsManagementScreen({
               </View>
             </View>
           </Modal>
-        </Modal>
+
+          {/* CUSTOM IN-APP CONFIRMATION POPUP MODAL */}
+          <Modal
+            visible={confirmModal.visible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => {
+              setConfirmModal(prev => ({ ...prev, visible: false }));
+              setReviewModalVisible(true);
+            }}
+          >
+            <View style={styles.popupOverlay}>
+              <View style={styles.popupCard}>
+                <View style={[
+                  styles.popupIconCircle,
+                  { backgroundColor: confirmModal.type === 'danger' ? '#FEE2E2' : confirmModal.type === 'lock' ? '#FEF3C7' : '#EFF6FF' }
+                ]}>
+                  <Icon
+                    name={
+                      confirmModal.type === 'danger'
+                        ? 'alert-circle-outline'
+                        : confirmModal.type === 'lock'
+                        ? 'lock-closed-outline'
+                        : 'information-circle-outline'
+                    }
+                    size={28}
+                    color={
+                      confirmModal.type === 'danger'
+                        ? '#DC2626'
+                        : confirmModal.type === 'lock'
+                        ? '#D97706'
+                        : '#2563EB'
+                    }
+                  />
+                </View>
+                <Text style={styles.popupTitle}>{confirmModal.title}</Text>
+                <Text style={styles.popupMessage}>{confirmModal.message}</Text>
+                <View style={styles.popupBtnRow}>
+                  <TouchableOpacity
+                    style={styles.popupCancelBtn}
+                    onPress={() => {
+                      setConfirmModal(prev => ({ ...prev, visible: false }));
+                      setReviewModalVisible(true);
+                    }}
+                  >
+                    <Text style={styles.popupCancelText}>{confirmModal.cancelText || 'Cancel'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.popupConfirmBtn,
+                      { backgroundColor: confirmModal.type === 'danger' ? '#DC2626' : confirmModal.type === 'lock' ? '#D97706' : '#2563EB' }
+                    ]}
+                    onPress={() => {
+                      const action = confirmModal.onConfirm;
+                      setConfirmModal(prev => ({ ...prev, visible: false }));
+                      if (action) action();
+                    }}
+                  >
+                    <Text style={styles.popupConfirmText}>{confirmModal.confirmText || 'Confirm'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        </>
       );
     }
 
@@ -1079,7 +1248,7 @@ export default function ApplicationsManagementScreen({
           <ActivityIndicator size="large" color="#000000" style={{ marginTop: 40 }} />
         ) : (
           <FlatList
-            data={applications}
+            data={displayedApplications}
             keyExtractor={item => item._id}
             renderItem={renderApplicationCard}
             contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
@@ -2799,5 +2968,81 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Custom Popup Dialog Modal Styles
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  popupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 10px 24px rgba(0, 0, 0, 0.25)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 10 }
+    }),
+  },
+  popupIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  popupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8
+  },
+  popupMessage: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20
+  },
+  popupBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%'
+  },
+  popupCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1'
+  },
+  popupCancelText: {
+    color: '#475569',
+    fontWeight: 'bold',
+    fontSize: 14
+  },
+  popupConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 24,
+    alignItems: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.2)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4 }
+    }),
+  },
+  popupConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14
   },
 });
