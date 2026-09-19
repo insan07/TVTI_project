@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -51,11 +51,21 @@ export default function VideoPlayerScreen() {
     p.loop = false;
   });
 
+  const videoViewRef = useRef<any>(null);
+
   useEffect(() => {
     if (videoData?.url && videoData.type !== 'youtube') {
       player.replace(videoData.url);
     }
   }, [videoData?.url]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && videoViewRef.current?.nativeRef?.current) {
+      const videoElement = videoViewRef.current.nativeRef.current;
+      videoElement.setAttribute('controlsList', 'nodownload');
+      videoElement.oncontextmenu = (e: any) => e.preventDefault();
+    }
+  }, [videoData?.url, loading]);
 
   useEffect(() => {
     if (videoId) {
@@ -117,11 +127,11 @@ export default function VideoPlayerScreen() {
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         {/* Video Player Frame */}
-        <View style={styles.videoContainer}>
+        <View style={styles.videoContainer} onContextMenu={(e: any) => e.preventDefault()}>
           {videoData?.type === 'youtube' && yTId ? (
             <YoutubeIframe height={230} videoId={yTId} />
           ) : videoData?.url ? (
-            <VideoView style={styles.video} player={player} allowsFullscreen allowsPictureInPicture />
+            <VideoView ref={videoViewRef} style={styles.video} player={player} allowsFullscreen allowsPictureInPicture />
           ) : (
             <View style={styles.videoMockContainer}>
               <View style={styles.playButtonCircle}>

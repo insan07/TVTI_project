@@ -122,7 +122,7 @@ export default function PostAnnouncementScreen() {
     visible: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const [alertModal, setAlertModal] = useState<{
@@ -658,16 +658,16 @@ export default function PostAnnouncementScreen() {
                   alertModal.type === 'success'
                     ? 'checkmark-circle-outline'
                     : alertModal.type === 'error'
-                    ? 'close-circle-outline'
-                    : 'information-circle-outline'
+                      ? 'close-circle-outline'
+                      : 'information-circle-outline'
                 }
                 size={28}
                 color={
                   alertModal.type === 'success'
                     ? '#16A34A'
                     : alertModal.type === 'error'
-                    ? '#DC2626'
-                    : '#2563EB'
+                      ? '#DC2626'
+                      : '#2563EB'
                 }
               />
             </View>
@@ -1206,7 +1206,7 @@ const styles = StyleSheet.create({
   /* Liquid Glass FAB + Button Styles */
   liquidFabContainer: {
     position: 'absolute',
-    bottom: 25,
+    bottom: 95,
     right: 20,
     width: 62,
     height: 62,
@@ -1269,5 +1269,41 @@ const styles = StyleSheet.create({
       web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
     }),
+  },
+  uploadBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#F58220',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    backgroundColor: '#FFF7ED',
+    marginBottom: 16,
+  },
+  uploadBoxText: {
+    marginLeft: 12,
+    fontSize: 13,
+    ...FONTS.medium,
+    color: '#6B7280',
+    flex: 1,
+  },
+  attachmentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 8,
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  attachmentBtnText: {
+    marginLeft: 6,
+    color: '#F58220',
+    ...FONTS.semiBold,
+    fontSize: 12.5,
   },
 });

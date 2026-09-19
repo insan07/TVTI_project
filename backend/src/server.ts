@@ -46,10 +46,29 @@ import path from 'path';
 
 // Middleware
 app.use(helmet({ crossOriginResourcePolicy: false }));
-app.use(cors());
+// CORS Configuration
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:8081',
+  'http://127.0.0.1:8081',
+  'http://localhost:19000',
+  'exp://localhost:8081' // Expo go
+  // TODO: Add production frontend URLs here
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error('The CORS policy for this site does not allow access from the specified Origin.'), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+}));
 app.use(morgan('dev'));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ limit: '5mb', extended: true }));
 app.use('/uploads', (req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');

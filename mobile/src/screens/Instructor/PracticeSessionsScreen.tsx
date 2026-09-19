@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput,
-  ActivityIndicator, Modal, RefreshControl, Platform
+  ActivityIndicator, Modal, RefreshControl, Platform, Animated
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -57,6 +57,74 @@ export default function PracticeSessionsScreen() {
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Liquid FAB Animation State
+  const wave1Anim = React.useRef(new Animated.Value(0)).current;
+  const wave2Anim = React.useRef(new Animated.Value(0)).current;
+  const buttonScaleAnim = React.useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    wave1Anim.setValue(0);
+    wave2Anim.setValue(0);
+
+    const animation = Animated.loop(
+      Animated.parallel([
+        Animated.timing(wave1Anim, {
+          toValue: 1,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.delay(900),
+          Animated.timing(wave2Anim, {
+            toValue: 1,
+            duration: 2200,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+
+  const handleFabPressIn = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 0.9,
+      useNativeDriver: true,
+      friction: 5,
+      tension: 100,
+    }).start();
+  };
+
+  const handleFabPressOut = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 4,
+      tension: 80,
+    }).start();
+  };
+
+  const wave1Scale = wave1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.55],
+  });
+
+  const wave1Opacity = wave1Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.45, 0.25, 0],
+  });
+
+  const wave2Scale = wave2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.4],
+  });
+
+  const wave2Opacity = wave2Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.35, 0.18, 0],
+  });
 
   // Filters
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>('all');
@@ -522,24 +590,10 @@ export default function PracticeSessionsScreen() {
                 <View style={{alignItems: 'center', marginTop: 40}}>
                   <Icon name="calendar-outline" size={48} color="#D1D5DB" />
                   <Text style={{color: '#6B7280', marginVertical: 12}}>No slots scheduled for this day.</Text>
-                  <TouchableOpacity style={styles.actionBtnBlue} onPress={() => {
-                     setCreateDate(selectedDate);
-                     setCreateModalVisible(true);
-                  }}>
-                    <Icon name="add" size={16} color="#2563EB" />
-                    <Text style={styles.actionBtnBlueText}>Create Slot for this Day</Text>
-                  </TouchableOpacity>
                 </View>
               ) : (
                 <>
                   {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).map(renderListCard)}
-                  <TouchableOpacity style={[styles.actionBtnBlue, {marginTop: 16, alignSelf: 'center'}]} onPress={() => {
-                     setCreateDate(selectedDate);
-                     setCreateModalVisible(true);
-                  }}>
-                    <Icon name="add" size={16} color="#2563EB" />
-                    <Text style={styles.actionBtnBlueText}>Add Another Slot</Text>
-                  </TouchableOpacity>
                 </>
               )}
             </ScrollView>
@@ -731,6 +785,39 @@ export default function PracticeSessionsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Floating Create Practical Slot Liquid FAB Button */}
+      <View style={styles.liquidFabContainer} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            styles.liquidWaveRing,
+            { transform: [{ scale: wave1Scale }], opacity: wave1Opacity }
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.liquidWaveRingSecond,
+            { transform: [{ scale: wave2Scale }], opacity: wave2Opacity }
+          ]}
+        />
+        <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
+          <TouchableOpacity
+            style={styles.liquidFabButton}
+            onPress={() => {
+              setCreateDate(selectedDate);
+              setCreateModalVisible(true);
+            }}
+            onPressIn={handleFabPressIn}
+            onPressOut={handleFabPressOut}
+            activeOpacity={0.9}
+          >
+            <View style={styles.liquidGlassSheen} />
+            <View style={styles.liquidInnerCore}>
+              <Icon name="add" size={32} color="#FFFFFF" style={styles.liquidPlusIcon} />
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -954,6 +1041,89 @@ const styles = StyleSheet.create({
   },
   cancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 24, marginRight: 8 },
   cancelBtnText: { color: '#4B5563', fontWeight: '600' },
+  popupCancelText: {
+    color: '#64748B',
+    fontWeight: 'bold',
+  },
+  popupConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#F97316'
+  },
+  popupConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+
+  /* LIQUID FAB STYLES */
+  liquidFabContainer: {
+    position: 'absolute',
+    bottom: 95,
+    right: 20,
+    width: 62,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 998,
+  },
+  liquidWaveRing: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 107, 0, 0.4)',
+  },
+  liquidWaveRingSecond: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
+  },
+  liquidFabButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 26px rgba(255, 107, 0, 0.55), inset 0px 2px 4px rgba(255, 255, 255, 0.4)' },
+      default: {
+        shadowColor: '#FF6B00',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.55,
+        shadowRadius: 12,
+        elevation: 10,
+      },
+    }),
+  },
+  liquidGlassSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '48%',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
+  liquidInnerCore: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  liquidPlusIcon: {
+    ...Platform.select({
+      web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
+    }),
+  },
   submitBtn: {
     flex: 2,
     paddingVertical: 12,

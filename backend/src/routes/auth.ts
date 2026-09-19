@@ -1,9 +1,16 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { login, register, forgotPassword, verifyResetOtp, resendResetOtp, resetPassword, sendOtpHandler, verifyOtpHandler, checkEligibility } from '../controllers/authController';
 
 const router = express.Router();
 
-router.post('/login', login);
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Limit each IP to 20 login requests per windowMs
+  message: { success: false, message: 'Too many login attempts from this IP, please try again after 15 minutes' },
+});
+
+router.post('/login', loginLimiter, login);
 router.post('/register', register);
 router.post('/check-eligibility', checkEligibility);
 router.post('/send-otp', sendOtpHandler);
