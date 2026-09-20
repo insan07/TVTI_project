@@ -6,16 +6,9 @@ import Enrollment from '../models/Enrollment';
 import User from '../models/User';
 import Batch from '../models/Batch';
 import mongoose from 'mongoose';
+import { isAllowedOrigin } from '../config/cors';
 
 let io: SocketIOServer | null = null;
-
-const getAllowedOrigins = (): string[] => {
-  const value = process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173';
-  return value
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-};
 
 const getJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET?.trim();
@@ -60,17 +53,16 @@ const authenticateSocket = async (socket: Socket): Promise<{ _id: string; role: 
 };
 
 export const initSocket = (server: HttpServer): SocketIOServer => {
-  const allowedOrigins = getAllowedOrigins();
-
   io = new SocketIOServer(server, {
     cors: {
       origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        if (!origin || isAllowedOrigin(origin)) {
           callback(null, true);
           return;
         }
 
-        callback(new Error('Not allowed by Socket.IO CORS'));
+        console.warn(`[Socket.IO CORS] Rejected unauthorized origin: ${origin}`);
+        callback(new Error(`Not allowed by Socket.IO CORS: ${origin}`));
       },
       methods: ['GET', 'POST'],
       credentials: true,
