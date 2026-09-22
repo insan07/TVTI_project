@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,18 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
+  TouchableWithoutFeedback,
+  Platform,
+  TextInput,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getOpenPracticeSlots, bookPracticeSlot, cancelPracticeBooking } from '../../services/practiceService';
 import api from '../../services/api';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 const parseUTCDate = (dateStr: string) => {
   if (!dateStr) return new Date();
@@ -44,9 +49,24 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
   const insets = useSafeAreaInsets();
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
+  const [courseModalVisible, setCourseModalVisible] = useState(false);
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelSlotId, setCancelSlotId] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+
+  const [alertModal, setAlertModal] = useState<{ visible: boolean; title: string; message: string; onOk?: () => void }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (title: string, message: string, onOk?: () => void) => {
+    setAlertModal({ visible: true, title, message, onOk });
+  };
 
   // Generate next 14 days for the calendar strip
   const calendarDays = Array.from({ length: 14 }).map((_, i) => {
@@ -56,13 +76,27 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
     return d;
   });
 
-  useEffect(() => {
-    fetchBatches();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      api.get('/students/batches').then(res => {
+        setBatches(res.data || []);
+        let currentBatch = selectedBatch;
+        if (res.data && res.data.length > 0) {
+          if (!currentBatch) {
+            currentBatch = res.data[0];
+            setSelectedBatch(currentBatch);
+          } else {
+            fetchSlots(currentBatch);
+          }
+        }
+      }).catch(e => console.log('Error fetching batches', e));
+    }, [selectedBatch])
+  );
 
+  // Still keep this to fetch when batch changes
   useEffect(() => {
     if (selectedBatch) {
-      fetchSlots();
+      fetchSlots(selectedBatch);
     }
   }, [selectedBatch]);
 
@@ -78,11 +112,11 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
     }
   };
 
-  const fetchSlots = async () => {
-    if (!selectedBatch) return;
+  const fetchSlots = async (batch = selectedBatch) => {
+    if (!batch) return;
     setLoading(true);
     try {
-      const data = await getOpenPracticeSlots({ batchId: selectedBatch._id });
+      const data = await getOpenPracticeSlots({ batchId: batch._id });
       setSlots(data);
     } catch (e) {
       console.log(e);
@@ -94,29 +128,29 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
   const handleBookSlot = async (slotId: string) => {
     try {
       await bookPracticeSlot(slotId);
-      Alert.alert('Success', 'Practice session booked successfully!');
+      showAlert('Success', 'Practice session booked successfully!');
       fetchSlots();
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to book slot');
+      showAlert('Error', e.response?.data?.message || 'Failed to book slot');
     }
   };
 
   const handleCancelBooking = async (slotId: string) => {
-    Alert.alert('Confirm', 'Are you sure you want to cancel this booking?', [
-      { text: 'No' },
-      {
-        text: 'Yes',
-        onPress: async () => {
-          try {
-            await cancelPracticeBooking(slotId);
-            Alert.alert('Success', 'Booking cancelled');
-            fetchSlots();
-          } catch (e) {
-            Alert.alert('Error', 'Failed to cancel booking');
-          }
-        },
-      },
-    ]);
+    setCancelSlotId(slotId);
+    setCancelReason('');
+    setCancelModalVisible(true);
+  };
+
+  const confirmCancelBooking = async () => {
+    setCancelModalVisible(false);
+    try {
+      await cancelPracticeBooking(cancelSlotId, cancelReason);
+      showAlert('Success', 'Cancellation requested successfully! Please wait for instructor approval.');
+      fetchSlots();
+    } catch (e: any) {
+      console.error('Cancellation error', e.response?.data || e.message);
+      showAlert('Error', e.response?.data?.message || 'Failed to cancel booking');
+    }
   };
 
   const getLocalDateString = (d: Date) => {
@@ -141,10 +175,10 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
           title: selectedBatch?.course_id?.title || 'Vocational Training Course',
           days: Array.isArray(selectedBatch?.schedule_json?.days)
             ? selectedBatch.schedule_json.days.join(', ')
-            : (selectedBatch?.schedule_json?.days || 'Mon, Wed, Fri'),
-          time: selectedBatch?.schedule_json?.time || '09:00 - 11:30',
-          room: selectedBatch?.room || 'Main Workshop',
-          instructor: selectedBatch?.instructor_ids?.[0]?.name || 'Instructor',
+            : (selectedBatch?.schedule_json?.days || 'Days TBD'),
+          time: selectedBatch?.schedule_json?.time || 'Time TBD',
+          room: selectedBatch?.room || 'Room TBD',
+          instructor: selectedBatch?.instructor_ids?.[0]?.name || 'Instructor TBD',
         },
       ]
     : [];
@@ -166,42 +200,33 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
     return slots.some((s) => s.already_booked && s.week_start_date === weekStartDateStr);
   };
 
+  const courseTitle = selectedBatch?.course_id?.title || selectedBatch?.name || 'Select Course';
+
   return (
     <View style={styles.container}>
-      {/* Top Notification Bar */}
-      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
-          <Icon name="notifications-outline" size={24} color="#1A1A1A" />
-          {unreadCount && unreadCount > 0 ? <View style={styles.badgeDot} /> : null}
-        </TouchableOpacity>
+      {/* FIXED STICKY TOP HEADER */}
+      <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
+        <ScreenHeader title="Schedule" subtitle="Timetable & practical slots" />
+
+        {/* Sleek Compact Course Selector Header Bar */}
+        <View style={styles.courseSelectContainer}>
+          <TouchableOpacity
+            style={styles.compactCourseSelect}
+            activeOpacity={0.85}
+            onPress={() => setCourseModalVisible(true)}
+          >
+            <View style={styles.courseSelectLeft}>
+              <Text style={styles.compactCourseTitle} numberOfLines={1}>
+                {courseTitle}
+              </Text>
+            </View>
+            <Icon name="chevron-down" size={18} color="#71717A" />
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {/* SCROLLABLE CONTENT */}
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
-        {/* Main Title */}
-        <View style={styles.pageTitleContainer}>
-          <Text style={styles.pageTitle}>Schedule</Text>
-        </View>
-
-        {/* Batch Pills (if multiple batches) */}
-        {batches.length > 1 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.batchContainer}
-          >
-            {batches.map((b) => (
-              <TouchableOpacity
-                key={b._id}
-                style={[styles.batchBtn, selectedBatch?._id === b._id && styles.activeBatchBtn]}
-                onPress={() => setSelectedBatch(b)}
-              >
-                <Text style={selectedBatch?._id === b._id ? styles.activeTabText : styles.tabText}>
-                  {b.name || 'Batch'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
 
         {/* Content Body */}
         {loading ? (
@@ -233,10 +258,10 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                     </View>
                     <View style={styles.classCardInfoRow}>
                       <Icon name="location-outline" size={15} color="#666" style={{ marginRight: 4 }} />
-                      <Text style={styles.classCardInfoText}>{cls.room || 'Main Workshop'}</Text>
+                      <Text style={styles.classCardInfoText}>{cls.room || 'Room TBD'}</Text>
                       <Text style={styles.dotSeparator}>•</Text>
                       <Icon name="person-outline" size={15} color="#666" style={{ marginRight: 4 }} />
-                      <Text style={styles.classCardInfoText}>Inst. {cls.instructor}</Text>
+                      <Text style={styles.classCardInfoText}>{cls.instructor}</Text>
                     </View>
                   </View>
                 </View>
@@ -334,7 +359,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                         style={{ marginRight: 4 }}
                       />
                       <Text style={[styles.practiceInfoText, isFull && styles.dimmedText]}>
-                        Inst. {slot.instructor_id?.name || 'Instructor'}
+                        {slot.instructor_id?.name || 'Instructor TBD'}
                       </Text>
                     </View>
 
@@ -344,12 +369,18 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                         <Text style={styles.fullText}>FULL</Text>
                       </View>
                     ) : slot.already_booked ? (
-                      <TouchableOpacity
-                        style={styles.cancelBookingButton}
-                        onPress={() => handleCancelBooking(slot._id)}
-                      >
-                        <Text style={styles.cancelBookingButtonText}>Cancel Booking</Text>
-                      </TouchableOpacity>
+                      slot.booking_status === 'cancellation_requested' ? (
+                        <View style={[styles.cancelBookingButton, { borderColor: '#F59E0B' }]}>
+                          <Text style={[styles.cancelBookingButtonText, { color: '#F59E0B' }]}>Pending Cancellation</Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.cancelBookingButton}
+                          onPress={() => handleCancelBooking(slot._id)}
+                        >
+                          <Text style={styles.cancelBookingButtonText}>Cancel Booking</Text>
+                        </TouchableOpacity>
+                      )
                     ) : (
                       <TouchableOpacity
                         style={[styles.bookSlotButton, disabled && styles.disabledButton]}
@@ -372,6 +403,150 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
           </View>
         )}
       </ScrollView>
+
+      {/* Course Selection Dropdown Modal */}
+      <Modal
+        visible={courseModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setCourseModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setCourseModalVisible(false)}
+        >
+          <TouchableWithoutFeedback>
+            <View style={styles.dropdownModalCard}>
+              <View style={styles.dropdownHeader}>
+                <Text style={styles.dropdownTitle}>Select Course</Text>
+                <TouchableOpacity
+                  onPress={() => setCourseModalVisible(false)}
+                  style={styles.closeBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Icon name="close" size={20} color="#71717A" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+                {batches.length > 0 ? (
+                  batches.map((batch) => {
+                    const isSelected = batch._id === selectedBatch?._id;
+                    const title = batch.course_id?.title || batch.name || 'Course';
+                    const batchCode = batch.batch_code || batch.name || '';
+                    return (
+                      <TouchableOpacity
+                        key={batch._id}
+                        style={[
+                          styles.courseOptionItem,
+                          isSelected && styles.courseOptionItemSelected,
+                        ]}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setSelectedBatch(batch);
+                          setCourseModalVisible(false);
+                        }}
+                      >
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text
+                            style={[
+                              styles.courseOptionText,
+                              isSelected && styles.courseOptionTextSelected,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {title}
+                          </Text>
+                          {batchCode ? (
+                            <Text style={styles.courseOptionSub}>Batch: {batchCode}</Text>
+                          ) : null}
+                        </View>
+                        {isSelected ? (
+                          <View style={styles.activeCheckCircle}>
+                            <Icon name="checkmark" size={14} color="#FFFFFF" />
+                          </View>
+                        ) : (
+                          <Icon name="chevron-forward" size={16} color="#D4D4D8" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                    <Text style={{ color: '#71717A', fontSize: 14 }}>No courses available</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          </TouchableWithoutFeedback>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Cancellation Reason Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setCancelModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.modalContent, { maxWidth: 400 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <Text style={styles.modalTitle}>Cancel Booking</Text>
+                  <TouchableOpacity onPress={() => setCancelModalVisible(false)} style={{ padding: 6 }}>
+                    <Icon name="close" size={24} color="#666" />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>
+                  Are you sure you want to cancel this practice session? Please provide a reason for the instructor.
+                </Text>
+
+                <TextInput
+                  style={{ borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, height: 80, textAlignVertical: 'top', padding: 12, fontSize: 14, color: '#1F2937' }}
+                  placeholder="Reason for cancellation (optional)"
+                  multiline
+                  numberOfLines={3}
+                  value={cancelReason}
+                  onChangeText={setCancelReason}
+                />
+
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
+                  <TouchableOpacity
+                    style={{ padding: 10, marginRight: 15 }}
+                    onPress={() => setCancelModalVisible(false)}
+                  >
+                    <Text style={{ color: '#666', ...FONTS.bold }}>Keep Booking</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#F58220', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+                    onPress={confirmCancelBooking}
+                  >
+                    <Text style={{ color: '#FFF', ...FONTS.bold }}>Submit Request</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ALERT MODAL */}
+      <Modal visible={alertModal.visible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{alertModal.title}</Text>
+            <Text style={{color: '#4B5563', marginBottom: 20}}>{alertModal.message}</Text>
+            <TouchableOpacity style={styles.submitBtn} onPress={() => { setAlertModal({...alertModal, visible: false}); if (alertModal.onOk) alertModal.onOk(); }}>
+              <Text style={styles.submitBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -381,52 +556,132 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F6F8',
   },
-  topNotificationBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xs,
-  },
-  bellBtn: {
-    padding: SPACING.xs,
-    position: 'relative',
-  },
-  badgeDot: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-  },
   scrollContent: {
     flex: 1,
   },
+  stickyHeader: {
+    backgroundColor: '#F5F6F8',
+    zIndex: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
   pageTitleContainer: {
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl,
-    paddingBottom: SPACING.md,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   pageTitle: {
-    fontSize: 26,
-    color: '#000000',
-    ...FONTS.bold,
+    fontSize: 28,
+    color: '#18181B',
+    ...FONTS.extraBold,
+    marginBottom: 12,
   },
-  batchContainer: {
+  courseSelectContainer: {
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
   },
-  batchBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: RADIUS.full,
-    backgroundColor: '#EAEAEA',
-    marginRight: 10,
+  compactCourseSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+    }),
   },
-  activeBatchBtn: {
-    backgroundColor: COLORS.secondary,
+  courseSelectLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  compactCourseTitle: {
+    fontSize: 14.5,
+    ...FONTS.bold,
+    color: '#18181B',
+  },
+
+  /* DROPDOWN MODAL STYLES */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 22,
+  },
+  dropdownModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    ...Platform.select({
+      web: { boxShadow: '0px 12px 36px rgba(0, 0, 0, 0.16)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.16, shadowRadius: 24, elevation: 10 },
+    }),
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F4F4F6',
+  },
+  dropdownTitle: {
+    fontSize: 18,
+    ...FONTS.extraBold,
+    color: '#18181B',
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  courseOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 18,
+    marginBottom: 10,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1.5,
+    borderColor: '#F3F4F6',
+  },
+  courseOptionItemSelected: {
+    backgroundColor: '#FFF5EB',
+    borderColor: '#F58220',
+  },
+  courseOptionText: {
+    fontSize: 14.5,
+    ...FONTS.bold,
+    color: '#374151',
+  },
+  courseOptionTextSelected: {
+    color: '#F58220',
+  },
+  courseOptionSub: {
+    fontSize: 12,
+    ...FONTS.medium,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  activeCheckCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F58220',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tabText: {
     color: '#555555',
@@ -681,5 +936,35 @@ const styles = StyleSheet.create({
     ...FONTS.bold,
     letterSpacing: 1,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxWidth: 440,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+  submitBtn: { 
+    flex: 1, 
+    paddingVertical: 12, 
+    alignItems: 'center', 
+    backgroundColor: '#0F172A', 
+    borderRadius: 24 
+  },
+  submitBtnText: { 
+    color: '#FFFFFF', 
+    fontWeight: 'bold' 
+  },
 });
-

@@ -1,19 +1,87 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
-  TextInput, TouchableOpacity, RefreshControl, Alert
+  TextInput, TouchableOpacity, RefreshControl, Modal, SafeAreaView,
+  Animated, NativeSyntheticEvent, NativeScrollEvent
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
-import { COLORS } from '../../config/theme';
+import { COLORS, FONTS } from '../../config/theme';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { Platform } from 'react-native';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function MyStudentsScreen() {
+  const navigation = useNavigation();
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('all');
   const [batches, setBatches] = useState<string[]>([]);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const headerAnim = useRef(new Animated.Value(1)).current;
+  const isHeaderVisibleRef = useRef(true);
+  const lastScrollY = useRef(0);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isSearchFocused) return;
+    const currentY = event.nativeEvent.contentOffset.y;
+    const diff = currentY - lastScrollY.current;
+
+    if (currentY <= 15) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff > 8 && currentY > 35) {
+      if (isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = false;
+        Animated.timing(headerAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff < -8) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    }
+    lastScrollY.current = currentY;
+  };
+
+  // Custom Alert Popup State
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'success' | 'error' | 'info';
+    onOk?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (title: string, msg: string, onOk?: () => void, type: 'success' | 'error' | 'info' = 'info') => {
+    setAlertModal({
+      visible: true,
+      title,
+      message: msg,
+      type,
+      onOk
+    });
+  };
 
   useEffect(() => {
     fetchStudents();
@@ -30,7 +98,7 @@ export default function MyStudentsScreen() {
       setBatches(batchNames);
     } catch (e) {
       console.warn('Failed to load students', e);
-      Alert.alert('Error', 'Failed to load students. Please try again.');
+      showAlert('Error', 'Failed to load students. Please try again.', undefined, 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -62,46 +130,73 @@ export default function MyStudentsScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Icon name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name, email or batch..."
-          value={search}
-          onChangeText={setSearch}
-          placeholderTextColor="#9CA3AF"
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Icon name="close-circle" size={18} color="#9CA3AF" />
-          </TouchableOpacity>
-        )}
-      </View>
+    <SafeAreaView style={styles.container}>
+      <ScreenHeader
+        title="My Students"
+        subtitle="Manage & view your assigned batches"
+      />
 
-      {/* Batch Filter Pills */}
-      {batches.length > 1 && (
-        <View style={styles.filterRow}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={['all', ...batches]}
-            keyExtractor={item => item}
-            contentContainerStyle={{ paddingHorizontal: 15 }}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.filterPill, selectedBatch === item && styles.filterPillActive]}
-                onPress={() => setSelectedBatch(item)}
-              >
-                <Text style={[styles.filterPillText, selectedBatch === item && styles.filterPillTextActive]}>
-                  {item === 'all' ? 'All Batches' : item}
-                </Text>
-              </TouchableOpacity>
-            )}
+      {/* Search Bar & Batch Filter Pills with Smooth Animation */}
+      <Animated.View
+        style={{
+          maxHeight: headerAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, batches.length > 1 ? 120 : 64],
+          }),
+          opacity: headerAnim,
+          transform: [
+            {
+              translateY: headerAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-12, 0],
+              }),
+            },
+          ],
+          overflow: 'hidden',
+        }}
+      >
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Icon name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by name, email or batch..."
+            value={search}
+            onChangeText={setSearch}
+            placeholderTextColor="#9CA3AF"
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
           />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Icon name="close-circle" size={18} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
         </View>
-      )}
+
+        {/* Batch Filter Pills */}
+        {batches.length > 1 && (
+          <View style={styles.filterRow}>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={['all', ...batches]}
+              keyExtractor={item => item}
+              contentContainerStyle={{ paddingHorizontal: 15 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.filterPill, selectedBatch === item && styles.filterPillActive]}
+                  onPress={() => setSelectedBatch(item)}
+                >
+                  <Text style={[styles.filterPillText, selectedBatch === item && styles.filterPillTextActive]}>
+                    {item === 'all' ? 'All Batches' : item}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
+      </Animated.View>
 
       {/* Stats Bar */}
       <View style={styles.statsBar}>
@@ -115,6 +210,8 @@ export default function MyStudentsScreen() {
         keyExtractor={item => item._id}
         contentContainerStyle={{ padding: 15, paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Icon name="people-outline" size={64} color="#D1D5DB" />
@@ -174,7 +271,58 @@ export default function MyStudentsScreen() {
           </View>
         )}
       />
-    </View>
+
+      {/* CUSTOM IN-APP ALERT POPUP MODAL */}
+      <Modal
+        visible={alertModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAlertModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={[
+              styles.popupIconCircle,
+              { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
+            ]}>
+              <Icon
+                name={
+                  alertModal.type === 'success'
+                    ? 'checkmark-circle-outline'
+                    : alertModal.type === 'error'
+                      ? 'close-circle-outline'
+                      : 'information-circle-outline'
+                }
+                size={28}
+                color={
+                  alertModal.type === 'success'
+                    ? '#16A34A'
+                    : alertModal.type === 'error'
+                      ? '#DC2626'
+                      : '#2563EB'
+                }
+              />
+            </View>
+            <Text style={styles.popupTitle}>{alertModal.title}</Text>
+            <Text style={styles.popupMessage}>{alertModal.message}</Text>
+            <TouchableOpacity
+              style={[
+                styles.popupSingleBtn,
+                { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#F58220' }
+              ]}
+              onPress={() => {
+                const action = alertModal.onOk;
+                setAlertModal(prev => ({ ...prev, visible: false }));
+                if (action) action();
+              }}
+            >
+              <Text style={styles.popupSingleBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+    </SafeAreaView>
   );
 }
 
@@ -189,41 +337,150 @@ function stringToColor(str: string) {
 const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6' },
   loadingText: { marginTop: 12, color: '#9CA3AF', fontSize: 14 },
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  topHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    marginTop: 4,
+    paddingHorizontal: 16,
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    ...Platform.select({
+      web: { boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.04)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      },
+    }),
+  },
+  headerTitle: {
+    fontSize: 22,
+    ...FONTS.bold,
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 12.5,
+    ...FONTS.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
   searchContainer: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
-    margin: 15, borderRadius: 10, paddingHorizontal: 15,
-    borderWidth: 1, borderColor: '#E5E7EB', elevation: 1,
+    marginHorizontal: 16, marginBottom: 12, borderRadius: 10, paddingHorizontal: 15,
+    borderWidth: 1, borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.04)' },
+      default: { elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 },
+    }),
   },
   searchIcon: { marginRight: 10 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: '#1F2937' },
-  filterRow: { marginBottom: 8 },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 14.5, ...FONTS.regular, color: '#0F172A' },
+  filterRow: { marginBottom: 12 },
   filterPill: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', marginRight: 8,
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', marginRight: 10,
   },
-  filterPillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterPillText: { fontSize: 13, color: '#374151', fontWeight: '500' },
-  filterPillTextActive: { color: '#fff', fontWeight: 'bold' },
-  statsBar: { paddingHorizontal: 15, paddingBottom: 8 },
-  statsText: { fontSize: 12, color: '#6B7280' },
+  filterPillActive: { backgroundColor: '#F58220', borderColor: '#F58220' },
+  filterPillText: { fontSize: 13, color: '#475569', ...FONTS.medium },
+  filterPillTextActive: { color: '#FFFFFF', ...FONTS.bold },
+  statsBar: { paddingHorizontal: 16, paddingBottom: 10 },
+  statsText: { fontSize: 12.5, color: '#64748B', ...FONTS.medium },
   emptyContainer: { alignItems: 'center', marginTop: 60 },
-  emptyTitle: { color: '#374151', fontSize: 18, fontWeight: 'bold', marginTop: 15 },
-  emptySubtitle: { color: '#9CA3AF', fontSize: 14, marginTop: 6, textAlign: 'center', paddingHorizontal: 40 },
-  card: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 14, padding: 15, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4 },
+  emptyTitle: { color: '#0F172A', fontSize: 17, ...FONTS.bold, marginTop: 15 },
+  emptySubtitle: { color: '#64748B', fontSize: 13, ...FONTS.regular, marginTop: 6, textAlign: 'center', paddingHorizontal: 40 },
+  card: {
+    backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 14, padding: 16,
+    borderWidth: 1, borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+    }),
+  },
   cardHeader: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  avatarText: { fontSize: 20, fontWeight: 'bold', color: '#1E3A8A' },
+  avatar: { width: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  avatarText: { fontSize: 18, ...FONTS.bold, color: '#1E3A8A' },
   info: { flex: 1 },
-  name: { fontSize: 16, fontWeight: 'bold', color: '#1F2937' },
-  email: { color: '#6B7280', fontSize: 13, marginTop: 2 },
-  phone: { color: '#6B7280', fontSize: 12, marginTop: 2 },
+  name: { fontSize: 15.5, ...FONTS.bold, color: '#0F172A', letterSpacing: -0.2 },
+  email: { color: '#64748B', fontSize: 13, ...FONTS.regular, marginTop: 2 },
+  phone: { color: '#64748B', fontSize: 12.5, ...FONTS.medium, marginTop: 3 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  statusText: { fontSize: 11, fontWeight: 'bold', textTransform: 'capitalize' },
-  divider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 12 },
-  batchInfo: { flexDirection: 'column', gap: 6 },
-  badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
-  badgeText: { color: '#92400E', fontSize: 12, fontWeight: 'bold' },
+  statusText: { fontSize: 11, ...FONTS.bold, textTransform: 'capitalize' },
+  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 },
+  batchInfo: { flexDirection: 'column', gap: 8 },
+  badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
+  badgeText: { color: '#C2410C', fontSize: 12, ...FONTS.bold },
   batchDetail: { flexDirection: 'row', alignItems: 'center' },
-  batchName: { color: '#6B7280', fontSize: 13 },
+  batchName: { color: '#475569', fontSize: 13, ...FONTS.medium },
+
+  // Custom Popup Dialog Modal Styles
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  popupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.25)',
+    elevation: 10
+  },
+  popupIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  popupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8
+  },
+  popupMessage: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20
+  },
+  popupSingleBtn: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  popupSingleBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15
+  }
 });

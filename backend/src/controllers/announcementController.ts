@@ -46,10 +46,43 @@ export const postAnnouncement = async (req: AuthRequest, res: Response): Promise
 
 export const getMyAnnouncements = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const announcements = await Announcement.find({ posted_by: req.user._id })
+    const query = req.user.role === 'admin' ? {} : { posted_by: req.user._id };
+    const announcements = await Announcement.find(query)
       .populate('batch_id', 'name')
+      .populate('posted_by', 'name role')
       .sort({ createdAt: -1 });
     res.json(announcements);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const updateAnnouncement = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { batch_id, title, message } = req.body;
+    const announcement = await Announcement.findById(req.params.id);
+
+    if (!announcement) {
+      res.status(404).json({ message: 'Announcement not found' });
+      return;
+    }
+
+    if (announcement.posted_by.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      res.status(403).json({ message: 'Not authorized to update this announcement' });
+      return;
+    }
+
+    if (title !== undefined) announcement.title = title.trim();
+    if (message !== undefined) announcement.message = message.trim();
+    if (batch_id !== undefined) {
+      announcement.batch_id = (batch_id && batch_id !== 'all') ? batch_id : null;
+    }
+
+    await announcement.save();
+    const populated = await Announcement.findById(announcement._id)
+      .populate('batch_id', 'name')
+      .populate('posted_by', 'name role');
+    res.json(populated || announcement);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -72,6 +105,27 @@ export const getStudentAnnouncements = async (req: AuthRequest, res: Response): 
       .sort({ createdAt: -1 });
 
     res.json(announcements);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const deleteAnnouncement = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const announcement = await Announcement.findById(req.params.id);
+
+    if (!announcement) {
+      res.status(404).json({ message: 'Announcement not found' });
+      return;
+    }
+
+    if (announcement.posted_by.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      res.status(403).json({ message: 'Not authorized to delete this announcement' });
+      return;
+    }
+
+    await announcement.deleteOne();
+    res.json({ message: 'Announcement removed' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

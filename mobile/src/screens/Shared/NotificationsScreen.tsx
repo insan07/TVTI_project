@@ -3,6 +3,9 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import api from '../../services/api';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import ScreenHeader from '../../components/shared/ScreenHeader';
+import { FONTS } from '../../config/theme';
 
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -17,7 +20,7 @@ export default function NotificationsScreen() {
   const fetchNotifications = async () => {
     try {
       const res = await api.get('/notifications/my');
-      setNotifications(res.data);
+      setNotifications(res.data || []);
     } catch (e) {
       console.warn(e);
     } finally {
@@ -65,7 +68,7 @@ export default function NotificationsScreen() {
       case 'booking_confirmed': return { name: 'checkmark-circle', color: '#10B981' };
       case 'booking_rejected': return { name: 'close-circle', color: '#EF4444' };
       case 'new_video': return { name: 'videocam', color: '#2563EB' };
-      case 'announcement': return { name: 'megaphone', color: '#F59E0B' };
+      case 'announcement': return { name: 'megaphone', color: '#F58220' };
       case 'schedule_change': return { name: 'calendar', color: '#8B5CF6' };
       default: return { name: 'notifications', color: '#6B7280' };
     }
@@ -86,9 +89,10 @@ export default function NotificationsScreen() {
       <TouchableOpacity
         style={[styles.card, !item.is_read && styles.unreadCard]}
         onPress={() => markAsRead(item)}
+        activeOpacity={0.7}
       >
-        <View style={[styles.iconBox, { backgroundColor: `${iconData.color}20` }]}>
-          <Icon name={iconData.name as any} size={24} color={iconData.color} />
+        <View style={[styles.iconBox, { backgroundColor: `${iconData.color}15` }]}>
+          <Icon name={iconData.name as any} size={22} color={iconData.color} />
         </View>
         <View style={styles.info}>
           <Text style={[styles.title, !item.is_read && styles.unreadText]}>{item.title}</Text>
@@ -100,42 +104,125 @@ export default function NotificationsScreen() {
     );
   };
 
-  if (loading) return <ActivityIndicator size="large" color="#2563EB" style={{ marginTop: 50 }} />;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        {notifications.some(n => !n.is_read) && (
-          <TouchableOpacity onPress={markAllAsRead}>
-            <Text style={styles.markReadText}>Mark all as read</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      <FlatList
-        data={notifications}
-        renderItem={renderItem}
-        keyExtractor={i => i._id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ padding: 16 }}
-        ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40 }}>No notifications.</Text>}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScreenHeader
+        title="Notifications"
+        subtitle={unreadCount > 0 ? `${unreadCount} unread update${unreadCount !== 1 ? 's' : ''}` : 'All caught up'}
+        showBack={true}
+        rightElement={
+          unreadCount > 0 ? (
+            <TouchableOpacity onPress={markAllAsRead} style={styles.markReadBtn} activeOpacity={0.7}>
+              <Text style={styles.markReadText}>Mark all read</Text>
+            </TouchableOpacity>
+          ) : null
+        }
       />
-    </View>
+      {loading ? (
+        <ActivityIndicator size="large" color="#F58220" style={{ marginTop: 50 }} />
+      ) : (
+        <FlatList
+          data={notifications}
+          renderItem={renderItem}
+          keyExtractor={i => i._id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F58220']} />}
+          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Icon name="notifications-outline" size={48} color="#9CA3AF" />
+              <Text style={styles.emptyText}>No notifications yet.</Text>
+            </View>
+          }
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#E5E7EB' },
-  headerTitle: { fontSize: 20, fontWeight: 'bold' },
-  markReadText: { color: '#2563EB', fontWeight: 'bold' },
-  card: { flexDirection: 'row', backgroundColor: '#fff', padding: 16, marginBottom: 8, borderRadius: 12, elevation: 1, alignItems: 'center' },
-  unreadCard: { backgroundColor: '#EFF6FF' },
-  iconBox: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  info: { flex: 1 },
-  title: { fontSize: 16, color: '#1F2937' },
-  unreadText: { fontWeight: 'bold' },
-  message: { color: '#6B7280', fontSize: 13, marginTop: 4 },
-  time: { color: '#9CA3AF', fontSize: 11, marginTop: 6 },
-  unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444', marginLeft: 10 }
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  markReadBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(245, 130, 32, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 130, 32, 0.25)',
+  },
+  markReadText: {
+    color: '#EA580C',
+    fontSize: 12,
+    ...FONTS.semiBold,
+  },
+  card: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    marginBottom: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    elevation: 1,
+  },
+  unreadCard: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
+  },
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  info: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 15,
+    color: '#0F172A',
+    ...FONTS.semiBold,
+  },
+  unreadText: {
+    ...FONTS.bold,
+    color: '#0F172A',
+  },
+  message: {
+    color: '#64748B',
+    fontSize: 13,
+    marginTop: 3,
+    ...FONTS.regular,
+    lineHeight: 18,
+  },
+  time: {
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 5,
+    ...FONTS.medium,
+  },
+  unreadDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#F58220',
+    marginLeft: 10,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 60,
+  },
+  emptyText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#94A3B8',
+    ...FONTS.regular,
+  },
 });

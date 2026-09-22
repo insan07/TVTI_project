@@ -6,6 +6,7 @@ import { API_URL } from '../config/constants';
 
 const api = axios.create({
   baseURL: API_URL,
+  timeout: 30000, // 30 second timeout for mobile uploads
 });
 
 api.interceptors.request.use(
@@ -42,5 +43,12 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const authApi = {
+  forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
+  verifyResetOtp: (email: string, otp: string) => api.post('/auth/verify-reset-otp', { email, otp }),
+  resendResetOtp: (email: string) => api.post('/auth/resend-reset-otp', { email }),
+  resetPassword: (resetToken: string, newPassword: string) => api.post('/auth/reset-password', { resetToken, newPassword }),
+};
 
 export default api;

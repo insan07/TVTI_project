@@ -8,48 +8,30 @@ import {
   ActivityIndicator,
   Image,
   Dimensions,
+  Platform,
+  Modal,
 } from 'react-native';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
+import { COLORS, FONTS, SPACING, RADIUS } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const { width } = Dimensions.get('window');
-
-const parseUTCDate = (dateStr: string) => {
-  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (match) {
-    const year = parseInt(match[1], 10);
-    const month = parseInt(match[2], 10) - 1;
-    const day = parseInt(match[3], 10);
-    return new Date(year, month, day, 0, 0, 0, 0);
-  }
-  return new Date(dateStr);
-};
-
-const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
-  const weekStart = parseUTCDate(weekStartDateStr);
-  const daysArr = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const diff = daysArr.indexOf(dayOfWeek);
-  const slotDate = new Date(weekStart);
-  if (diff !== -1) {
-    slotDate.setDate(slotDate.getDate() + diff);
-  }
-  return slotDate;
-};
 
 export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadCount?: number }) {
   const { user } = useContext(AuthContext) as any;
   const navigation = useNavigation<any>();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [bookmarkedLessons, setBookmarkedLessons] = useState<{ [key: string]: boolean }>({});
+  const [instructorModalVisible, setInstructorModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchDashboard();
+    }, [])
+  );
 
   const fetchDashboard = async () => {
     try {
@@ -62,490 +44,658 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
     }
   };
 
+  const toggleBookmark = (lessonId: string) => {
+    setBookmarkedLessons(prev => ({ ...prev, [lessonId]: !prev[lessonId] }));
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.secondary} />
+        <ActivityIndicator size="large" color="#F58220" />
       </View>
     );
   }
 
-  const unreadCount = passedUnreadCount !== undefined ? passedUnreadCount : (data?.notifications?.filter((n: any) => !n.is_read).length || 0);
+  const unreadCount =
+    passedUnreadCount !== undefined
+      ? passedUnreadCount
+      : data?.notifications?.filter((n: any) => !n.is_read).length || 0;
+
+  // Upcoming Practical Details
+  const nextPractice = data?.next_practice || data?.next_available_practice;
+  
+  const practicalTitle =
+    data?.next_practice?.slot_id?.batch_id?.course_id?.title ||
+    data?.next_available_practice?.batch_id?.course_id?.title ||
+    'Course Details Loading...';
+  
+  const instructorData =
+    data?.next_practice?.slot_id?.instructor_id ||
+    data?.next_available_practice?.instructor_id;
+
+  const instructorName = instructorData?.name || 'Instructor TBD';
+  const avatarUrl =
+    instructorData?.profile_photo ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(instructorName)}&background=F3F4F6&color=9CA3AF`;
+  const instructorEmail = instructorData?.email || 'N/A';
+  const instructorPhone = instructorData?.phone || 'N/A';
+
+  const slotData = data?.next_practice?.slot_id || data?.next_available_practice;
+
+  const timeLocationText = slotData
+    ? `${slotData.start_time || 'TBD'} • ${slotData.location || 'Location TBD'}`
+    : 'Time & Location TBD';
+
+  let pracMonth = '--';
+  let pracDay = '--';
+  const rawDate = slotData?.week_start_date;
+  if (rawDate) {
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      pracMonth = d.toLocaleString('default', { month: 'short' }).toUpperCase();
+      pracDay = d.getDate().toString();
+    }
+  }
+
+  // Fetch real theory lessons from backend if available, otherwise empty
+  const theoryLessons = data?.theory_lessons || [];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} bounces={false}>
-      {/* Dark Header Container */}
-      <View style={[styles.headerContainer, { paddingTop: insets.top + 12 }]}>
-        {/* Header Top Notification Bar */}
-        <View style={styles.headerTop}>
-          <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
-            <Icon name="notifications-outline" size={24} color="#FFF" />
+    <View style={styles.container}>
+      {/* FIXED STICKY ENTIRE DARK HEADER CARD */}
+      <View style={[styles.stickyHeaderCard, { paddingTop: Math.max(insets.top + 8, 16) }]}>
+        {/* Top Brand Logo & Notification Bar */}
+        <View style={styles.brandHeaderRow}>
+          <View style={styles.brandLogoGroup}>
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={styles.brandLogoImg}
+              resizeMode="contain"
+            />
+            <View style={styles.brandTextColumn}>
+              <Text style={styles.brandTitleText}>TWINTEC VTI</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.bellBtn}
+            onPress={() => navigation.navigate('Notifications')}
+          >
+            <Icon name="notifications-outline" size={22} color="#FFF" />
             {unreadCount > 0 && <View style={styles.badgeDot} />}
           </TouchableOpacity>
         </View>
 
-        {/* Welcome Section with Avatar */}
+        {/* Welcome Section */}
         <View style={styles.welcomeSection}>
-          <View style={styles.avatarWrapper}>
-            <Image
-              source={require('../../../assets/student_avatar.png')}
-              style={styles.avatarImage}
-            />
-          </View>
-          <View style={styles.welcomeTextContainer}>
-            <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.name}>{user?.name || 'Student'}</Text>
-          </View>
+          <Text style={styles.greeting}>Welcome back,</Text>
+          <Text style={styles.name}>{user?.name || 'Student'}</Text>
+          <Text style={styles.regNumberText}>
+            REG NO : {user?.index_number || user?.nic || 'N/A'}
+          </Text>
         </View>
       </View>
 
-      <View style={styles.content}>
-        {/* Up Next Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Up Next</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Schedule')}>
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
-          </View>
-
-          {data?.next_class || data?.next_practice ? (
-            <>
-              {/* Up Next Card 1: Main Class */}
-              {data?.next_class && (
-                <TouchableOpacity
-                  style={styles.upNextCard}
-                  activeOpacity={0.8}
-                  onPress={() => navigation.navigate('Schedule')}
-                >
-                  <View style={[styles.cardAccentBar, { backgroundColor: '#FF7043' }]} />
-                  <View style={styles.cardMainContent}>
-                    <View style={styles.cardRowTop}>
-                      <View style={[styles.iconCircle, { backgroundColor: '#FFF3E6' }]}>
-                        <Icon name="build-outline" size={22} color={COLORS.secondary} />
-                      </View>
-                      <View style={styles.cardTextDetails}>
-                        <Text style={styles.courseTitle}>
-                          {data.next_class.course_id?.title || 'Scheduled Class'}
-                        </Text>
-                        <View style={styles.infoRow}>
-                          <Icon name="time-outline" size={15} color={COLORS.textMuted} style={styles.infoIcon} />
-                          <Text style={styles.infoText}>
-                            {data.next_class.schedule_json?.time
-                              ? `Today, ${data.next_class.schedule_json.time}`
-                              : 'Scheduled Today'}
-                          </Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                          <Icon name="location-outline" size={15} color={COLORS.textMuted} style={styles.infoIcon} />
-                          <Text style={styles.infoText}>
-                            {data.next_class.room || 'Main Workshop'}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* Up Next Card 2: Practice Session */}
-              {data?.next_practice && (
-                <TouchableOpacity
-                  style={[styles.upNextCard, data?.next_class && { marginTop: SPACING.md }]}
-                  activeOpacity={0.8}
-                  onPress={() => navigation.navigate('Schedule')}
-                >
-                  <View style={[styles.cardAccentBar, { backgroundColor: '#10B981' }]} />
-                  <View style={styles.cardMainContent}>
-                    <View style={styles.cardRowTop}>
-                      <View style={[styles.iconCircle, { backgroundColor: '#E8F5E9' }]}>
-                        <Icon name="construct-outline" size={22} color="#10B981" />
-                      </View>
-                      <View style={styles.cardTextDetails}>
-                        <View style={styles.titleBadgeRow}>
-                          <Text style={[styles.courseTitle, { flex: 1, marginBottom: 0 }]}>
-                            {data.next_practice.slot_id?.batch_id?.course_id?.title || 'Practice Session'}
-                          </Text>
-                          <View style={styles.confirmedBadge}>
-                            <Text style={styles.confirmedBadgeText}>CONFIRMED</Text>
-                          </View>
-                        </View>
-                        <View style={styles.infoRow}>
-                          <Icon name="time-outline" size={15} color={COLORS.textMuted} style={styles.infoIcon} />
-                          <Text style={styles.infoText}>
-                            {data.next_practice.slot_id
-                              ? `${data.next_practice.slot_id.day_of_week}, ${data.next_practice.slot_id.start_time}`
-                              : 'Upcoming Session'}
-                          </Text>
-                        </View>
-                        {data.next_practice.slot_id?.instructor_id?.name && (
-                          <View style={styles.infoRow}>
-                            <Icon name="person-outline" size={15} color={COLORS.textMuted} style={styles.infoIcon} />
-                            <Text style={styles.infoText}>
-                              Instructor: {data.next_practice.slot_id.instructor_id.name}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </>
-          ) : (
-            <View style={[styles.upNextCard, { padding: SPACING.lg }]}>
-              <Text style={{ color: '#888888', ...FONTS.regular, textAlign: 'center' }}>
-                No upcoming classes or practice sessions scheduled.
-              </Text>
+      {/* SCROLLABLE MAIN CONTENT */}
+      <ScrollView
+        style={styles.scrollContent}
+        contentContainerStyle={styles.scrollContentStyle}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.mainContent}>
+        {/* ========================================================================= */}
+        {/* SECTION 1: UPCOMING PRACTICAL (Conditionally Rendered) */}
+        {/* ========================================================================= */}
+        {nextPractice && (
+          <View>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Upcoming Practical</Text>
             </View>
-          )}
-        </View>
-
-        {/* Quick Actions Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsGrid}>
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate('Videos')}
-            >
-              <View style={styles.actionIconCircle}>
-                <Icon name="folder-open" size={26} color={COLORS.secondary} />
-              </View>
-              <Text style={styles.actionLabel}>Uploads</Text>
-            </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.quickActionCard}
-              activeOpacity={0.7}
+              style={styles.upcomingCard}
+              activeOpacity={0.9}
               onPress={() => navigation.navigate('Schedule')}
             >
-              <View style={styles.actionIconCircle}>
-                <Icon name="calendar" size={26} color={COLORS.secondary} />
-              </View>
-              <Text style={styles.actionLabel}>Schedule</Text>
-            </TouchableOpacity>
+              {/* Top Row: Date Badge + Title/Time */}
+              <View style={styles.cardTopRow}>
+                {/* Soft Peach Date Badge */}
+                <View style={styles.dateBadgeBox}>
+                  <Text style={styles.dateMonthText}>{pracMonth}</Text>
+                  <Text style={styles.dateDayText}>{pracDay}</Text>
+                </View>
 
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate('Results')}
-            >
-              <View style={styles.actionIconCircle}>
-                <Icon name="clipboard" size={26} color={COLORS.secondary} />
-              </View>
-              <Text style={styles.actionLabel}>Results</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Recent Activity Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <View style={styles.activityCardContainer}>
-            {data?.notifications && data.notifications.length > 0 ? (
-              data.notifications.map((n: any, idx: number) => {
-                const isLast = idx === data.notifications.length - 1;
-                const titleLower = (n.title || '').toLowerCase();
-                const msgLower = (n.message || '').toLowerCase();
-
-                const isAnnouncement = titleLower.includes('announcement') || msgLower.includes('announcement');
-                const isBooked = titleLower.includes('booked') || titleLower.includes('practice') || msgLower.includes('booked');
-                const isCompleted = titleLower.includes('completed') || titleLower.includes('module') || msgLower.includes('completed');
-
-                let iconName = 'notifications-outline';
-                let iconColor = COLORS.textPrimary;
-                let bgCircle = '#F0F0F0';
-
-                if (isCompleted) {
-                  iconName = 'checkmark-circle-outline';
-                  iconColor = '#333333';
-                  bgCircle = '#F0F0F0';
-                } else if (isBooked) {
-                  iconName = 'calendar-outline';
-                  iconColor = COLORS.secondary;
-                  bgCircle = '#FFF3E6';
-                } else if (isAnnouncement) {
-                  iconName = 'megaphone-outline';
-                  iconColor = '#555555';
-                  bgCircle = '#F0F0F0';
-                }
-
-                return (
-                  <View key={n._id || idx} style={[styles.activityItem, !isLast && styles.activityItemBorder]}>
-                    <View style={[styles.activityIconCircle, { backgroundColor: bgCircle }]}>
-                      <Icon name={iconName as any} size={20} color={iconColor} />
-                    </View>
-                    <View style={styles.activityContent}>
-                      <Text style={styles.activityTitle}>{n.message || n.title}</Text>
-                      <Text style={styles.activityTime}>{new Date(n.createdAt).toLocaleDateString()}</Text>
-                    </View>
+                <View style={styles.cardDetailsColumn}>
+                  <Text style={styles.practicalTitle} numberOfLines={1}>
+                    {practicalTitle}
+                  </Text>
+                  <View style={styles.timeLocRow}>
+                    <Icon name="time-outline" size={14} color="#6B7280" style={{ marginRight: 4 }} />
+                    <Text style={styles.timeLocText} numberOfLines={1}>
+                      {timeLocationText}
+                    </Text>
                   </View>
-                );
-              })
-            ) : (
-              <Text style={{ color: '#888888', ...FONTS.regular, textAlign: 'center', paddingVertical: SPACING.md }}>
-                No recent activity.
-              </Text>
-            )}
+                </View>
+              </View>
+
+              {/* Bottom Row: Instructor Avatar + View Slot Button */}
+              <View style={styles.cardBottomRow}>
+                <TouchableOpacity 
+                  style={styles.instructorInfoRow} 
+                  activeOpacity={0.7}
+                  onPress={() => setInstructorModalVisible(true)}
+                >
+                  <Image
+                    source={{ uri: avatarUrl }}
+                    style={styles.instructorAvatar}
+                  />
+                  <View style={styles.instructorTextColumn}>
+                    <Text style={styles.instructorName}>{instructorName}</Text>
+                    <Text style={styles.instructorRole}>Course Instructor</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.viewSlotBtn}
+                  onPress={() => navigation.navigate('Schedule')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.viewSlotBtnText}>{data?.next_practice ? 'View Slot' : 'Book Slot'}</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ========================================================================= */}
+        {/* SECTION 2: RECENT THEORY LESSONS */}
+        {/* ========================================================================= */}
+        <View style={[styles.sectionHeaderRow, { marginTop: 28 }]}>
+          <Text style={styles.sectionTitle}>Recent Theory Lessons</Text>
+        </View>
+
+        <View style={styles.lessonsListContainer}>
+          {theoryLessons.map((lesson: any) => {
+            const isBookmarked = !!bookmarkedLessons[lesson._id];
+            let thumbUrl = lesson.thumbnail || null;
+            if (!thumbUrl && lesson.cloudinary_url) {
+              if (lesson.cloudinary_url.includes('youtube.com') || lesson.cloudinary_url.includes('youtu.be')) {
+                const match = lesson.cloudinary_url.match(/[?&]v=([^&]+)/) || lesson.cloudinary_url.match(/youtu\.be\/([^?]+)/);
+                if (match && match[1]) {
+                  thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+                }
+              } else if (lesson.cloudinary_url.includes('cloudinary.com')) {
+                thumbUrl = lesson.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
+              }
+            }
+
+            return (
+              <TouchableOpacity
+                key={lesson._id}
+                style={styles.lessonCard}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('Videos')}
+              >
+                {/* Thumbnail image with play button overlay */}
+                <View style={styles.thumbnailWrapper}>
+                  {thumbUrl ? (
+                    <Image source={{ uri: thumbUrl }} style={styles.thumbnailImg} />
+                  ) : (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                      <Icon name={lesson.content_type === 'material' ? 'document-text' : 'videocam'} size={32} color="#9CA3AF" />
+                    </View>
+                  )}
+                  {lesson.content_type !== 'material' && (
+                    <View style={styles.playOverlayCircle}>
+                      <Icon name="play" size={14} color="#FFFFFF" style={{ marginLeft: 2 }} />
+                    </View>
+                  )}
+                </View>
+
+                {/* Lesson Info */}
+                <View style={styles.lessonContentColumn}>
+                  <View style={styles.tagDurationRow}>
+                    <View style={styles.tagBadgePill}>
+                      <Text style={styles.tagBadgeText}>{(lesson.topic || 'General').toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.durationText}>{lesson.duration || '--:--'}</Text>
+                  </View>
+
+                  <Text style={styles.lessonTitleText} numberOfLines={1}>
+                    {lesson.title}
+                  </Text>
+                </View>
+
+                {/* Bookmark Icon */}
+                <TouchableOpacity
+                  style={styles.bookmarkTouch}
+                  onPress={() => toggleBookmark(lesson._id)}
+                >
+                  <Icon
+                    name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                    size={20}
+                    color={isBookmarked ? '#F58220' : '#A1A1AA'}
+                  />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        </View>
+      </ScrollView>
+
+      {/* Instructor Profile Modal */}
+      <Modal visible={instructorModalVisible} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Instructor Profile</Text>
+              <TouchableOpacity onPress={() => setInstructorModalVisible(false)}>
+                <Icon name="close" size={24} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalBody}>
+              <Image source={{ uri: avatarUrl }} style={styles.modalAvatar} />
+              <Text style={styles.modalName}>{instructorName}</Text>
+              <Text style={styles.modalRole}>Course Instructor</Text>
+              
+              <View style={styles.modalInfoBox}>
+                <View style={styles.modalInfoRow}>
+                  <Icon name="mail-outline" size={18} color="#6B7280" />
+                  <Text style={styles.modalInfoText}>{instructorEmail}</Text>
+                </View>
+                <View style={[styles.modalInfoRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                  <Icon name="call-outline" size={18} color="#6B7280" />
+                  <Text style={styles.modalInfoText}>{instructorPhone}</Text>
+                </View>
+              </View>
+            </View>
           </View>
         </View>
-      </View>
-    </ScrollView>
+      </Modal>
+
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F6F8',
+    backgroundColor: '#F8F9FA',
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  scrollContentStyle: {
+    paddingBottom: 110,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F6F8',
+    backgroundColor: '#F8F9FA',
   },
-  headerContainer: {
-    backgroundColor: '#121212',
-    paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.xl + 4,
+
+  /* DARK HEADER BANNER CONTAINER */
+  stickyHeaderCard: {
+    backgroundColor: '#121214',
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    zIndex: 10,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.15)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5 },
+    }),
   },
-  headerTop: {
+
+  brandHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+    justifyContent: 'space-between',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
-  menuBtn: {
-    padding: SPACING.xs,
-  },
-  headerLogoContainer: {
+  brandLogoGroup: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  logo: {
-    width: 28,
-    height: 28,
-    marginRight: SPACING.sm,
+  brandLogoImg: {
+    width: 32,
+    height: 32,
+    marginRight: 10,
   },
-  headerBrand: {
-    color: '#FFF',
+  brandTextColumn: {
+    justifyContent: 'center',
+    height: 32,
+  },
+  brandTitleText: {
+    color: '#FFFFFF',
     fontSize: 18,
-    ...FONTS.bold,
+    ...FONTS.extraBold,
+    letterSpacing: 0.8,
   },
   bellBtn: {
     position: 'relative',
-    padding: SPACING.xs,
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
   },
   badgeDot: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#F58220',
   },
   welcomeSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: SPACING.xs,
-  },
-  avatarWrapper: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2.5,
-    borderColor: '#F58220',
-    overflow: 'hidden',
-    marginRight: SPACING.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#333',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  welcomeTextContainer: {
-    justifyContent: 'center',
+    paddingTop: 16,
   },
   greeting: {
-    color: '#A0A0A0',
-    fontSize: 14,
-    ...FONTS.regular,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 13.5,
+    ...FONTS.medium,
     marginBottom: 2,
   },
   name: {
-    color: '#FFF',
-    fontSize: 24,
-    ...FONTS.bold,
+    color: '#FFFFFF',
+    fontSize: 22,
+    ...FONTS.extraBold,
   },
-  content: {
-    padding: SPACING.lg,
+  regNumberText: {
+    color: '#F58220', // Signature active navbar orange
+    fontSize: 13.5,
+    ...FONTS.extraBold,
+    marginTop: 4,
+    letterSpacing: 0.5,
   },
-  section: {
-    marginBottom: SPACING.xxl,
+
+  /* MAIN CONTENT AREA */
+  mainContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
+
+  /* SECTION HEADER ROW */
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: 14,
   },
   sectionTitle: {
     fontSize: 18,
-    color: '#1A1A1A',
-    ...FONTS.bold,
+    ...FONTS.extraBold,
+    color: '#18181B',
   },
-  viewAllText: {
-    fontSize: 14,
-    color: '#F58220',
-    ...FONTS.semiBold,
-  },
-  upNextCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-    ...SHADOW.sm,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-  },
-  cardAccentBar: {
-    width: 5,
-  },
-  cardMainContent: {
-    flex: 1,
-    padding: SPACING.lg,
-  },
-  cardRowTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  iconCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  cardTextDetails: {
-    flex: 1,
-  },
-  titleBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.xs,
-  },
-  courseTitle: {
-    fontSize: 17,
-    color: '#1A1A1A',
-    ...FONTS.bold,
-    marginBottom: SPACING.xs,
-  },
-  confirmedBadge: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 10,
+  campusBadge: {
+    backgroundColor: '#E5E7EB',
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: RADIUS.full,
-    marginLeft: SPACING.xs,
+    borderRadius: 12,
   },
-  confirmedBadgeText: {
-    color: '#10B981',
-    fontSize: 11,
+  campusBadgeText: {
+    fontSize: 12,
+    ...FONTS.semiBold,
+    color: '#4B5563',
+  },
+  watchHistoryText: {
+    fontSize: 14,
     ...FONTS.bold,
-    letterSpacing: 0.4,
+    color: '#C2410C',
   },
-  infoRow: {
+
+  /* UPCOMING PRACTICAL CARD (EXACT MATCH TO DESIGN SCREENSHOT) */
+  upcomingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.05)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 },
+    }),
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  dateBadgeBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: '#FFEBDD', // Soft warm peach background matching screenshot
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  dateMonthText: {
+    fontSize: 11,
+    ...FONTS.extraBold,
+    color: '#C2410C',
+    letterSpacing: 0.5,
+  },
+  dateDayText: {
+    fontSize: 20,
+    ...FONTS.extraBold,
+    color: '#7C2D12',
+    marginTop: -1,
+  },
+  cardDetailsColumn: {
+    flex: 1,
+  },
+  practicalTitle: {
+    fontSize: 16,
+    ...FONTS.extraBold,
+    color: '#18181B',
+  },
+  timeLocRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 4,
   },
-  infoIcon: {
-    marginRight: 6,
+  timeLocText: {
+    fontSize: 13,
+    color: '#6B7280',
+    ...FONTS.medium,
   },
-  infoText: {
-    fontSize: 13.5,
-    color: '#666666',
-    ...FONTS.regular,
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 14,
   },
-  quickActionsGrid: {
+  instructorInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  instructorAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginRight: 10,
+  },
+  instructorTextColumn: {
+    justifyContent: 'center',
+  },
+  instructorName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#18181B',
+  },
+  instructorRole: {
+    fontSize: 11,
+    color: '#71717A',
+    marginTop: 1,
+  },
+  viewSlotBtn: {
+    backgroundColor: '#E5E7EB', // Neutral grey pill button matching screenshot
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  viewSlotBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+
+  /* RECENT THEORY LESSONS CARDS (EXACT MATCH TO DESIGN SCREENSHOT) */
+  lessonsListContainer: {
+    gap: 12,
+  },
+  lessonCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+    }),
+  },
+  thumbnailWrapper: {
+    width: 76,
+    height: 76,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#1E1E22',
+  },
+  thumbnailImg: {
+    width: '100%',
+    height: '100%',
+  },
+  playOverlayCircle: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -14,
+    marginLeft: -14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F58220', // Signature orange play button overlay
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lessonContentColumn: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+  tagDurationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tagBadgePill: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  tagBadgeText: {
+    fontSize: 10.5,
+    ...FONTS.extraBold,
+    color: '#374151',
+    letterSpacing: 0.5,
+  },
+  durationText: {
+    fontSize: 12,
+    color: '#6B7280',
+    ...FONTS.medium,
+  },
+  lessonTitleText: {
+    fontSize: 15.5,
+    ...FONTS.extraBold,
+    color: '#18181B',
+    marginTop: 4,
+  },
+  bookmarkTouch: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    overflow: 'hidden',
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: SPACING.sm,
-  },
-  quickActionCard: {
-    width: '31%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: RADIUS.lg,
-    paddingVertical: SPACING.xl,
-    paddingHorizontal: SPACING.sm,
     alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOW.sm,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  actionIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#FFF3E6',
-    justifyContent: 'center',
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  modalBody: {
+    padding: 24,
     alignItems: 'center',
-    marginBottom: SPACING.sm,
   },
-  actionLabel: {
+  modalAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 16,
+  },
+  modalName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  modalRole: {
     fontSize: 14,
-    color: '#1A1A1A',
-    ...FONTS.semiBold,
+    color: '#6B7280',
+    marginBottom: 24,
   },
-  activityCardContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: RADIUS.lg,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xs,
-    ...SHADOW.sm,
+  modalInfoBox: {
+    width: '100%',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#EFEFEF',
-    marginTop: SPACING.sm,
+    borderColor: '#F3F4F6',
   },
-  activityItem: {
+  modalInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.lg,
-  },
-  activityItemBorder: {
+    paddingBottom: 12,
+    marginBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#E5E7EB',
   },
-  activityIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
+  modalInfoText: {
+    marginLeft: 12,
     fontSize: 14,
-    color: '#1A1A1A',
-    ...FONTS.medium,
-    lineHeight: 20,
-    marginBottom: 2,
-  },
-  activityTime: {
-    fontSize: 12,
-    color: '#999999',
-    ...FONTS.regular,
+    color: '#374151',
+    fontWeight: '500',
   },
 });
-

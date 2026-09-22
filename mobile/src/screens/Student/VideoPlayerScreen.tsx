@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,24 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ScreenHeader from '../../components/shared/ScreenHeader';
+
+const formatUploadedTime = (dateStr?: string) => {
+  if (!dateStr) return 'Upload date unknown';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return 'Uploaded recently';
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffHours < 1) return 'Uploaded just now';
+  if (diffHours < 24) return `Uploaded ${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+  if (diffDays < 7) return `Uploaded ${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+
+  return `Uploaded on ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+};
 
 export default function VideoPlayerScreen() {
   const route = useRoute<any>();
@@ -33,11 +51,21 @@ export default function VideoPlayerScreen() {
     p.loop = false;
   });
 
+  const videoViewRef = useRef<any>(null);
+
   useEffect(() => {
     if (videoData?.url && videoData.type !== 'youtube') {
       player.replace(videoData.url);
     }
   }, [videoData?.url]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && videoViewRef.current?.nativeRef?.current) {
+      const videoElement = videoViewRef.current.nativeRef.current;
+      videoElement.setAttribute('controlsList', 'nodownload');
+      videoElement.oncontextmenu = (e: any) => e.preventDefault();
+    }
+  }, [videoData?.url, loading]);
 
   useEffect(() => {
     if (videoId) {
@@ -89,24 +117,21 @@ export default function VideoPlayerScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Notification Bar */}
-      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={22} color="#1A1A1A" />
-        </TouchableOpacity>
-        <Text style={styles.pageHeaderTitle}>Video Player</Text>
-        <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
-          <Icon name="notifications-outline" size={24} color="#1A1A1A" />
-        </TouchableOpacity>
+      <View style={{ paddingTop: insets.top }}>
+        <ScreenHeader
+          title="Video Player"
+          subtitle={videoData?.title || 'Course Lesson'}
+          showBack={true}
+        />
       </View>
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         {/* Video Player Frame */}
-        <View style={styles.videoContainer}>
+        <View style={styles.videoContainer} onContextMenu={(e: any) => e.preventDefault()}>
           {videoData?.type === 'youtube' && yTId ? (
             <YoutubeIframe height={230} videoId={yTId} />
           ) : videoData?.url ? (
-            <VideoView style={styles.video} player={player} allowsFullscreen allowsPictureInPicture />
+            <VideoView ref={videoViewRef} style={styles.video} player={player} allowsFullscreen allowsPictureInPicture />
           ) : (
             <View style={styles.videoMockContainer}>
               <View style={styles.playButtonCircle}>
@@ -139,11 +164,11 @@ export default function VideoPlayerScreen() {
             </Text>
           ) : null}
 
-          {/* Warning Banner */}
-          <View style={styles.warningBanner}>
-            <Icon name="warning-outline" size={20} color="#D97706" style={{ marginRight: 10 }} />
-            <Text style={styles.warningBannerText}>
-              DOWNLOADING OR DISTRIBUTING THIS CONTENT IS STRICTLY PROHIBITED.
+          {/* Uploaded Time Row */}
+          <View style={styles.uploadedTimeRow}>
+            <Icon name="time-outline" size={15} color="#71717A" style={{ marginRight: 6 }} />
+            <Text style={styles.uploadedTimeText}>
+              {formatUploadedTime(videoData?.createdAt || videoData?.uploaded_at)}
             </Text>
           </View>
 
@@ -297,25 +322,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     ...FONTS.regular,
-    marginBottom: SPACING.lg,
+    marginBottom: 6,
   },
-  warningBanner: {
+  uploadedTimeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF8E1',
-    borderWidth: 1,
-    borderColor: '#FFE082',
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
-  warningBannerText: {
-    flex: 1,
-    color: '#B45309',
-    fontSize: 11.5,
-    ...FONTS.bold,
-    letterSpacing: 0.3,
-    lineHeight: 16,
+  uploadedTimeText: {
+    fontSize: 13.5,
+    color: '#71717A',
+    ...FONTS.medium,
   },
   notesCard: {
     backgroundColor: '#FFFFFF',

@@ -10,6 +10,8 @@ export interface IPracticeSlot extends Document {
   max_students: number;
   equipment_note?: string;
   is_open: boolean;
+  location?: string;
+  booking_deadline?: Date;
 }
 
 const practiceSlotSchema = new Schema<IPracticeSlot>(
@@ -23,6 +25,8 @@ const practiceSlotSchema = new Schema<IPracticeSlot>(
     max_students:    { type: Number, required: true, min: 1 },
     equipment_note:  { type: String },
     is_open:         { type: Boolean, default: true },
+    location:        { type: String },
+    booking_deadline:{ type: Date },
   },
   { timestamps: true }
 );

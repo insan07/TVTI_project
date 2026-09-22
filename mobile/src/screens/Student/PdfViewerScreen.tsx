@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config/constants';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function PdfViewerScreen() {
   const route = useRoute<any>();
@@ -41,6 +42,16 @@ export default function PdfViewerScreen() {
   };
 
   const fullUrl = getFullPdfUrl(rawUrl);
+
+  // Auto-dismiss loading overlay after 1.2s so it never blocks PDF interaction
+  useEffect(() => {
+    setLoading(true);
+    setHasError(false);
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [fullUrl]);
 
   // 2. Prepare Google Docs embed link for native mobile WebViews
   const isLocalHost =
@@ -73,17 +84,17 @@ export default function PdfViewerScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={[styles.topHeaderBar, { paddingTop: insets.top + 6 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        <TouchableOpacity style={styles.externalBtn} onPress={handleExternalOpen}>
-          <Icon name="open-outline" size={22} color="#F58220" />
-        </TouchableOpacity>
+      <View style={{ paddingTop: insets.top }}>
+        <ScreenHeader
+          title={title}
+          subtitle="PDF Document Viewer"
+          showBack={true}
+          rightElement={
+            <TouchableOpacity style={styles.externalBtn} onPress={handleExternalOpen}>
+              <Icon name="open-outline" size={20} color="#F58220" />
+            </TouchableOpacity>
+          }
+        />
       </View>
 
       {/* Main Container */}
@@ -126,23 +137,12 @@ export default function PdfViewerScreen() {
               </TouchableOpacity>
             </View>
           ) : Platform.OS === 'web' ? (
-            <object
-              data={fullUrl}
-              type="application/pdf"
+            <iframe
+              src={fullUrl}
+              title={title}
               style={{ width: '100%', height: '100%', border: 'none' }}
               onLoad={() => setLoading(false)}
-              onError={() => {
-                setLoading(false);
-                setHasError(true);
-              }}
-            >
-              <iframe
-                src={fullUrl}
-                title={title}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                onLoad={() => setLoading(false)}
-              />
-            </object>
+            />
           ) : (
             <WebView
               source={{ uri: embedUrl }}

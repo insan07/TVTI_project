@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import {
@@ -157,15 +158,8 @@ export default function PracticeSessionsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Notification Bar */}
-      <View style={[styles.topNotificationBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
-          <Icon name="notifications-outline" size={24} color="#1A1A1A" />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
-        <View style={styles.contentPadding}>
+        <View style={[styles.contentPadding, { paddingTop: Math.max(insets.top + 12, 20) }]}>
           {/* Main Title */}
           <Text style={styles.pageTitle}>Practice Sessions</Text>
 
@@ -178,28 +172,40 @@ export default function PracticeSessionsScreen() {
           </View>
 
           {/* Tab Switcher Bar */}
-          <View style={styles.tabSwitcherRow}>
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'book' && styles.tabButtonActive]}
-              onPress={() => setActiveTab('book')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabButtonText, activeTab === 'book' && styles.tabButtonTextActive]}>
-                Book a Session
-              </Text>
-              {activeTab === 'book' && <View style={styles.activeTabUnderline} />}
-            </TouchableOpacity>
+          <View style={styles.segmentedTrackContainer}>
+            <View style={styles.segmentedTrack}>
+              <TouchableOpacity
+                style={[styles.segmentedTab, activeTab === 'book' && styles.segmentedTabActive]}
+                onPress={() => setActiveTab('book')}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name={activeTab === 'book' ? 'calendar' : 'calendar-outline'}
+                  size={16}
+                  color={activeTab === 'book' ? '#FFFFFF' : '#64748B'}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.segmentedTabText, activeTab === 'book' && styles.segmentedTabTextActive]}>
+                  Book a Session
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'my_sessions' && styles.tabButtonActive]}
-              onPress={() => setActiveTab('my_sessions')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabButtonText, activeTab === 'my_sessions' && styles.tabButtonTextActive]}>
-                My Sessions
-              </Text>
-              {activeTab === 'my_sessions' && <View style={styles.activeTabUnderline} />}
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segmentedTab, activeTab === 'my_sessions' && styles.segmentedTabActive]}
+                onPress={() => setActiveTab('my_sessions')}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name={activeTab === 'my_sessions' ? 'bookmark' : 'bookmark-outline'}
+                  size={16}
+                  color={activeTab === 'my_sessions' ? '#FFFFFF' : '#64748B'}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.segmentedTabText, activeTab === 'my_sessions' && styles.segmentedTabTextActive]}>
+                  My Sessions
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* TAB 1: BOOK A SESSION */}
@@ -404,36 +410,51 @@ const styles = StyleSheet.create({
     ...FONTS.regular,
     lineHeight: 18,
   },
-  tabSwitcherRow: {
+  segmentedTrackContainer: {
+    marginVertical: SPACING.md,
+  },
+  segmentedTrack: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EAEAEA',
-    marginBottom: SPACING.lg,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 26,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
+      default: {}
+    }),
   },
-  tabButton: {
+  segmentedTab: {
     flex: 1,
-    paddingVertical: SPACING.md,
+    flexDirection: 'row',
     alignItems: 'center',
-    position: 'relative',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 22,
   },
-  tabButtonActive: {},
-  tabButtonText: {
-    fontSize: 15,
-    color: '#888888',
+  segmentedTabActive: {
+    backgroundColor: '#0F172A',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+        elevation: 4,
+      }
+    }),
+  },
+  segmentedTabText: {
+    fontSize: 13.5,
+    color: '#64748B',
     ...FONTS.semiBold,
   },
-  tabButtonTextActive: {
-    color: '#F58220',
+  segmentedTabTextActive: {
+    color: '#FFFFFF',
     ...FONTS.bold,
-  },
-  activeTabUnderline: {
-    position: 'absolute',
-    bottom: -1,
-    left: 10,
-    right: 10,
-    height: 3,
-    backgroundColor: '#F58220',
-    borderRadius: 1.5,
   },
   batchPill: {
     paddingHorizontal: 16,

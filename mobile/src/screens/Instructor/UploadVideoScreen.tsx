@@ -1,28 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, FlatList, RefreshControl, Platform, Linking, Modal
+  TextInput, ActivityIndicator, FlatList, RefreshControl, Platform, Linking, Modal, Image,
+  Animated
 } from 'react-native';
 import api from '../../services/api';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import * as DocumentPicker from 'expo-document-picker';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { API_URL } from '../../config/constants';
 import { storage } from '../../utils/storage';
-import { COLORS } from '../../config/theme';
+import { COLORS, FONTS } from '../../config/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500MB
 
 export default function UploadVideoScreen() {
   const route = useRoute<any>();
+  const navigation = useNavigation<any>();
 
   const [batches, setBatches] = useState<any[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
   const [topics, setTopics] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'my_videos'>('upload');
-
+  const [activeTab, setActiveTab] = useState<'upload' | 'my_videos'>('my_videos');
   const [uploadMode, setUploadMode] = useState<'video' | 'material'>('video');
   const [videoSource, setVideoSource] = useState<'youtube' | 'file'>('youtube');
   const [listMode, setListMode] = useState<'video' | 'material'>('video');
@@ -32,6 +36,13 @@ export default function UploadVideoScreen() {
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  
+  const [expandedModules, setExpandedModules] = useState<{ [key: string]: boolean }>({});
+  const toggleModule = (topic: string) => {
+    setExpandedModules(prev => ({ ...prev, [topic]: !prev[topic] }));
+  };
+
+
 
   // Custom Confirmation & Alert Dialog Popup State
   const [confirmModal, setConfirmModal] = useState<{
@@ -55,11 +66,36 @@ export default function UploadVideoScreen() {
     message: string;
     type?: 'success' | 'error' | 'info';
     onOk?: () => void;
-  }>({
-    visible: false,
-    title: '',
-    message: '',
-  });
+  }>({ visible: false, title: '', message: '' });
+
+  // Liquid FAB Animation State
+  const wave1Anim = React.useRef(new Animated.Value(0)).current;
+  const wave2Anim = React.useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const createWaveAnimation = (animInfo: Animated.Value, delay: number = 0) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.parallel([
+            Animated.timing(animInfo, {
+              toValue: 1,
+              duration: 2500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(animInfo, {
+              toValue: 1,
+              duration: 2500,
+              useNativeDriver: true,
+            })
+          ])
+        ])
+      );
+    };
+
+    createWaveAnimation(wave1Anim).start();
+    createWaveAnimation(wave2Anim, 1000).start();
+  }, []);
 
   const [formData, setFormData] = useState({
     batch_id: '',
@@ -297,6 +333,7 @@ export default function UploadVideoScreen() {
       await api.delete(`/instructors/videos/${videoId}`);
       setMyVideos(prev => prev.filter(v => v._id !== videoId));
       setMyMaterials(prev => prev.filter(v => v._id !== videoId));
+      showAlert('Deleted', 'Upload successfully removed.', undefined, 'success');
     } catch (e: any) {
       showAlert('Error', e.response?.data?.message || 'Failed to delete upload', undefined, 'error');
     }
@@ -317,36 +354,45 @@ export default function UploadVideoScreen() {
   const currentList = listMode === 'video' ? myVideos : myMaterials;
   const currentLoading = listMode === 'video' ? loadingVideos : loadingMaterials;
 
+  const groupedItems = React.useMemo(() => {
+    return currentList.reduce((acc: any, item: any) => {
+      const t = item.topic || 'General';
+      if (!acc[t]) acc[t] = [];
+      acc[t].push(item);
+      return acc;
+    }, {});
+  }, [currentList]);
+
   return (
-    <View style={styles.container}>
-      <View style={styles.tabHeader}>
-        <TouchableOpacity style={[styles.tab, activeTab === 'upload' && styles.activeTab]} onPress={() => setActiveTab('upload')}>
-          <Icon name="cloud-upload-outline" size={16} color={activeTab === 'upload' ? COLORS.primary : '#6B7280'} style={{ marginRight: 5 }} />
-          <Text style={[styles.tabText, activeTab === 'upload' && styles.activeTabText]}>Upload Portal</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, activeTab === 'my_videos' && styles.activeTab]} onPress={() => setActiveTab('my_videos')}>
-          <Icon name="layers-outline" size={16} color={activeTab === 'my_videos' ? COLORS.primary : '#6B7280'} style={{ marginRight: 5 }} />
-          <Text style={[styles.tabText, activeTab === 'my_videos' && styles.activeTabText]}>My Uploads</Text>
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScreenHeader
+        title="Upload Content"
+        subtitle="Publish video lessons & study materials"
+      />
 
       {activeTab === 'upload' ? (
-        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Lecturer Video & Study Notes Upload</Text>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>New Upload</Text>
+              <TouchableOpacity onPress={() => setActiveTab('my_videos')} style={{ padding: 4, backgroundColor: '#F1F5F9', borderRadius: 20 }}>
+                <Icon name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.modeRow}>
               <TouchableOpacity
                 style={[styles.modeBtn, uploadMode === 'video' && styles.modeBtnActive]}
                 onPress={() => { setUploadMode('video'); resetForm(); }}
               >
-                <Text style={[styles.modeBtnText, uploadMode === 'video' && styles.modeBtnTextActive]}>🎥 Video Lecture</Text>
+                <Text style={[styles.modeBtnText, uploadMode === 'video' && styles.modeBtnTextActive]}>Video Lecture</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modeBtn, uploadMode === 'material' && styles.modeBtnActive]}
                 onPress={() => { setUploadMode('material'); resetForm(); }}
               >
-                <Text style={[styles.modeBtnText, uploadMode === 'material' && styles.modeBtnTextActive]}>📄 Study Material</Text>
+                <Text style={[styles.modeBtnText, uploadMode === 'material' && styles.modeBtnTextActive]}>Study Material</Text>
               </TouchableOpacity>
             </View>
 
@@ -483,17 +529,24 @@ export default function UploadVideoScreen() {
             )}
 
             <TouchableOpacity
-              style={[styles.btn, (uploading || batches.length === 0) && styles.btnDisabled]}
+              style={[styles.btnWrapper, (uploading || batches.length === 0) && styles.btnDisabled]}
               onPress={submit}
               disabled={uploading || batches.length === 0}
             >
-              {uploading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.btnText}>
-                  {uploadMode === 'video' ? '🚀 Post Video to Students' : '📑 Upload Material'}
-                </Text>
-              )}
+              <LinearGradient
+                colors={[COLORS.primary, '#1E3A8A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.btn}
+              >
+                {uploading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.btnText}>
+                    {uploadMode === 'video' ? 'Post Video to Students' : 'Upload Material'}
+                  </Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -504,13 +557,13 @@ export default function UploadVideoScreen() {
               style={[styles.modeBtn, listMode === 'video' && styles.modeBtnActive]}
               onPress={() => setListMode('video')}
             >
-              <Text style={[styles.modeBtnText, listMode === 'video' && styles.modeBtnTextActive]}>🎥 Video Lectures ({myVideos.length})</Text>
+              <Text style={[styles.modeBtnText, listMode === 'video' && styles.modeBtnTextActive]}>Video Lectures ({myVideos.length})</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modeBtn, listMode === 'material' && styles.modeBtnActive]}
               onPress={() => setListMode('material')}
             >
-              <Text style={[styles.modeBtnText, listMode === 'material' && styles.modeBtnTextActive]}>📄 Documents ({myMaterials.length})</Text>
+              <Text style={[styles.modeBtnText, listMode === 'material' && styles.modeBtnTextActive]}>Documents ({myMaterials.length})</Text>
             </TouchableOpacity>
           </View>
 
@@ -519,61 +572,157 @@ export default function UploadVideoScreen() {
               <ActivityIndicator size="large" color={COLORS.primary} />
               <Text style={styles.loadingText}>Loading {listMode === 'video' ? 'videos' : 'materials'}...</Text>
             </View>
+          ) : Object.keys(groupedItems).length > 0 ? (
+            <ScrollView contentContainerStyle={{ padding: 15, paddingBottom: 120 }}>
+              {Object.keys(groupedItems).sort().map((topic, idx) => {
+                const isExpanded = !!expandedModules[topic];
+                return (
+                  <View key={topic} style={styles.moduleSectionBox}>
+                    <TouchableOpacity
+                      style={[styles.moduleHeader, { marginBottom: isExpanded ? 12 : 0 }]}
+                      activeOpacity={0.8}
+                      onPress={() => toggleModule(topic)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.moduleTag}>MODULE {idx + 1}</Text>
+                        <Text style={styles.moduleTitle}>{topic}</Text>
+                      </View>
+                      <Icon name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color="#1A1A1A" />
+                    </TouchableOpacity>
+                    
+                    {isExpanded && (
+                      <View style={styles.moduleVideosContainer}>
+                        {groupedItems[topic].map((item: any, itemIdx: number) => {
+                          let thumbUrl = null;
+                          let isLocalVideo = false;
+                          let localVideoUrl = '';
+
+                          if (item.youtube_url) {
+                            const match = item.youtube_url.match(/[?&]v=([^&]+)/) || item.youtube_url.match(/youtu\.be\/([^?]+)/);
+                            if (match && match[1]) {
+                              thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+                            }
+                          } else if (item.cloudinary_url) {
+                            if (item.cloudinary_url.includes('cloudinary.com')) {
+                              thumbUrl = item.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
+                            } else if (item.cloudinary_url.startsWith('/uploads/')) {
+                              if (item.content_type !== 'material') {
+                                isLocalVideo = true;
+                                localVideoUrl = `${API_URL.replace(/\/api\/?$/, '')}${item.cloudinary_url}`;
+                              }
+                            }
+                          }
+
+                          if (listMode === 'video') {
+                            return (
+                              <View key={item._id || itemIdx} style={{ position: 'relative', marginBottom: 16 }}>
+                                <TouchableOpacity
+                                  style={styles.youtubeVideoCard}
+                                  activeOpacity={0.88}
+                                  onPress={() => {
+                                    let url = item.cloudinary_url || item.youtube_url;
+                                    if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
+                                      url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                                    }
+                                    if (url) {
+                                      if (Platform.OS === 'web') window.open(url, '_blank');
+                                      else Linking.openURL(url);
+                                    }
+                                  }}
+                                >
+                                  <View style={styles.widescreenThumbWrapper}>
+                                    {thumbUrl ? (
+                                      <Image source={{ uri: thumbUrl }} style={styles.widescreenThumbImage} resizeMode="cover" />
+                                    ) : isLocalVideo && Platform.OS === 'web' ? (
+                                      (() => {
+                                        const VideoElement = 'video' as any;
+                                        return (
+                                          <VideoElement
+                                            src={localVideoUrl}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                            preload="metadata"
+                                            muted
+                                          />
+                                        );
+                                      })()
+                                    ) : (
+                                      <View style={styles.placeholderThumbBox}>
+                                        <Icon name="logo-youtube" size={48} color="#FF0000" />
+                                      </View>
+                                    )}
+                                    <View style={styles.thumbPlayOverlay}>
+                                      <View style={styles.youtubePlayCircle}>
+                                        <Icon name="play" size={24} color="#FFFFFF" style={{ marginLeft: 3 }} />
+                                      </View>
+                                    </View>
+                                    <View style={styles.durationPill}>
+                                      <Text style={styles.durationPillText}>--:--</Text>
+                                    </View>
+                                  </View>
+                                  <View style={styles.youtubeVideoMeta}>
+                                    <View style={styles.metaHeaderRow}>
+                                      <View style={styles.topicBadgePill}>
+                                        <Text style={styles.topicBadgeText}>{(item.topic || 'LECTURE').toUpperCase()}</Text>
+                                      </View>
+                                    </View>
+                                    <Text style={styles.youtubeVideoTitle} numberOfLines={2}>{item.title}</Text>
+                                    <View style={styles.youtubeChannelRow}>
+                                      <Icon name="time-outline" size={14} color="#71717A" style={{ marginRight: 4 }} />
+                                      <Text style={styles.youtubeChannelText}>Uploaded just now</Text>
+                                    </View>
+                                  </View>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity onPress={() => handleDeleteVideo(item._id, item.title)} style={styles.cardDeleteBtn}>
+                                  <Icon name="trash-outline" size={18} color="#EF4444" />
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          } else {
+                            // Document / Material Card
+                            return (
+                              <View key={item._id || itemIdx} style={styles.videoCard}>
+                                <TouchableOpacity style={styles.videoCardLeft} onPress={() => {
+                                    let url = item.cloudinary_url;
+                                    if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
+                                      url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                                    }
+                                    if (url) {
+                                      if (Platform.OS === 'web') window.open(url, '_blank');
+                                      else Linking.openURL(url);
+                                    }
+                                }}>
+                                  <View style={[styles.videoIcon, { backgroundColor: 'transparent' }]}>
+                                    {thumbUrl ? (
+                                      <Image source={{ uri: thumbUrl }} style={[styles.thumbnailImage, { borderRadius: 8 }]} resizeMode="cover" />
+                                    ) : (
+                                      <Icon name="document-text" size={26} color="#F58220" />
+                                    )}
+                                  </View>
+                                  <View style={{ flex: 1, paddingLeft: 6 }}>
+                                    <Text style={styles.videoTitle}>{item.title}</Text>
+                                    <Text style={styles.videoDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                                  </View>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleDeleteVideo(item._id, item.title)} style={styles.deleteBtn}>
+                                  <Icon name="trash-outline" size={18} color="#EF4444" />
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          }
+                        })}
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </ScrollView>
           ) : (
-            <FlatList
-              data={currentList}
-              keyExtractor={item => item._id}
-              contentContainerStyle={{ padding: 15, paddingBottom: 40 }}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon name={listMode === 'video' ? 'videocam-outline' : 'document-text-outline'} size={64} color="#D1D5DB" />
-                  <Text style={styles.emptyTitle}>No {listMode === 'video' ? 'videos' : 'materials'} uploaded yet</Text>
-                  <Text style={styles.emptySubtitle}>Upload your first {listMode === 'video' ? 'course video' : 'document material'}</Text>
-                  <TouchableOpacity style={styles.emptyBtn} onPress={() => setActiveTab('upload')}>
-                    <Text style={styles.emptyBtnText}>Upload Now</Text>
-                  </TouchableOpacity>
-                </View>
-              }
-              renderItem={({ item }) => (
-                <View style={styles.videoCard}>
-                  <TouchableOpacity 
-                    style={styles.videoCardLeft}
-                    onPress={() => {
-                      let url = item.content_type === 'material' ? item.cloudinary_url : (item.cloudinary_url || item.youtube_url);
-                      if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
-                        url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
-                      }
-                      if (url) {
-                        if (Platform.OS === 'web') {
-                          window.open(url, '_blank');
-                        } else {
-                          Linking.openURL(url);
-                        }
-                      }
-                    }}
-                  >
-                    <View style={styles.videoIcon}>
-                      <Icon
-                        name={item.content_type === 'material' ? 'document-text' : item.youtube_url ? 'logo-youtube' : 'videocam'}
-                        size={22}
-                        color={item.content_type === 'material' ? '#10B981' : item.youtube_url ? '#EF4444' : COLORS.primary}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.videoTitle} numberOfLines={2}>{item.title}</Text>
-                      <Text style={styles.videoMeta}>Topic: {item.topic || 'No topic'}</Text>
-                      <Text style={styles.videoMeta}>Batch: {item.batch_id?.name || 'Unknown Batch'}</Text>
-                      <Text style={styles.videoDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
-                    </View>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity onPress={() => handleDeleteVideo(item._id, item.title)} style={styles.deleteBtn}>
-                    <Icon name="trash-outline" size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
+            <View style={styles.emptyContainer}>
+              <Icon name={listMode === 'video' ? 'videocam-outline' : 'document-text-outline'} size={64} color="#D1D5DB" />
+              <Text style={styles.emptyTitle}>No {listMode === 'video' ? 'videos' : 'materials'} uploaded yet</Text>
+              <Text style={styles.emptySubtitle}>Upload your first {listMode === 'video' ? 'course video' : 'document material'}</Text>
+            </View>
           )}  
         </View>
       )}
@@ -667,52 +816,194 @@ export default function UploadVideoScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+
+      {/* Liquid Glass FAB */}
+      {activeTab === 'my_videos' && (
+        <View style={styles.liquidFabContainer}>
+          <Animated.View
+            style={[
+              styles.liquidWaveRing,
+              {
+                transform: [{ scale: wave1Anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }],
+                opacity: wave1Anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] })
+              }
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.liquidWaveRingSecond,
+              {
+                transform: [{ scale: wave2Anim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.2] }) }],
+                opacity: wave2Anim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] })
+              }
+            ]}
+          />
+          <TouchableOpacity
+            style={styles.liquidFabButton}
+            activeOpacity={0.85}
+            onPress={() => setActiveTab('upload')}
+          >
+            <View style={styles.liquidGlassSheen} />
+            <View style={styles.liquidInnerCore}>
+              <Icon name="add" size={32} color="#FFFFFF" style={styles.liquidPlusIcon} />
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  tabHeader: { flexDirection: 'row', backgroundColor: '#fff', elevation: 2, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  tab: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 14, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  activeTab: { borderBottomColor: COLORS.primary },
-  tabText: { fontWeight: 'bold', color: '#6B7280', fontSize: 14 },
-  activeTabText: { color: COLORS.primary },
-  card: { backgroundColor: '#fff', margin: 15, borderRadius: 12, padding: 20, elevation: 2 },
-  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 12, textAlign: 'center' },
-  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  modeRowList: { flexDirection: 'row', gap: 8, padding: 15, paddingBottom: 0 },
-  modeBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#E5E7EB', alignItems: 'center' },
-  modeBtnActive: { backgroundColor: COLORS.primary },
-  modeBtnText: { fontWeight: '700', color: '#374151', fontSize: 13 },
-  modeBtnTextActive: { color: '#fff' },
-  sourceSelectorRow: { flexDirection: 'row', gap: 8, marginTop: 6, marginBottom: 6 },
-  sourceBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#F9FAFB' },
-  sourceBtnActive: { borderColor: COLORS.primary, backgroundColor: '#EFF6FF' },
-  sourceBtnText: { fontSize: 12, fontWeight: '600', color: '#4B5563' },
-  sourceBtnTextActive: { color: COLORS.primary, fontWeight: 'bold' },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginTop: 14, marginBottom: 6 },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  topHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    marginTop: 4,
+    paddingHorizontal: 16,
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    ...Platform.select({
+      web: { boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.04)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      },
+    }),
+  },
+  headerTitle: {
+    fontSize: 22,
+    ...FONTS.bold,
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 12.5,
+    ...FONTS.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  segmentedTrackContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  segmentedTrack: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 26,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
+      default: {}
+    }),
+  },
+  segmentedTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 22,
+  },
+  segmentedTabActive: {
+    backgroundColor: '#0F172A',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+        elevation: 4,
+      }
+    }),
+  },
+  segmentedTabText: {
+    fontSize: 13.5,
+    ...FONTS.semiBold,
+    color: '#64748B',
+  },
+  segmentedTabTextActive: {
+    color: '#FFFFFF',
+    ...FONTS.bold,
+  },
+  card: {
+    backgroundColor: '#FFFFFF', margin: 16, borderRadius: 14, padding: 20,
+    borderWidth: 1, borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+    }),
+  },
+  cardTitle: { fontSize: 18, ...FONTS.bold, color: '#0F172A', marginBottom: 14, textAlign: 'center' },
+  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  modeRowList: { flexDirection: 'row', gap: 8, padding: 16, paddingBottom: 0 },
+  modeBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#F1F5F9', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
+  modeBtnActive: { backgroundColor: '#F58220', borderColor: '#F58220' },
+  modeBtnText: { ...FONTS.bold, color: '#475569', fontSize: 13 },
+  modeBtnTextActive: { color: '#FFFFFF' },
+  sourceSelectorRow: { flexDirection: 'row', gap: 8, marginTop: 6, marginBottom: 8 },
+  sourceBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC' },
+  sourceBtnActive: { borderColor: '#F58220', backgroundColor: '#FFF7ED' },
+  sourceBtnText: { fontSize: 12, ...FONTS.semiBold, color: '#475569' },
+  sourceBtnTextActive: { color: '#F58220', ...FONTS.bold },
+  label: { fontSize: 12.5, ...FONTS.bold, color: '#334155', marginTop: 14, marginBottom: 6, letterSpacing: 0.2 },
   noBatchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFBEB', padding: 12, borderRadius: 8, marginBottom: 4 },
   noBatchText: { color: '#92400E', fontSize: 13, marginLeft: 8 },
-  input: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 12, fontSize: 14, color: '#1F2937', marginBottom: 4 },
-  uploadBox: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: COLORS.primary, backgroundColor: '#EFF6FF', padding: 16, borderRadius: 8, marginBottom: 4, gap: 8 },
-  uploadBoxText: { fontSize: 13, fontWeight: 'bold', flex: 1 },
-  btn: { flexDirection: 'row', backgroundColor: COLORS.primary, padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 22 },
+  input: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, padding: 12, fontSize: 14, color: '#0F172A', marginBottom: 4, ...FONTS.regular },
+  uploadBox: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: '#F58220', backgroundColor: '#FFF7ED', padding: 16, borderRadius: 8, marginBottom: 4, gap: 8 },
+  uploadBoxText: { fontSize: 13, ...FONTS.bold, flex: 1 },
+  btnWrapper: { borderRadius: 10, marginTop: 24, overflow: 'hidden' },
+  btn: { flexDirection: 'row', padding: 15, alignItems: 'center', justifyContent: 'center' },
   btnDisabled: { opacity: 0.5 },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  btnText: { color: '#FFFFFF', ...FONTS.bold, fontSize: 15 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 10, color: '#9CA3AF' },
+  loadingText: { marginTop: 10, color: '#64748B', ...FONTS.medium },
   emptyContainer: { alignItems: 'center', marginTop: 60 },
-  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: '#374151', marginTop: 15 },
-  emptySubtitle: { color: '#9CA3AF', fontSize: 14, marginTop: 6, textAlign: 'center' },
-  emptyBtn: { marginTop: 14, backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
-  emptyBtnText: { color: '#fff', fontWeight: 'bold' },
-  videoCard: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 12, padding: 14, elevation: 1, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: '#F3F4F6' },
-  videoCardLeft: { flex: 1, flexDirection: 'row', gap: 12 },
-  videoIcon: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' },
-  videoTitle: { fontSize: 15, fontWeight: 'bold', color: '#1F2937', marginBottom: 4 },
-  videoMeta: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  videoDate: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+  emptyTitle: { fontSize: 18, ...FONTS.bold, color: '#0F172A', marginTop: 15 },
+  emptySubtitle: { color: '#64748B', fontSize: 14, marginTop: 6, textAlign: 'center', ...FONTS.regular },
+  emptyBtn: { marginTop: 16, backgroundColor: '#F58220', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+  emptyBtnText: { color: '#FFFFFF', ...FONTS.bold },
+  videoCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 14, padding: 16, elevation: 1, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
+    }),
+  },
+  videoCardLeft: { flex: 1, flexDirection: 'row', gap: 14 },
+  videoIcon: { width: 48, height: 48, borderRadius: 10, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' },
+  thumbnailImage: { width: '100%', height: '100%', position: 'absolute' },
+  thumbnailOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  videoTitle: { fontSize: 15, ...FONTS.bold, color: '#0F172A', marginBottom: 4, letterSpacing: -0.2 },
+  videoMeta: { fontSize: 12.5, color: '#475569', marginTop: 2, ...FONTS.medium },
+  videoDate: { fontSize: 11.5, color: '#94A3B8', marginTop: 4, ...FONTS.medium },
   deleteBtn: { padding: 6, marginLeft: 8 },
 
   // Custom Popup Dialog Modal Styles
@@ -730,10 +1021,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
+    boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.25)',
     elevation: 10
   },
   popupIconCircle: {
@@ -798,5 +1086,134 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 15
-  }
+  },
+
+  /* Accordion Module UI */
+  moduleSectionBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0,0,0,0.03)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }
+    })
+  },
+  moduleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  moduleTag: { fontSize: 11, fontWeight: '800', color: '#C2410C', letterSpacing: 0.5, marginBottom: 2 },
+  moduleTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
+  moduleVideosContainer: { paddingTop: 4 },
+  youtubeVideoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    overflow: 'hidden',
+  },
+  widescreenThumbWrapper: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000',
+    position: 'relative'
+  },
+  widescreenThumbImage: { width: '100%', height: '100%' },
+  placeholderThumbBox: { flex: 1, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center' },
+  thumbPlayOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' },
+  youtubePlayCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#F97316', justifyContent: 'center', alignItems: 'center' },
+  durationPill: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.8)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  durationPillText: { color: '#FFF', fontSize: 11, fontWeight: '600' },
+  youtubeVideoMeta: { padding: 16 },
+  metaHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, justifyContent: 'space-between' },
+  topicBadgePill: { backgroundColor: '#FFF7ED', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  topicBadgeText: { color: '#F58220', fontSize: 10, fontWeight: '700' },
+  youtubeVideoTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginBottom: 6, lineHeight: 22 },
+  youtubeChannelRow: { flexDirection: 'row', alignItems: 'center' },
+  youtubeChannelText: { fontSize: 13, color: '#71717A' },
+
+  cardDeleteBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10
+  },
+
+  /* Liquid Glass FAB + Button Styles */
+  liquidFabContainer: {
+    position: 'absolute',
+    bottom: 95,
+    right: 20,
+    width: 62,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 998,
+  },
+  liquidWaveRing: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 107, 0, 0.4)',
+  },
+  liquidWaveRingSecond: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
+  },
+  liquidFabButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 26px rgba(255, 107, 0, 0.55), inset 0px 2px 4px rgba(255, 255, 255, 0.4)' },
+      default: {
+        shadowColor: '#FF6B00',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.55,
+        shadowRadius: 12,
+        elevation: 10,
+      },
+    }),
+  },
+  liquidGlassSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '48%',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
+  liquidInnerCore: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  liquidPlusIcon: {
+    ...Platform.select({
+      web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
+    }),
+  },
 });

@@ -10,7 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
-  ScrollView
+  ScrollView,
+  Alert
 } from 'react-native';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -18,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { showToast } from '../../components/shared/Toast';
 
 const { height } = Dimensions.get('window');
 
@@ -31,6 +33,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState(initialMsg);
+  const [focusedInput, setFocusedInput] = useState<'email' | 'password' | null>(null);
 
   const authContext = useContext(AuthContext);
   const navigation = useNavigation<any>();
@@ -40,26 +43,73 @@ export default function LoginScreen() {
     setErrorMsg('');
     setInfoMsg('');
 
-    if (!email.trim() || !password.trim()) {
-      setErrorMsg('Please enter your Registration No or Email address and password.');
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail && !cleanPassword) {
+      const msg = 'Please enter your Registration Number or Email address and Password to log in.';
+      setErrorMsg(msg);
+      showToast(msg, 'error');
+      Alert.alert('Login Required', msg);
+      return;
+    }
+    if (!cleanEmail) {
+      const msg = 'Please enter your Registration Number or Email address.';
+      setErrorMsg(msg);
+      showToast(msg, 'error');
+      Alert.alert('Email / Reg No Required', msg);
+      return;
+    }
+    if (!cleanPassword) {
+      const msg = 'Please enter your Password.';
+      setErrorMsg(msg);
+      showToast(msg, 'error');
+      Alert.alert('Password Required', msg);
       return;
     }
 
     try {
-      await authContext?.login(email.trim(), password);
+      await authContext?.login(cleanEmail, cleanPassword);
+      showToast('Logged in successfully', 'success');
     } catch (e: any) {
-      const serverMsg = e.response?.data?.message;
+      const serverMsg = e.response?.data?.message || e.message;
+      const status = e.response?.status;
+
+      let alertTitle = 'Login Failed';
+      let fullMessage = 'Invalid Registration Number/Email or Password. Please verify your details and try again.';
+      let isPending = false;
+
       if (serverMsg) {
-        if (serverMsg.toLowerCase().includes('pending') || serverMsg.toLowerCase().includes('inactive')) {
-          setInfoMsg('Account Pending Approval ⏳\nYour student account has been registered and is currently awaiting Admin approval. Please try logging in once an Admin approves your registration.');
-        } else if (serverMsg.toLowerCase().includes('invalid') || serverMsg.toLowerCase().includes('credentials')) {
-          setErrorMsg('Invalid Registration No/Email or Password. Please verify your credentials and try again.');
+        const msgLower = String(serverMsg).toLowerCase();
+        if (msgLower.includes('pending') || msgLower.includes('inactive')) {
+          alertTitle = 'Account Pending Approval';
+          fullMessage = 'Your student registration has been received and is currently awaiting Admin approval. You will receive an email with your credentials once approved.';
+          isPending = true;
+        } else if (msgLower.includes('expired')) {
+          alertTitle = 'Temporary Password Expired';
+          fullMessage = 'Your 7-day temporary password has expired. Please contact TVTI Administration to request a password reset.';
+        } else if (msgLower.includes('invalid') || msgLower.includes('credentials') || status === 401) {
+          alertTitle = 'Invalid Credentials';
+          fullMessage = 'The Registration Number/Email or Password you entered is incorrect. Please verify your details and try again.';
         } else {
-          setErrorMsg(serverMsg);
+          alertTitle = 'Login Failed';
+          fullMessage = serverMsg;
         }
       } else {
-        setErrorMsg('Unable to connect to server. Please check your network connection and try again.');
+        alertTitle = 'Connection Error';
+        fullMessage = 'Unable to connect to the TVTI LMS server. Please check your internet connection and try again.';
       }
+
+      if (isPending) {
+        setInfoMsg(fullMessage);
+        showToast('Account Pending Admin Approval', 'error');
+      } else {
+        setErrorMsg(fullMessage);
+        showToast(alertTitle, 'error');
+      }
+
+      // Pop up official Alert modal acknowledgment
+      Alert.alert(alertTitle, fullMessage);
     }
   };
 
@@ -94,7 +144,7 @@ export default function LoginScreen() {
           {/* Info Banner (e.g. Registered awaiting approval) */}
           {infoMsg ? (
             <View style={styles.infoBox}>
-              <Icon name="information-circle-outline" size={20} color="#D97706" style={{ marginRight: 8, marginTop: 2 }} />
+              <Icon name="information-circle-outline" size={20} color="#0D9488" style={{ marginRight: 8, marginTop: 2 }} />
               <Text style={styles.infoBoxText}>{infoMsg}</Text>
             </View>
           ) : null}
@@ -109,14 +159,29 @@ export default function LoginScreen() {
 
           {/* Email / Registration No Input */}
           <Text style={styles.inputLabel}>Registration No or Email Address</Text>
-          <View style={styles.inputContainer}>
-            <Icon name="person-circle-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+          <View
+            style={[
+              styles.inputContainer,
+              focusedInput === 'email' && styles.inputContainerFocused,
+            ]}
+          >
+            <Icon
+              name="person-outline"
+              size={20}
+              color={focusedInput === 'email' ? COLORS.primary : COLORS.textMuted}
+              style={styles.inputIcon}
+            />
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                Platform.OS === 'web' && ({ outlineStyle: 'none', outlineWidth: 0 } as any)
+              ]}
               placeholder="e.g. 26T0001 or student@gmail.com"
               placeholderTextColor={COLORS.textMuted}
               autoCapitalize="none"
               value={email}
+              onFocus={() => setFocusedInput('email')}
+              onBlur={() => setFocusedInput(null)}
               onChangeText={(text) => {
                 setEmail(text);
                 if (errorMsg) setErrorMsg('');
@@ -126,21 +191,52 @@ export default function LoginScreen() {
 
           {/* Password Input */}
           <Text style={styles.inputLabel}>Password</Text>
-          <View style={styles.inputContainer}>
-            <Icon name="lock-closed-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+          <View
+            style={[
+              styles.inputContainer,
+              focusedInput === 'password' && styles.inputContainerFocused,
+            ]}
+          >
+            <Icon
+              name="lock-closed-outline"
+              size={20}
+              color={focusedInput === 'password' ? COLORS.primary : COLORS.textMuted}
+              style={styles.inputIcon}
+            />
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                Platform.OS === 'web' && ({ outlineStyle: 'none', outlineWidth: 0 } as any)
+              ]}
               placeholder="Enter your password"
               placeholderTextColor={COLORS.textMuted}
               secureTextEntry={!showPassword}
               value={password}
+              onFocus={() => setFocusedInput('password')}
+              onBlur={() => setFocusedInput(null)}
               onChangeText={(text) => {
                 setPassword(text);
                 if (errorMsg) setErrorMsg('');
               }}
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-              <Icon name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={COLORS.textMuted} />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeIcon}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            >
+              <Icon
+                name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                size={20}
+                color={showPassword ? COLORS.primary : COLORS.textMuted}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.forgotPasswordContainer}>
+            <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
           </View>
 
@@ -149,6 +245,7 @@ export default function LoginScreen() {
             style={styles.button}
             onPress={handleLogin}
             disabled={authContext?.isLoading}
+            activeOpacity={0.8}
           >
             {authContext?.isLoading ? (
               <ActivityIndicator color="#fff" />
@@ -224,24 +321,24 @@ const styles = StyleSheet.create({
   infoBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#F0FDFA',
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#99F6E4',
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.lg,
   },
   infoBoxText: {
     flex: 1,
-    color: '#92400E',
+    color: '#0F766E',
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 19,
     ...FONTS.medium,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#FCA5A5',
     borderRadius: RADIUS.md,
@@ -252,7 +349,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#991B1B',
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 19,
     ...FONTS.medium,
   },
   inputLabel: {
@@ -271,6 +368,20 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     paddingHorizontal: SPACING.md,
   },
+  inputContainerFocused: {
+    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 4px rgba(26,26,26,0.12)' } as any,
+      default: {
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 4,
+        elevation: 2,
+      }
+    })
+  },
   inputIcon: {
     marginRight: SPACING.sm,
   },
@@ -282,7 +393,19 @@ const styles = StyleSheet.create({
     ...FONTS.regular,
   },
   eyeIcon: {
-    padding: SPACING.xs,
+    padding: SPACING.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginBottom: SPACING.lg,
+    marginTop: -SPACING.sm,
+  },
+  forgotPasswordText: {
+    color: COLORS.primary,
+    fontSize: 13,
+    ...FONTS.semiBold,
   },
   button: {
     backgroundColor: COLORS.primary,

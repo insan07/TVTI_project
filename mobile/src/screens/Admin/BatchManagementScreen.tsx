@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,16 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Platform,
   Alert,
   Modal,
   ScrollView,
-  Platform
+  Platform,
+  Animated,
+  LayoutAnimation,
+  UIManager,
+  NativeSyntheticEvent,
+  NativeScrollEvent
 } from 'react-native';
 import api from '../../services/api';
 import CustomDropdown from '../../components/shared/CustomDropdown';
@@ -18,6 +24,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
+
+import ScreenHeader from '../../components/shared/ScreenHeader';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function BatchManagementScreen() {
   const [batches, setBatches] = useState<any[]>([]);
@@ -28,6 +40,51 @@ export default function BatchManagementScreen() {
   const route = useRoute<any>();
   const filterCourseId = route.params?.courseId;
 
+  // Search & Filter States
+  const [search, setSearch] = useState('');
+  const [showFilter, setShowFilter] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'full'>('all');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const headerAnim = useRef(new Animated.Value(1)).current;
+  const isHeaderVisibleRef = useRef(true);
+  const lastScrollY = useRef(0);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isSearchFocused) return;
+    const currentY = event.nativeEvent.contentOffset.y;
+    const diff = currentY - lastScrollY.current;
+
+    if (currentY <= 15) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff > 8 && currentY > 35) {
+      if (isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = false;
+        Animated.timing(headerAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff < -8) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    }
+    lastScrollY.current = currentY;
+  };
+
   // Edit/Add Modal
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -37,11 +94,80 @@ export default function BatchManagementScreen() {
     start_date: new Date(),
     end_date: new Date(),
     capacity: '25',
+    room: '',
     instructor_ids: [],
-    schedule_json: { days: ['Mon', 'Wed', 'Fri'] }
+    schedule_json: { days: ['Mon', 'Wed', 'Fri'], time: '' }
   });
   const [saving, setSaving] = useState(false);
   const [showPicker, setShowPicker] = useState<'start' | 'end' | null>(null);
+
+  // Liquid FAB Animation State
+  const wave1Anim = React.useRef(new Animated.Value(0)).current;
+  const wave2Anim = React.useRef(new Animated.Value(0)).current;
+  const buttonScaleAnim = React.useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    wave1Anim.setValue(0);
+    wave2Anim.setValue(0);
+
+    const animation = Animated.loop(
+      Animated.parallel([
+        Animated.timing(wave1Anim, {
+          toValue: 1,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.delay(900),
+          Animated.timing(wave2Anim, {
+            toValue: 1,
+            duration: 2200,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+
+  const handleFabPressIn = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 0.9,
+      useNativeDriver: true,
+      friction: 5,
+      tension: 100,
+    }).start();
+  };
+
+  const handleFabPressOut = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 4,
+      tension: 80,
+    }).start();
+  };
+
+  const wave1Scale = wave1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.55],
+  });
+
+  const wave1Opacity = wave1Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.45, 0.25, 0],
+  });
+
+  const wave2Scale = wave2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.4],
+  });
+
+  const wave2Opacity = wave2Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.35, 0.18, 0],
+  });
 
   // Batch Details Modal
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
@@ -98,8 +224,9 @@ export default function BatchManagementScreen() {
       start_date: new Date(),
       end_date: new Date(Date.now() + 60 * 86400000),
       capacity: '25',
+      room: '',
       instructor_ids: [],
-      schedule_json: { days: ['Mon', 'Wed', 'Fri'] }
+      schedule_json: { days: ['Mon', 'Wed', 'Fri'], time: '' }
     });
     setModalVisible(true);
   };
@@ -112,8 +239,9 @@ export default function BatchManagementScreen() {
       start_date: batch.start_date ? new Date(batch.start_date) : new Date(),
       end_date: batch.end_date ? new Date(batch.end_date) : new Date(),
       capacity: String(batch.capacity || 25),
+      room: batch.room || '',
       instructor_ids: batch.instructor_ids?.map((i: any) => i._id || i) || [],
-      schedule_json: batch.schedule_json || { days: ['Mon', 'Wed', 'Fri'] }
+      schedule_json: batch.schedule_json || { days: ['Mon', 'Wed', 'Fri'], time: '' }
     });
     setModalVisible(true);
   };
@@ -133,8 +261,12 @@ export default function BatchManagementScreen() {
   };
 
   const saveBatch = async () => {
-    if (!formData.name.trim()) return Alert.alert('Error', 'Batch name is required');
-    if (!formData.course_id) return Alert.alert('Error', 'Course selection is required');
+    if (!formData.name.trim()) return Alert.alert('Validation Error', 'Batch name is required.');
+    if (!formData.course_id) return Alert.alert('Validation Error', 'Course selection is required.');
+    if (!formData.capacity || isNaN(parseInt(formData.capacity))) return Alert.alert('Validation Error', 'A valid capacity is required.');
+    if (!formData.schedule_json?.days || formData.schedule_json.days.length === 0) return Alert.alert('Validation Error', 'Please select at least one schedule day.');
+    if (!formData.schedule_json?.time?.trim()) return Alert.alert('Validation Error', 'Class time is required.');
+    if (!formData.room?.trim()) return Alert.alert('Validation Error', 'Room is required.');
 
     setSaving(true);
     try {
@@ -144,6 +276,7 @@ export default function BatchManagementScreen() {
         start_date: formData.start_date.toISOString(),
         end_date: formData.end_date.toISOString(),
         capacity: parseInt(formData.capacity, 10) || 25,
+        room: formData.room,
         instructor_ids: formData.instructor_ids,
         schedule_json: formData.schedule_json
       };
@@ -164,6 +297,33 @@ export default function BatchManagementScreen() {
       Alert.alert('Error', e.response?.data?.message || 'Failed to save batch');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState<{id: string, name: string} | null>(null);
+
+  const handleDeleteBatch = (id: string, batchName: string) => {
+    setBatchToDelete({ id, name: batchName });
+    setDeleteConfirmVisible(true);
+  };
+
+  const confirmDeleteBatch = async () => {
+    if (!batchToDelete) return;
+    try {
+      await api.delete(`/admin/batches/${batchToDelete.id}/delete`);
+      fetchData();
+      if (detailsModalVisible) {
+        setDetailsModalVisible(false);
+        setBatchDetails(null);
+      }
+      setDeleteConfirmVisible(false);
+      setBatchToDelete(null);
+      Alert.alert('Success', 'Batch and all related data deleted permanently.');
+    } catch (e: any) {
+      setDeleteConfirmVisible(false);
+      setBatchToDelete(null);
+      Alert.alert('Error', e.response?.data?.message || 'Failed to delete batch');
     }
   };
 
@@ -228,18 +388,40 @@ export default function BatchManagementScreen() {
             <Icon name="eye-outline" size={14} color="#4338CA" style={{ marginRight: 4 }} />
             <Text style={styles.viewDetailsText}>View Details & Students</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
-            <Icon name="pencil-outline" size={14} color="#374151" style={{ marginRight: 4 }} />
-            <Text style={styles.editBtnText}>Edit</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
+              <Icon name="pencil-outline" size={14} color="#1F2937" style={{ marginRight: 4 }} />
+              <Text style={styles.editBtnText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteCardBtn} onPress={() => handleDeleteBatch(item._id, item.name || item.course_id?.title || 'Batch')}>
+              <Icon name="trash-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+              <Text style={styles.deleteCardBtnText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     );
   };
 
-  const filteredBatches = filterCourseId
-    ? batches.filter(b => b.course_id?._id === filterCourseId || b.course_id === filterCourseId)
-    : batches;
+  const filteredBatches = (batches || []).filter(b => {
+    const matchesCourse = !filterCourseId || b.course_id?._id === filterCourseId || b.course_id === filterCourseId;
+    const term = (search || '').toLowerCase().trim();
+    const batchName = (b.name || '').toLowerCase();
+    const courseTitle = (b.course_id?.title || '').toLowerCase();
+    const room = (b.room || '').toLowerCase();
+    const matchesSearch =
+      !term ||
+      batchName.includes(term) ||
+      courseTitle.includes(term) ||
+      room.includes(term);
+
+    const isFull = (b.enrolled_count || 0) >= b.capacity;
+    let matchesStatus = true;
+    if (statusFilter === 'active') matchesStatus = !isFull;
+    if (statusFilter === 'full') matchesStatus = isFull;
+
+    return matchesCourse && matchesSearch && matchesStatus;
+  });
 
   const courseName = filterCourseId
     ? courses.find(c => c._id === filterCourseId)?.title || 'Selected Course'
@@ -247,60 +429,47 @@ export default function BatchManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Title & Subtitle */}
-      <View style={styles.topHeaderContainer}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <Text style={[styles.title, { flex: 1 }]}>Batches Management</Text>
-          {(filterCourseId || navigation.canGoBack()) && (
-            <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: '#F3F4F6',
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: '#E5E7EB',
-                marginLeft: 8,
-                cursor: 'pointer'
-              }}
-              onPress={() => {
-                navigation.setParams({ courseId: undefined });
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                } else {
-                  navigation.navigate('CoursesMain');
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <Icon name="arrow-back-outline" size={16} color="#111827" style={{ marginRight: 4 }} />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>Back to Courses</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        <Text style={styles.subtitle}>Manage vocational course batches, student rosters, and schedules.</Text>
-      </View>
+      <ScreenHeader
+        title="Batch Management"
+        subtitle="Manage vocational training batches"
+      />
 
-      {/* Filter Banner if active */}
-      {filterCourseId ? (
-        <View style={styles.filterBanner}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <Icon name="funnel-outline" size={16} color="#78350F" style={{ marginRight: 8 }} />
-            <Text style={styles.filterText} numberOfLines={1}>
-              Filtered by: <Text style={{ fontWeight: 'bold' }}>{courseName}</Text>
-            </Text>
+      {/* Full-width Search Bar with Smooth Animation */}
+      <Animated.View
+        style={{
+          maxHeight: headerAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 64],
+          }),
+          opacity: headerAnim,
+          transform: [
+            {
+              translateY: headerAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-12, 0],
+              }),
+            },
+          ],
+          overflow: 'hidden',
+        }}
+      >
+        <View style={styles.searchFilterRow}>
+          <View style={[styles.searchBox, { marginRight: 0 }]}>
+            <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search batch by name, course, or room..."
+              placeholderTextColor="#9CA3AF"
+              value={search}
+              onChangeText={setSearch}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+            />
           </View>
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
-            onPress={() => navigation.setParams({ courseId: null })}
-          >
-            <Text style={{ fontSize: 12, fontWeight: '600', color: '#78350F', marginRight: 4 }}>Clear Filter</Text>
-            <Icon name="close" size={14} color="#78350F" />
-          </TouchableOpacity>
         </View>
-      ) : null}
+      </Animated.View>
+        </View>
+      </Animated.View>
 
       {/* Batch List */}
       {loading ? (
@@ -312,17 +481,40 @@ export default function BatchManagementScreen() {
           keyExtractor={i => i._id}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           ListEmptyComponent={<Text style={styles.emptyText}>No batches found.</Text>}
-          initialNumToRender={8}
-          maxToRenderPerBatch={10}
-          windowSize={5}
-          removeClippedSubviews={Platform.OS !== 'web'}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         />
       )}
 
-      {/* FAB (+) */}
-      <TouchableOpacity style={styles.fab} onPress={openAddModal}>
-        <Icon name="add" size={30} color="#FFFFFF" />
-      </TouchableOpacity>
+      {/* Floating Create Batch Liquid FAB Button */}
+      <View style={styles.liquidFabContainer} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            styles.liquidWaveRing,
+            { transform: [{ scale: wave1Scale }], opacity: wave1Opacity }
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.liquidWaveRingSecond,
+            { transform: [{ scale: wave2Scale }], opacity: wave2Opacity }
+          ]}
+        />
+        <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
+          <TouchableOpacity
+            style={styles.liquidFabButton}
+            onPress={openAddModal}
+            onPressIn={handleFabPressIn}
+            onPressOut={handleFabPressOut}
+            activeOpacity={0.9}
+          >
+            <View style={styles.liquidGlassSheen} />
+            <View style={styles.liquidInnerCore}>
+              <Icon name="add" size={32} color="#FFFFFF" style={styles.liquidPlusIcon} />
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
 
       {/* ========================================================================= */}
       {/* COMPREHENSIVE BATCH DETAILS MODAL */}
@@ -471,10 +663,16 @@ export default function BatchManagementScreen() {
 
                 {/* Bottom Actions */}
                 <View style={styles.detailsFooter}>
-                  <TouchableOpacity style={styles.footerEditBtn} onPress={() => { setDetailsModalVisible(false); openEditModal(batchDetails.batch); }}>
-                    <Icon name="pencil" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.footerEditBtnText}>Edit Batch Config</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <TouchableOpacity style={[styles.footerEditBtn, { flex: 1 }]} onPress={() => { setDetailsModalVisible(false); openEditModal(batchDetails.batch); }}>
+                      <Icon name="pencil" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.footerEditBtnText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.footerEditBtn, { flex: 1, backgroundColor: '#7F1D1D' }]} onPress={() => handleDeleteBatch(batchDetails.batch._id, batchDetails.batch.name || batchDetails.batch.course_id?.title || 'Batch')}>
+                      <Icon name="trash" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.footerEditBtnText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             )}
@@ -578,6 +776,22 @@ export default function BatchManagementScreen() {
                 })}
               </View>
 
+              <Text style={styles.label}>Class Time</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 9:00 AM - 12:00 PM"
+                value={formData.schedule_json?.time || ''}
+                onChangeText={t => setFormData({ ...formData, schedule_json: { ...formData.schedule_json, time: t } })}
+              />
+
+              <Text style={styles.label}>Room</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Lab 2"
+                value={formData.room}
+                onChangeText={t => setFormData({ ...formData, room: t })}
+              />
+
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setModalVisible(false)}>
                   <Text style={styles.cancelModalText}>Cancel</Text>
@@ -587,6 +801,30 @@ export default function BatchManagementScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal visible={deleteConfirmVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+              <Icon name="warning" size={40} color="#DC2626" />
+            </View>
+            <Text style={[styles.modalTitle, { textAlign: 'center', color: '#991B1B' }]}>Permanently Delete?</Text>
+            <Text style={{ textAlign: 'center', marginTop: 12, fontSize: 14, color: '#374151', lineHeight: 20 }}>
+              This will <Text style={{ fontWeight: 'bold' }}>PERMANENTLY</Text> delete the batch <Text style={{ fontWeight: 'bold' }}>"{batchToDelete?.name}"</Text> and ALL related data including enrollments, results, videos, and practice slots.{'\n\n'}
+              This action CANNOT be undone. Are you absolutely sure?
+            </Text>
+            <View style={[styles.modalActions, { marginTop: 24 }]}>
+              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => { setDeleteConfirmVisible(false); setBatchToDelete(null); }}>
+                <Text style={styles.cancelModalText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.submitModalBtn, { backgroundColor: '#DC2626' }]} onPress={confirmDeleteBatch}>
+                <Text style={styles.submitModalText}>Delete Forever</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -614,6 +852,92 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
   },
+  searchFilterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 26,
+    paddingHorizontal: 14,
+    height: 40,
+    marginRight: 8,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+    }),
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13.5,
+    color: '#1F2937',
+  },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 24,
+    paddingHorizontal: 14,
+    height: 40,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+    }),
+  },
+  filterBtnActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  filterBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  filterOptionsPanel: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 8,
+  },
+  filterPanelTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 22,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  filterChipActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
   filterBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -623,7 +947,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
@@ -633,12 +957,15 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    elevation: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 14px rgba(0, 0, 0, 0.05)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }
+    }),
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -660,7 +987,7 @@ const styles = StyleSheet.create({
   },
   activeBadge: {
     backgroundColor: '#D1FAE5',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -671,7 +998,7 @@ const styles = StyleSheet.create({
   },
   fullBadge: {
     backgroundColor: '#FEE2E2',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -696,54 +1023,73 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   dayChip: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
     paddingVertical: 3,
   },
   dayChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#374151',
+    color: '#475569',
   },
   cardFooterActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#F9FAFB',
-    paddingTop: 10,
+    paddingTop: 12,
   },
   viewDetailsTextBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FFF7ED',
     borderWidth: 1,
-    borderColor: '#C7D2FE',
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    borderColor: '#FED7AA',
     borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
   viewDetailsText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4338CA',
+    fontSize: 12.5,
+    fontWeight: 'bold',
+    color: '#F58220',
   },
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 20,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    borderColor: '#CBD5E1',
+    borderRadius: 22,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
   editBtnText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#374151',
+  },
+  deleteCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#7F1D1D',
+    borderRadius: 22,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 8px rgba(127, 29, 29, 0.3)' },
+      default: { shadowColor: '#7F1D1D', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 }
+    }),
+  },
+  deleteCardBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   emptyText: {
     textAlign: 'center',
@@ -751,21 +1097,74 @@ const styles = StyleSheet.create({
     marginTop: 40,
     fontSize: 15,
   },
-  fab: {
+
+  /* LIQUID FAB STYLES */
+  liquidFabContainer: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#4F46E5',
+    bottom: 95,
+    right: 20,
+    width: 62,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 998,
+  },
+  liquidWaveRing: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 107, 0, 0.4)',
+  },
+  liquidWaveRingSecond: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
+  },
+  liquidFabButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF6B00',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 26px rgba(255, 107, 0, 0.55), inset 0px 2px 4px rgba(255, 255, 255, 0.4)' },
+      default: {
+        shadowColor: '#FF6B00',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.55,
+        shadowRadius: 12,
+        elevation: 10,
+      },
+    }),
+  },
+  liquidGlassSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '48%',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
+  liquidInnerCore: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  liquidPlusIcon: {
+    ...Platform.select({
+      web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
+    }),
+>>>>>>> 43ea893afe299292ae6f3475195da4e82ea04d64
   },
 
   /* DETAILS MODAL STYLES */
@@ -956,12 +1355,16 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
   },
   footerEditBtn: {
-    backgroundColor: '#000000',
-    borderRadius: 10,
+    backgroundColor: '#F58220',
+    borderRadius: 24,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 4 }
+    }),
   },
   footerEditBtnText: {
     color: '#FFFFFF',
@@ -1049,6 +1452,29 @@ const styles = StyleSheet.create({
   scheduleDayTextActive: {
     color: '#FFFFFF',
   },
+  actionButtonRow: {
+    paddingHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  addBatchBtn: {
+    backgroundColor: '#F58220',
+    borderRadius: 26,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 }
+    }),
+  },
+  addBatchBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -1058,19 +1484,24 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     marginRight: 8,
+    borderRadius: 24,
   },
   cancelModalText: {
     color: '#6B7280',
     fontWeight: '600',
   },
   submitModalBtn: {
-    backgroundColor: '#000000',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
+    backgroundColor: '#F58220',
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 4 }
+    }),
   },
   submitModalText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
 });

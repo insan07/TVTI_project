@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,24 @@ import {
   Alert,
   Modal,
   Switch,
-  ScrollView
+  ScrollView,
+  Platform,
+  Animated,
+  LayoutAnimation,
+  UIManager,
+  NativeSyntheticEvent,
+  NativeScrollEvent
 } from 'react-native';
 import api from '../../services/api';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
+
+import ScreenHeader from '../../components/shared/ScreenHeader';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 type Tab = 'all' | 'active' | 'archived';
 
@@ -30,7 +42,48 @@ export default function CourseManagementScreen() {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [showFilter, setShowFilter] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const headerAnim = useRef(new Animated.Value(1)).current;
+  const isHeaderVisibleRef = useRef(true);
+  const lastScrollY = useRef(0);
   const navigation = useNavigation<any>();
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isSearchFocused) return;
+    const currentY = event.nativeEvent.contentOffset.y;
+    const diff = currentY - lastScrollY.current;
+
+    if (currentY <= 15) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff > 8 && currentY > 35) {
+      if (isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = false;
+        Animated.timing(headerAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (diff < -8) {
+      if (!isHeaderVisibleRef.current) {
+        isHeaderVisibleRef.current = true;
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      }
+    }
+    lastScrollY.current = currentY;
+  };
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -44,6 +97,74 @@ export default function CourseManagementScreen() {
     is_active: true
   });
   const [saving, setSaving] = useState(false);
+
+  // Liquid FAB Animation State
+  const wave1Anim = React.useRef(new Animated.Value(0)).current;
+  const wave2Anim = React.useRef(new Animated.Value(0)).current;
+  const buttonScaleAnim = React.useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    wave1Anim.setValue(0);
+    wave2Anim.setValue(0);
+
+    const animation = Animated.loop(
+      Animated.parallel([
+        Animated.timing(wave1Anim, {
+          toValue: 1,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.delay(900),
+          Animated.timing(wave2Anim, {
+            toValue: 1,
+            duration: 2200,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+
+  const handleFabPressIn = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 0.9,
+      useNativeDriver: true,
+      friction: 5,
+      tension: 100,
+    }).start();
+  };
+
+  const handleFabPressOut = () => {
+    Animated.spring(buttonScaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 4,
+      tension: 80,
+    }).start();
+  };
+
+  const wave1Scale = wave1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.55],
+  });
+
+  const wave1Opacity = wave1Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.45, 0.25, 0],
+  });
+
+  const wave2Scale = wave2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.4],
+  });
+
+  const wave2Opacity = wave2Anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.35, 0.18, 0],
+  });
 
   useEffect(() => {
     fetchCourses();
@@ -184,45 +305,88 @@ export default function CourseManagementScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Title & Subtitle */}
-      <View style={styles.topHeaderContainer}>
-        <Text style={styles.title}>Courses</Text>
-        <Text style={styles.subtitle}>Manage vocational training modules and syllabi.</Text>
-      </View>
+      <ScreenHeader
+        title="Course Management"
+        subtitle="Create & manage vocational training courses"
+      />
 
-      {/* Search Input */}
-      <View style={styles.searchContainer}>
-        <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search courses..."
-          placeholderTextColor="#9CA3AF"
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
+      {/* Search Input & Filter Toggle Button with Smooth Animation */}
+      <Animated.View
+        style={{
+          maxHeight: headerAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, showFilter ? 120 : 64],
+          }),
+          opacity: headerAnim,
+          transform: [
+            {
+              translateY: headerAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-12, 0],
+              }),
+            },
+          ],
+          overflow: 'hidden',
+        }}
+      >
+        <View style={styles.searchFilterRow}>
+          <View style={styles.searchBox}>
+            <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search courses..."
+              placeholderTextColor="#9CA3AF"
+              value={search}
+              onChangeText={setSearch}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.filterBtn, showFilter && styles.filterBtnActive]}
+            onPress={() => setShowFilter(!showFilter)}
+            activeOpacity={0.8}
+          >
+            <Icon name="options-outline" size={18} color={showFilter ? '#FFFFFF' : '#374151'} style={{ marginRight: 6 }} />
+            <Text style={[styles.filterBtnText, showFilter && { color: '#FFFFFF' }]}>Filters</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Tabs Header */}
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'all' && styles.activeTabItem]}
-          onPress={() => setActiveTab('all')}
-        >
-          <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'active' && styles.activeTabItem]}
-          onPress={() => setActiveTab('active')}
-        >
-          <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>Active</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'archived' && styles.activeTabItem]}
-          onPress={() => setActiveTab('archived')}
-        >
-          <Text style={[styles.tabText, activeTab === 'archived' && styles.activeTabText]}>Archived</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Filter Options Panel for All / Active / Archived */}
+        {showFilter && (
+          <View style={styles.filterOptionsPanel}>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <TouchableOpacity
+                style={[styles.filterChip, activeTab === 'all' && styles.filterChipActive]}
+                onPress={() => setActiveTab('all')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.filterChipText, activeTab === 'all' && styles.filterChipTextActive]}>
+                  All ({courses.length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterChip, activeTab === 'active' && styles.filterChipActive]}
+                onPress={() => setActiveTab('active')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.filterChipText, activeTab === 'active' && styles.filterChipTextActive]}>
+                  Active ({courses.filter(c => c.is_active).length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterChip, activeTab === 'archived' && styles.filterChipActive]}
+                onPress={() => setActiveTab('archived')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.filterChipText, activeTab === 'archived' && styles.filterChipTextActive]}>
+                  Archived ({courses.filter(c => !c.is_active).length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </Animated.View>
 
       {/* Course List */}
       {loading ? (
@@ -232,15 +396,42 @@ export default function CourseManagementScreen() {
           data={filteredCourses}
           keyExtractor={item => item._id}
           renderItem={renderCourseCard}
-          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }}
           ListEmptyComponent={<Text style={styles.emptyText}>No courses found.</Text>}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         />
       )}
 
-      {/* Floating Action Button (+) */}
-      <TouchableOpacity style={styles.fab} onPress={openAddModal}>
-        <Icon name="add" size={30} color="#FFFFFF" />
-      </TouchableOpacity>
+      {/* Floating Create Course Liquid FAB Button */}
+      <View style={styles.liquidFabContainer} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            styles.liquidWaveRing,
+            { transform: [{ scale: wave1Scale }], opacity: wave1Opacity }
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.liquidWaveRingSecond,
+            { transform: [{ scale: wave2Scale }], opacity: wave2Opacity }
+          ]}
+        />
+        <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
+          <TouchableOpacity
+            style={styles.liquidFabButton}
+            onPress={openAddModal}
+            onPressIn={handleFabPressIn}
+            onPressOut={handleFabPressOut}
+            activeOpacity={0.9}
+          >
+            <View style={styles.liquidGlassSheen} />
+            <View style={styles.liquidInnerCore}>
+              <Icon name="add" size={32} color="#FFFFFF" style={styles.liquidPlusIcon} />
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
 
       {/* Add / Edit Course Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
@@ -343,55 +534,135 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
   },
-  searchContainer: {
+  actionButtonRow: {
+    paddingHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  addCourseBtn: {
+    backgroundColor: '#F58220',
+    borderRadius: 26,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 }
+    }),
+  },
+  addCourseBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  searchFilterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  searchBox: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    marginHorizontal: 16,
-    paddingHorizontal: 12,
-    height: 44,
-    marginBottom: 14,
+    borderColor: '#E2E8F0',
+    borderRadius: 26,
+    paddingHorizontal: 14,
+    height: 40,
+    marginRight: 8,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+    }),
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#1F2937',
   },
-  tabsContainer: {
+  filterBtn: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 24,
+    paddingHorizontal: 14,
+    height: 40,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+    }),
   },
-  tabItem: {
-    paddingVertical: 12,
+  filterBtnActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  filterBtnText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  filterOptionsPanel: {
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 4,
   },
-  activeTabItem: {
-    borderBottomColor: '#D97706',
+  filterPanelTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  tabText: {
-    fontSize: 15,
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  filterChipActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  filterChipText: {
+    fontSize: 12,
     fontWeight: '600',
     color: '#4B5563',
   },
-  activeTabText: {
-    color: '#D97706',
+  filterChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  segmentedTabText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  segmentedTabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    padding: 16,
-    marginBottom: 14,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    elevation: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 14px rgba(0, 0, 0, 0.05)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }
+    }),
   },
   cardHeader: {
     flexDirection: 'row',
@@ -407,9 +678,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   statusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 14,
   },
   activeBadge: {
     backgroundColor: '#DCFCE7',
@@ -454,10 +725,10 @@ const styles = StyleSheet.create({
   },
   editOutlineBtn: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 20,
-    paddingVertical: 8,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 22,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     marginRight: 8,
     justifyContent: 'center',
@@ -465,44 +736,108 @@ const styles = StyleSheet.create({
   },
   viewBatchesBtn: {
     flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#4F46E5',
-    borderRadius: 20,
-    paddingVertical: 9,
+    backgroundColor: '#0F172A',
+    borderRadius: 22,
+    paddingVertical: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(15, 23, 42, 0.2)' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 3 }
+    }),
   },
   viewBatchesText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: '#FFFFFF',
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 100,
     right: 20,
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#F58220',
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#4F46E5',
-    shadowOpacity: 0.35,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 14px rgba(0, 0, 0, 0.16)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.16, shadowRadius: 6, elevation: 6 }
+    }),
   },
   emptyText: {
     textAlign: 'center',
     color: '#9CA3AF',
     marginTop: 40,
     fontSize: 15,
+  },
+
+  /* LIQUID FAB STYLES */
+  liquidFabContainer: {
+    position: 'absolute',
+    bottom: 95,
+    right: 20,
+    width: 62,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 998,
+  },
+  liquidWaveRing: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 107, 0, 0.4)',
+  },
+  liquidWaveRingSecond: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
+  },
+  liquidFabButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 26px rgba(255, 107, 0, 0.55), inset 0px 2px 4px rgba(255, 255, 255, 0.4)' },
+      default: {
+        shadowColor: '#FF6B00',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.55,
+        shadowRadius: 12,
+        elevation: 10,
+      },
+    }),
+  },
+  liquidGlassSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '48%',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
+  liquidInnerCore: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  liquidPlusIcon: {
+    ...Platform.select({
+      web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
+    }),
   },
   modalOverlay: {
     flex: 1,
@@ -534,7 +869,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
     borderColor: '#D1D5DB',
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
@@ -565,19 +900,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 18,
     marginRight: 8,
+    borderRadius: 24,
   },
   cancelModalText: {
     color: '#6B7280',
     fontWeight: '600',
   },
   submitModalBtn: {
-    backgroundColor: '#F97316',
-    borderRadius: 8,
+    backgroundColor: '#F58220',
+    borderRadius: 24,
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 4 }
+    }),
   },
   submitModalText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
 });

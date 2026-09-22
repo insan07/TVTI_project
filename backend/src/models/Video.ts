@@ -9,6 +9,7 @@ export interface IVideo extends Document {
   notes_url?: string;
   file_id?: string;
   notes_file_id?: string;
+  thumbnail?: string;
   content_type: 'video' | 'material';
   order_index: number;
 }
@@ -23,6 +24,7 @@ const videoSchema = new Schema<IVideo>(
     notes_url: { type: String },
     file_id: { type: String },
     notes_file_id: { type: String },
+    thumbnail: { type: String },
     content_type: { type: String, enum: ['video', 'material'], default: 'video' },
     order_index: { type: Number, default: 0 },
   },

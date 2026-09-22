@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Activity
 import api from '../../services/api';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 import { Ionicons as Icon } from '@expo/vector-icons';
 
@@ -72,38 +73,11 @@ export default function EnrollStudentScreen() {
     <SafeAreaView style={{flex: 1, backgroundColor: '#F3F4F6'}} edges={['top']}>
       <KeyboardAvoidingView style={{flex: 1}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <Text style={[styles.title, { flex: 1 }]}>Enroll Students</Text>
-          {navigation.canGoBack() && (
-            <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: '#FFFFFF',
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 6,
-                borderWidth: 1,
-                borderColor: '#E5E7EB',
-                marginLeft: 8
-              }}
-              onPress={() => {
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                } else {
-                  navigation.navigate('Batches');
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <Icon name="arrow-back-outline" size={16} color="#1F2937" style={{ marginRight: 4 }} />
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#1F2937' }}>Back</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        <Text style={styles.stats}>Capacity: {enrolledStudents.length} / {capacity}</Text>
-      </View>
+          <ScreenHeader
+            title="Enroll Students"
+            subtitle={`Capacity: ${enrolledStudents.length} / ${capacity} Enrolled`}
+            showBack={true}
+          />
 
       <TextInput style={styles.search} placeholder="Search available students..." value={search} onChangeText={setSearch} />
 

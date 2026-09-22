@@ -31,7 +31,6 @@ import StudentScheduleScreen from '../screens/Student/StudentScheduleScreen';
 import NotificationsScreen from '../screens/Shared/NotificationsScreen';
 import PostAnnouncementScreen from '../screens/Instructor/PostAnnouncementScreen';
 import ResultsScreen from '../screens/Student/ResultsScreen';
-import ManageResultsScreen from '../screens/Admin/ManageResultsScreen';
 import MyStudentsScreen from '../screens/Instructor/MyStudentsScreen';
 import ForceChangePasswordScreen from '../screens/Auth/ForceChangePasswordScreen';
 import AdminSlotManagementScreen from '../screens/Admin/AdminSlotManagementScreen';
@@ -42,14 +41,18 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const getCommonTabOptions = (insets: any) => ({
-  tabBarStyle: { 
-    backgroundColor: COLORS.tabBar, 
+  tabBarStyle: {
+    backgroundColor: COLORS.tabBar,
     borderTopWidth: 0,
     minHeight: 60 + (Platform.OS === 'ios' ? insets.bottom : 0),
     paddingBottom: Platform.OS === 'ios' ? insets.bottom : 10,
     paddingTop: 6,
     boxShadow: '0px -4px 12px rgba(0, 0, 0, 0.08)',
     elevation: 8,
+  },
+  tabBarItemStyle: {
+    maxWidth: 150,
+    marginHorizontal: 'auto',
   },
   tabBarActiveTintColor: COLORS.tabBarActive,
   tabBarInactiveTintColor: COLORS.tabBarInactive,
@@ -66,76 +69,76 @@ const AdminCoursesStack = () => (
 
 
 
-const StudentTabs = ({ unreadCount, insets }: { unreadCount: number, insets: any }) => (
-  <Tab.Navigator screenOptions={({ route }) => ({
-    ...getCommonTabOptions(insets),
-    tabBarIcon: ({ color, size }) => {
-      let iconName: any = 'home';
-      if (route.name === 'Home') iconName = 'home';
-      else if (route.name === 'Videos') iconName = 'folder-open';
-      else if (route.name === 'Schedule') iconName = 'calendar';
-      else if (route.name === 'Profile') iconName = 'person';
-      return <Icon name={iconName} size={size} color={color} />;
-    },
-  })}>
-    <Tab.Screen name="Home">
-      {props => <HomeScreen {...props} unreadCount={unreadCount} />}
+import { CustomFloatingTabBar } from '../components/navigation/CustomFloatingTabBar';
+
+const StudentTabs = ({ unreadCount }: { unreadCount: number; insets: any }) => (
+  <Tab.Navigator
+    tabBar={(props) => <CustomFloatingTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
+    backBehavior="history"
+  >
+    <Tab.Screen name="Home" options={{ tabBarLabel: 'Home' }}>
+      {(props) => <HomeScreen {...props} unreadCount={unreadCount} />}
     </Tab.Screen>
     <Tab.Screen name="Videos" options={{ tabBarLabel: 'Uploads' }}>
-      {props => <VideosScreen {...props} unreadCount={unreadCount} />}
+      {(props) => <VideosScreen {...props} unreadCount={unreadCount} />}
     </Tab.Screen>
-    <Tab.Screen name="Schedule">
-      {props => <StudentScheduleScreen {...props} unreadCount={unreadCount} />}
+    <Tab.Screen name="Schedule" options={{ tabBarLabel: 'Schedule' }}>
+      {(props) => <StudentScheduleScreen {...props} unreadCount={unreadCount} />}
     </Tab.Screen>
-    <Tab.Screen name="Profile" component={ProfileScreen} />
+    <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
 );
 
 const InstructorTabs = ({ insets }: { insets: any }) => (
-  <Tab.Navigator screenOptions={({ route }) => ({
-    ...getCommonTabOptions(insets),
-    tabBarIcon: ({ color, size }) => {
-      let iconName: any = 'home';
-      const isActive = color === COLORS.tabBarActive;
-      if (route.name === 'Home') {
-        iconName = isActive ? 'home' : 'home-outline';
-      } else if (route.name === 'Uploads') {
-        iconName = isActive ? 'cloud-upload' : 'cloud-upload-outline';
-      } else if (route.name === 'Practice') {
-        iconName = isActive ? 'calendar' : 'calendar-outline';
-      } else if (route.name === 'Profile') {
-        iconName = isActive ? 'person' : 'person-outline';
-      }
-      return <Icon name={iconName} size={size} color={color} />;
-    },
-  })}>
-    <Tab.Screen name="Home" component={InstructorHomeScreen} />
-    <Tab.Screen name="Uploads" component={UploadVideoScreen} options={{ tabBarLabel: 'Uploads' }} />
-    <Tab.Screen name="Practice" component={InstructorPracticeScreen} options={{ tabBarLabel: 'Schedule' }} />
-    <Tab.Screen name="Profile" component={ProfileScreen} />
+  <Tab.Navigator
+    tabBar={(props) => <CustomFloatingTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
+    backBehavior="history"
+  >
+    <Tab.Screen name="Home" component={InstructorHomeScreen} options={{ tabBarLabel: 'Home' }} />
+    <Tab.Screen
+      name="Uploads"
+      component={UploadVideoScreen}
+      options={{
+        tabBarLabel: 'Uploads',
+      }}
+    />
+    <Tab.Screen
+      name="Practice"
+      component={InstructorPracticeScreen}
+      options={{
+        tabBarLabel: 'Schedule',
+      }}
+    />
+    <Tab.Screen
+      name="PostAnnouncement"
+      component={PostAnnouncementScreen}
+      options={{
+        tabBarLabel: 'Notices',
+      }}
+    />
+    <Tab.Screen
+      name="Profile"
+      component={ProfileScreen}
+      options={{
+        tabBarLabel: 'Profile',
+      }}
+    />
   </Tab.Navigator>
 );
 
 const AdminTabs = ({ insets }: { insets: any }) => (
-  <Tab.Navigator screenOptions={({ route }) => ({
-    ...getCommonTabOptions(insets),
-    tabBarIcon: ({ color, size }) => {
-      let iconName: any = 'grid';
-      if (route.name === 'Home') iconName = 'grid';
-      else if (route.name === 'Users') iconName = 'people';
-      else if (route.name === 'Courses') iconName = 'book';
-      else if (route.name === 'Practice') iconName = 'calendar';
-      else if (route.name === 'Results') iconName = 'bar-chart';
-      else if (route.name === 'Profile') iconName = 'person';
-      return <Icon name={iconName} size={size} color={color} />;
-    },
-  })}>
+  <Tab.Navigator
+    tabBar={(props) => <CustomFloatingTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
+    backBehavior="history"
+  >
     <Tab.Screen name="Home" component={AdminDashboardScreen} options={{ tabBarLabel: 'Dashboard' }} />
-    <Tab.Screen name="Users" component={UserManagementScreen} options={{ tabBarLabel: 'Admissions' }} />
-    <Tab.Screen name="Courses" component={AdminCoursesStack} />
+    <Tab.Screen name="Users" component={UserManagementScreen} options={{ tabBarLabel: 'Users' }} />
+    <Tab.Screen name="Courses" component={AdminCoursesStack} options={{ tabBarLabel: 'Courses' }} />
     <Tab.Screen name="Practice" component={AdminSlotManagementScreen} options={{ tabBarLabel: 'Slots' }} />
-    <Tab.Screen name="Results" component={ManageResultsScreen} />
-    <Tab.Screen name="Profile" component={ProfileScreen} />
+    <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
 );
 
@@ -164,7 +167,7 @@ export const AppNavigator = () => {
         try {
           const res = await api.get('/notifications/unread-count');
           setUnreadCount(res.data.unread_count);
-        } catch (e) {}
+        } catch (e) { }
       };
       fetchUnread(); // Initial fetch
       interval = setInterval(fetchUnread, 10000); // Poll every 10s
@@ -197,12 +200,19 @@ export const AppNavigator = () => {
   const normalizedRole = userRole
     ? String(userRole).toLowerCase()
     : context?.user?.role
-    ? String(context.user.role).toLowerCase()
-    : 'student';
+      ? String(context.user.role).toLowerCase()
+      : 'student';
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator 
+        screenOptions={{ 
+          headerShown: false,
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+          animation: 'slide_from_right'
+        }}
+      >
         {userToken == null ? (
           <Stack.Screen
             name="Auth"
@@ -220,17 +230,18 @@ export const AppNavigator = () => {
                 <Stack.Screen name="InstructorApp">
                   {props => <InstructorTabs {...props} insets={insets} />}
                 </Stack.Screen>
-                <Stack.Screen name="PostAnnouncement" component={PostAnnouncementScreen} options={{ ...headerOptions, headerShown: true, title: 'New Announcement' }} />
-                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
-                <Stack.Screen name="MyStudents" component={MyStudentsScreen} options={{ ...headerOptions, headerShown: true, title: 'My Students' }} />
+                <Stack.Screen name="MyStudents" component={MyStudentsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>
             ) : normalizedRole === 'admin' ? (
               <>
                 <Stack.Screen name="AdminApp">
                   {props => <AdminTabs {...props} insets={insets} />}
                 </Stack.Screen>
-                <Stack.Screen name="EnrollStudent" component={EnrollStudentScreen} options={{ ...headerOptions, headerShown: true, title: 'Enroll Students' }} />
-                <Stack.Screen name="PostAnnouncement" component={PostAnnouncementScreen} options={{ ...headerOptions, headerShown: true, title: 'New Announcement' }} />
+                <Stack.Screen name="EnrollStudent" component={EnrollStudentScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="PostAnnouncement" component={PostAnnouncementScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>
             ) : (
               <>
@@ -238,8 +249,9 @@ export const AppNavigator = () => {
                   {props => <StudentTabs {...props} unreadCount={unreadCount} insets={insets} />}
                 </Stack.Screen>
                 <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ ...headerOptions, headerShown: true, title: 'Notifications' }} />
+                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Results" component={ResultsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>
             )}
           </>

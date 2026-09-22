@@ -1,4 +1,3 @@
-import http from 'http';
 import express, { Application, Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -6,14 +5,17 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
-import dns from 'dns';
 import multer from 'multer';
+import dns from 'dns';
 
-// Force Google DNS servers to resolve MongoDB Atlas queryTxt/SRV lookups reliably
-dns.setServers(['8.8.8.8', '8.8.4.4']);
+// Force Google DNS for local dev (MongoDB Atlas SRV lookups fail with some ISP DNS).
+// Skipped on Vercel (production) where dns.setServers is not allowed.
+if (process.env.NODE_ENV !== 'production') {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+}
 
-// Import Socket initialization
-import { initSocket } from './services/notificationService';
+// Note: Socket.io is not supported on Vercel serverless.
+// Notifications are saved to DB; real-time push relies on client polling.
 
 // Import Routes
 import authRoutes from './routes/auth';
@@ -35,20 +37,17 @@ dotenv.config();
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
-// Create HTTP server
-const server = http.createServer(app);
-
-// Initialize Socket.io
-initSocket(server);
-
 import path from 'path';
+
+import { corsOptions } from './config/cors';
 
 // Middleware
 app.use(helmet({ crossOriginResourcePolicy: false }));
-app.use(cors());
+// CORS Configuration with full support for official domains, Vercel deployments, and dev servers
+app.use(cors(corsOptions));
 app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ limit: '5mb', extended: true }));
 app.use('/uploads', (req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -88,12 +87,15 @@ const apiLimiter = rateLimit({
 });
 app.use('/api', apiLimiter);
 
-// Database Connection
+// Database Connection — lazy connect for Vercel serverless
 let isConnected = false;
 const connectDB = async () => {
   if (isConnected) return;
   try {
-    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/twintec_lms';
+    const mongoURI = process.env.MONGO_URI;
+    if (!mongoURI) {
+      throw new Error('CRITICAL ERROR: MONGO_URI is not defined. Please set MONGO_URI in environment variables.');
+    }
     await mongoose.connect(mongoURI);
     isConnected = true;
     console.log('MongoDB Connected successfully.');
@@ -115,8 +117,19 @@ const connectDB = async () => {
     }
   } catch (err: any) {
     console.error('MongoDB connection error:', err.message);
+    throw err; // Let the request fail visibly instead of silently proceeding
   }
 };
+
+// Middleware: ensure DB is connected before handling any request (critical for serverless)
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(503).json({ success: false, message: 'Database connection failed' });
+  }
+});
 
 // Use Routes
 app.get('/', (req: Request, res: Response) => {
@@ -137,6 +150,22 @@ app.use('/api/announcements', announcementRoutes);
 // Global Error Handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
+
+  if (err.message && err.message.toLowerCase().includes('cors')) {
+    res.status(403).json({
+      success: false,
+      message: err.message,
+    });
+    return;
+  }
+
+  if ((err as any).type === 'entity.too.large' || (err as any).status === 413) {
+    res.status(413).json({
+      success: false,
+      message: 'Request entity too large. The uploaded image or file data exceeds size limits.',
+    });
+    return;
+  }
 
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
@@ -160,13 +189,14 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Connect Database
-connectDB();
-
+// Start server for local development only (Vercel uses the default export directly)
 if (process.env.NODE_ENV !== 'production') {
-  server.listen(PORT, () => {
-    console.log(`Server & Socket.io running on port ${PORT}`);
+  connectDB().then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
   });
 }
 
 export default app;
+

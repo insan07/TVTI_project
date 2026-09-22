@@ -15,10 +15,28 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
     }
 
     let stats = {};
+    let enrolled_courses: any[] = [];
 
     if (user.role === 'student') {
-      const enrollments = await Enrollment.countDocuments({ student_id: user._id, status: 'active' });
-      stats = { enrolled_batches_count: enrollments };
+      const enrollments = await Enrollment.find({ student_id: user._id, status: 'active' })
+        .populate({
+          path: 'batch_id',
+          select: 'name start_date end_date schedule_json course_id',
+          populate: { path: 'course_id', select: 'title code fee duration_weeks' }
+        })
+        .lean();
+
+      stats = { enrolled_batches_count: enrollments.length };
+      enrolled_courses = enrollments.map((e: any) => {
+        const course = e.batch_id?.course_id || {};
+        return {
+          _id: course._id || e._id,
+          title: course.title || e.batch_id?.name || 'Enrolled Course',
+          code: course.code || 'TVTI',
+          course_fee: course.fee || 0,
+          batch_name: e.batch_id?.name
+        };
+      });
     } else if (user.role === 'instructor') {
       const assigned_batches = await Batch.countDocuments({ instructor_ids: user._id });
       stats = { assigned_batches_count: assigned_batches };
@@ -27,7 +45,7 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       stats = { total_users_count: total_users };
     }
 
-    res.json({ ...user.toObject(), stats });
+    res.json({ ...user.toObject(), stats, enrolled_courses });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -45,7 +63,6 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
     user.phone = req.body.phone || user.phone;
 
     if (req.file) {
-      // Upload to Cloudinary using buffer
       const base64Data = req.file.buffer.toString('base64');
       const fileUri = `data:${req.file.mimetype};base64,${base64Data}`;
       const uploadResponse = await cloudinary.uploader.upload(fileUri, {
