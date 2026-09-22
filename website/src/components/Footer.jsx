@@ -19,7 +19,7 @@ export default function Footer() {
     { name: 'Video Gallery', path: '/gallery/videos' },
     { name: 'Photo Gallery', path: '/gallery/photos' },
     { name: 'Certificate Verification', path: '/verify' },
-    { name: 'Online Application', path: '/inquiry' },
+    { name: 'Online Application', path: 'https://lms.twintec.edu.lk', isExternal: true },
     { name: 'Contact Us', path: '/contact' },
   ]
 
@@ -78,12 +78,23 @@ export default function Footer() {
             <ul className="space-y-2">
               {usefulLinks.map((link, idx) => (
                 <li key={idx}>
-                  <Link
-                    to={link.path}
-                    className="text-brand-light/75 text-sm hover:text-brand-orange hover:underline transition-colors duration-200"
-                  >
-                    {link.name}
-                  </Link>
+                  {link.isExternal ? (
+                    <a
+                      href={link.path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-brand-light/75 text-sm hover:text-brand-orange hover:underline transition-colors duration-200"
+                    >
+                      {link.name}
+                    </a>
+                  ) : (
+                    <Link
+                      to={link.path}
+                      className="text-brand-light/75 text-sm hover:text-brand-orange hover:underline transition-colors duration-200"
+                    >
+                      {link.name}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
@@ -112,7 +123,7 @@ export default function Footer() {
                 <svg className="h-5 w-5 text-brand-orange flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                <span>info@tvti.edu.lk</span>
+                <a href="mailto:twintec.official@gmail.com" className="hover:text-brand-orange transition-colors">twintec.official@gmail.com</a>
               </li>
               <li className="flex items-start space-x-2.5 pt-1 border-t border-brand-charcoal/50">
                 <svg className="h-5 w-5 text-brand-orange mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">

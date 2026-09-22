@@ -342,7 +342,7 @@ export default function Verify() {
               <ul className="list-disc pl-4 space-y-1 text-brand-charcoal/80">
                 <li>Double check that the Index Number (e.g. <strong>26T0001</strong>) or NIC number matches the student's official documents.</li>
                 <li>If the student recently applied, their registration may be pending TVTI Admin review.</li>
-                <li>For support or manual verifications, contact <strong>info@tvti.edu.lk</strong> or call <strong>076 538 0715 / 078 538 0715</strong>.</li>
+                <li>For support or manual verifications, contact <strong>twintec.official@gmail.com</strong> or call <strong>076 538 0715 / 078 538 0715</strong>.</li>
               </ul>
             </div>
 

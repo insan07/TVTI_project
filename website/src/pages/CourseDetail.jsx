@@ -335,11 +335,11 @@ export default function CourseDetail() {
               </div>
 
               <div className="pt-2">
-                <Link to={`/inquiry?course=${course.slug}`}>
+                <a href="https://lms.twintec.edu.lk" target="_blank" rel="noopener noreferrer">
                   <button className="w-full bg-brand-orange text-brand-white font-heading font-extrabold text-sm uppercase py-4 rounded-lg hover:bg-brand-black hover:text-brand-white transition-all duration-300 min-h-[48px] shadow-sm hover:shadow-md flex items-center justify-center">
                     Apply Now
                   </button>
-                </Link>
+                </a>
               </div>
             </Card>
           </div>
