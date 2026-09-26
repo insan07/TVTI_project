@@ -24,7 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../services/api';
 import ScreenHeader from '../../components/shared/ScreenHeader';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 

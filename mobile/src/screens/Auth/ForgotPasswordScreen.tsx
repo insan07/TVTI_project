@@ -58,7 +58,16 @@ export default function ForgotPasswordScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => {
+              if (navigation?.canGoBack && navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('Login');
+              }
+            }}
+            style={styles.backButton}
+          >
             <Icon name="arrow-back" size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
         </View>

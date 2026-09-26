@@ -16,7 +16,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     }),
   },
   liquidGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 22,
   },
   liquidGlossSheen: {

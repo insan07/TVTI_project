@@ -31,7 +31,20 @@ function StatCounter({ end, suffix = '', label, showDivider = true }) {
   )
 }
 
+import { useSiteSettings } from '../context/SiteSettingsContext'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const getImageUrl = (url, fallback) => {
+  if (!url) return fallback;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 export default function Home() {
+  const { settings } = useSiteSettings()
   // Set page meta tags
   useEffect(() => {
     document.title = 'Home | Twintec Vocational Training Institute Puttalam'
@@ -43,6 +56,62 @@ export default function Home() {
       )
     }
   }, [])
+
+  // Dynamic news items state fetched from backend
+  const [newsList, setNewsList] = useState([
+    {
+      title: '2026 Enrollment Has Started',
+      day: '23',
+      month: 'DEC',
+      category: 'ADMISSIONS',
+      image: slideCert3,
+      summary: '2026 Enrollment has started, for more information please call 076 538 0715 / 078 538 0715.'
+    },
+    {
+      title: 'Certificate Awarding Ceremony 2025',
+      day: '15',
+      month: 'JAN',
+      category: 'GRADUATION',
+      image: slideCert1,
+      summary: 'TVTI Puttalam awarded practical certificates to technical graduates working nationwide.'
+    },
+    {
+      title: 'Advanced Lab Equipment Installed',
+      day: '10',
+      month: 'FEB',
+      category: 'FACILITIES',
+      image: courseLaptop,
+      summary: 'New micro-soldering stations, digital oscilloscopes, and BGA reballing kits installed.'
+    }
+  ])
+
+  useEffect(() => {
+    const fetchPublicNews = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/news`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const formatted = data.map((item) => {
+              const d = new Date(item.createdAt || Date.now());
+              return {
+                title: item.title,
+                day: String(d.getDate()).padStart(2, '0'),
+                month: d.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
+                category: item.category || 'NEWS',
+                image: getImageUrl(item.image_url, slideCert1),
+                summary: item.summary || item.content || item.message,
+              };
+            });
+            setNewsList(formatted);
+          }
+        }
+      } catch (err) {
+        console.log('Failed to fetch public news:', err);
+      }
+    };
+    fetchPublicNews();
+  }, []);
 
   // HERO SLIDER STATE
   const [currentSlide, setCurrentSlide] = useState(0)
@@ -292,39 +361,41 @@ export default function Home() {
         ))}
 
         {/* FLOATING ANNOUNCEMENT GLASS PILL (Orange Glowing Outline & Dynamic Pulsing Alert Beacon) */}
-        <div className="absolute top-2.5 sm:top-3.5 left-0 right-0 z-30 px-4 pointer-events-none">
-          <div className="max-w-4xl mx-auto bg-slate-950/85 backdrop-blur-md text-slate-300 text-xs py-1.5 px-4 sm:px-6 rounded-full border border-brand-orange/60 shadow-[0_0_16px_rgba(242,112,28,0.4)] hover:shadow-[0_0_24px_rgba(242,112,28,0.6)] transition-all duration-300 flex items-center justify-between pointer-events-auto overflow-hidden">
-            <div className="flex items-center space-x-3 overflow-hidden w-full sm:w-auto">
-              {/* Dynamic Live Pulsing Alert Badge */}
-              <div className="flex-shrink-0 flex items-center space-x-1.5 bg-brand-orange/20 text-orange-400 border border-brand-orange/50 font-heading font-bold text-[9px] tracking-wider px-2.5 py-0.5 rounded-full backdrop-blur-xs">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-orange"></span>
-                </span>
-                <span>New Batch 2026</span>
-              </div>
-              <div className="overflow-hidden whitespace-nowrap w-full">
-                <div className="inline-flex space-x-6 animate-text-marquee">
-                  <p className="font-sans font-medium text-slate-100 text-xs flex-shrink-0">
-                    Admissions open for Mobile Repair, CCTV, and Domestic Wiring courses. Speak with an admissions advisor today! &bull;
-                  </p>
-                  <p className="font-sans font-medium text-slate-100 text-xs flex-shrink-0">
-                    Admissions open for Mobile Repair, CCTV, and Domestic Wiring courses. Speak with an admissions advisor today! &bull;
-                  </p>
+        {settings?.show_announcement && (
+          <div className="absolute top-2.5 sm:top-3.5 left-0 right-0 z-30 px-4 pointer-events-none">
+            <div className="max-w-4xl mx-auto bg-slate-950/85 backdrop-blur-md text-slate-300 text-xs py-1.5 px-4 sm:px-6 rounded-full border border-brand-orange/60 shadow-[0_0_16px_rgba(242,112,28,0.4)] hover:shadow-[0_0_24px_rgba(242,112,28,0.6)] transition-all duration-300 flex items-center justify-between pointer-events-auto overflow-hidden">
+              <div className="flex items-center space-x-3 overflow-hidden w-full sm:w-auto">
+                {/* Dynamic Live Pulsing Alert Badge */}
+                <div className="flex-shrink-0 flex items-center space-x-1.5 bg-brand-orange/20 text-orange-400 border border-brand-orange/50 font-heading font-bold text-[9px] tracking-wider px-2.5 py-0.5 rounded-full backdrop-blur-xs">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-orange"></span>
+                  </span>
+                  <span>NOTICE</span>
+                </div>
+                <div className="overflow-hidden whitespace-nowrap w-full">
+                  <div className="inline-flex space-x-6 animate-text-marquee">
+                    <p className="font-sans font-medium text-slate-100 text-xs flex-shrink-0">
+                      {settings?.announcement_banner} &bull;
+                    </p>
+                    <p className="font-sans font-medium text-slate-100 text-xs flex-shrink-0">
+                      {settings?.announcement_banner} &bull;
+                    </p>
+                  </div>
                 </div>
               </div>
+              <Link
+                to="/inquiry"
+                className="hidden sm:inline-flex items-center space-x-1 font-heading font-bold text-xs text-orange-400 hover:text-white transition-colors duration-200 flex-shrink-0 ml-4 cursor-pointer"
+              >
+                <span>Register Online</span>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </Link>
             </div>
-            <Link
-              to="/inquiry"
-              className="hidden sm:inline-flex items-center space-x-1 font-heading font-bold text-xs text-orange-400 hover:text-white transition-colors duration-200 flex-shrink-0 ml-4 cursor-pointer"
-            >
-              <span>Register Online</span>
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            </Link>
           </div>
-        </div>
+        )}
 
         {/* Hero Text Overlay (Shifted lower with generous top breathing room) */}
         <div className="absolute inset-0 z-20 flex items-center justify-center pt-16 sm:pt-20 pb-8 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 pointer-events-none text-center">
@@ -570,7 +641,7 @@ export default function Home() {
           ref={newsScrollRef}
           className="flex space-x-6 overflow-x-auto pb-4 scrollbar-none snap-x snap-mandatory scroll-smooth"
         >
-          {newsItems.map((news, idx) => (
+          {newsList.map((news, idx) => (
             <div
               key={idx}
               className="news-card-item flex-none w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] snap-start bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden group flex flex-col justify-between"

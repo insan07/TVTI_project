@@ -34,6 +34,13 @@ export interface SendPasswordResetEmailOptions {
   resetLink: string;
 }
 
+export interface SendCertificateVerificationOtpMailOptions {
+  to: string;
+  studentName: string;
+  indexNumber: string;
+  otp: string;
+}
+
 /**
  * Creates and returns a Nodemailer Transporter based on environment variables.
  */
@@ -964,4 +971,99 @@ export const sendRawEmail = async (to: string, subject: string, body: string) =>
   }
   return { success: true, simulated: true };
 };
+
+/**
+ * Sends a 6-digit OTP verification email for Certificate Verification.
+ */
+export const sendCertificateVerificationOtpEmail = async ({
+  to,
+  studentName,
+  indexNumber,
+  otp,
+}: SendCertificateVerificationOtpMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = DEFAULT_FROM_ADDRESS;
+  const transporter = getTransporter();
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>TVTI Certificate Verification Code</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
+        .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+        .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 4px solid #ea580c; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .content { padding: 36px 32px; text-align: center; }
+        .badge { display: inline-block; background: #fff7ed; color: #c2410c; font-weight: 800; font-size: 11px; padding: 6px 14px; border-radius: 9999px; margin-bottom: 20px; border: 1px solid #ffedd5; letter-spacing: 1px; text-transform: uppercase; }
+        .title { font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
+        .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px; text-align: left; }
+        .student-info { background: #f8fafc; border-left: 4px solid #ea580c; padding: 14px 18px; border-radius: 6px; margin-bottom: 24px; text-align: left; font-size: 13.5px; }
+        .otp-box { background: #0f172a; border-radius: 10px; padding: 22px 32px; display: inline-block; margin: 0 auto 24px auto; box-shadow: 0 4px 12px rgba(15,23,42,0.15); }
+        .otp-code { font-size: 38px; font-weight: 900; letter-spacing: 12px; color: #f97316; margin: 0; font-family: 'Courier New', Courier, monospace; }
+        .expiry-note { font-size: 13px; color: #64748b; margin-bottom: 24px; font-weight: 500; }
+        .security-note { font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; line-height: 1.5; text-align: left; }
+        .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        ${renderHeaderCard()}
+        <div class="content">
+          <div class="badge">🔒 SECURITY VERIFICATION CODE</div>
+          <h2 class="title">Certificate Verification Request</h2>
+          <p class="description">
+            A verification request was initiated on the Twintec Official Registry portal to view the academic certificate for <strong>${studentName}</strong> (Index No: <strong>${indexNumber}</strong>).
+          </p>
+          <div class="student-info">
+            <strong>Verification Target:</strong> ${studentName}<br>
+            <strong>Index Number:</strong> ${indexNumber}
+          </div>
+          <p class="description" style="text-align: center; font-size: 13px; color: #64748b; margin-bottom: 12px;">
+            Please enter the 6-digit verification code below on the verification page:
+          </p>
+          <div class="otp-box">
+            <div class="otp-code">${otp}</div>
+          </div>
+          <p class="expiry-note">
+            Code Expiry: <strong>10 Minutes</strong>
+          </p>
+          <div class="security-note">
+            <strong>Security Notice:</strong> This code is single-use and intended to protect student academic credentials. If you did not initiate this certificate verification, please disregard this email.
+          </div>
+        </div>
+        <div class="footer">
+          Twintec Vocational Training Institute &bull; Registry & Credential Authentication
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject: `[TVTI Verification] Certificate Security Code: ${otp} for Index ${indexNumber}`,
+        text: `Twintec Certificate Verification Code: ${otp}. Student: ${studentName}, Index: ${indexNumber}. Valid for 10 minutes.`,
+        html: htmlContent,
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.warn(`[CERT OTP EMAIL SMTP WARNING] (${err?.message || err}). Falling back to dev logger.`);
+    }
+  }
+
+  console.log(`\n======================================================`);
+  console.log(`[DEV CERTIFICATE OTP EMAIL NOTICE]`);
+  console.log(`To: ${to}`);
+  console.log(`Student: ${studentName} (${indexNumber})`);
+  console.log(`OTP Code: [ ${otp} ]`);
+  console.log(`======================================================\n`);
+  return { success: true, simulated: true };
+};
+
 

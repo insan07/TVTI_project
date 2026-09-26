@@ -11,7 +11,6 @@ import {
   Alert,
   Modal,
   ScrollView,
-  Platform,
   Animated,
   LayoutAnimation,
   UIManager,
@@ -27,7 +26,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 
 import ScreenHeader from '../../components/shared/ScreenHeader';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -466,8 +465,6 @@ export default function BatchManagementScreen() {
               onBlur={() => setIsSearchFocused(false)}
             />
           </View>
-        </View>
-      </Animated.View>
         </View>
       </Animated.View>
 
@@ -1164,7 +1161,6 @@ const styles = StyleSheet.create({
       web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
     }),
->>>>>>> 43ea893afe299292ae6f3475195da4e82ea04d64
   },
 
   /* DETAILS MODAL STYLES */

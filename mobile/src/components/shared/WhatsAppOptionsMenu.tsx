@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
   },
   overlayBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'transparent',
   },
   menuCard: {

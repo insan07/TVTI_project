@@ -1279,6 +1279,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 100,
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
   },
   loadingScreen: {
     flex: 1,
@@ -1355,6 +1358,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
     ...Platform.select({
       web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
       default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },

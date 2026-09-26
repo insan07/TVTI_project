@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom'
 import SectionHeading from '../components/SectionHeading'
 import Card from '../components/Card'
 import Button from '../components/Button'
+import { useSiteSettings } from '../context/SiteSettingsContext'
 
 export default function Contact() {
+  const { settings } = useSiteSettings()
   useEffect(() => {
     document.title = 'Contact Us | Twintec Vocational Training Institute Puttalam'
     const metaDesc = document.querySelector('meta[name="description"]')
@@ -123,7 +125,7 @@ export default function Contact() {
                 <div className="space-y-1">
                   <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-brand-charcoal/50">Campus Address</h4>
                   <p className="font-sans text-brand-black text-sm sm:text-base font-semibold">
-                    Mannar Road, Puttalam, Sri Lanka
+                    {settings?.address || 'Mannar Road, Puttalam, Sri Lanka'}
                   </p>
                 </div>
               </div>
@@ -138,7 +140,7 @@ export default function Contact() {
                 <div className="space-y-1">
                   <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-brand-charcoal/50">Admissions Hotline</h4>
                   <p className="font-sans text-brand-black text-sm sm:text-base font-semibold">
-                    076 538 0715 / 078 538 0715
+                    {settings?.contact_phone || '076 538 0715 / 078 538 0715'}
                   </p>
                 </div>
               </div>
@@ -153,8 +155,8 @@ export default function Contact() {
                 <div className="space-y-1">
                   <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-brand-charcoal/50">Support Email</h4>
                   <p className="font-sans text-brand-black text-sm sm:text-base font-semibold">
-                    <a href="mailto:twintec.official@gmail.com" className="hover:text-brand-orange transition-colors">
-                      twintec.official@gmail.com
+                    <a href={`mailto:${settings?.contact_email || 'twintec.official@gmail.com'}`} className="hover:text-brand-orange transition-colors">
+                      {settings?.contact_email || 'twintec.official@gmail.com'}
                     </a>
                   </p>
                 </div>
