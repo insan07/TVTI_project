@@ -80,7 +80,7 @@ export default function Home() {
   useEffect(() => {
     const fetchPublicNews = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/announcements/public`);
+        const res = await fetch(`${API_URL}/api/news`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
@@ -92,7 +92,7 @@ export default function Home() {
                 month: d.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
                 category: item.category || 'NEWS',
                 image: item.image_url || slideCert1,
-                summary: item.summary || item.message,
+                summary: item.summary || item.content || item.message,
               };
             });
             setNewsList(formatted);

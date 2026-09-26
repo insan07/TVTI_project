@@ -6,7 +6,7 @@ import { AuthRequest } from '../middleware/authMiddleware';
 
 export const postAnnouncement = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { batch_id, title, message, category, image_url, summary } = req.body;
+    const { batch_id, title, message } = req.body;
 
     const actualBatchId = (batch_id && batch_id !== 'all') ? batch_id : null;
 
@@ -15,9 +15,6 @@ export const postAnnouncement = async (req: AuthRequest, res: Response): Promise
       posted_by: req.user._id,
       title,
       message,
-      category: category || 'ADMISSIONS',
-      image_url: image_url || '',
-      summary: summary || message,
     });
 
     // Send instant notifications to target students
@@ -42,17 +39,6 @@ export const postAnnouncement = async (req: AuthRequest, res: Response): Promise
     }
 
     res.status(201).json(announcement);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-export const getPublicAnnouncements = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const announcements = await Announcement.find({ batch_id: null })
-      .sort({ createdAt: -1 })
-      .limit(20);
-    res.json(announcements);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

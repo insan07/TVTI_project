@@ -22,6 +22,7 @@ import certificateRoutes from './routes/certificateRoutes';
 import notificationRoutes from './routes/notifications';
 import announcementRoutes from './routes/announcements';
 import galleryRoutes from './routes/galleryRoutes';
+import newsRoutes from './routes/newsRoutes';
 import User from './models/User';
 import { getGridFSDownloadStream } from './services/fileStorage';
 
@@ -142,6 +143,7 @@ app.use('/api/instructors', instructorRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/gallery', galleryRoutes);
+app.use('/api/news', newsRoutes);
 
 // Global Error Handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

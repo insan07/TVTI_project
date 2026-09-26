@@ -162,7 +162,7 @@ export default function AdminDashboardScreen() {
   const fetchNewsList = async () => {
     setLoadingNews(true);
     try {
-      const res = await api.get('/announcements/public');
+      const res = await api.get('/news');
       setNewsList(res.data || []);
     } catch (e) {
       console.log('Failed to fetch news list:', e);
@@ -178,7 +178,13 @@ export default function AdminDashboardScreen() {
     }
     setSavingNews(true);
     try {
-      await api.post('/announcements', newNews);
+      await api.post('/news', {
+        title: newNews.title,
+        category: newNews.category,
+        summary: newNews.summary,
+        content: newNews.message,
+        image_url: newNews.image_url,
+      });
       Alert.alert('Success', 'News article posted successfully on website!');
       setNewNews({ title: '', category: 'ADMISSIONS', summary: '', message: '', image_url: '' });
       fetchNewsList();
@@ -191,7 +197,7 @@ export default function AdminDashboardScreen() {
 
   const handleDeleteNews = async (id: string) => {
     try {
-      await api.delete(`/announcements/${id}`);
+      await api.delete(`/news/${id}`);
       Alert.alert('Deleted', 'News item removed successfully.');
       setNewsList(prev => prev.filter(item => item._id !== id));
     } catch (e: any) {
@@ -958,7 +964,7 @@ export default function AdminDashboardScreen() {
                         style={{
                           flexDirection: 'row',
                           alignItems: 'center',
-                          justify: 'center',
+                          justifyContent: 'center',
                           backgroundColor: '#EFF6FF',
                           borderWidth: 1.5,
                           borderColor: '#BFDBFE',
@@ -1055,7 +1061,7 @@ export default function AdminDashboardScreen() {
                         <View key={item._id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
                           <View style={{ flex: 1, marginRight: 10 }}>
                             <Text style={{ fontSize: 14, ...FONTS.bold, color: '#0F172A' }}>{item.title}</Text>
-                            <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }} numberOfLines={1}>{item.summary || item.message}</Text>
+                            <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }} numberOfLines={1}>{item.summary || item.content || item.message}</Text>
                           </View>
                           <TouchableOpacity onPress={() => handleDeleteNews(item._id)} style={{ padding: 6 }}>
                             <Icon name="trash-outline" size={18} color="#EF4444" />
