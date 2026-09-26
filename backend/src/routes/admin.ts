@@ -12,6 +12,8 @@ import {
   recordManualPayment
 } from '../controllers/paymentController';
 import { getSiteSettings, updateSiteSettings } from '../controllers/settingsController';
+import { uploadAdminImage } from '../controllers/uploadController';
+import { upload } from '../middleware/uploadMiddleware';
 import { protect } from '../middleware/authMiddleware';
 import { checkRole } from '../middleware/roleMiddleware';
 
@@ -26,6 +28,7 @@ router.get('/activities', getAdminActivities);
 // Website Settings & Tools
 router.get('/settings', getSiteSettings);
 router.put('/settings', updateSiteSettings);
+router.post('/upload-image', upload.single('image'), uploadAdminImage);
 
 // Payments Management & Dossier
 router.get('/payments', getAdminPaymentList);

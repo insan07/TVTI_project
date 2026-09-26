@@ -23,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import { FONTS } from '../../config/theme';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function AdminDashboardScreen() {
   const context = useContext(AuthContext);
@@ -235,6 +236,91 @@ export default function AdminDashboardScreen() {
       setGalleryList(prev => prev.filter(item => item._id !== id));
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to delete gallery item');
+    }
+  };
+
+  const [uploadingNewsImg, setUploadingNewsImg] = useState(false);
+  const [uploadingGalleryImg, setUploadingGalleryImg] = useState(false);
+
+  const handlePickNewsImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setUploadingNewsImg(true);
+
+        const formData = new FormData();
+        if (Platform.OS === 'web') {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          formData.append('image', blob, 'news_image.jpg');
+        } else {
+          formData.append('image', {
+            uri: asset.uri,
+            name: 'news_image.jpg',
+            type: 'image/jpeg',
+          } as any);
+        }
+
+        const res = await api.post('/admin/upload-image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (res.data && res.data.url) {
+          setNewNews(prev => ({ ...prev, image_url: res.data.url }));
+          Alert.alert('Image Uploaded', 'Cover photo attached successfully!');
+        }
+      }
+    } catch (e: any) {
+      Alert.alert('Upload Failed', e.message || 'Failed to upload photo');
+    } finally {
+      setUploadingNewsImg(false);
+    }
+  };
+
+  const handlePickGalleryPhoto = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setUploadingGalleryImg(true);
+
+        const formData = new FormData();
+        if (Platform.OS === 'web') {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          formData.append('image', blob, 'gallery_photo.jpg');
+        } else {
+          formData.append('image', {
+            uri: asset.uri,
+            name: 'gallery_photo.jpg',
+            type: 'image/jpeg',
+          } as any);
+        }
+
+        const res = await api.post('/admin/upload-image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (res.data && res.data.url) {
+          setNewGallery(prev => ({ ...prev, url: res.data.url }));
+          Alert.alert('Photo Uploaded', 'Gallery photo uploaded successfully!');
+        }
+      }
+    } catch (e: any) {
+      Alert.alert('Upload Failed', e.message || 'Failed to upload gallery photo');
+    } finally {
+      setUploadingGalleryImg(false);
     }
   };
 
@@ -866,14 +952,61 @@ export default function AdminDashboardScreen() {
                       ))}
                     </View>
 
-                    <Text style={styles.formInputLabel}>Cover Image URL (Optional)</Text>
-                    <TextInput
-                      style={styles.formTextInput}
-                      value={newNews.image_url}
-                      onChangeText={t => setNewNews({ ...newNews, image_url: t })}
-                      placeholder="https://example.com/cover.jpg"
-                      placeholderTextColor="#9CA3AF"
-                    />
+                    <Text style={styles.formInputLabel}>News Cover Photo</Text>
+                    <View style={{ marginBottom: 12 }}>
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justify: 'center',
+                          backgroundColor: '#EFF6FF',
+                          borderWidth: 1.5,
+                          borderColor: '#BFDBFE',
+                          borderStyle: 'dashed',
+                          paddingVertical: 12,
+                          paddingHorizontal: 16,
+                          borderRadius: 10,
+                          marginBottom: 8,
+                        }}
+                        onPress={handlePickNewsImage}
+                        disabled={uploadingNewsImg}
+                      >
+                        {uploadingNewsImg ? (
+                          <ActivityIndicator size="small" color="#2563EB" />
+                        ) : (
+                          <>
+                            <Icon name="camera-outline" size={20} color="#2563EB" style={{ marginRight: 8 }} />
+                            <Text style={{ fontSize: 13, ...FONTS.bold, color: '#2563EB' }}>
+                              {newNews.image_url ? 'Change Photo from Device' : 'Upload Photo from Device'}
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+
+                      {newNews.image_url ? (
+                        <View style={{ position: 'relative', marginTop: 6, borderRadius: 10, overflow: 'hidden', height: 110, backgroundColor: '#F1F5F9' }}>
+                          <Image
+                            source={{ uri: newNews.image_url.startsWith('/uploads') ? `${api.defaults.baseURL?.replace('/api', '')}${newNews.image_url}` : newNews.image_url }}
+                            style={{ width: '100%', height: '100%' }}
+                            resizeMode="cover"
+                          />
+                          <TouchableOpacity
+                            onPress={() => setNewNews(prev => ({ ...prev, image_url: '' }))}
+                            style={{ position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 14 }}
+                          >
+                            <Icon name="close" size={16} color="#FFFFFF" />
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TextInput
+                          style={styles.formTextInput}
+                          value={newNews.image_url}
+                          onChangeText={t => setNewNews({ ...newNews, image_url: t })}
+                          placeholder="Or paste photo web link URL..."
+                          placeholderTextColor="#9CA3AF"
+                        />
+                      )}
+                    </View>
 
                     <Text style={styles.formInputLabel}>Short Summary</Text>
                     <TextInput
@@ -949,28 +1082,34 @@ export default function AdminDashboardScreen() {
                         onPress={() => setNewGallery({ ...newGallery, type: 'photo' })}
                         style={{
                           flex: 1,
-                          paddingVertical: 8,
+                          paddingVertical: 10,
                           alignItems: 'center',
                           borderRadius: 8,
                           backgroundColor: newGallery.type === 'photo' ? '#10B981' : '#E2E8F0',
+                          flexDirection: 'row',
+                          justifyContent: 'center',
                         }}
                       >
+                        <Icon name="image-outline" size={16} color={newGallery.type === 'photo' ? '#FFFFFF' : '#475569'} style={{ marginRight: 6 }} />
                         <Text style={{ fontSize: 12, ...FONTS.bold, color: newGallery.type === 'photo' ? '#FFFFFF' : '#475569' }}>
-                          Photo
+                          Upload Photo
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => setNewGallery({ ...newGallery, type: 'video' })}
                         style={{
                           flex: 1,
-                          paddingVertical: 8,
+                          paddingVertical: 10,
                           alignItems: 'center',
                           borderRadius: 8,
                           backgroundColor: newGallery.type === 'video' ? '#10B981' : '#E2E8F0',
+                          flexDirection: 'row',
+                          justifyContent: 'center',
                         }}
                       >
+                        <Icon name="logo-youtube" size={16} color={newGallery.type === 'video' ? '#FFFFFF' : '#475569'} style={{ marginRight: 6 }} />
                         <Text style={{ fontSize: 12, ...FONTS.bold, color: newGallery.type === 'video' ? '#FFFFFF' : '#475569' }}>
-                          Video
+                          YouTube Video
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -993,14 +1132,94 @@ export default function AdminDashboardScreen() {
                       placeholderTextColor="#9CA3AF"
                     />
 
-                    <Text style={styles.formInputLabel}>{newGallery.type === 'photo' ? 'Photo Image URL *' : 'Video YouTube Embed / Link *'}</Text>
-                    <TextInput
-                      style={styles.formTextInput}
-                      value={newGallery.url}
-                      onChangeText={t => setNewGallery({ ...newGallery, url: t })}
-                      placeholder={newGallery.type === 'photo' ? "https://example.com/photo.jpg" : "https://www.youtube.com/watch?v=..."}
-                      placeholderTextColor="#9CA3AF"
-                    />
+                    {newGallery.type === 'photo' ? (
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={styles.formInputLabel}>Gallery Photo File *</Text>
+                        <TouchableOpacity
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#ECFDF5',
+                            borderWidth: 1.5,
+                            borderColor: '#A7F3D0',
+                            borderStyle: 'dashed',
+                            paddingVertical: 12,
+                            paddingHorizontal: 16,
+                            borderRadius: 10,
+                            marginBottom: 8,
+                          }}
+                          onPress={handlePickGalleryPhoto}
+                          disabled={uploadingGalleryImg}
+                        >
+                          {uploadingGalleryImg ? (
+                            <ActivityIndicator size="small" color="#10B981" />
+                          ) : (
+                            <>
+                              <Icon name="cloud-upload-outline" size={20} color="#10B981" style={{ marginRight: 8 }} />
+                              <Text style={{ fontSize: 13, ...FONTS.bold, color: '#10B981' }}>
+                                {newGallery.url ? 'Change Photo from Device' : 'Choose Photo from Device'}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+
+                        {newGallery.url ? (
+                          <View style={{ position: 'relative', marginTop: 4, borderRadius: 10, overflow: 'hidden', height: 110, backgroundColor: '#F1F5F9' }}>
+                            <Image
+                              source={{ uri: newGallery.url.startsWith('/uploads') ? `${api.defaults.baseURL?.replace('/api', '')}${newGallery.url}` : newGallery.url }}
+                              style={{ width: '100%', height: '100%' }}
+                              resizeMode="cover"
+                            />
+                            <TouchableOpacity
+                              onPress={() => setNewGallery(prev => ({ ...prev, url: '' }))}
+                              style={{ position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 14 }}
+                            >
+                              <Icon name="close" size={16} color="#FFFFFF" />
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <TextInput
+                            style={styles.formTextInput}
+                            value={newGallery.url}
+                            onChangeText={t => setNewGallery({ ...newGallery, url: t })}
+                            placeholder="Or paste photo web link URL..."
+                            placeholderTextColor="#9CA3AF"
+                          />
+                        )}
+                      </View>
+                    ) : (
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={styles.formInputLabel}>YouTube Video Link / URL *</Text>
+                        <TextInput
+                          style={styles.formTextInput}
+                          value={newGallery.url}
+                          onChangeText={t => setNewGallery({ ...newGallery, url: t })}
+                          placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                          placeholderTextColor="#9CA3AF"
+                        />
+                        {/* Auto Extract Youtube Thumbnail Preview */}
+                        {(() => {
+                          const match = newGallery.url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+                          const ytId = match ? match[1] : null;
+                          if (ytId) {
+                            return (
+                              <View style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', height: 120, backgroundColor: '#000000', marginTop: 6, alignItems: 'center', justifyContent: 'center' }}>
+                                <Image
+                                  source={{ uri: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` }}
+                                  style={{ width: '100%', height: '100%', opacity: 0.85 }}
+                                  resizeMode="cover"
+                                />
+                                <View style={{ position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: '#FF0000', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Icon name="play" size={24} color="#FFFFFF" style={{ marginLeft: 3 }} />
+                                </View>
+                              </View>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </View>
+                    )}
 
                     <Text style={styles.formInputLabel}>Description</Text>
                     <TextInput
