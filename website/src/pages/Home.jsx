@@ -35,6 +35,14 @@ import { useSiteSettings } from '../context/SiteSettingsContext'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+const getImageUrl = (url, fallback) => {
+  if (!url) return fallback;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 export default function Home() {
   const { settings } = useSiteSettings()
   // Set page meta tags
@@ -91,7 +99,7 @@ export default function Home() {
                 day: String(d.getDate()).padStart(2, '0'),
                 month: d.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
                 category: item.category || 'NEWS',
-                image: item.image_url || slideCert1,
+                image: getImageUrl(item.image_url, slideCert1),
                 summary: item.summary || item.content || item.message,
               };
             });

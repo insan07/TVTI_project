@@ -18,6 +18,14 @@ import slideCert4 from '../assets/slide_cert_4.jpg'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+const getImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 export default function GalleryPhotos() {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [activeImage, setActiveImage] = useState(null)
@@ -41,7 +49,7 @@ export default function GalleryPhotos() {
           if (Array.isArray(data) && data.length > 0) {
             const formatted = data.map(item => ({
               id: item._id,
-              src: item.url,
+              src: getImageUrl(item.url),
               title: item.title,
               category: item.category || 'Workshops & Labs',
               description: item.description || ''

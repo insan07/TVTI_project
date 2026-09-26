@@ -55,7 +55,15 @@ app.get('/api/files/:fileId', (req: Request, res: Response) => {
     const fileId = Array.isArray(req.params.fileId) ? req.params.fileId[0] : req.params.fileId;
     const downloadStream = getGridFSDownloadStream(fileId);
     downloadStream.on('file', (file) => {
-      const contentType = file.metadata?.contentType || (file.filename?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+      let contentType = file.metadata?.contentType;
+      if (!contentType || contentType === 'application/octet-stream') {
+        const fn = (file.filename || '').toLowerCase();
+        if (fn.endsWith('.png')) contentType = 'image/png';
+        else if (fn.endsWith('.webp')) contentType = 'image/webp';
+        else if (fn.endsWith('.gif')) contentType = 'image/gif';
+        else if (fn.endsWith('.pdf')) contentType = 'application/pdf';
+        else contentType = 'image/jpeg';
+      }
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', 'inline');
       res.setHeader('Access-Control-Allow-Origin', '*');
