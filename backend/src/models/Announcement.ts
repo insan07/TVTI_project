@@ -5,6 +5,9 @@ export interface IAnnouncement extends Document {
   posted_by: mongoose.Types.ObjectId;
   title: string;
   message: string;
+  category?: string;
+  image_url?: string;
+  summary?: string;
 }
 
 const announcementSchema = new Schema<IAnnouncement>(
@@ -13,6 +16,9 @@ const announcementSchema = new Schema<IAnnouncement>(
     posted_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     title: { type: String, required: true },
     message: { type: String, required: true },
+    category: { type: String, default: 'ADMISSIONS' },
+    image_url: { type: String },
+    summary: { type: String },
   },
   { timestamps: true }
 );

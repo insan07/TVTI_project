@@ -1,21 +1,14 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Application, Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import dns from 'dns';
-
-// Force Google DNS for local dev (MongoDB Atlas SRV lookups fail with some ISP DNS).
-// Skipped on Vercel (production) where dns.setServers is not allowed.
-if (process.env.NODE_ENV !== 'production') {
-  dns.setServers(['8.8.8.8', '8.8.4.4']);
-}
-
-// Note: Socket.io is not supported on Vercel serverless.
-// Notifications are saved to DB; real-time push relies on client polling.
 
 // Import Routes
 import authRoutes from './routes/auth';
@@ -28,11 +21,9 @@ import applicationRoutes from './routes/applications';
 import certificateRoutes from './routes/certificateRoutes';
 import notificationRoutes from './routes/notifications';
 import announcementRoutes from './routes/announcements';
+import galleryRoutes from './routes/galleryRoutes';
 import User from './models/User';
 import { getGridFSDownloadStream } from './services/fileStorage';
-
-// Load environment variables
-dotenv.config();
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
@@ -131,10 +122,14 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+import { getSiteSettings } from './controllers/settingsController';
+
 // Use Routes
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({ message: 'Welcome to the LMS API - Server is LIVE' });
 });
+
+app.get('/api/settings', getSiteSettings);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
@@ -146,6 +141,7 @@ app.use('/api/students', studentRoutes);
 app.use('/api/instructors', instructorRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/gallery', galleryRoutes);
 
 // Global Error Handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
@@ -192,8 +188,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // Start server for local development only (Vercel uses the default export directly)
 if (process.env.NODE_ENV !== 'production') {
   connectDB().then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    app.listen(Number(PORT), '0.0.0.0', () => {
+      console.log(`Server running on port ${PORT} (0.0.0.0)`);
     });
   });
 }

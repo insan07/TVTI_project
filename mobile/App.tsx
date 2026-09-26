@@ -105,7 +105,7 @@ export default function App() {
     <SafeAreaProvider style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
         <View style={{ flex: 1, width: '100%', backgroundColor: '#ffffff' }}>
-          <StatusBar style="dark" backgroundColor="#ffffff" />
+          <StatusBar style="dark" />
           <AuthProvider>
             <OfflineBanner />
             <AppNavigator />

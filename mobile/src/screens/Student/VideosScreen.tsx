@@ -24,10 +24,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config/constants';
 import ScreenHeader from '../../components/shared/ScreenHeader';
 
-if (Platform.OS === 'android') {
-  if (UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-  }
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const formatUploadedTime = (dateStr?: string) => {
@@ -827,7 +825,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   thumbPlayOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',

@@ -11,6 +11,7 @@ import {
   rejectPaymentSlip,
   recordManualPayment
 } from '../controllers/paymentController';
+import { getSiteSettings, updateSiteSettings } from '../controllers/settingsController';
 import { protect } from '../middleware/authMiddleware';
 import { checkRole } from '../middleware/roleMiddleware';
 
@@ -21,6 +22,10 @@ router.use(protect, checkRole(['admin']));
 
 router.get('/stats', getAdminStats);
 router.get('/activities', getAdminActivities);
+
+// Website Settings & Tools
+router.get('/settings', getSiteSettings);
+router.put('/settings', updateSiteSettings);
 
 // Payments Management & Dossier
 router.get('/payments', getAdminPaymentList);

@@ -1,12 +1,15 @@
-import { Platform } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
 import api from './api';
 
 const getMessaging = () => {
   if (Platform.OS === 'web') return null;
+  // Check if native Firebase module exists (not present in Expo Go)
+  if (!NativeModules || !NativeModules.RNFBAppModule) {
+    return null;
+  }
   try {
     return require('@react-native-firebase/messaging').default;
   } catch (e) {
-    console.warn('Firebase messaging not available on this platform:', e);
     return null;
   }
 };

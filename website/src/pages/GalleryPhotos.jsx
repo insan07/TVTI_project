@@ -16,9 +16,12 @@ import slideCert2 from '../assets/slide_cert_2.jpg'
 import slideCert3 from '../assets/slide_cert_3.jpg'
 import slideCert4 from '../assets/slide_cert_4.jpg'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function GalleryPhotos() {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [activeImage, setActiveImage] = useState(null)
+  const [photosList, setPhotosList] = useState([])
 
   useEffect(() => {
     document.title = 'Photo Gallery | Twintec Vocational Training Institute'
@@ -29,11 +32,33 @@ export default function GalleryPhotos() {
         'Explore our state-of-the-art workshops, vocational labs, student activities, and certificate ceremonies at Twintec Vocational Training Institute.'
       )
     }
+
+    const fetchPhotos = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/gallery?type=photo`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const formatted = data.map(item => ({
+              id: item._id,
+              src: item.url,
+              title: item.title,
+              category: item.category || 'Workshops & Labs',
+              description: item.description || ''
+            }));
+            setPhotosList(formatted);
+          }
+        }
+      } catch (e) {
+        console.log('Failed to fetch photo gallery:', e);
+      }
+    };
+    fetchPhotos();
   }, [])
 
   const categories = ['All', 'Workshops & Labs', 'Practical Sessions', 'Certificates & Events']
 
-  const photos = [
+  const defaultPhotos = [
     {
       src: facilityAuto,
       title: 'Automotive Mechanics Lab',
@@ -102,9 +127,10 @@ export default function GalleryPhotos() {
     },
   ]
 
+  const activePhotos = photosList.length > 0 ? photosList : defaultPhotos;
   const filteredPhotos = selectedCategory === 'All'
-    ? photos
-    : photos.filter(photo => photo.category === selectedCategory)
+    ? activePhotos
+    : activePhotos.filter(photo => photo.category === selectedCategory)
 
   return (
     <div className="flex flex-col w-full overflow-hidden select-none">

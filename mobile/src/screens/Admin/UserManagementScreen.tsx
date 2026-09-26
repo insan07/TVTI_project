@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,7 +30,7 @@ import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
 import WhatsAppSelectionHeader from '../../components/shared/WhatsAppSelectionHeader';
 import * as Print from 'expo-print';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -324,20 +324,15 @@ export default function UserManagementScreen() {
       if (instRes.status === 'fulfilled') {
         setInstructorsList(instRes.value.data || []);
       }
+      if (paymentsRes.status === 'fulfilled') {
+        setAdminPaymentsList(paymentsRes.value.data || []);
       }
     } catch (e: any) {
       console.warn('Failed to fetch dashboard data', e);
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab !== 'pending') {
-      fetchUsers(false);
-      fetchBatches();
-    }
-  }, [activeTab, fetchUsers]);
+  };
 
   const fetchUsers = () => {
     fetchAllDashboardData();
@@ -660,7 +655,6 @@ export default function UserManagementScreen() {
       const res = await api.post('/admin/users/instructor', instructorForm);
       setInstructorForm({ name: '', email: '', phone: '', nic: '' });
       setInstructorModalVisible(false);
-      userCacheRef.current = {};
 
       if (res.data.index_number) {
         setApprovedCredentials({
@@ -915,7 +909,6 @@ export default function UserManagementScreen() {
       }
     });
   };
->>>>>>> 43ea893afe299292ae6f3475195da4e82ea04d64
 
   const getInitials = useCallback((name?: string) => {
     if (!name || typeof name !== 'string') return 'U';
@@ -971,7 +964,6 @@ export default function UserManagementScreen() {
           <View style={{ position: 'relative' }}>
             {photo ? (
               <Image source={{ uri: photo }} style={styles.avatarImg} />
->>>>>>> 43ea893afe299292ae6f3475195da4e82ea04d64
             ) : (
               <View style={styles.avatar}>
                 <Icon name="person" size={24} color="#475569" />
@@ -3451,7 +3443,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 16,
     marginBottom: 14,
-    marginTop: 16,
   },
   addInstructorBtn: {
     backgroundColor: '#F58220',
@@ -3720,7 +3711,6 @@ const styles = StyleSheet.create({
   rejectOutlineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#D1D5DB',
     borderRadius: 22,
