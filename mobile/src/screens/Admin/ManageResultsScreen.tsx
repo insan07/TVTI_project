@@ -298,7 +298,7 @@ export default function ManageResultsScreen() {
       ) : (
         <FlatList
           data={students}
-          keyExtractor={item => item._id}
+          keyExtractor={item => item?._id || item?.id || String(Math.random())}
           contentContainerStyle={{ paddingBottom: 110 }}
           ListEmptyComponent={<Text style={styles.emptyText}>No students in this batch.</Text>}
           renderItem={({ item }) => {

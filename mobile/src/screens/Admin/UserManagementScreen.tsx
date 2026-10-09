@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -58,18 +58,18 @@ const EXPORT_AVAILABLE_FIELDS = [
 ];
 
 export default function UserManagementScreen() {
+  const route = useRoute<any>();
+
   let initialMode: ModeType = 'applications';
   let initialView: 'hub' | 'detail' = 'hub';
-  try {
-    const route = useRoute<any>();
-    if (route?.params?.initialTab) {
-      initialView = 'detail';
-      const tab = route.params.initialTab;
-      if (tab === 'pending') initialMode = 'applications';
-      else if (tab === 'approved') initialMode = 'students';
-      else if (tab === 'instructors') initialMode = 'instructors';
-    }
-  } catch (e) {}
+
+  if (route?.params?.initialTab) {
+    initialView = 'detail';
+    const tab = route.params.initialTab;
+    if (tab === 'pending') initialMode = 'applications';
+    else if (tab === 'approved') initialMode = 'students';
+    else if (tab === 'instructors') initialMode = 'instructors';
+  }
 
   const [currentView, setCurrentView] = useState<'hub' | 'detail'>(initialView);
   const [activeMode, setActiveMode] = useState<ModeType>(initialMode);
@@ -90,6 +90,7 @@ export default function UserManagementScreen() {
   const headerAnim = useRef(new Animated.Value(1)).current;
   const isHeaderVisibleRef = useRef(true);
   const lastScrollY = useRef(0);
+  const userCacheRef = useRef<any>({});
 
   // Top Header 3-Dots Menu, Select Mode & Export Modal States
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
@@ -324,24 +325,20 @@ export default function UserManagementScreen() {
       if (instRes.status === 'fulfilled') {
         setInstructorsList(instRes.value.data || []);
       }
-      }
     } catch (e: any) {
       console.warn('Failed to fetch dashboard data', e);
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab !== 'pending') {
-      fetchUsers(false);
-      fetchBatches();
-    }
-  }, [activeTab, fetchUsers]);
+  };
 
   const fetchUsers = () => {
     fetchAllDashboardData();
   };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [activeMode]);
 
   const handleOpenPaymentDossier = async (studentId: string) => {
     setPaymentDossierModalVisible(true);
@@ -915,7 +912,6 @@ export default function UserManagementScreen() {
       }
     });
   };
->>>>>>> 43ea893afe299292ae6f3475195da4e82ea04d64
 
   const getInitials = useCallback((name?: string) => {
     if (!name || typeof name !== 'string') return 'U';
@@ -971,7 +967,6 @@ export default function UserManagementScreen() {
           <View style={{ position: 'relative' }}>
             {photo ? (
               <Image source={{ uri: photo }} style={styles.avatarImg} />
->>>>>>> 43ea893afe299292ae6f3475195da4e82ea04d64
             ) : (
               <View style={styles.avatar}>
                 <Icon name="person" size={24} color="#475569" />
@@ -3448,7 +3443,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   actionButtonRow: {
-    marginTop: 16,
     paddingHorizontal: 16,
     marginBottom: 14,
     marginTop: 16,
@@ -3720,7 +3714,6 @@ const styles = StyleSheet.create({
   rejectOutlineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#D1D5DB',
     borderRadius: 22,

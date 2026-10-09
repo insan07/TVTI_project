@@ -28,6 +28,7 @@ export default function AdminDashboardScreen() {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [overviewExpanded, setOverviewExpanded] = useState(false);
 
   // All activities modal state
   const [allActivitiesVisible, setAllActivitiesVisible] = useState(false);
@@ -150,7 +151,7 @@ export default function AdminDashboardScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. GRAPHIC TOP HERO BANNER (WRAPS LOGO + STATISTICS BOX) */}
+        {/* 1. GRAPHIC TOP HERO BANNER */}
         <LinearGradient
           colors={['#0F172A', '#1E293B', '#090D16']}
           start={{ x: 0, y: 0 }}
@@ -185,54 +186,6 @@ export default function AdminDashboardScreen() {
             </LinearGradient>
           </View>
 
-          {/* Statistics Box - Fully Covered inside the Graphic Background */}
-          {loading ? (
-            <View style={{ height: 130, justifyContent: 'center', alignItems: 'center' }}>
-              <ActivityIndicator size="small" color="#F97316" />
-            </View>
-          ) : (
-            <View style={styles.statsContainer}>
-              <View style={styles.statCard}>
-                <View style={styles.statCardTop}>
-                  <Text style={styles.statLabel}>STUDENTS</Text>
-                  <View style={[styles.statIconBox, { backgroundColor: 'rgba(242, 112, 28, 0.18)' }]}>
-                    <Icon name="people" size={13} color="#FB923C" />
-                  </View>
-                </View>
-                <Text style={styles.statValue}>{stats.totalStudents}</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <View style={styles.statCardTop}>
-                  <Text style={styles.statLabel}>INSTRUCTORS</Text>
-                  <View style={[styles.statIconBox, { backgroundColor: 'rgba(242, 112, 28, 0.18)' }]}>
-                    <Icon name="school" size={13} color="#FB923C" />
-                  </View>
-                </View>
-                <Text style={styles.statValue}>{stats.totalInstructors}</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <View style={styles.statCardTop}>
-                  <Text style={styles.statLabel}>COURSES</Text>
-                  <View style={[styles.statIconBox, { backgroundColor: 'rgba(242, 112, 28, 0.18)' }]}>
-                    <Icon name="book" size={13} color="#FB923C" />
-                  </View>
-                </View>
-                <Text style={styles.statValue}>{stats.activeCourses}</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <View style={styles.statCardTop}>
-                  <Text style={styles.statLabel}>PENDING</Text>
-                  <View style={[styles.statIconBox, { backgroundColor: 'rgba(242, 112, 28, 0.18)' }]}>
-                    <Icon name="time" size={13} color="#FB923C" />
-                  </View>
-                </View>
-                <Text style={styles.statValue}>{stats.pendingApprovalsCount}</Text>
-              </View>
-            </View>
-          )}
         </LinearGradient>
 
         {/* 2. BODY CONTENT (BELOW GRAPHIC HEADER) */}
@@ -338,6 +291,74 @@ export default function AdminDashboardScreen() {
                 </View>
               )}
             </View>
+
+            <View style={styles.sectionCard}>
+              <TouchableOpacity
+                style={styles.overviewToggle}
+                onPress={() => setOverviewExpanded((expanded) => !expanded)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: overviewExpanded }}
+              >
+                <View style={styles.overviewIconBox}>
+                  <Icon name="stats-chart-outline" size={18} color="#F97316" />
+                </View>
+                <View style={styles.overviewTitleContainer}>
+                  <Text style={styles.sectionTitle}>Institution overview</Text>
+                  <Text style={styles.overviewSubtext}>
+                    {overviewExpanded ? 'Tap to hide summary metrics' : 'Summary metrics (4 items)'}
+                  </Text>
+                </View>
+                <Icon
+                  name={overviewExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color="#64748B"
+                />
+              </TouchableOpacity>
+              {overviewExpanded && (
+                <View style={styles.statsContainer}>
+                  <View style={styles.statCard}>
+                    <View style={styles.statCardTop}>
+                      <Text style={styles.statLabel}>STUDENTS</Text>
+                      <View style={styles.statIconBox}>
+                        <Icon name="people" size={13} color="#F97316" />
+                      </View>
+                    </View>
+                    <Text style={styles.statValue}>{stats.totalStudents}</Text>
+                  </View>
+
+                  <View style={styles.statCard}>
+                    <View style={styles.statCardTop}>
+                      <Text style={styles.statLabel}>INSTRUCTORS</Text>
+                      <View style={styles.statIconBox}>
+                        <Icon name="school" size={13} color="#F97316" />
+                      </View>
+                    </View>
+                    <Text style={styles.statValue}>{stats.totalInstructors}</Text>
+                  </View>
+
+                  <View style={styles.statCard}>
+                    <View style={styles.statCardTop}>
+                      <Text style={styles.statLabel}>COURSES</Text>
+                      <View style={styles.statIconBox}>
+                        <Icon name="book" size={13} color="#F97316" />
+                      </View>
+                    </View>
+                    <Text style={styles.statValue}>{stats.activeCourses}</Text>
+                  </View>
+
+                  <View style={styles.statCard}>
+                    <View style={styles.statCardTop}>
+                      <Text style={styles.statLabel}>PENDING</Text>
+                      <View style={styles.statIconBox}>
+                        <Icon name="time" size={13} color="#F97316" />
+                      </View>
+                    </View>
+                    <Text style={styles.statValue}>{stats.pendingApprovalsCount}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -413,7 +434,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
 
-  /* Graphic Hero Header (Wraps Brand + Statistics Box) */
+  /* Graphic Hero Header */
   graphicHeader: {
     paddingHorizontal: 16,
     paddingBottom: 20,
@@ -508,51 +529,70 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
   },
 
-  /* Stats Container inside Graphic Header */
+  /* Secondary dashboard metrics */
   statsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: 2,
   },
   statCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#F8FAFC',
     width: '48%',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    marginBottom: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.13)',
-    ...Platform.select({
-      web: { backdropFilter: 'blur(10px)' },
-      default: {},
-    }),
+    borderColor: '#E5E7EB',
   },
   statCardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 10,
     ...FONTS.bold,
-    color: 'rgba(255, 255, 255, 0.72)',
+    color: '#64748B',
     letterSpacing: 0.7,
   },
   statIconBox: {
     width: 24,
     height: 24,
     borderRadius: 12,
+    backgroundColor: '#FFF7ED',
     alignItems: 'center',
     justifyContent: 'center',
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 22,
     ...FONTS.extraBold,
-    color: '#FFFFFF',
+    color: '#1F2937',
     letterSpacing: 0.3,
+  },
+  overviewToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  overviewIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  overviewTitleContainer: {
+    flex: 1,
+  },
+  overviewSubtext: {
+    color: '#6B7280',
+    fontSize: 12,
+    ...FONTS.regular,
+    marginTop: 3,
   },
 
   /* Announcements Glassmorphic Card */
