@@ -40,6 +40,31 @@ export default function LoginScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
 
+  React.useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const styleId = 'lms-autofill-styles';
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.innerHTML = `
+          input:-webkit-autofill,
+          input:-webkit-autofill:hover, 
+          input:-webkit-autofill:focus,
+          input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 1000px rgba(22, 16, 12, 0.70) inset !important;
+            -webkit-text-fill-color: #FFFFFF !important;
+            caret-color: #FFFFFF !important;
+            transition: background-color 5000s ease-in-out 0s;
+          }
+          input {
+            background-color: transparent !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+  }, []);
+
   const handleLogin = async () => {
     setErrorMsg('');
     setInfoMsg('');
@@ -498,13 +523,15 @@ const styles = StyleSheet.create({
     paddingVertical: 36,
     paddingHorizontal: 34,
     borderRadius: 22,
+    backgroundColor: 'rgba(28, 20, 15, 0.42)',
+    borderColor: 'rgba(255, 255, 255, 0.13)',
   },
 
   /* ---------- Login Card Component Styles ---------- */
   card: {
-    backgroundColor: 'rgba(25, 19, 14, 0.78)',
+    backgroundColor: 'rgba(28, 20, 15, 0.46)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 22,
     paddingVertical: 28,
     paddingHorizontal: 24,
@@ -514,7 +541,7 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 8,
     ...(Platform.OS === 'web'
-      ? ({ backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' } as any)
+      ? ({ backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)' } as any)
       : {}),
   },
   welcomeTitle: {
@@ -525,7 +552,7 @@ const styles = StyleSheet.create({
   },
   welcomeSubtitle: {
     fontSize: 13.5,
-    color: '#9C9083',
+    color: '#A89F93',
     marginBottom: 24,
   },
   infoBox: {
@@ -569,9 +596,9 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(18, 13, 9, 0.65)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.11)',
+    backgroundColor: 'rgba(16, 11, 7, 0.45)',
+    borderWidth: 1.1,
+    borderColor: 'rgba(255, 255, 255, 0.13)',
     borderRadius: 12,
     marginBottom: 18,
     paddingHorizontal: 14,
@@ -579,7 +606,7 @@ const styles = StyleSheet.create({
   },
   inputContainerFocused: {
     borderColor: '#FF6500',
-    backgroundColor: 'rgba(24, 17, 12, 0.85)',
+    backgroundColor: 'rgba(24, 16, 10, 0.65)',
   },
   inputIcon: {
     marginRight: 10,
@@ -589,6 +616,7 @@ const styles = StyleSheet.create({
     height: '100%',
     fontSize: 14.5,
     color: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   eyeIcon: {
     padding: 8,
