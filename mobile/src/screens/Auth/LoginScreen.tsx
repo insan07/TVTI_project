@@ -114,152 +114,155 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <LinearGradient
-        colors={[COLORS.primaryDark, COLORS.primary]}
-        style={[styles.headerGradient, { paddingTop: insets.top + 20 }]}
-      >
-        <Image
-          source={require('../../../assets/icon.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.brandTitle}>Twintec VTI</Text>
-        <Text style={styles.brandSubtitle}>Learning Management System</Text>
-      </LinearGradient>
-
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
-        style={styles.cardContainer}
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          style={styles.card}
-          contentContainerStyle={{ paddingBottom: 60 + insets.bottom }}
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scrollContentContainer}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          bounces={false}
         >
-          <Text style={styles.welcomeTitle}>Welcome Back</Text>
-          <Text style={styles.welcomeSubtitle}>Sign in to access your portal</Text>
-
-          {/* Info Banner (e.g. Registered awaiting approval) */}
-          {infoMsg ? (
-            <View style={styles.infoBox}>
-              <Icon name="information-circle-outline" size={20} color="#0D9488" style={{ marginRight: 8, marginTop: 2 }} />
-              <Text style={styles.infoBoxText}>{infoMsg}</Text>
-            </View>
-          ) : null}
-
-          {/* Error Banner */}
-          {errorMsg ? (
-            <View style={styles.errorBox}>
-              <Icon name="alert-circle-outline" size={20} color="#DC2626" style={{ marginRight: 8, marginTop: 2 }} />
-              <Text style={styles.errorBoxText}>{errorMsg}</Text>
-            </View>
-          ) : null}
-
-          {/* Email / Registration No Input */}
-          <Text style={styles.inputLabel}>Registration No or Email Address</Text>
-          <View
-            style={[
-              styles.inputContainer,
-              focusedInput === 'email' && styles.inputContainerFocused,
-            ]}
+          <LinearGradient
+            colors={[COLORS.primaryDark, COLORS.primary]}
+            style={[styles.headerGradient, { paddingTop: insets.top + 12 }]}
           >
-            <Icon
-              name="person-outline"
-              size={20}
-              color={focusedInput === 'email' ? COLORS.primary : COLORS.textMuted}
-              style={styles.inputIcon}
+            <Image
+              source={require('../../../assets/icon.png')}
+              style={styles.logo}
+              resizeMode="contain"
             />
-            <TextInput
-              style={[
-                styles.input,
-                Platform.OS === 'web' && ({ outlineStyle: 'none', outlineWidth: 0 } as any)
-              ]}
-              placeholder="e.g. 26T0001 or student@gmail.com"
-              placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="none"
-              value={email}
-              onFocus={() => setFocusedInput('email')}
-              onBlur={() => setFocusedInput(null)}
-              onChangeText={(text) => {
-                setEmail(text);
-                if (errorMsg) setErrorMsg('');
-              }}
-            />
-          </View>
+            <Text style={styles.brandTitle}>Twintec VTI</Text>
+            <Text style={styles.brandSubtitle}>Learning Management System</Text>
+          </LinearGradient>
 
-          {/* Password Input */}
-          <Text style={styles.inputLabel}>Password</Text>
-          <View
-            style={[
-              styles.inputContainer,
-              focusedInput === 'password' && styles.inputContainerFocused,
-            ]}
-          >
-            <Icon
-              name="lock-closed-outline"
-              size={20}
-              color={focusedInput === 'password' ? COLORS.primary : COLORS.textMuted}
-              style={styles.inputIcon}
-            />
-            <TextInput
+          <View style={styles.card}>
+            <Text style={styles.welcomeTitle}>Welcome Back</Text>
+            <Text style={styles.welcomeSubtitle}>Sign in to access your portal</Text>
+
+            {/* Info Banner (e.g. Registered awaiting approval) */}
+            {infoMsg ? (
+              <View style={styles.infoBox}>
+                <Icon name="information-circle-outline" size={20} color="#0D9488" style={{ marginRight: 8, marginTop: 2 }} />
+                <Text style={styles.infoBoxText}>{infoMsg}</Text>
+              </View>
+            ) : null}
+
+            {/* Error Banner */}
+            {errorMsg ? (
+              <View style={styles.errorBox}>
+                <Icon name="alert-circle-outline" size={20} color="#DC2626" style={{ marginRight: 8, marginTop: 2 }} />
+                <Text style={styles.errorBoxText}>{errorMsg}</Text>
+              </View>
+            ) : null}
+
+            {/* Email / Registration No Input */}
+            <Text style={styles.inputLabel}>Registration No or Email Address</Text>
+            <View
               style={[
-                styles.input,
-                Platform.OS === 'web' && ({ outlineStyle: 'none', outlineWidth: 0 } as any)
+                styles.inputContainer,
+                focusedInput === 'email' && styles.inputContainerFocused,
               ]}
-              placeholder="Enter your password"
-              placeholderTextColor={COLORS.textMuted}
-              secureTextEntry={!showPassword}
-              value={password}
-              onFocus={() => setFocusedInput('password')}
-              onBlur={() => setFocusedInput(null)}
-              onChangeText={(text) => {
-                setPassword(text);
-                if (errorMsg) setErrorMsg('');
-              }}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={styles.eyeIcon}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
             >
               <Icon
-                name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                name="person-outline"
                 size={20}
-                color={showPassword ? COLORS.primary : COLORS.textMuted}
+                color={focusedInput === 'email' ? COLORS.primary : COLORS.textMuted}
+                style={styles.inputIcon}
               />
-            </TouchableOpacity>
-          </View>
+              <TextInput
+                style={[
+                  styles.input,
+                  Platform.OS === 'web' && ({ outlineStyle: 'none', outlineWidth: 0 } as any)
+                ]}
+                placeholder="e.g. 26T0001 or student@gmail.com"
+                placeholderTextColor={COLORS.textMuted}
+                autoCapitalize="none"
+                value={email}
+                onFocus={() => setFocusedInput('email')}
+                onBlur={() => setFocusedInput(null)}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (errorMsg) setErrorMsg('');
+                }}
+              />
+            </View>
 
-          <View style={styles.forgotPasswordContainer}>
-            <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </TouchableOpacity>
-          </View>
+            {/* Password Input */}
+            <Text style={styles.inputLabel}>Password</Text>
+            <View
+              style={[
+                styles.inputContainer,
+                focusedInput === 'password' && styles.inputContainerFocused,
+              ]}
+            >
+              <Icon
+                name="lock-closed-outline"
+                size={20}
+                color={focusedInput === 'password' ? COLORS.primary : COLORS.textMuted}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={[
+                  styles.input,
+                  Platform.OS === 'web' && ({ outlineStyle: 'none', outlineWidth: 0 } as any)
+                ]}
+                placeholder="Enter your password"
+                placeholderTextColor={COLORS.textMuted}
+                secureTextEntry={!showPassword}
+                value={password}
+                onFocus={() => setFocusedInput('password')}
+                onBlur={() => setFocusedInput(null)}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errorMsg) setErrorMsg('');
+                }}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <Icon
+                  name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                  size={20}
+                  color={showPassword ? COLORS.primary : COLORS.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
 
-          {/* Sign In Button */}
-          <TouchableOpacity
-            style={styles.button}
-            onPress={handleLogin}
-            disabled={authContext?.isLoading}
-            activeOpacity={0.8}
-          >
-            {authContext?.isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
+            <View style={styles.forgotPasswordContainer}>
+              <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
 
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.link}>Register Here</Text>
+            {/* Sign In Button */}
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleLogin}
+              disabled={authContext?.isLoading}
+              activeOpacity={0.8}
+            >
+              {authContext?.isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
             </TouchableOpacity>
+
+            {/* Footer */}
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                <Text style={styles.link}>Register Here</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -270,41 +273,43 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.primaryDark,
+  },
+  scrollContentContainer: {
+    flexGrow: 1,
     backgroundColor: COLORS.surface,
   },
   headerGradient: {
-    height: height * 0.35,
+    paddingTop: SPACING.xl,
+    paddingBottom: SPACING.xxl + 10,
+    paddingHorizontal: SPACING.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: SPACING.lg,
   },
   logo: {
-    width: 70,
-    height: 70,
+    width: 68,
+    height: 68,
     marginBottom: SPACING.xs,
   },
   brandTitle: {
-    fontSize: 26,
+    fontSize: 25,
     color: '#FFFFFF',
     ...FONTS.bold,
   },
   brandSubtitle: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.75)',
     ...FONTS.regular,
     marginTop: 2,
-  },
-  cardContainer: {
-    flex: 1,
-    marginTop: -28,
   },
   card: {
     flex: 1,
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    marginTop: -22,
     padding: SPACING.xl,
-    ...SHADOW.md,
+    paddingBottom: SPACING.xxl * 2,
   },
   welcomeTitle: {
     fontSize: 22,
@@ -362,7 +367,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: COLORS.border,
     borderRadius: RADIUS.md,
     marginBottom: SPACING.lg,
@@ -370,17 +375,6 @@ const styles = StyleSheet.create({
   },
   inputContainerFocused: {
     borderColor: COLORS.primary,
-    borderWidth: 1.5,
-    ...Platform.select({
-      web: { boxShadow: '0px 2px 4px rgba(26,26,26,0.12)' } as any,
-      default: {
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.12,
-        shadowRadius: 4,
-        elevation: 2,
-      }
-    })
   },
   inputIcon: {
     marginRight: SPACING.sm,
@@ -434,3 +428,4 @@ const styles = StyleSheet.create({
     ...FONTS.semiBold,
   },
 });
+

@@ -142,6 +142,61 @@ const AdminTabs = ({ insets }: { insets: any }) => (
   </Tab.Navigator>
 );
 
+import { LinkingOptions } from '@react-navigation/native';
+
+const linking: LinkingOptions<any> = {
+  prefixes: ['/'],
+  config: {
+    screens: {
+      Auth: {
+        screens: {
+          Login: '',
+          Register: 'register',
+          ForgotPassword: 'forgot-password',
+          VerifyResetOtp: 'verify-reset-otp',
+          ResetPassword: 'reset-password',
+          PasswordResetSuccess: 'reset-success',
+        },
+      },
+      StudentApp: {
+        screens: {
+          Home: 'student/home',
+          Videos: 'student/videos',
+          Schedule: 'student/schedule',
+          Profile: 'student/profile',
+        },
+      },
+      InstructorApp: {
+        screens: {
+          Home: 'instructor/home',
+          Uploads: 'instructor/uploads',
+          Practice: 'instructor/practice',
+          PostAnnouncement: 'instructor/announcement',
+          Profile: 'instructor/profile',
+        },
+      },
+      AdminApp: {
+        screens: {
+          Home: 'admin/dashboard',
+          Users: 'admin/users',
+          Courses: {
+            screens: {
+              CoursesMain: 'admin/courses',
+              Batches: 'admin/batches',
+            },
+          },
+          Practice: 'admin/slots',
+          Profile: 'admin/profile',
+        },
+      },
+      VideoPlayer: 'video-player',
+      Notifications: 'notifications',
+      Results: 'results',
+      PdfViewer: 'pdf-viewer',
+    },
+  },
+};
+
 export const AppNavigator = () => {
   const context = useContext(AuthContext);
   const navigationRef = useNavigationContainerRef();
@@ -204,7 +259,7 @@ export const AppNavigator = () => {
       : 'student';
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <Stack.Navigator 
         screenOptions={{ 
           headerShown: false,

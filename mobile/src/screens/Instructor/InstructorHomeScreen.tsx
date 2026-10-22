@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
   videoThumbnailContainer: { height: 95, width: '100%', backgroundColor: '#F3F4F6' },
   videoThumbnail: { height: '100%', width: '100%' },
   videoThumbnailPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  playOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)' },
+  playOverlay: { ...StyleSheet.absoluteFill, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)' },
   playCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.75)', justifyContent: 'center', alignItems: 'center' },
   videoInfo: { padding: 10 },
   videoCategory: { fontSize: 9, fontWeight: 'bold', color: '#9CA3AF', marginBottom: 4 },

@@ -1000,7 +1000,7 @@ const styles = StyleSheet.create({
   videoCardLeft: { flex: 1, flexDirection: 'row', gap: 14 },
   videoIcon: { width: 48, height: 48, borderRadius: 10, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' },
   thumbnailImage: { width: '100%', height: '100%', position: 'absolute' },
-  thumbnailOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  thumbnailOverlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
   videoTitle: { fontSize: 15, ...FONTS.bold, color: '#0F172A', marginBottom: 4, letterSpacing: -0.2 },
   videoMeta: { fontSize: 12.5, color: '#475569', marginTop: 2, ...FONTS.medium },
   videoDate: { fontSize: 11.5, color: '#94A3B8', marginTop: 4, ...FONTS.medium },

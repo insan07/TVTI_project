@@ -345,6 +345,9 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     zIndex: 10,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
     ...Platform.select({
       web: { boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.15)' },
       default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5 },
@@ -419,6 +422,9 @@ const styles = StyleSheet.create({
   mainContent: {
     paddingHorizontal: 20,
     paddingTop: 20,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
   },
 
   /* SECTION HEADER ROW */

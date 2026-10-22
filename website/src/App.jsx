@@ -12,14 +12,16 @@ import Inquiry from './pages/Inquiry'
 import Verify from './pages/Verify'
 import GalleryVideos from './pages/GalleryVideos'
 import GalleryPhotos from './pages/GalleryPhotos'
+import { SiteSettingsProvider } from './context/SiteSettingsContext'
 
 function App() {
   return (
-    <Router>
-      <ScrollToTop />
-      <div className="flex flex-col min-h-screen bg-brand-white selection:bg-brand-orange/30 selection:text-brand-black">
-        {/* Shared Layout Header */}
-        <Header />
+    <SiteSettingsProvider>
+      <Router>
+        <ScrollToTop />
+        <div className="flex flex-col min-h-screen bg-brand-white selection:bg-brand-orange/30 selection:text-brand-black">
+          {/* Shared Layout Header */}
+          <Header />
 
         {/* Dynamic Route Pages */}
         <main className="flex-grow">
@@ -40,6 +42,7 @@ function App() {
         <Footer />
       </div>
     </Router>
+  </SiteSettingsProvider>
   )
 }
 

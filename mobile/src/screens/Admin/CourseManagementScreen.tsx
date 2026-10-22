@@ -25,7 +25,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 
 import ScreenHeader from '../../components/shared/ScreenHeader';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 

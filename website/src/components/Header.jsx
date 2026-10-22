@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import logoImg from '../assets/logo.png'
+import { useSiteSettings } from '../context/SiteSettingsContext'
 
 export default function Header() {
+  const { settings } = useSiteSettings()
   const [isOpen, setIsOpen] = useState(false)
   const [openAccordion, setOpenAccordion] = useState(null)
   const [isScrolled, setIsScrolled] = useState(false)
@@ -110,12 +112,12 @@ export default function Header() {
         {/* Left utility text */}
         <div className="truncate">
           <a
-            href="https://lms.twintec.edu.lk"
-            target="_blank"
+            href={settings?.registration_open ? "https://lms.twintec.edu.lk" : "#"}
+            target={settings?.registration_open ? "_blank" : "_self"}
             rel="noopener noreferrer"
             className="text-brand-orange font-heading font-bold uppercase tracking-wider hover:underline hover:text-brand-orange/90 transition-colors text-[10px] sm:text-xs"
           >
-            Register for Courses — Apply Now
+            {settings?.registration_open ? 'Register for Courses — Apply Now' : 'Public Registration Closed'}
           </a>
         </div>
         {/* Right hotline and social links */}
@@ -124,7 +126,9 @@ export default function Header() {
             <svg className="h-3 w-3 text-brand-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
             </svg>
-            <span className="font-semibold tracking-wide text-[10px] sm:text-[11px]">076 538 0715 / 078 538 0715</span>
+            <span className="font-semibold tracking-wide text-[10px] sm:text-[11px]">
+              {settings?.contact_phone || '076 538 0715 / 078 538 0715'}
+            </span>
           </div>
 
           <span className="h-3 w-px bg-brand-charcoal hidden md:block" />

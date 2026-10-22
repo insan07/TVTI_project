@@ -12,6 +12,9 @@ import {
   Modal,
   FlatList,
   Platform,
+  TextInput,
+  Switch,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -20,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import { FONTS } from '../../config/theme';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function AdminDashboardScreen() {
   const context = useContext(AuthContext);
@@ -34,6 +38,80 @@ export default function AdminDashboardScreen() {
   const [allActivities, setAllActivities] = useState<any[]>([]);
   const [loadingAllActivities, setLoadingAllActivities] = useState(false);
   const [refreshingAllActivities, setRefreshingAllActivities] = useState(false);
+
+  // Popup Acknowledgement Modal State
+  const [ackModal, setAckModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'info' | 'warning' | 'danger';
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'success',
+  });
+
+  const showAck = (title: string, message: string, type: 'success' | 'info' | 'warning' | 'danger' = 'success') => {
+    setAckModal({
+      visible: true,
+      title,
+      message,
+      type,
+    });
+  };
+
+  const getFullImageUrl = (path?: string) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+      return path;
+    }
+    const baseUrl = api.defaults.baseURL?.replace(/\/api\/?$/, '') || 'http://localhost:5000';
+    return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+  };
+
+  // Website Tools Modal state
+  const [websiteToolsVisible, setWebsiteToolsVisible] = useState(false);
+  const [activeToolsTab, setActiveToolsTab] = useState<'settings' | 'news' | 'gallery'>('settings');
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [siteSettings, setSiteSettings] = useState({
+    site_title: 'Twintec VTI',
+    announcement_banner: 'Admissions are OPEN for 2026 batches! Register now to secure your seat.',
+    show_announcement: true,
+    contact_phone: '+94 77 123 4567',
+    contact_email: 'info@twintec.edu.lk',
+    whatsapp_number: '+94771234567',
+    address: 'Twintec VTI Main Campus, Sri Lanka',
+    registration_open: true,
+    maintenance_mode: false,
+    maintenance_message: 'The website is undergoing scheduled maintenance. Please check back shortly.',
+  });
+
+  // News State
+  const [newsList, setNewsList] = useState<any[]>([]);
+  const [loadingNews, setLoadingNews] = useState(false);
+  const [savingNews, setSavingNews] = useState(false);
+  const [newNews, setNewNews] = useState({
+    title: '',
+    category: 'ADMISSIONS',
+    summary: '',
+    message: '',
+    image_url: '',
+  });
+
+  // Gallery State
+  const [galleryList, setGalleryList] = useState<any[]>([]);
+  const [loadingGallery, setLoadingGallery] = useState(false);
+  const [savingGallery, setSavingGallery] = useState(false);
+  const [newGallery, setNewGallery] = useState({
+    title: '',
+    category: 'Workshops & Labs',
+    type: 'photo' as 'photo' | 'video',
+    url: '',
+    description: '',
+    youtubeId: '',
+  });
 
   const [stats, setStats] = useState({
     totalStudents: 0,
@@ -93,6 +171,225 @@ export default function AdminDashboardScreen() {
   const handleOpenAllActivities = () => {
     setAllActivitiesVisible(true);
     fetchAllActivities();
+  };
+
+  const fetchSiteSettings = async () => {
+    setLoadingSettings(true);
+    try {
+      const res = await api.get('/admin/settings');
+      if (res.data) {
+        setSiteSettings(prev => ({
+          ...prev,
+          ...res.data,
+        }));
+      }
+    } catch (e) {
+      console.log('Failed to fetch site settings:', e);
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
+
+  const fetchNewsList = async () => {
+    setLoadingNews(true);
+    try {
+      const res = await api.get('/news');
+      setNewsList(res.data || []);
+    } catch (e) {
+      console.log('Failed to fetch news list:', e);
+    } finally {
+      setLoadingNews(false);
+    }
+  };
+
+  const handleCreateNews = async () => {
+    if (!newNews.title.trim() || !newNews.message.trim()) {
+      showAck('Missing Information', 'Please enter a title and description content for the news article.', 'warning');
+      return;
+    }
+    setSavingNews(true);
+    try {
+      await api.post('/news', {
+        title: newNews.title,
+        category: newNews.category,
+        summary: newNews.summary,
+        content: newNews.message,
+        image_url: newNews.image_url,
+      });
+      showAck(
+        'News Article Published!',
+        `The news article "${newNews.title}" has been published live to the public website!`,
+        'success'
+      );
+      setNewNews({ title: '', category: 'ADMISSIONS', summary: '', message: '', image_url: '' });
+      fetchNewsList();
+    } catch (e: any) {
+      showAck('Publish Error', e.response?.data?.message || 'Failed to post news article', 'danger');
+    } finally {
+      setSavingNews(false);
+    }
+  };
+
+  const handleDeleteNews = async (id: string) => {
+    try {
+      await api.delete(`/news/${id}`);
+      showAck('News Item Removed', 'The selected news article has been deleted from the website.', 'info');
+      setNewsList(prev => prev.filter(item => item._id !== id));
+    } catch (e: any) {
+      showAck('Delete Error', e.response?.data?.message || 'Failed to delete news item', 'danger');
+    }
+  };
+
+  const fetchGalleryList = async () => {
+    setLoadingGallery(true);
+    try {
+      const res = await api.get('/gallery');
+      setGalleryList(res.data || []);
+    } catch (e) {
+      console.log('Failed to fetch gallery list:', e);
+    } finally {
+      setLoadingGallery(false);
+    }
+  };
+
+  const handleCreateGallery = async () => {
+    if (!newGallery.title.trim() || !newGallery.url.trim()) {
+      showAck('Missing Information', 'Please enter a title and image/video URL.', 'warning');
+      return;
+    }
+    setSavingGallery(true);
+    try {
+      await api.post('/gallery', newGallery);
+      showAck(
+        'Gallery Item Added!',
+        `"${newGallery.title}" has been added and published to the website photo & video gallery!`,
+        'success'
+      );
+      setNewGallery({ title: '', category: 'Workshops & Labs', type: 'photo', url: '', description: '', youtubeId: '' });
+      fetchGalleryList();
+    } catch (e: any) {
+      showAck('Upload Error', e.response?.data?.message || 'Failed to add gallery item', 'danger');
+    } finally {
+      setSavingGallery(false);
+    }
+  };
+
+  const handleDeleteGallery = async (id: string) => {
+    try {
+      await api.delete(`/gallery/${id}`);
+      showAck('Gallery Item Removed', 'The selected media item has been removed from the website gallery.', 'info');
+      setGalleryList(prev => prev.filter(item => item._id !== id));
+    } catch (e: any) {
+      showAck('Delete Error', e.response?.data?.message || 'Failed to delete gallery item', 'danger');
+    }
+  };
+
+  const [uploadingNewsImg, setUploadingNewsImg] = useState(false);
+  const [uploadingGalleryImg, setUploadingGalleryImg] = useState(false);
+
+  const handlePickNewsImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setUploadingNewsImg(true);
+
+        const formData = new FormData();
+        if (Platform.OS === 'web') {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          formData.append('image', blob, 'news_image.jpg');
+        } else {
+          formData.append('image', {
+            uri: asset.uri,
+            name: 'news_image.jpg',
+            type: 'image/jpeg',
+          } as any);
+        }
+
+        const res = await api.post('/admin/upload-image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (res.data && res.data.url) {
+          setNewNews(prev => ({ ...prev, image_url: res.data.url }));
+          showAck('Photo Uploaded', 'Cover photo attached from device successfully!', 'success');
+        }
+      }
+    } catch (e: any) {
+      showAck('Upload Failed', e.message || 'Failed to upload photo', 'danger');
+    } finally {
+      setUploadingNewsImg(false);
+    }
+  };
+
+  const handlePickGalleryPhoto = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setUploadingGalleryImg(true);
+
+        const formData = new FormData();
+        if (Platform.OS === 'web') {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          formData.append('image', blob, 'gallery_photo.jpg');
+        } else {
+          formData.append('image', {
+            uri: asset.uri,
+            name: 'gallery_photo.jpg',
+            type: 'image/jpeg',
+          } as any);
+        }
+
+        const res = await api.post('/admin/upload-image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (res.data && res.data.url) {
+          setNewGallery(prev => ({ ...prev, url: res.data.url }));
+          showAck('Photo Uploaded', 'Gallery photo uploaded from device successfully!', 'success');
+        }
+      }
+    } catch (e: any) {
+      showAck('Upload Failed', e.message || 'Failed to upload gallery photo', 'danger');
+    } finally {
+      setUploadingGalleryImg(false);
+    }
+  };
+
+  const handleOpenWebsiteTools = () => {
+    setWebsiteToolsVisible(true);
+    fetchSiteSettings();
+    fetchNewsList();
+    fetchGalleryList();
+  };
+
+  const handleSaveWebsiteSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const res = await api.put('/admin/settings', siteSettings);
+      showAck(
+        'Website Settings Saved',
+        res.data?.message || 'Website configuration and live announcement ticker updated successfully!',
+        'success'
+      );
+    } catch (e: any) {
+      showAck('Update Error', e.response?.data?.message || 'Failed to update website settings.', 'danger');
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   useFocusEffect(
@@ -241,7 +538,7 @@ export default function AdminDashboardScreen() {
         ) : (
           <>
             {/* Announcements Glassmorphic Card */}
-            <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+            <View style={{ marginHorizontal: 16, marginBottom: 12 }}>
               <TouchableOpacity
                 onPress={() => navigation.navigate('PostAnnouncement')}
                 activeOpacity={0.82}
@@ -263,6 +560,34 @@ export default function AdminDashboardScreen() {
                   </View>
                   <View style={styles.noticeCtaBtn}>
                     <Text style={styles.noticeCtaText}>Post</Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            {/* WEBSITE TOOLS CARD */}
+            <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+              <TouchableOpacity
+                onPress={handleOpenWebsiteTools}
+                activeOpacity={0.82}
+                style={styles.glassCardWrapper}
+              >
+                <LinearGradient
+                  colors={['rgba(255, 255, 255, 0.96)', 'rgba(238, 242, 255, 0.88)', 'rgba(255, 255, 255, 0.94)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.noticeCard}
+                >
+                  <View style={[styles.glassAccentBar, { backgroundColor: '#3B82F6' }]} />
+                  <View style={[styles.noticeIconBox, { borderColor: 'rgba(59, 130, 246, 0.25)', backgroundColor: '#EFF6FF' }]}>
+                    <Icon name="globe-outline" size={20} color="#3B82F6" />
+                  </View>
+                  <View style={styles.noticeContent}>
+                    <Text style={styles.noticeTitle}>Website Tools & Config</Text>
+                    <Text style={styles.noticeSub} numberOfLines={1}>Banners, contact details, registration & maintenance</Text>
+                  </View>
+                  <View style={[styles.noticeCtaBtn, { backgroundColor: '#2563EB' }]}>
+                    <Text style={styles.noticeCtaText}>Manage</Text>
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -401,6 +726,703 @@ export default function AdminDashboardScreen() {
               )}
             />
           )}
+        </View>
+      </Modal>
+
+      {/* 4. WEBSITE TOOLS & CONFIGURATION MODAL */}
+      <Modal
+        visible={websiteToolsVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setWebsiteToolsVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={[styles.modalContainer, { paddingTop: Platform.OS === 'ios' ? insets.top : 16 }]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalHeader}>
+            <View>
+              <Text style={styles.modalTitle}>Website Tools & Settings</Text>
+              <Text style={styles.modalSub}>Manage website content, banners, news & gallery</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setWebsiteToolsVisible(false)}
+            >
+              <Icon name="close" size={22} color="#1F2937" />
+            </TouchableOpacity>
+          </View>
+
+          {/* WEBSITE TOOLS TAB SELECTOR */}
+          <View style={{ flexDirection: 'row', backgroundColor: '#F1F5F9', padding: 4, marginHorizontal: 18, marginTop: 12, borderRadius: 12 }}>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'settings' ? '#FFFFFF' : 'transparent' }}
+              onPress={() => setActiveToolsTab('settings')}
+            >
+              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'settings' ? '#F58220' : '#64748B' }}>Site Config</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'news' ? '#FFFFFF' : 'transparent' }}
+              onPress={() => setActiveToolsTab('news')}
+            >
+              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'news' ? '#F58220' : '#64748B' }}>Update News</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'gallery' ? '#FFFFFF' : 'transparent' }}
+              onPress={() => setActiveToolsTab('gallery')}
+            >
+              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'gallery' ? '#F58220' : '#64748B' }}>Update Gallery</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loadingSettings ? (
+            <View style={styles.modalCenter}>
+              <ActivityIndicator size="large" color="#F58220" />
+              <Text style={{ marginTop: 12, color: '#64748B', fontSize: 13 }}>Loading website settings...</Text>
+            </View>
+          ) : (
+            <ScrollView
+              contentContainerStyle={{ padding: 18, paddingBottom: 60 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {activeToolsTab === 'settings' && (
+                <>
+                  {/* SECTION 2: ANNOUNCEMENT BANNER & TICKER */}
+                  <View style={styles.settingsCardSection}>
+                    <View style={styles.settingsCardHeader}>
+                      <Icon name="megaphone-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
+                      <Text style={styles.settingsSectionTitle}>Announcement Banner & Ticker</Text>
+                    </View>
+
+                    <View style={styles.switchRow}>
+                      <View style={{ flex: 1, marginRight: 12 }}>
+                        <Text style={styles.switchLabel}>Show Banner Ticker on Website</Text>
+                        <Text style={styles.switchSub}>Displays top alert message banner for all website visitors</Text>
+                      </View>
+                      <Switch
+                        value={siteSettings.show_announcement}
+                        onValueChange={val => setSiteSettings({ ...siteSettings, show_announcement: val })}
+                        trackColor={{ false: '#E2E8F0', true: '#FED7AA' }}
+                        thumbColor={siteSettings.show_announcement ? '#F58220' : '#94A3B8'}
+                      />
+                    </View>
+
+                    <Text style={styles.formInputLabel}>Announcement Banner Text</Text>
+                    <TextInput
+                      style={[styles.formTextInput, { height: 75, textAlignVertical: 'top' }]}
+                      multiline
+                      value={siteSettings.announcement_banner}
+                      onChangeText={t => setSiteSettings({ ...siteSettings, announcement_banner: t })}
+                      placeholder="e.g. Admissions are OPEN for 2026 batches! Register now."
+                      placeholderTextColor="#9CA3AF"
+                    />
+                  </View>
+
+                  {/* SECTION 3: PUBLIC CONTACT & HOTLINE DETAILS */}
+                  <View style={styles.settingsCardSection}>
+                    <View style={styles.settingsCardHeader}>
+                      <Icon name="call-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
+                      <Text style={styles.settingsSectionTitle}>Website Contact & Support Details</Text>
+                    </View>
+
+                    <Text style={styles.formInputLabel}>Official Support Phone Number</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={siteSettings.contact_phone}
+                      onChangeText={t => setSiteSettings({ ...siteSettings, contact_phone: t })}
+                      placeholder="+94 77 123 4567"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>Support Email Address</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={siteSettings.contact_email}
+                      onChangeText={t => setSiteSettings({ ...siteSettings, contact_email: t })}
+                      placeholder="info@twintec.edu.lk"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>WhatsApp Hotline Number</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={siteSettings.whatsapp_number}
+                      onChangeText={t => setSiteSettings({ ...siteSettings, whatsapp_number: t })}
+                      placeholder="+94771234567"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>Physical Campus Address</Text>
+                    <TextInput
+                      style={[styles.formTextInput, { height: 60, textAlignVertical: 'top' }]}
+                      multiline
+                      value={siteSettings.address}
+                      onChangeText={t => setSiteSettings({ ...siteSettings, address: t })}
+                      placeholder="Main Campus Address"
+                      placeholderTextColor="#9CA3AF"
+                    />
+                  </View>
+
+                  {/* SECTION 4: REGISTRATION & MAINTENANCE MODE */}
+                  <View style={styles.settingsCardSection}>
+                    <View style={styles.settingsCardHeader}>
+                      <Icon name="shield-outline" size={18} color="#EF4444" style={{ marginRight: 8 }} />
+                      <Text style={styles.settingsSectionTitle}>Registration & Maintenance Settings</Text>
+                    </View>
+
+                    <View style={styles.switchRow}>
+                      <View style={{ flex: 1, marginRight: 12 }}>
+                        <Text style={styles.switchLabel}>Public Student Registration</Text>
+                        <Text style={styles.switchSub}>Allow new students to submit registration applications online</Text>
+                      </View>
+                      <Switch
+                        value={siteSettings.registration_open}
+                        onValueChange={val => setSiteSettings({ ...siteSettings, registration_open: val })}
+                        trackColor={{ false: '#E2E8F0', true: '#BBF7D0' }}
+                        thumbColor={siteSettings.registration_open ? '#10B981' : '#94A3B8'}
+                      />
+                    </View>
+
+                    <View style={[styles.switchRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                      <View style={{ flex: 1, marginRight: 12 }}>
+                        <Text style={styles.switchLabel}>Enable Website Maintenance Mode</Text>
+                        <Text style={styles.switchSub}>Show maintenance alert notice to visitors</Text>
+                      </View>
+                      <Switch
+                        value={siteSettings.maintenance_mode}
+                        onValueChange={val => setSiteSettings({ ...siteSettings, maintenance_mode: val })}
+                        trackColor={{ false: '#E2E8F0', true: '#FECDD3' }}
+                        thumbColor={siteSettings.maintenance_mode ? '#EF4444' : '#94A3B8'}
+                      />
+                    </View>
+
+                    {siteSettings.maintenance_mode && (
+                      <View style={{ marginTop: 14 }}>
+                        <Text style={styles.formInputLabel}>Maintenance Notice Message</Text>
+                        <TextInput
+                          style={[styles.formTextInput, { height: 65, textAlignVertical: 'top' }]}
+                          multiline
+                          value={siteSettings.maintenance_message}
+                          onChangeText={t => setSiteSettings({ ...siteSettings, maintenance_message: t })}
+                          placeholder="Maintenance message..."
+                          placeholderTextColor="#9CA3AF"
+                        />
+                      </View>
+                    )}
+                  </View>
+
+                  {/* SAVE SETTINGS BUTTON */}
+                  <TouchableOpacity
+                    style={styles.saveSettingsBtn}
+                    onPress={handleSaveWebsiteSettings}
+                    disabled={savingSettings}
+                    activeOpacity={0.85}
+                  >
+                    {savingSettings ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Icon name="checkmark-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.saveSettingsBtnText}>Save Website Settings</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* TAB 2: UPDATE NEWS & ANNOUNCEMENTS */}
+              {activeToolsTab === 'news' && (
+                <View>
+                  <View style={styles.settingsCardSection}>
+                    <View style={styles.settingsCardHeader}>
+                      <Icon name="newspaper-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
+                      <Text style={styles.settingsSectionTitle}>Post New Website News & Article</Text>
+                    </View>
+
+                    <Text style={styles.formInputLabel}>News Title *</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={newNews.title}
+                      onChangeText={t => setNewNews({ ...newNews, title: t })}
+                      placeholder="e.g. 2026 Batch Admissions Open"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>Category</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                      {['ADMISSIONS', 'GRADUATION', 'FACILITIES', 'NEWS'].map((cat) => (
+                        <TouchableOpacity
+                          key={cat}
+                          onPress={() => setNewNews({ ...newNews, category: cat })}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            borderRadius: 8,
+                            backgroundColor: newNews.category === cat ? '#F58220' : '#E2E8F0',
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, ...FONTS.bold, color: newNews.category === cat ? '#FFFFFF' : '#475569' }}>
+                            {cat}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.formInputLabel}>News Cover Photo</Text>
+                    <View style={{ marginBottom: 12 }}>
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: '#FFF7ED',
+                          borderWidth: 1.5,
+                          borderColor: '#FFEDD5',
+                          borderStyle: 'dashed',
+                          paddingVertical: 12,
+                          paddingHorizontal: 16,
+                          borderRadius: 10,
+                          marginBottom: 8,
+                        }}
+                        onPress={handlePickNewsImage}
+                        disabled={uploadingNewsImg}
+                      >
+                        {uploadingNewsImg ? (
+                          <ActivityIndicator size="small" color="#F58220" />
+                        ) : (
+                          <>
+                            <Icon name="camera-outline" size={20} color="#F58220" style={{ marginRight: 8 }} />
+                            <Text style={{ fontSize: 13, ...FONTS.bold, color: '#F58220' }}>
+                              {newNews.image_url ? 'Change Photo from Device' : 'Upload Photo from Device'}
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+
+                      {newNews.image_url ? (
+                        <View style={{ position: 'relative', marginTop: 6, borderRadius: 10, overflow: 'hidden', height: 110, backgroundColor: '#F1F5F9' }}>
+                          <Image
+                            source={{ uri: getFullImageUrl(newNews.image_url) }}
+                            style={{ width: '100%', height: '100%' }}
+                            resizeMode="cover"
+                          />
+                          <TouchableOpacity
+                            onPress={() => setNewNews(prev => ({ ...prev, image_url: '' }))}
+                            style={{ position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 14 }}
+                          >
+                            <Icon name="close" size={16} color="#FFFFFF" />
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TextInput
+                          style={styles.formTextInput}
+                          value={newNews.image_url}
+                          onChangeText={t => setNewNews({ ...newNews, image_url: t })}
+                          placeholder="Or paste photo web link URL..."
+                          placeholderTextColor="#9CA3AF"
+                        />
+                      )}
+                    </View>
+
+                    <Text style={styles.formInputLabel}>Short Summary</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={newNews.summary}
+                      onChangeText={t => setNewNews({ ...newNews, summary: t })}
+                      placeholder="Brief 1-sentence summary"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>Detailed Message / Content *</Text>
+                    <TextInput
+                      style={[styles.formTextInput, { height: 80, textAlignVertical: 'top' }]}
+                      multiline
+                      value={newNews.message}
+                      onChangeText={t => setNewNews({ ...newNews, message: t })}
+                      placeholder="Type news details..."
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <TouchableOpacity
+                      style={[styles.saveSettingsBtn, { backgroundColor: '#F58220' }]}
+                      onPress={handleCreateNews}
+                      disabled={savingNews}
+                    >
+                      {savingNews ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Icon name="paper-plane-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                          <Text style={styles.saveSettingsBtnText}>Publish News to Website</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* CURRENT NEWS LIST */}
+                  <View style={styles.settingsCardSection}>
+                    <Text style={[styles.settingsSectionTitle, { marginBottom: 12 }]}>Live Website News ({newsList.length})</Text>
+                    {loadingNews ? (
+                      <ActivityIndicator size="small" color="#F58220" />
+                    ) : newsList.length === 0 ? (
+                      <Text style={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>No news published yet.</Text>
+                    ) : (
+                      newsList.map((item) => (
+                        <View key={item._id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
+                            {item.image_url ? (
+                              <Image
+                                source={{ uri: getFullImageUrl(item.image_url) }}
+                                style={{ width: 42, height: 42, borderRadius: 8, marginRight: 10, backgroundColor: '#F1F5F9' }}
+                                resizeMode="cover"
+                              />
+                            ) : (
+                              <View style={{ width: 42, height: 42, borderRadius: 8, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                                <Icon name="newspaper-outline" size={20} color="#F58220" />
+                              </View>
+                            )}
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 14, ...FONTS.bold, color: '#0F172A' }}>{item.title}</Text>
+                              <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }} numberOfLines={1}>{item.summary || item.content || item.message}</Text>
+                            </View>
+                          </View>
+                          <TouchableOpacity onPress={() => handleDeleteNews(item._id)} style={{ padding: 6 }}>
+                            <Icon name="trash-outline" size={18} color="#EF4444" />
+                          </TouchableOpacity>
+                        </View>
+                      ))
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* TAB 3: UPDATE GALLERY (PHOTOS & VIDEOS) */}
+              {activeToolsTab === 'gallery' && (
+                <View>
+                  <View style={styles.settingsCardSection}>
+                    <View style={styles.settingsCardHeader}>
+                      <Icon name="images-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
+                      <Text style={styles.settingsSectionTitle}>Add Gallery Item (Photo or Video)</Text>
+                    </View>
+
+                    <Text style={styles.formInputLabel}>Media Type</Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                      <TouchableOpacity
+                        onPress={() => setNewGallery({ ...newGallery, type: 'photo' })}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 10,
+                          alignItems: 'center',
+                          borderRadius: 8,
+                          backgroundColor: newGallery.type === 'photo' ? '#F58220' : '#E2E8F0',
+                          flexDirection: 'row',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Icon name="image-outline" size={16} color={newGallery.type === 'photo' ? '#FFFFFF' : '#475569'} style={{ marginRight: 6 }} />
+                        <Text style={{ fontSize: 12, ...FONTS.bold, color: newGallery.type === 'photo' ? '#FFFFFF' : '#475569' }}>
+                          Upload Photo
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setNewGallery({ ...newGallery, type: 'video' })}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 10,
+                          alignItems: 'center',
+                          borderRadius: 8,
+                          backgroundColor: newGallery.type === 'video' ? '#0F172A' : '#E2E8F0',
+                          flexDirection: 'row',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Icon name="logo-youtube" size={16} color={newGallery.type === 'video' ? '#FFFFFF' : '#475569'} style={{ marginRight: 6 }} />
+                        <Text style={{ fontSize: 12, ...FONTS.bold, color: newGallery.type === 'video' ? '#FFFFFF' : '#475569' }}>
+                          YouTube Video
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.formInputLabel}>Title *</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={newGallery.title}
+                      onChangeText={t => setNewGallery({ ...newGallery, title: t })}
+                      placeholder={newGallery.type === 'photo' ? "e.g. Micro-soldering Workshop" : "e.g. Domestic Wiring Demonstration"}
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>Category</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={newGallery.category}
+                      onChangeText={t => setNewGallery({ ...newGallery, category: t })}
+                      placeholder="e.g. Workshops & Labs, Practical Sessions, Certificates & Events"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    {newGallery.type === 'photo' ? (
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={styles.formInputLabel}>Gallery Photo File *</Text>
+                        <TouchableOpacity
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#FFF7ED',
+                            borderWidth: 1.5,
+                            borderColor: '#FFEDD5',
+                            borderStyle: 'dashed',
+                            paddingVertical: 12,
+                            paddingHorizontal: 16,
+                            borderRadius: 10,
+                            marginBottom: 8,
+                          }}
+                          onPress={handlePickGalleryPhoto}
+                          disabled={uploadingGalleryImg}
+                        >
+                          {uploadingGalleryImg ? (
+                            <ActivityIndicator size="small" color="#F58220" />
+                          ) : (
+                            <>
+                              <Icon name="cloud-upload-outline" size={20} color="#F58220" style={{ marginRight: 8 }} />
+                              <Text style={{ fontSize: 13, ...FONTS.bold, color: '#F58220' }}>
+                                {newGallery.url ? 'Change Photo from Device' : 'Choose Photo from Device'}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+
+                        {newGallery.url ? (
+                          <View style={{ position: 'relative', marginTop: 4, borderRadius: 10, overflow: 'hidden', height: 110, backgroundColor: '#F1F5F9' }}>
+                            <Image
+                              source={{ uri: getFullImageUrl(newGallery.url) }}
+                              style={{ width: '100%', height: '100%' }}
+                              resizeMode="cover"
+                            />
+                            <TouchableOpacity
+                              onPress={() => setNewGallery(prev => ({ ...prev, url: '' }))}
+                              style={{ position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 14 }}
+                            >
+                              <Icon name="close" size={16} color="#FFFFFF" />
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <TextInput
+                            style={styles.formTextInput}
+                            value={newGallery.url}
+                            onChangeText={t => setNewGallery({ ...newGallery, url: t })}
+                            placeholder="Or paste photo web link URL..."
+                            placeholderTextColor="#9CA3AF"
+                          />
+                        )}
+                      </View>
+                    ) : (
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={styles.formInputLabel}>YouTube Video Link / URL *</Text>
+                        <TextInput
+                          style={styles.formTextInput}
+                          value={newGallery.url}
+                          onChangeText={t => setNewGallery({ ...newGallery, url: t })}
+                          placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                          placeholderTextColor="#9CA3AF"
+                        />
+                        {/* Auto Extract Youtube Thumbnail Preview */}
+                        {(() => {
+                          const match = newGallery.url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+                          const ytId = match ? match[1] : null;
+                          if (ytId) {
+                            return (
+                              <View style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', height: 120, backgroundColor: '#000000', marginTop: 6, alignItems: 'center', justifyContent: 'center' }}>
+                                <Image
+                                  source={{ uri: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` }}
+                                  style={{ width: '100%', height: '100%', opacity: 0.85 }}
+                                  resizeMode="cover"
+                                />
+                                <View style={{ position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: '#FF0000', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Icon name="play" size={24} color="#FFFFFF" style={{ marginLeft: 3 }} />
+                                </View>
+                              </View>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </View>
+                    )}
+
+                    <Text style={styles.formInputLabel}>Description</Text>
+                    <TextInput
+                      style={[styles.formTextInput, { height: 60, textAlignVertical: 'top' }]}
+                      multiline
+                      value={newGallery.description}
+                      onChangeText={t => setNewGallery({ ...newGallery, description: t })}
+                      placeholder="Brief description of the photo or video..."
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <TouchableOpacity
+                      style={[styles.saveSettingsBtn, { backgroundColor: '#F58220' }]}
+                      onPress={handleCreateGallery}
+                      disabled={savingGallery}
+                    >
+                      {savingGallery ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Icon name="add-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                          <Text style={styles.saveSettingsBtnText}>Add to Website Gallery</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* CURRENT GALLERY LIST */}
+                  <View style={styles.settingsCardSection}>
+                    <Text style={[styles.settingsSectionTitle, { marginBottom: 12 }]}>Live Website Gallery Items ({galleryList.length})</Text>
+                    {loadingGallery ? (
+                      <ActivityIndicator size="small" color="#F58220" />
+                    ) : galleryList.length === 0 ? (
+                      <Text style={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>No gallery items uploaded yet.</Text>
+                    ) : (
+                      galleryList.map((item) => {
+                        const match = item.url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+                        const ytId = item.youtubeId || (match ? match[1] : null);
+                        const thumbUrl = item.type === 'video' && ytId
+                          ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
+                          : getFullImageUrl(item.url);
+
+                        return (
+                          <View key={item._id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
+                              {thumbUrl ? (
+                                <Image
+                                  source={{ uri: thumbUrl }}
+                                  style={{ width: 44, height: 44, borderRadius: 8, marginRight: 10, backgroundColor: '#F1F5F9' }}
+                                  resizeMode="cover"
+                                />
+                              ) : (
+                                <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: item.type === 'video' ? '#0F172A' : '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                                  <Icon name={item.type === 'video' ? 'logo-youtube' : 'image-outline'} size={20} color={item.type === 'video' ? '#FFFFFF' : '#F58220'} />
+                                </View>
+                              )}
+                              <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                  <View style={{ backgroundColor: item.type === 'video' ? '#0F172A' : '#FFF7ED', paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 4, marginRight: 6 }}>
+                                    <Text style={{ fontSize: 8.5, ...FONTS.bold, color: item.type === 'video' ? '#FFFFFF' : '#F58220' }}>{item.type?.toUpperCase() || 'PHOTO'}</Text>
+                                  </View>
+                                  <Text style={{ fontSize: 13, ...FONTS.bold, color: '#0F172A' }} numberOfLines={1}>{item.title}</Text>
+                                </View>
+                                <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }} numberOfLines={1}>{item.category} &bull; {item.description || item.url}</Text>
+                              </View>
+                            </View>
+                            <TouchableOpacity onPress={() => handleDeleteGallery(item._id)} style={{ padding: 6 }}>
+                              <Icon name="trash-outline" size={18} color="#EF4444" />
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })
+                    )}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+          )}
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* POPUP ACKNOWLEDGEMENT MODAL OVERLAY */}
+      <Modal
+        visible={ackModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAckModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.75)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+          <View style={{
+            width: '100%',
+            maxWidth: 360,
+            backgroundColor: '#FFFFFF',
+            borderRadius: 24,
+            padding: 24,
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.25,
+            shadowRadius: 20,
+            elevation: 10,
+            borderWidth: 1,
+            borderColor: '#F1F5F9'
+          }}>
+            
+            {/* Glowing Circle Icon Badge */}
+            <View style={{
+              width: 60,
+              height: 60,
+              borderRadius: 30,
+              backgroundColor: ackModal.type === 'success' ? '#DCFCE7' : ackModal.type === 'warning' ? '#FEF3C7' : ackModal.type === 'danger' ? '#FEE2E2' : '#DBEAFE',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              borderWidth: 2,
+              borderColor: ackModal.type === 'success' ? '#86EFAC' : ackModal.type === 'warning' ? '#FDE68A' : ackModal.type === 'danger' ? '#FCA5A5' : '#BFDBFE',
+            }}>
+              <Icon
+                name={
+                  ackModal.type === 'success'
+                    ? 'checkmark-circle'
+                    : ackModal.type === 'warning'
+                    ? 'warning'
+                    : ackModal.type === 'danger'
+                    ? 'alert-circle'
+                    : 'information-circle'
+                }
+                size={34}
+                color={
+                  ackModal.type === 'success'
+                    ? '#16A34A'
+                    : ackModal.type === 'warning'
+                    ? '#D97706'
+                    : ackModal.type === 'danger'
+                    ? '#DC2626'
+                    : '#F58220'
+                }
+              />
+            </View>
+
+            {/* Title */}
+            <Text style={{ fontSize: 18, ...FONTS.bold, color: '#0F172A', textAlign: 'center', marginBottom: 8 }}>
+              {ackModal.title}
+            </Text>
+
+            {/* Message */}
+            <Text style={{ fontSize: 13.5, color: '#475569', textAlign: 'center', lineHeight: 20, marginBottom: 20 }}>
+              {ackModal.message}
+            </Text>
+
+            {/* Dismiss Button */}
+            <TouchableOpacity
+              onPress={() => setAckModal(prev => ({ ...prev, visible: false }))}
+              style={{
+                width: '100%',
+                backgroundColor: ackModal.type === 'danger' ? '#DC2626' : '#F58220',
+                paddingVertical: 12,
+                borderRadius: 14,
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#F58220',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.25,
+                shadowRadius: 6,
+                elevation: 3,
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={{ fontSize: 14, ...FONTS.bold, color: '#FFFFFF' }}>Got it</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </View>
@@ -869,5 +1891,118 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
+  },
+
+  /* Website Tools Modal Styles */
+  settingsCardSection: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  settingsCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  settingsSectionTitle: {
+    fontSize: 15,
+    ...FONTS.bold,
+    color: '#0F172A',
+  },
+  shortcutsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  shortcutBtn: {
+    width: '31%',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  shortcutIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  shortcutLabel: {
+    fontSize: 11,
+    ...FONTS.bold,
+    color: '#334155',
+    textAlign: 'center',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  switchLabel: {
+    fontSize: 14,
+    ...FONTS.bold,
+    color: '#1E293B',
+  },
+  switchSub: {
+    fontSize: 12,
+    ...FONTS.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  formInputLabel: {
+    fontSize: 13,
+    ...FONTS.semiBold,
+    color: '#334155',
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  formTextInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0F172A',
+    ...FONTS.regular,
+    marginBottom: 10,
+  },
+  saveSettingsBtn: {
+    backgroundColor: '#F58220',
+    borderRadius: 12,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(245, 130, 32, 0.35)' },
+      default: {
+        shadowColor: '#F58220',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
+        elevation: 4,
+      },
+    }),
+  },
+  saveSettingsBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    ...FONTS.bold,
   },
 });
