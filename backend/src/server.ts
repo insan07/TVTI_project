@@ -10,6 +10,13 @@ import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import dns from 'dns';
 
+// Fix for Windows / ISP DNS refusing SRV queries (querySrv ECONNREFUSED) for MongoDB Atlas
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+} catch {
+  // fallback for serverless or environments with locked DNS
+}
+
 // Import Routes
 import authRoutes from './routes/auth';
 import courseRoutes from './routes/courses';
