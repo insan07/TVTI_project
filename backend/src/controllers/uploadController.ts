@@ -152,3 +152,27 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
     res.status(500).json({ message });
   }
 };
+
+// ─── POST /api/admin/upload-image ──────────────────────────────────────────────
+export const uploadAdminImage = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const file = req.file;
+    if (!file || !file.buffer) {
+      res.status(400).json({ message: 'No image file uploaded' });
+      return;
+    }
+
+    const originalName = file.originalname || 'image.jpg';
+    const file_id = await saveBufferToGridFS(
+      file.buffer,
+      originalName,
+      file.mimetype || 'image/jpeg'
+    );
+
+    const url = `/api/files/${file_id}`;
+    res.status(200).json({ url, file_id });
+  } catch (error) {
+    console.error('Image upload failed:', error);
+    res.status(500).json({ message: 'Image upload failed' });
+  }
+};

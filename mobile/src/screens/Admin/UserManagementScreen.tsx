@@ -30,7 +30,7 @@ import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
 import WhatsAppSelectionHeader from '../../components/shared/WhatsAppSelectionHeader';
 import * as Print from 'expo-print';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -324,6 +324,9 @@ export default function UserManagementScreen() {
       }
       if (instRes.status === 'fulfilled') {
         setInstructorsList(instRes.value.data || []);
+      }
+      if (paymentsRes.status === 'fulfilled') {
+        setAdminPaymentsList(paymentsRes.value.data || []);
       }
     } catch (e: any) {
       console.warn('Failed to fetch dashboard data', e);
@@ -657,7 +660,6 @@ export default function UserManagementScreen() {
       const res = await api.post('/admin/users/instructor', instructorForm);
       setInstructorForm({ name: '', email: '', phone: '', nic: '' });
       setInstructorModalVisible(false);
-      userCacheRef.current = {};
 
       if (res.data.index_number) {
         setApprovedCredentials({
@@ -1683,10 +1685,10 @@ export default function UserManagementScreen() {
                 activeMode === 'applications'
                   ? 'Applications'
                   : activeMode === 'students'
-                  ? 'Students'
-                  : activeMode === 'payments'
-                  ? 'Payments'
-                  : 'Instructors'
+                    ? 'Students'
+                    : activeMode === 'payments'
+                      ? 'Payments'
+                      : 'Instructors'
               }
               subtitle={`Manage ${activeMode} records`}
               showBack={true}
@@ -1850,33 +1852,33 @@ export default function UserManagementScreen() {
                   activeMode === 'applications'
                     ? renderPendingItem
                     : activeMode === 'students'
-                    ? renderStudentItem
-                    : activeMode === 'payments'
-                    ? renderPaymentItem
-                    : renderInstructorItem
+                      ? renderStudentItem
+                      : activeMode === 'payments'
+                        ? renderPaymentItem
+                        : renderInstructorItem
                 }
-                  CellRendererComponent={({ children, index, style, ...props }: any) => {
-                    const item = filteredUsers[index];
-                    const isMenuOpen = item && activeMenuUserId === item._id;
-                    return (
-                      <View
-                        style={[
-                          style,
-                          { zIndex: isMenuOpen ? 99999 : (filteredUsers.length || 100) - index }
-                        ]}
-                        {...props}
-                      >
-                        {children}
-                      </View>
-                    );
-                  }}
-                  contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 110 }}
-                  ListEmptyComponent={<Text style={styles.emptyListText}>No records found for this filter.</Text>}
-                />
-              )}
-            </>
+                CellRendererComponent={({ children, index, style, ...props }: any) => {
+                  const item = filteredUsers[index];
+                  const isMenuOpen = item && activeMenuUserId === item._id;
+                  return (
+                    <View
+                      style={[
+                        style,
+                        { zIndex: isMenuOpen ? 99999 : (filteredUsers.length || 100) - index }
+                      ]}
+                      {...props}
+                    >
+                      {children}
+                    </View>
+                  );
+                }}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 110 }}
+                ListEmptyComponent={<Text style={styles.emptyListText}>No records found for this filter.</Text>}
+              />
+            )}
           </>
-        )}
+        </>
+      )}
 
       {/* Floating Add Instructor Liquid FAB Button */}
       {currentView === 'detail' && activeMode === 'instructors' && !isSelectMode && (
@@ -2692,7 +2694,7 @@ export default function UserManagementScreen() {
                 {/* 2. Financial Totals & Progress Bar */}
                 <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
                   <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', marginBottom: 12 }}>Fee Breakdown & Settlement</Text>
-                  
+
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                     <View>
                       <Text style={{ fontSize: 12, color: '#64748B' }}>Total Fee</Text>
@@ -3445,7 +3447,6 @@ const styles = StyleSheet.create({
   actionButtonRow: {
     paddingHorizontal: 16,
     marginBottom: 14,
-    marginTop: 16,
   },
   addInstructorBtn: {
     backgroundColor: '#F58220',

@@ -87,6 +87,9 @@ const styles = StyleSheet.create({
     backgroundColor: HEADER_THEME.backgroundColor,
     borderBottomWidth: HEADER_THEME.borderBottomWidth,
     borderBottomColor: HEADER_THEME.borderBottomColor,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
     ...Platform.select({
       web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
       default: {
