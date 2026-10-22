@@ -261,7 +261,7 @@ export default function LoginScreen() {
         resizeMode="cover"
       />
 
-      {/* Atmospheric Overlays - Matching Exact Translucent Color Shade */}
+      {/* Atmospheric Overlays */}
       {Platform.OS === 'web' ? (
         <View
           style={[
@@ -273,7 +273,7 @@ export default function LoginScreen() {
               zIndex: -1,
               pointerEvents: 'none',
               background: isDesktop
-                ? 'radial-gradient(ellipse 60% 50% at 88% 10%, rgba(255, 125, 20, 0.36) 0%, rgba(200, 80, 15, 0.18) 45%, transparent 75%), linear-gradient(to right, rgba(14, 10, 7, 0.88) 0%, rgba(14, 10, 7, 0.84) 49.8%, rgba(68, 30, 12, 0.48) 50%, rgba(98, 42, 16, 0.40) 75%, rgba(138, 58, 18, 0.28) 100%)'
+                ? 'radial-gradient(circle at 86% 8%, rgba(255, 115, 0, 0.22) 0%, rgba(255, 90, 0, 0.08) 35%, transparent 60%), linear-gradient(to right, rgba(14, 10, 7, 0.92) 0%, rgba(14, 10, 7, 0.64) 46%, rgba(14, 10, 7, 0.82) 100%)'
                 : 'linear-gradient(to bottom, rgba(14, 10, 7, 0.88) 0%, rgba(14, 10, 7, 0.70) 50%, rgba(14, 10, 7, 0.92) 100%)',
             } as any,
           ]}
@@ -329,13 +329,7 @@ export default function LoginScreen() {
                 <View style={styles.heroImageWrapper}>
                   <Image
                     source={require('../../../assets/login_hero_clay.jpg')}
-                    style={[
-                      styles.heroImage,
-                      Platform.OS === 'web' && ({
-                        WebkitMaskImage: 'radial-gradient(ellipse 65% 62% at 50% 50%, black 45%, transparent 85%)',
-                        maskImage: 'radial-gradient(ellipse 65% 62% at 50% 50%, black 45%, transparent 85%)',
-                      } as any),
-                    ]}
+                    style={styles.heroImage}
                     resizeMode="contain"
                   />
                 </View>
@@ -484,7 +478,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-start',
     marginTop: 8,
-    backgroundColor: 'transparent',
+    ...(Platform.OS === 'web'
+      ? ({
+          WebkitMaskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
+          maskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
+        } as any)
+      : {}),
   },
   heroImage: {
     width: '100%',
@@ -503,141 +502,21 @@ const styles = StyleSheet.create({
 
   /* ---------- Login Card Component Styles ---------- */
   card: {
-    backgroundColor: 'rgba(28, 20, 15, 0.58)',
+    backgroundColor: 'rgba(25, 19, 14, 0.78)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 130, 40, 0.20)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 22,
-    paddingVertical: 30,
-    paddingHorizontal: 26,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.45,
     shadowRadius: 24,
     elevation: 8,
     ...(Platform.OS === 'web'
-      ? ({ backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' } as any)
+      ? ({ backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' } as any)
       : {}),
   },
-  welcomeTitle: {
-    fontSize: 24,
-    color: '#FFFFFF',
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  welcomeSubtitle: {
-    fontSize: 13.5,
-    color: '#9C9083',
-    marginBottom: 24,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(13, 148, 136, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(20, 184, 166, 0.35)',
-    borderRadius: RADIUS.md,
-    padding: 12,
-    marginBottom: 16,
-  },
-  infoBoxText: {
-    flex: 1,
-    color: '#2DD4BF',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(220, 38, 38, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.35)',
-    borderRadius: RADIUS.md,
-    padding: 12,
-    marginBottom: 16,
-  },
-  errorBoxText: {
-    flex: 1,
-    color: '#F87171',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#D4CAC0',
-    marginBottom: 8,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(18, 13, 9, 0.60)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 130, 50, 0.22)',
-    borderRadius: 12,
-    marginBottom: 18,
-    paddingHorizontal: 14,
-    height: 48,
-  },
-  inputContainerFocused: {
-    borderColor: '#FF6500',
-    backgroundColor: 'rgba(28, 18, 12, 0.80)',
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    height: '100%',
-    fontSize: 14.5,
-    color: '#FFFFFF',
-  },
-  eyeIcon: {
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  forgotPasswordContainer: {
-    alignItems: 'flex-end',
-    marginBottom: 22,
-    marginTop: -4,
-  },
-  forgotPasswordText: {
-    color: '#FF6500',
-    fontSize: 12.5,
-    fontWeight: '500',
-  },
-  button: {
-    backgroundColor: '#FF5E14',
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#FF5E14',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 15.5,
-    fontWeight: '700',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 22,
-  },
-  footerText: {
-    color: '#8E8276',
-    fontSize: 13.5,
-  },
-  link: {
-    color: '#FF6500',
-    fontSize: 13.5,
-    fontWeight: '700',
-  },
-});
   welcomeTitle: {
     fontSize: 24,
     color: '#FFFFFF',
