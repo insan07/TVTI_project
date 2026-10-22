@@ -3,6 +3,8 @@
 // (or the first user with <role>) to <newEmail>. Sets the password and activates the account.
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const dns = require('dns');
+try { dns.setServers(['8.8.8.8', '8.8.4.4']); } catch {}
 require('dotenv').config();
 
 const [email, password, role, fromEmail] = process.argv.slice(2);
