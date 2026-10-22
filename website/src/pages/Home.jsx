@@ -346,11 +346,11 @@ export default function Home() {
                   Explore Programs
                 </button>
               </Link>
-              <Link to="/inquiry" className="w-full sm:w-auto">
+              <a href="https://lms.twintec.edu.lk" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
                 <button className="w-full sm:w-auto bg-white/10 backdrop-blur-md text-white border border-white/30 hover:bg-white hover:text-brand-black active:scale-95 font-heading font-semibold text-xs uppercase tracking-wider py-3 px-7 rounded-full shadow-lg transition-all duration-200 cursor-pointer min-h-[42px] flex items-center justify-center">
                   Apply Online Today
                 </button>
-              </Link>
+              </a>
             </div>
           </div>
         </div>

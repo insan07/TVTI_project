@@ -39,31 +39,12 @@ const PORT = process.env.PORT || 5000;
 
 import path from 'path';
 
+import { corsOptions } from './config/cors';
+
 // Middleware
 app.use(helmet({ crossOriginResourcePolicy: false }));
-// CORS Configuration — set CORS_ORIGINS env var for production
-// e.g. CORS_ORIGINS=https://your-app.vercel.app,https://your-mobile.vercel.app
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:8081',
-  'http://127.0.0.1:8081',
-  'http://localhost:19000',
-  'exp://localhost:8081',
-  ...(process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
-    : []),
-];
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(new Error('The CORS policy for this site does not allow access from the specified Origin.'), false);
-    }
-    return callback(null, true);
-  },
-  credentials: true,
-}));
+// CORS Configuration with full support for official domains, Vercel deployments, and dev servers
+app.use(cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ limit: '5mb', extended: true }));
@@ -169,6 +150,14 @@ app.use('/api/announcements', announcementRoutes);
 // Global Error Handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
+
+  if (err.message && err.message.toLowerCase().includes('cors')) {
+    res.status(403).json({
+      success: false,
+      message: err.message,
+    });
+    return;
+  }
 
   if ((err as any).type === 'entity.too.large' || (err as any).status === 413) {
     res.status(413).json({

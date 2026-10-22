@@ -384,7 +384,8 @@ export default function BatchManagementScreen() {
 
         <View style={styles.cardFooterActions}>
           <TouchableOpacity style={styles.viewDetailsTextBtn} onPress={() => handleOpenDetails(item._id)}>
-            <Text style={styles.viewDetailsText}>View Details & Enrolled Students →</Text>
+            <Icon name="eye-outline" size={14} color="#4338CA" style={{ marginRight: 4 }} />
+            <Text style={styles.viewDetailsText}>View Details & Students</Text>
           </TouchableOpacity>
           <View style={{ flexDirection: 'row', gap: 6 }}>
             <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
@@ -1066,9 +1067,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   editBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
   },
   deleteCardBtn: {
     flexDirection: 'row',

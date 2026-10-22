@@ -1103,42 +1103,85 @@ export default function ProfileScreen() {
       {/* ========================================================================= */}
       {/* LOGOUT CONFIRMATION MODAL */}
       {/* ========================================================================= */}
-      <Modal
-        visible={logoutModalVisible}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setLogoutModalVisible(false)}
-      >
-        <View style={styles.popupOverlay}>
-          <View style={styles.popupCard}>
-            <View style={[styles.popupIconCircle, { backgroundColor: '#FEE2E2' }]}>
-              <Icon name="log-out-outline" size={28} color="#DC2626" />
+      <Modal visible={logoutModalVisible} animationType="fade" transparent={true} onRequestClose={() => setLogoutModalVisible(false)}>
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20
+        }}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 20,
+            padding: 24,
+            width: '100%',
+            maxWidth: 380,
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.25,
+            shadowRadius: 20,
+            elevation: 10
+          }}>
+            <View style={{
+              width: 64,
+              height: 64,
+              borderRadius: 32,
+              backgroundColor: '#FEE2E2',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 16
+            }}>
+              <Icon name="shield-checkmark-outline" size={32} color="#DC2626" />
             </View>
-            <Text style={styles.popupTitle}>Confirm Logout</Text>
-            <Text style={styles.popupMessage}>
-              Are you sure you want to log out of your TVTI account?
+
+            <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#0F172A', textAlign: 'center', marginBottom: 6 }}>
+              Confirm Logout
             </Text>
-            <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginTop: 16 }}>
+
+            <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 18, marginBottom: 16 }}>
+              Are you sure you want to log out of your session? You can log back in at any time.
+            </Text>
+
+            {/* Account Details Safety Badge */}
+            <View style={{
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              borderRadius: 12,
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              width: '100%',
+              alignItems: 'center',
+              marginBottom: 20
+            }}>
+              <Text style={{ fontSize: 12, color: '#475569', fontWeight: '600' }}>
+                Account: <Text style={{ color: '#0F172A', fontWeight: 'bold' }}>{profile.name || profile.email}</Text> ({profile.role?.toUpperCase() || 'USER'})
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  backgroundColor: '#F1F5F9',
+                  backgroundColor: '#0F172A',
                   paddingVertical: 12,
                   borderRadius: 10,
-                  alignItems: 'center',
-                  borderWidth: 1,
-                  borderColor: '#CBD5E1',
+                  alignItems: 'center'
                 }}
                 onPress={() => setLogoutModalVisible(false)}
+                activeOpacity={0.8}
               >
-                <Text style={{ color: '#475569', fontWeight: 'bold', fontSize: 14 }}>
-                  Cancel
-                </Text>
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Stay Logged In</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  backgroundColor: '#DC2626',
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FCA5A5',
                   paddingVertical: 12,
                   borderRadius: 10,
                   alignItems: 'center',
@@ -1147,10 +1190,9 @@ export default function ProfileScreen() {
                   setLogoutModalVisible(false);
                   logout();
                 }}
+                activeOpacity={0.8}
               >
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>
-                  Logout
-                </Text>
+                <Text style={{ color: '#DC2626', fontWeight: 'bold', fontSize: 14 }}>Yes, Log Out</Text>
               </TouchableOpacity>
             </View>
           </View>

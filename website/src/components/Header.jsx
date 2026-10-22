@@ -109,12 +109,14 @@ export default function Header() {
       <div className="bg-brand-black text-brand-white text-[11px] h-7 sm:h-8 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-brand-charcoal">
         {/* Left utility text */}
         <div className="truncate">
-          <Link
-            to="/inquiry"
+          <a
+            href="https://lms.twintec.edu.lk"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-brand-orange font-heading font-bold uppercase tracking-wider hover:underline hover:text-brand-orange/90 transition-colors text-[10px] sm:text-xs"
           >
             Register for Courses — Apply Now
-          </Link>
+          </a>
         </div>
         {/* Right hotline and social links */}
         <div className="hidden sm:flex items-center space-x-4 lg:space-x-6 text-[11px]">
@@ -239,11 +241,11 @@ export default function Header() {
 
             {/* Right Standout Apply Button */}
             <div className="hidden lg:flex items-center flex-shrink-0 ml-2">
-              <Link to="/inquiry">
+              <a href="https://lms.twintec.edu.lk" target="_blank" rel="noopener noreferrer">
                 <button className="bg-brand-orange text-brand-white font-heading font-bold text-[11px] uppercase tracking-wider py-1.5 px-4 rounded-full hover:bg-brand-black hover:text-brand-white shadow-xs hover:shadow-sm transition-all duration-300 flex items-center justify-center whitespace-nowrap min-h-[34px] cursor-pointer">
                   Apply Now
                 </button>
-              </Link>
+              </a>
             </div>
 
             {/* Hamburger Button for Mobile/Tablet (< 1024px) */}
@@ -344,11 +346,11 @@ export default function Header() {
             })}
             
             <div className="pt-4">
-              <Link to="/inquiry" onClick={toggleMenu}>
+              <a href="https://lms.twintec.edu.lk" target="_blank" rel="noopener noreferrer" onClick={toggleMenu}>
                 <button className="w-full bg-brand-orange text-brand-white font-heading font-bold text-sm uppercase py-3 rounded-lg hover:bg-brand-black hover:text-brand-white shadow-sm transition-all duration-300 min-h-[44px]">
                   Apply Now
                 </button>
-              </Link>
+              </a>
             </div>
           </div>
         </div>

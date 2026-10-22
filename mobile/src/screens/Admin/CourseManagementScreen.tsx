@@ -19,7 +19,7 @@ import {
   NativeScrollEvent
 } from 'react-native';
 import api from '../../services/api';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 
@@ -33,6 +33,12 @@ type Tab = 'all' | 'active' | 'archived';
 
 export default function CourseManagementScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('all');
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setActiveTab('all');
+    }, [])
+  );
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -284,12 +290,13 @@ export default function CourseManagementScreen() {
 
       <View style={styles.cardActions}>
         <TouchableOpacity style={styles.editOutlineBtn} onPress={() => openEditModal(item)}>
-          <Icon name="pencil" size={16} color="#111827" />
+          <Icon name="pencil-outline" size={16} color="#374151" />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.viewBatchesBtn}
           onPress={() => navigation.navigate('Batches', { courseId: item._id })}
         >
+          <Icon name="grid-outline" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
           <Text style={styles.viewBatchesText}>Manage Batches</Text>
         </TouchableOpacity>
       </View>

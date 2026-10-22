@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ import api from '../../services/api';
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import ApplicationsManagementScreen from './ApplicationsManagementScreen';
 import ScreenHeader from '../../components/shared/ScreenHeader';
 import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
@@ -58,18 +58,18 @@ const EXPORT_AVAILABLE_FIELDS = [
 ];
 
 export default function UserManagementScreen() {
+  const route = useRoute<any>();
+
   let initialMode: ModeType = 'applications';
   let initialView: 'hub' | 'detail' = 'hub';
-  try {
-    const route = useRoute<any>();
-    if (route?.params?.initialTab) {
-      initialView = 'detail';
-      const tab = route.params.initialTab;
-      if (tab === 'pending') initialMode = 'applications';
-      else if (tab === 'approved') initialMode = 'students';
-      else if (tab === 'instructors') initialMode = 'instructors';
-    }
-  } catch (e) {}
+
+  if (route?.params?.initialTab) {
+    initialView = 'detail';
+    const tab = route.params.initialTab;
+    if (tab === 'pending') initialMode = 'applications';
+    else if (tab === 'approved') initialMode = 'students';
+    else if (tab === 'instructors') initialMode = 'instructors';
+  }
 
   const [currentView, setCurrentView] = useState<'hub' | 'detail'>(initialView);
   const [activeMode, setActiveMode] = useState<ModeType>(initialMode);
@@ -90,6 +90,7 @@ export default function UserManagementScreen() {
   const headerAnim = useRef(new Animated.Value(1)).current;
   const isHeaderVisibleRef = useRef(true);
   const lastScrollY = useRef(0);
+  const userCacheRef = useRef<any>({});
 
   // Top Header 3-Dots Menu, Select Mode & Export Modal States
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
@@ -252,7 +253,7 @@ export default function UserManagementScreen() {
     visible: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const [alertModal, setAlertModal] = useState<{
@@ -295,7 +296,6 @@ export default function UserManagementScreen() {
     fetchAllDashboardData();
     fetchBatches();
   }, []);
-
   const fetchBatches = async () => {
     try {
       const res = await api.get('/admin/batches');
@@ -325,9 +325,6 @@ export default function UserManagementScreen() {
       if (instRes.status === 'fulfilled') {
         setInstructorsList(instRes.value.data || []);
       }
-      if (paymentsRes.status === 'fulfilled') {
-        setAdminPaymentsList(paymentsRes.value.data || []);
-      }
     } catch (e: any) {
       console.warn('Failed to fetch dashboard data', e);
     } finally {
@@ -338,6 +335,10 @@ export default function UserManagementScreen() {
   const fetchUsers = () => {
     fetchAllDashboardData();
   };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [activeMode]);
 
   const handleOpenPaymentDossier = async (studentId: string) => {
     setPaymentDossierModalVisible(true);
@@ -656,6 +657,7 @@ export default function UserManagementScreen() {
       const res = await api.post('/admin/users/instructor', instructorForm);
       setInstructorForm({ name: '', email: '', phone: '', nic: '' });
       setInstructorModalVisible(false);
+      userCacheRef.current = {};
 
       if (res.data.index_number) {
         setApprovedCredentials({
@@ -911,21 +913,21 @@ export default function UserManagementScreen() {
     });
   };
 
-  const getInitials = (name?: string) => {
+  const getInitials = useCallback((name?: string) => {
     if (!name || typeof name !== 'string') return 'U';
     const parts = name.trim().split(' ');
     if (parts.length >= 2 && parts[0][0] && parts[1][0]) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     return name.substring(0, 2).toUpperCase();
-  };
+  }, []);
 
-  const getGradeColor = (grade: string) => {
+  const getGradeColor = useCallback((grade: string) => {
     if (!grade) return '#6B7280';
     const g = grade.toUpperCase();
     if (g.startsWith('A')) return '#10B981';
     if (g.startsWith('B')) return '#3B82F6';
     if (g.startsWith('C')) return '#F59E0B';
     return '#EF4444';
-  };
+  }, []);
 
   const renderPendingItem = ({ item }: { item: any }) => {
     const isSelected = selectedUserIds.includes(item._id);
@@ -2092,16 +2094,16 @@ export default function UserManagementScreen() {
                   confirmModal.type === 'danger'
                     ? 'alert-circle-outline'
                     : confirmModal.type === 'lock'
-                    ? 'lock-closed-outline'
-                    : 'information-circle-outline'
+                      ? 'lock-closed-outline'
+                      : 'information-circle-outline'
                 }
                 size={28}
                 color={
                   confirmModal.type === 'danger'
                     ? '#DC2626'
                     : confirmModal.type === 'lock'
-                    ? '#D97706'
-                    : '#2563EB'
+                      ? '#D97706'
+                      : '#2563EB'
                 }
               />
             </View>
@@ -2150,16 +2152,16 @@ export default function UserManagementScreen() {
                   alertModal.type === 'success'
                     ? 'checkmark-circle-outline'
                     : alertModal.type === 'error'
-                    ? 'close-circle-outline'
-                    : 'information-circle-outline'
+                      ? 'close-circle-outline'
+                      : 'information-circle-outline'
                 }
                 size={28}
                 color={
                   alertModal.type === 'success'
                     ? '#16A34A'
                     : alertModal.type === 'error'
-                    ? '#DC2626'
-                    : '#2563EB'
+                      ? '#DC2626'
+                      : '#2563EB'
                 }
               />
             </View>
@@ -3640,6 +3642,7 @@ const styles = StyleSheet.create({
   },
   headerDetails: {
     flex: 1,
+    marginRight: 8,
   },
   userName: {
     fontSize: 16,
@@ -3661,6 +3664,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+    marginLeft: 4,
+    borderWidth: 1,
+    borderColor: '#000000',
   },
   newBadgeText: {
     fontSize: 12,
@@ -3671,6 +3679,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+    marginLeft: 4,
   },
   statusBadgeText: {
     fontSize: 12,
@@ -3701,6 +3712,8 @@ const styles = StyleSheet.create({
     color: '#F97316',
   },
   rejectOutlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#D1D5DB',
     borderRadius: 22,
@@ -3709,9 +3722,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   rejectOutlineText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
   },
   approveDarkBtn: {
     backgroundColor: '#000000',
@@ -3724,8 +3737,8 @@ const styles = StyleSheet.create({
     }),
   },
   approveDarkText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   deactivateBtn: {
@@ -3737,9 +3750,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
   },
   deactivateBtnText: {
-    color: '#EF4444',
-    fontWeight: '600',
-    fontSize: 13,
+    fontWeight: '700',
+    fontSize: 12,
   },
   activateBtn: {
     borderColor: '#A7F3D0',
@@ -3812,8 +3824,8 @@ const styles = StyleSheet.create({
   },
   assignBatchText: {
     color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13,
+    fontWeight: '700',
+    fontSize: 12,
   },
   emptyListText: {
     textAlign: 'center',
