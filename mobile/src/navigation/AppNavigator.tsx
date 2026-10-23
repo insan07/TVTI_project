@@ -8,6 +8,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { setupNotificationListeners } from '../services/NotificationService';
 
 import { AuthContext } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { AuthNavigator } from './AuthNavigator';
 import { API_URL } from '../config/constants';
 import { COLORS } from '../config/theme';
@@ -198,6 +199,7 @@ const linking: LinkingOptions<any> = {
 };
 
 export const AppNavigator = () => {
+  const { navigationTheme } = useTheme();
   const context = useContext(AuthContext);
   const navigationRef = useNavigationContainerRef();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -259,7 +261,7 @@ export const AppNavigator = () => {
       : 'student';
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking}>
+    <NavigationContainer ref={navigationRef} linking={linking} theme={navigationTheme}>
       <Stack.Navigator 
         screenOptions={{ 
           headerShown: false,

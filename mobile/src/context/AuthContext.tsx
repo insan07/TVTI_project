@@ -92,8 +92,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (err) {
         console.warn('Push token registration failed', err);
       }
-    } catch (error) {
-      console.error('Login failed', error);
+    } catch (error: any) {
+      if (error?.response?.status !== 401 && error?.response?.status !== 400) {
+        console.error('Login failed', error);
+      }
       throw error;
     } finally {
       setLoading(false);
