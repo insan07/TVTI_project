@@ -225,8 +225,6 @@ export default function LoginScreen() {
             { color: isLight ? '#0F172A' : '#FFFFFF' },
             Platform.OS === 'web' && ({ outlineStyle: 'none', outlineWidth: 0 } as any),
           ]}
-          placeholder="admin@tvti.edu.lk"
-          placeholderTextColor={isLight ? '#94A3B8' : '#6B5E52'}
           autoCapitalize="none"
           value={email}
           onFocus={() => setFocusedInput('email')}
@@ -261,8 +259,6 @@ export default function LoginScreen() {
             { color: isLight ? '#0F172A' : '#FFFFFF' },
             Platform.OS === 'web' && ({ outlineStyle: 'none', outlineWidth: 0 } as any),
           ]}
-          placeholder="••••••••"
-          placeholderTextColor={isLight ? '#94A3B8' : '#6B5E52'}
           secureTextEntry={!showPassword}
           value={password}
           onFocus={() => setFocusedInput('password')}
