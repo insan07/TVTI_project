@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../services/api';
+import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -29,12 +30,35 @@ export default function RegisterScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
 
-  React.useEffect(() => {
+  // Theme mode: 'light' | 'dark'. Defaults to 'light' to match design screenshot
+  const { mode: themeMode, isDark, toggleTheme } = useTheme();
+  const isLight = !isDark;
+
+  useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const styleId = 'lms-autofill-styles';
-      if (!document.getElementById(styleId)) {
-        const style = document.createElement('style');
+      let style = document.getElementById(styleId) as HTMLStyleElement | null;
+      if (!style) {
+        style = document.createElement('style');
         style.id = styleId;
+        document.head.appendChild(style);
+      }
+      if (themeMode === 'light') {
+        style.innerHTML = `
+          input:-webkit-autofill,
+          input:-webkit-autofill:hover, 
+          input:-webkit-autofill:focus,
+          input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+            -webkit-text-fill-color: #0F172A !important;
+            caret-color: #0F172A !important;
+            transition: background-color 5000s ease-in-out 0s;
+          }
+          input {
+            background-color: transparent !important;
+          }
+        `;
+      } else {
         style.innerHTML = `
           input:-webkit-autofill,
           input:-webkit-autofill:hover, 
@@ -49,10 +73,9 @@ export default function RegisterScreen() {
             background-color: transparent !important;
           }
         `;
-        document.head.appendChild(style);
       }
     }
-  }, []);
+  }, [themeMode]);
 
   // Wizard Step State (1 to 5)
   const [currentStep, setCurrentStep] = useState(1);
@@ -617,7 +640,7 @@ export default function RegisterScreen() {
     return (
       <View style={styles.stepperContainer}>
         {/* Progress Line */}
-        <View style={styles.stepperLineBackground}>
+        <View style={[styles.stepperLineBackground, isLight && { backgroundColor: '#E2E8F0' }]}>
           <View
             style={[
               styles.stepperLineProgress,
@@ -637,6 +660,7 @@ export default function RegisterScreen() {
                 key={stepNum}
                 style={[
                   styles.stepCircle,
+                  isLight && !isActive && !isCompleted && { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' },
                   isCompleted && styles.stepCircleCompleted,
                   isActive && styles.stepCircleActive,
                 ]}
@@ -651,6 +675,7 @@ export default function RegisterScreen() {
                   <Text
                     style={[
                       styles.stepCircleText,
+                      isLight && !isActive && { color: '#64748B' },
                       isActive && styles.stepCircleTextActive,
                     ]}
                   >
@@ -682,89 +707,103 @@ export default function RegisterScreen() {
     }
   };
 
-  const renderRegisterCard = () => (
-    <View style={[styles.card, isDesktop && styles.desktopCard]}>
-      {/* Back to Sign In Action */}
-      <TouchableOpacity
-        onPress={handleGoToLogin}
-        style={styles.backButtonRow}
-        activeOpacity={0.7}
+  const renderRegisterCard = () => {
+    const inputStyle = [styles.textInputStyle, isLight && styles.textInputLight];
+    const labelStyle = [styles.fieldLabel, { color: isLight ? '#334155' : '#D4CAC0' }];
+    const placeholderColor = isLight ? '#94A3B8' : '#9CA3AF';
+
+    return (
+      <View
+        style={[
+          styles.card,
+          isLight ? styles.cardLight : styles.cardDark,
+          isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
+        ]}
       >
-        <Icon name="arrow-back" size={18} color="#FF6500" style={{ marginRight: 6 }} />
-        <Text style={styles.backButtonText}>Back to Sign In</Text>
-      </TouchableOpacity>
+        {/* Back to Sign In Action */}
+        <TouchableOpacity
+          onPress={handleGoToLogin}
+          style={styles.backButtonRow}
+          activeOpacity={0.7}
+        >
+          <Icon name="arrow-back" size={18} color="#FF6500" style={{ marginRight: 6 }} />
+          <Text style={styles.backButtonText}>Back to Sign In</Text>
+        </TouchableOpacity>
 
-      <Text style={styles.welcomeTitle}>Student Registration</Text>
-      <Text style={styles.welcomeSubtitle}>
-        Step {currentStep} of 5: {getStepTitle()}
-      </Text>
+        <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+          Student Registration
+        </Text>
+        <Text style={[styles.welcomeSubtitle, { color: isLight ? '#475569' : '#A89F93' }]}>
+          Step {currentStep} of 5: {getStepTitle()}
+        </Text>
 
-      {/* STEPPER INDICATOR HEADER */}
-      {renderStepIndicator()}
+        {/* STEPPER INDICATOR HEADER */}
+        {renderStepIndicator()}
 
-      {/* ERROR BOX */}
-      {errorMsg ? (
-        <View style={styles.errorBox}>
-          <Icon name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 8, marginTop: 2 }} />
-          <Text style={styles.errorBoxText}>{errorMsg}</Text>
-        </View>
-      ) : null}
+        {/* ERROR BOX */}
+        {errorMsg ? (
+          <View style={styles.errorBox}>
+            <Icon name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 8, marginTop: 2 }} />
+            <Text style={styles.errorBoxText}>{errorMsg}</Text>
+          </View>
+        ) : null}
 
-      {/* FORM CONTENT SCROLLVIEW */}
-      <View style={styles.scrollForm}>
-        <View style={styles.scrollFormContent}>
+        {/* FORM CONTENT SCROLLVIEW */}
+        <View style={styles.scrollForm}>
+          <View style={styles.scrollFormContent}>
+
             {/* ========================================================================= */}
             {/* STEP 1: YOUR PERSONAL DETAILS */}
             {/* ========================================================================= */}
             {currentStep === 1 && (
               <View style={styles.stepSectionBox}>
-                <Text style={styles.fieldLabel}>First Name *</Text>
+                <Text style={labelStyle}>First Name *</Text>
                 <TextInput
-                  style={styles.textInputStyle}
+                  style={inputStyle}
                   placeholder="Enter your first name"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={placeholderColor}
                   value={firstName}
                   onChangeText={setFirstName}
                 />
 
-                <Text style={styles.fieldLabel}>Last Name *</Text>
+                <Text style={labelStyle}>Last Name *</Text>
                 <TextInput
-                  style={styles.textInputStyle}
+                  style={inputStyle}
                   placeholder="Enter your last name"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={placeholderColor}
                   value={lastName}
                   onChangeText={setLastName}
                 />
 
-                <Text style={styles.fieldLabel}>Date Of Birth *</Text>
+                <Text style={labelStyle}>Date Of Birth *</Text>
                 <View style={styles.dobThreeRow}>
-                  <View style={styles.dobBox}>
+                  <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
                     <TextInput
-                      style={styles.dobInput}
+                      style={[styles.dobInput, isLight && { color: '#0F172A' }]}
                       placeholder="DD"
-                      placeholderTextColor="#9CA3AF"
+                      placeholderTextColor={placeholderColor}
                       keyboardType="number-pad"
                       maxLength={2}
                       value={dobDD}
                       onChangeText={handleDobDDChange}
                     />
                   </View>
-                  <View style={styles.dobBox}>
+                  <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
                     <TextInput
-                      style={styles.dobInput}
+                      style={[styles.dobInput, isLight && { color: '#0F172A' }]}
                       placeholder="MM"
-                      placeholderTextColor="#9CA3AF"
+                      placeholderTextColor={placeholderColor}
                       keyboardType="number-pad"
                       maxLength={2}
                       value={dobMM}
                       onChangeText={handleDobMMChange}
                     />
                   </View>
-                  <View style={styles.dobBox}>
+                  <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
                     <TextInput
-                      style={styles.dobInput}
+                      style={[styles.dobInput, isLight && { color: '#0F172A' }]}
                       placeholder="YYYY"
-                      placeholderTextColor="#9CA3AF"
+                      placeholderTextColor={placeholderColor}
                       keyboardType="number-pad"
                       maxLength={4}
                       value={dobYYYY}
@@ -774,12 +813,12 @@ export default function RegisterScreen() {
                 </View>
 
                 {/* Email & OTP Row */}
-                <Text style={styles.fieldLabel}>Email Address *</Text>
+                <Text style={labelStyle}>Email Address *</Text>
                 <View style={styles.emailOtpWrapper}>
                   <TextInput
-                    style={[styles.textInputStyle, { flex: 1, marginBottom: 0 }]}
+                    style={[styles.textInputStyle, isLight && styles.textInputLight, { flex: 1, marginBottom: 0 }]}
                     placeholder="name@example.com"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={placeholderColor}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     value={formData.email}
@@ -814,15 +853,15 @@ export default function RegisterScreen() {
 
                 {/* OTP Input Form */}
                 {otpSent && !emailVerified && (
-                  <View style={styles.otpCardBox}>
+                  <View style={[styles.otpCardBox, isLight && { backgroundColor: '#F8FAFC', borderColor: 'rgba(255, 101, 0, 0.4)' }]}>
                     <Text style={styles.otpInstructionText}>
                       Enter the 6-digit OTP verification code sent to your email:
                     </Text>
                     <View style={styles.otpRow}>
                       <TextInput
-                        style={styles.otpInputStyle}
+                        style={[styles.otpInputStyle, isLight && { backgroundColor: '#FFFFFF', color: '#0F172A' }]}
                         placeholder="123456"
-                        placeholderTextColor="#9CA3AF"
+                        placeholderTextColor={placeholderColor}
                         keyboardType="number-pad"
                         maxLength={6}
                         value={otpCode}
@@ -845,43 +884,45 @@ export default function RegisterScreen() {
                   </View>
                 )}
 
-                <Text style={styles.fieldLabel}>Mobile Number *</Text>
+                <Text style={labelStyle}>Mobile Number *</Text>
                 <TextInput
-                  style={styles.textInputStyle}
+                  style={inputStyle}
                   placeholder="0771234567 or +94771234567"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={placeholderColor}
                   keyboardType="phone-pad"
                   value={formData.phone}
                   onChangeText={(val) => handleChange('phone', val)}
                 />
 
-                <Text style={styles.fieldLabel}>Gender *</Text>
+                <Text style={labelStyle}>Gender *</Text>
                 <TouchableOpacity
-                  style={styles.dropdownSelectTrigger}
+                  style={[styles.dropdownSelectTrigger, isLight && styles.dropdownSelectTriggerLight]}
                   onPress={() => setGenderModalVisible(true)}
                   activeOpacity={0.8}
                 >
                   <View style={styles.dropdownLeftRow}>
                     <Icon name="male-female-outline" size={18} color="#F58220" style={{ marginRight: 10 }} />
-                    <Text style={styles.dropdownSelectText}>{formData.gender || 'Select Gender'}</Text>
+                    <Text style={[styles.dropdownSelectText, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                      {formData.gender || 'Select Gender'}
+                    </Text>
                   </View>
                   <Icon name="chevron-down-outline" size={18} color="#6B7280" />
                 </TouchableOpacity>
 
-                <Text style={styles.fieldLabel}>National ID Number (NIC) - Optional</Text>
+                <Text style={labelStyle}>National ID Number (NIC) - Optional</Text>
                 <TextInput
-                  style={styles.textInputStyle}
+                  style={inputStyle}
                   placeholder="e.g. 199812345678 or 987654321V"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={placeholderColor}
                   value={formData.nic}
                   onChangeText={(val) => handleChange('nic', val)}
                 />
 
-                <Text style={styles.fieldLabel}>Residential Address *</Text>
+                <Text style={labelStyle}>Residential Address *</Text>
                 <TextInput
-                  style={[styles.textInputStyle, { height: 74, textAlignVertical: 'top', paddingTop: 10 }]}
+                  style={[styles.textInputStyle, isLight && styles.textInputLight, { height: 74, textAlignVertical: 'top', paddingTop: 10 }]}
                   placeholder="e.g. No. 12, Main Street, Colombo 03"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={placeholderColor}
                   multiline
                   value={formData.address}
                   onChangeText={(val) => handleChange('address', val)}
@@ -894,43 +935,45 @@ export default function RegisterScreen() {
             {/* ========================================================================= */}
             {currentStep === 2 && (
               <View style={styles.stepSectionBox}>
-                <Text style={styles.fieldLabel}>Parent / Guardian Full Name *</Text>
+                <Text style={labelStyle}>Parent / Guardian Full Name *</Text>
                 <TextInput
-                  style={styles.textInputStyle}
+                  style={inputStyle}
                   placeholder="Enter parent or guardian's name"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={placeholderColor}
                   value={formData.guardian_name}
                   onChangeText={(val) => handleChange('guardian_name', val)}
                 />
 
-                <Text style={styles.fieldLabel}>Relationship to Student *</Text>
+                <Text style={labelStyle}>Relationship to Student *</Text>
                 <TouchableOpacity
-                  style={styles.dropdownSelectTrigger}
+                  style={[styles.dropdownSelectTrigger, isLight && styles.dropdownSelectTriggerLight]}
                   onPress={() => setRelationshipModalVisible(true)}
                   activeOpacity={0.8}
                 >
                   <View style={styles.dropdownLeftRow}>
                     <Icon name="people-outline" size={18} color="#F58220" style={{ marginRight: 10 }} />
-                    <Text style={styles.dropdownSelectText}>{formData.guardian_relationship || 'Select Relationship'}</Text>
+                    <Text style={[styles.dropdownSelectText, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                      {formData.guardian_relationship || 'Select Relationship'}
+                    </Text>
                   </View>
                   <Icon name="chevron-down-outline" size={18} color="#6B7280" />
                 </TouchableOpacity>
 
-                <Text style={styles.fieldLabel}>Guardian Mobile Number *</Text>
+                <Text style={labelStyle}>Guardian Mobile Number *</Text>
                 <TextInput
-                  style={styles.textInputStyle}
+                  style={inputStyle}
                   placeholder="e.g. 0771234567"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={placeholderColor}
                   keyboardType="phone-pad"
                   value={formData.guardian_phone}
                   onChangeText={(val) => handleChange('guardian_phone', val)}
                 />
 
-                <Text style={styles.fieldLabel}>Guardian Occupation (Optional)</Text>
+                <Text style={labelStyle}>Guardian Occupation (Optional)</Text>
                 <TextInput
-                  style={styles.textInputStyle}
+                  style={inputStyle}
                   placeholder="e.g. Civil Engineer, Teacher, Merchant"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={placeholderColor}
                   value={formData.guardian_occupation}
                   onChangeText={(val) => handleChange('guardian_occupation', val)}
                 />
@@ -942,12 +985,12 @@ export default function RegisterScreen() {
             {/* ========================================================================= */}
             {currentStep === 3 && (
               <View style={styles.stepSectionBox}>
-                <Text style={styles.fieldLabel}>Highest Education Level Attained *</Text>
+                <Text style={labelStyle}>Highest Education Level Attained *</Text>
                 <View style={{ gap: 8, marginBottom: 12 }}>
                   {['Below O/L', 'O/L Completed', 'A/L Completed', 'Diploma / Higher Ed', 'NVQ Certified', 'Other Qualification'].map(lvl => (
                     <TouchableOpacity
                       key={lvl}
-                      style={[styles.eduOptionBox, formData.education_level === lvl && styles.eduOptionBoxActive]}
+                      style={[styles.eduOptionBox, isLight && styles.eduOptionBoxLight, formData.education_level === lvl && styles.eduOptionBoxActive]}
                       onPress={() => handleChange('education_level', lvl)}
                     >
                       <Icon
@@ -955,7 +998,7 @@ export default function RegisterScreen() {
                         size={18}
                         color={formData.education_level === lvl ? "#F58220" : "#9CA3AF"}
                       />
-                      <Text style={[styles.eduOptionText, formData.education_level === lvl && styles.eduOptionTextActive]}>
+                      <Text style={[styles.eduOptionText, isLight && { color: '#334155' }, formData.education_level === lvl && styles.eduOptionTextActive]}>
                         {lvl}
                       </Text>
                     </TouchableOpacity>
@@ -964,22 +1007,22 @@ export default function RegisterScreen() {
 
                 {formData.education_level === 'Below O/L' && (
                   <View style={{ marginTop: 2 }}>
-                    <Text style={styles.fieldLabel}>Current Grade Level *</Text>
+                    <Text style={labelStyle}>Current Grade Level *</Text>
                     <TextInput
-                      style={styles.textInputStyle}
+                      style={inputStyle}
                       placeholder="e.g. Grade 8, Grade 9, Grade 10"
-                      placeholderTextColor="#9CA3AF"
+                      placeholderTextColor={placeholderColor}
                       value={formData.grade_level}
                       onChangeText={(val) => handleChange('grade_level', val)}
                     />
                   </View>
                 )}
 
-                <Text style={styles.fieldLabel}>School or Institute Name *</Text>
+                <Text style={labelStyle}>School or Institute Name *</Text>
                 <TextInput
-                  style={styles.textInputStyle}
+                  style={inputStyle}
                   placeholder="e.g. Royal College, Colombo"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={placeholderColor}
                   value={formData.school_name}
                   onChangeText={(val) => handleChange('school_name', val)}
                 />
@@ -991,12 +1034,12 @@ export default function RegisterScreen() {
             {/* ========================================================================= */}
             {currentStep === 4 && (
               <View style={styles.stepSectionBox}>
-                <Text style={styles.photoInstructionsText}>
+                <Text style={[styles.photoInstructionsText, { color: isLight ? '#475569' : '#A89F93' }]}>
                   Please upload a clear passport-style headshot photo for your official TVTI student ID card & profile records.
                 </Text>
 
                 <TouchableOpacity
-                  style={styles.photoUploadCard}
+                  style={[styles.photoUploadCard, isLight && styles.photoUploadCardLight]}
                   onPress={pickStudentPhoto}
                   activeOpacity={0.8}
                 >
@@ -1013,8 +1056,12 @@ export default function RegisterScreen() {
                       <View style={styles.cameraIconCircle}>
                         <Icon name="camera-outline" size={32} color="#F58220" />
                       </View>
-                      <Text style={styles.uploadPromptTitle}>Tap to Upload Photo</Text>
-                      <Text style={styles.uploadPromptSub}>Supports PNG, JPG, JPEG up to 5MB</Text>
+                      <Text style={[styles.uploadPromptTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                        Tap to Upload Photo
+                      </Text>
+                      <Text style={[styles.uploadPromptSub, { color: isLight ? '#64748B' : '#A89F93' }]}>
+                        Supports PNG, JPG, JPEG up to 5MB
+                      </Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -1027,7 +1074,7 @@ export default function RegisterScreen() {
             {currentStep === 5 && (
               <View style={styles.stepSectionBox}>
                 <View style={styles.coursesHeaderRow}>
-                  <Text style={styles.fieldLabel}>Select Desired Courses *</Text>
+                  <Text style={labelStyle}>Select Desired Courses *</Text>
                   <TouchableOpacity onPress={openCourseWebsiteLink} style={styles.syllabusLinkBtn}>
                     <Icon name="open-outline" size={14} color="#F58220" style={{ marginRight: 4 }} />
                     <Text style={styles.syllabusLinkText}>View Website Syllabus</Text>
@@ -1043,7 +1090,7 @@ export default function RegisterScreen() {
                       return (
                         <TouchableOpacity
                           key={course._id}
-                          style={[styles.courseCheckCard, selected && styles.courseCheckCardActive]}
+                          style={[styles.courseCheckCard, isLight && styles.courseCheckCardLight, selected && styles.courseCheckCardActive]}
                           onPress={() => toggleCourse(course._id)}
                         >
                           <Icon
@@ -1052,8 +1099,14 @@ export default function RegisterScreen() {
                             color={selected ? "#F58220" : "#9CA3AF"}
                           />
                           <View style={{ flex: 1, marginLeft: 10 }}>
-                            <Text style={styles.courseCheckTitle}>{course.title}</Text>
-                            {course.code ? <Text style={styles.courseCheckCode}>Code: {course.code}</Text> : null}
+                            <Text style={[styles.courseCheckTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                              {course.title}
+                            </Text>
+                            {course.code ? (
+                              <Text style={[styles.courseCheckCode, { color: isLight ? '#64748B' : '#A89F93' }]}>
+                                Code: {course.code}
+                              </Text>
+                            ) : null}
                           </View>
                         </TouchableOpacity>
                       );
@@ -1065,11 +1118,12 @@ export default function RegisterScreen() {
                   </Text>
                 )}
 
-                <Text style={styles.fieldLabel}>Payment Method *</Text>
+                <Text style={labelStyle}>Payment Method *</Text>
                 <View style={styles.paymentMethodRow}>
                   <TouchableOpacity
                     style={[
                       styles.paymentMethodChip,
+                      isLight && styles.paymentMethodChipLight,
                       formData.payment_method === 'bank_transfer' && styles.paymentMethodChipActive
                     ]}
                     onPress={() => handleChange('payment_method', 'bank_transfer')}
@@ -1082,6 +1136,7 @@ export default function RegisterScreen() {
                     <Text
                       style={[
                         styles.paymentMethodText,
+                        isLight && { color: '#475569' },
                         formData.payment_method === 'bank_transfer' && styles.paymentMethodTextActive
                       ]}
                     >
@@ -1092,6 +1147,7 @@ export default function RegisterScreen() {
                   <TouchableOpacity
                     style={[
                       styles.paymentMethodChip,
+                      isLight && styles.paymentMethodChipLight,
                       formData.payment_method === 'physical_pay' && styles.paymentMethodChipActive
                     ]}
                     onPress={() => handleChange('payment_method', 'physical_pay')}
@@ -1104,6 +1160,7 @@ export default function RegisterScreen() {
                     <Text
                       style={[
                         styles.paymentMethodText,
+                        isLight && { color: '#475569' },
                         formData.payment_method === 'physical_pay' && styles.paymentMethodTextActive
                       ]}
                     >
@@ -1115,8 +1172,8 @@ export default function RegisterScreen() {
                 {/* Bank Slip Upload Box */}
                 {formData.payment_method === 'bank_transfer' && (
                   <View style={styles.slipUploadSection}>
-                    <Text style={styles.fieldLabel}>Upload Bank Deposit Receipt Photo *</Text>
-                    <TouchableOpacity style={styles.slipUploadBox} onPress={pickPaymentSlip}>
+                    <Text style={labelStyle}>Upload Bank Deposit Receipt Photo *</Text>
+                    <TouchableOpacity style={[styles.slipUploadBox, isLight && styles.slipUploadBoxLight]} onPress={pickPaymentSlip}>
                       {formData.payment_slip ? (
                         <View style={styles.slipPreviewBox}>
                           <Image source={{ uri: formData.payment_slip }} style={styles.slipPreviewImg} />
@@ -1128,7 +1185,9 @@ export default function RegisterScreen() {
                       ) : (
                         <View style={styles.slipPlaceholderBox}>
                           <Icon name="cloud-upload-outline" size={26} color="#F58220" />
-                          <Text style={styles.slipPlaceholderTitle}>Tap to Upload Bank Receipt</Text>
+                          <Text style={[styles.slipPlaceholderTitle, { color: isLight ? '#64748B' : '#A89F93' }]}>
+                            Tap to Upload Bank Receipt
+                          </Text>
                         </View>
                       )}
                     </TouchableOpacity>
@@ -1144,7 +1203,7 @@ export default function RegisterScreen() {
                   <View style={[styles.customCheckbox, agreedToTerms && styles.customCheckboxChecked]}>
                     {agreedToTerms ? <Icon name="checkmark" size={14} color="#FFFFFF" /> : null}
                   </View>
-                  <Text style={styles.termsAgreementText}>
+                  <Text style={[styles.termsAgreementText, { color: isLight ? '#475569' : '#C5BCB3' }]}>
                     I agree to the{' '}
                     <Text style={styles.termsLinkBold} onPress={() => setTermsModalVisible(true)}>
                       Terms & Conditions
@@ -1154,62 +1213,85 @@ export default function RegisterScreen() {
                 </TouchableOpacity>
               </View>
             )}
+          </View>
+        </View>
+
+        {/* ========================================================================= */}
+        {/* BOTTOM STEP NAVIGATION BUTTONS (EXACT MATCH TO DESIGN SCREENSHOT) */}
+        {/* ========================================================================= */}
+        <View style={[styles.bottomBarContainer, isLight && { borderTopColor: '#E2E8F0' }]}>
+          {/* PREV BUTTON */}
+          {currentStep > 1 ? (
+            <TouchableOpacity
+              style={[styles.prevBtnOutline, isLight && { backgroundColor: '#FFFFFF', borderColor: '#F58220' }]}
+              onPress={handlePrevStep}
+              activeOpacity={0.8}
+            >
+              <Icon name="chevron-back" size={18} color="#F58220" style={{ marginRight: 4 }} />
+              <Text style={styles.prevBtnText}>Prev</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+
+          {/* NEXT / SUBMIT BUTTON */}
+          <TouchableOpacity
+            style={[styles.nextBtnSolid, loading && styles.disabledBtn]}
+            onPress={handleNextStep}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <>
+                <Text style={styles.nextBtnText}>
+                  {currentStep === 5 ? 'Submit Application' : 'Next'}
+                </Text>
+                <Icon name="chevron-forward" size={18} color="#FFFFFF" style={{ marginLeft: 4 }} />
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* FOOTER */}
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, { color: isLight ? '#64748B' : '#8E8276' }]}>Already have an account? </Text>
+          <TouchableOpacity onPress={handleGoToLogin}>
+            <Text style={styles.link}>Sign In</Text>
+          </TouchableOpacity>
         </View>
       </View>
-
-          {/* ========================================================================= */}
-          {/* BOTTOM STEP NAVIGATION BUTTONS (EXACT MATCH TO DESIGN SCREENSHOT) */}
-          {/* ========================================================================= */}
-          <View style={styles.bottomBarContainer}>
-            {/* PREV BUTTON */}
-            {currentStep > 1 ? (
-              <TouchableOpacity
-                style={styles.prevBtnOutline}
-                onPress={handlePrevStep}
-                activeOpacity={0.8}
-              >
-                <Icon name="chevron-back" size={18} color="#F58220" style={{ marginRight: 4 }} />
-                <Text style={styles.prevBtnText}>Prev</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={{ flex: 1 }} />
-            )}
-
-            {/* NEXT / SUBMIT BUTTON */}
-            <TouchableOpacity
-              style={[styles.nextBtnSolid, loading && styles.disabledBtn]}
-              onPress={handleNextStep}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <Text style={styles.nextBtnText}>
-                    {currentStep === 5 ? 'Submit Application' : 'Next'}
-                  </Text>
-                  <Icon name="chevron-forward" size={18} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-
-      {/* FOOTER */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Already have an account? </Text>
-        <TouchableOpacity onPress={handleGoToLogin}>
-          <Text style={styles.link}>Sign In</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, isLight && styles.containerLight]} edges={['top', 'bottom']}>
+      {/* Top Bar Floating Theme Toggle */}
+      <View style={[styles.topBarContainer, { paddingTop: Math.max(insets.top + 8, 16) }]}>
+        <TouchableOpacity
+          onPress={toggleTheme}
+          style={[styles.themeToggleButton, isLight && styles.themeToggleButtonLight]}
+          activeOpacity={0.8}
+        >
+          <Icon
+            name={isLight ? 'moon-outline' : 'sunny-outline'}
+            size={17}
+            color={isLight ? '#334155' : '#F59E0B'}
+          />
+          <Text style={[styles.themeToggleText, { color: isLight ? '#1E293B' : '#F1F5F9' }]}>
+            {isLight ? 'Dark Mode' : 'Light Mode'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* TVTI Campus Building Background Image */}
       <Image
-        source={require('../../../assets/background.jpeg')}
+        source={
+          isLight
+            ? require('../../../assets/backgroundlight.jpeg')
+            : require('../../../assets/background.jpeg')
+        }
         style={[
           StyleSheet.absoluteFill,
           Platform.OS === 'web' && ({
@@ -1235,19 +1317,23 @@ export default function RegisterScreen() {
               height: '100vh',
               zIndex: -1,
               pointerEvents: 'none',
-              background: isDesktop
-                ? 'radial-gradient(circle at 86% 8%, rgba(255, 115, 0, 0.22) 0%, rgba(255, 90, 0, 0.08) 35%, transparent 60%), linear-gradient(to right, rgba(14, 10, 7, 0.92) 0%, rgba(14, 10, 7, 0.64) 46%, rgba(14, 10, 7, 0.82) 100%)'
-                : 'linear-gradient(to bottom, rgba(14, 10, 7, 0.88) 0%, rgba(14, 10, 7, 0.70) 50%, rgba(14, 10, 7, 0.92) 100%)',
+              background: isLight
+                ? (isDesktop
+                  ? 'radial-gradient(ellipse at 50% 45%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.28) 55%, rgba(255, 255, 255, 0.42) 88%), linear-gradient(to right, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.16) 48%, rgba(255, 255, 255, 0.34) 100%)'
+                  : 'linear-gradient(to bottom, rgba(255, 255, 255, 0.36) 0%, rgba(255, 255, 255, 0.16) 45%, rgba(255, 255, 255, 0.40) 100%)')
+                : (isDesktop
+                  ? 'radial-gradient(circle at 86% 8%, rgba(255, 115, 0, 0.22) 0%, rgba(255, 90, 0, 0.08) 35%, transparent 60%), linear-gradient(to right, rgba(14, 10, 7, 0.92) 0%, rgba(14, 10, 7, 0.64) 46%, rgba(14, 10, 7, 0.82) 100%)'
+                  : 'linear-gradient(to bottom, rgba(14, 10, 7, 0.88) 0%, rgba(14, 10, 7, 0.70) 50%, rgba(14, 10, 7, 0.92) 100%)'),
             } as any,
           ]}
         />
       ) : (
         <LinearGradient
-          colors={[
-            'rgba(14, 10, 7, 0.88)',
-            'rgba(14, 10, 7, 0.65)',
-            'rgba(14, 10, 7, 0.90)',
-          ]}
+          colors={
+            isLight
+              ? ['rgba(255, 255, 255, 0.36)', 'rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.40)']
+              : ['rgba(14, 10, 7, 0.88)', 'rgba(14, 10, 7, 0.65)', 'rgba(14, 10, 7, 0.90)']
+          }
           style={StyleSheet.absoluteFill}
         />
       )}
@@ -1274,16 +1360,22 @@ export default function RegisterScreen() {
                     resizeMode="contain"
                   />
                   <View style={{ marginLeft: 14 }}>
-                    <Text style={styles.desktopBrandTitle}>Twintec VTI</Text>
-                    <Text style={styles.desktopBrandSub}>Learning Management System</Text>
+                    <Text style={[styles.desktopBrandTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                      Twintec VTI
+                    </Text>
+                    <Text style={[styles.desktopBrandSub, { color: isLight ? '#475569' : '#A89F93' }]}>
+                      Learning Management System
+                    </Text>
                   </View>
                 </View>
 
                 <View style={styles.heroTextContainer}>
-                  <Text style={styles.heroLearnText}>Learn</Text>
+                  <Text style={[styles.heroLearnText, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                    Learn
+                  </Text>
                   <Text style={styles.heroHighlightText}>Build Your Skills</Text>
                   <Text style={styles.heroHighlightText}>Shape Your Future</Text>
-                  <Text style={styles.heroSubDescription}>
+                  <Text style={[styles.heroSubDescription, { color: isLight ? '#475569' : '#C5BCB3' }]}>
                     Twintec VTI Learning Management System{'\n'}Your journey towards a brighter future starts here.
                   </Text>
                 </View>
@@ -1291,7 +1383,7 @@ export default function RegisterScreen() {
                 {/* Floating 3D Artwork */}
                 <View style={styles.heroImageWrapper}>
                   <Image
-                    source={require('../../../assets/login_hero_clay.jpg')}
+                    source={require('../../../assets/login_hero_clay.png')}
                     style={styles.heroImage}
                     resizeMode="contain"
                   />
@@ -1312,8 +1404,12 @@ export default function RegisterScreen() {
                   style={styles.mobileLogo}
                   resizeMode="contain"
                 />
-                <Text style={styles.brandTitle}>Twintec VTI</Text>
-                <Text style={styles.brandSubtitle}>Learning Management System</Text>
+                <Text style={[styles.brandTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                  Twintec VTI
+                </Text>
+                <Text style={[styles.brandSubtitle, { color: isLight ? '#475569' : '#A89F93' }]}>
+                  Learning Management System
+                </Text>
               </View>
 
               <View style={styles.mobileCardWrapper}>
@@ -1329,15 +1425,15 @@ export default function RegisterScreen() {
       {/* ========================================================================= */}
       <Modal visible={termsModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlayDark}>
-          <View style={styles.termsModalCard}>
+          <View style={[styles.termsModalCard, isLight && styles.termsModalCardLight]}>
             <View style={styles.termsModalHeader}>
-              <Text style={styles.termsModalTitle}>Terms & Conditions</Text>
+              <Text style={[styles.termsModalTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>Terms & Conditions</Text>
               <TouchableOpacity onPress={() => setTermsModalVisible(false)}>
-                <Icon name="close" size={22} color="#18181B" />
+                <Icon name="close" size={22} color={isLight ? '#0F172A' : '#FFFFFF'} />
               </TouchableOpacity>
             </View>
             <ScrollView style={{ maxHeight: 350, marginVertical: 10 }}>
-              <Text style={styles.termsModalBodyText}>
+              <Text style={[styles.termsModalBodyText, { color: isLight ? '#334155' : '#C5BCB3' }]}>
                 1. Acceptance of Terms: By submitting an application to TVTI, you agree to abide by all rules, regulations, and institutional policies.{'\n\n'}
                 2. Application Review: All student applications are reviewed by TVTI Administrators. Registration details and credentials will be issued upon official approval.{'\n\n'}
                 3. Course Fees & Payments: Payment confirmation or deposit slip receipts must be uploaded or settled physically at the TVTI counter prior to course commencement.{'\n\n'}
@@ -1360,16 +1456,14 @@ export default function RegisterScreen() {
       {/* ========================================================================= */}
       {/* SUCCESS CONFIRMATION MODAL */}
       {/* ========================================================================= */}
-      {/* SUCCESS CONFIRMATION MODAL */}
-      {/* ========================================================================= */}
       <Modal visible={successModalVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlayDark}>
-          <View style={styles.successModalCard}>
+          <View style={[styles.successModalCard, isLight && styles.successModalCardLight]}>
             <View style={styles.successIconCircle}>
               <Icon name="checkmark-circle" size={48} color="#16A34A" />
             </View>
-            <Text style={styles.successTitle}>Application Submitted!</Text>
-            <Text style={styles.successMessage}>
+            <Text style={[styles.successTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>Application Submitted!</Text>
+            <Text style={[styles.successMessage, { color: isLight ? '#475569' : '#C5BCB3' }]}>
               Your registration application has been received and is now PENDING REVIEW by TVTI Administrators.
               {'\n\n'}
               Once approved, your unique Student Registration Number and login credentials will be delivered to your registered email address ({formData.email}).
@@ -1390,11 +1484,11 @@ export default function RegisterScreen() {
           activeOpacity={1}
           onPress={() => setGenderModalVisible(false)}
         >
-          <View style={styles.dropdownModalCard}>
+          <View style={[styles.dropdownModalCard, isLight && styles.dropdownModalCardLight]}>
             <View style={styles.dropdownModalHeader}>
-              <Text style={styles.dropdownModalTitle}>Select Gender</Text>
+              <Text style={[styles.dropdownModalTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>Select Gender</Text>
               <TouchableOpacity onPress={() => setGenderModalVisible(false)}>
-                <Icon name="close" size={22} color="#18181B" />
+                <Icon name="close" size={22} color={isLight ? '#0F172A' : '#FFFFFF'} />
               </TouchableOpacity>
             </View>
             <View style={styles.dropdownOptionList}>
@@ -1403,13 +1497,13 @@ export default function RegisterScreen() {
                 return (
                   <TouchableOpacity
                     key={opt}
-                    style={[styles.dropdownOptionItem, selected && styles.dropdownOptionItemActive]}
+                    style={[styles.dropdownOptionItem, isLight && styles.dropdownOptionItemLight, selected && styles.dropdownOptionItemActive]}
                     onPress={() => {
                       handleChange('gender', opt);
                       setGenderModalVisible(false);
                     }}
                   >
-                    <Text style={[styles.dropdownOptionLabel, selected && styles.dropdownOptionLabelActive]}>
+                    <Text style={[styles.dropdownOptionLabel, isLight && !selected && { color: '#0F172A' }, selected && styles.dropdownOptionLabelActive]}>
                       {opt}
                     </Text>
                     {selected && <Icon name="checkmark-circle" size={20} color="#F58220" />}
@@ -1430,11 +1524,11 @@ export default function RegisterScreen() {
           activeOpacity={1}
           onPress={() => setRelationshipModalVisible(false)}
         >
-          <View style={styles.dropdownModalCard}>
+          <View style={[styles.dropdownModalCard, isLight && styles.dropdownModalCardLight]}>
             <View style={styles.dropdownModalHeader}>
-              <Text style={styles.dropdownModalTitle}>Select Relationship to Student</Text>
+              <Text style={[styles.dropdownModalTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>Select Relationship to Student</Text>
               <TouchableOpacity onPress={() => setRelationshipModalVisible(false)}>
-                <Icon name="close" size={22} color="#18181B" />
+                <Icon name="close" size={22} color={isLight ? '#0F172A' : '#FFFFFF'} />
               </TouchableOpacity>
             </View>
             <View style={styles.dropdownOptionList}>
@@ -1443,13 +1537,13 @@ export default function RegisterScreen() {
                 return (
                   <TouchableOpacity
                     key={opt}
-                    style={[styles.dropdownOptionItem, selected && styles.dropdownOptionItemActive]}
+                    style={[styles.dropdownOptionItem, isLight && styles.dropdownOptionItemLight, selected && styles.dropdownOptionItemActive]}
                     onPress={() => {
                       handleChange('guardian_relationship', opt);
                       setRelationshipModalVisible(false);
                     }}
                   >
-                    <Text style={[styles.dropdownOptionLabel, selected && styles.dropdownOptionLabelActive]}>
+                    <Text style={[styles.dropdownOptionLabel, isLight && !selected && { color: '#0F172A' }, selected && styles.dropdownOptionLabelActive]}>
                       {opt}
                     </Text>
                     {selected && <Icon name="checkmark-circle" size={20} color="#F58220" />}
@@ -1468,6 +1562,50 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0F0B08',
+  },
+  containerLight: {
+    backgroundColor: '#F8FAFC',
+  },
+
+  /* ---------- Top Bar / Floating Theme Toggle ---------- */
+  topBarContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 100,
+    paddingHorizontal: 28,
+    paddingVertical: 18,
+  },
+  themeToggleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    ...(Platform.OS === 'web'
+      ? ({
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        cursor: 'pointer',
+      } as any)
+      : {}),
+  },
+  themeToggleButtonLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderColor: 'rgba(226, 232, 240, 0.9)',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  themeToggleText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    marginLeft: 6,
   },
 
   /* ---------- Mobile Layout Styles ---------- */
@@ -1580,9 +1718,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     ...(Platform.OS === 'web'
       ? ({
-          WebkitMaskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
-          maskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
-        } as any)
+        WebkitMaskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
+        maskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
+      } as any)
       : {}),
   },
   heroImage: {
@@ -1597,27 +1735,105 @@ const styles = StyleSheet.create({
   desktopCard: {
     paddingVertical: 32,
     paddingHorizontal: 32,
-    borderRadius: 22,
-    backgroundColor: 'rgba(28, 20, 15, 0.44)',
-    borderColor: 'rgba(255, 255, 255, 0.13)',
+  },
+  desktopCardLight: {
+    paddingVertical: 32,
+    paddingHorizontal: 32,
+  },
+  desktopCardDark: {
+    paddingVertical: 32,
+    paddingHorizontal: 32,
   },
 
   /* ---------- Card Component Styles ---------- */
   card: {
-    backgroundColor: 'rgba(28, 20, 15, 0.46)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 22,
     paddingVertical: 24,
     paddingHorizontal: 20,
+    elevation: 8,
+  },
+  cardLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.66)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.80,
+    shadowRadius: 30,
+    elevation: 6,
+    ...(Platform.OS === 'web'
+      ? ({
+        backdropFilter: 'blur(22px)',
+        WebkitBackdropFilter: 'blur(22px)',
+        boxShadow: '0 16px 40px -8px rgba(15, 23, 42, 0.10), 0 0 1px 1px rgba(255, 255, 255, 0.9)',
+      } as any)
+      : {}),
+  },
+  cardDark: {
+    backgroundColor: 'rgba(28, 20, 15, 0.46)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.80,
     shadowRadius: 24,
     elevation: 8,
     ...(Platform.OS === 'web'
       ? ({ backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)' } as any)
       : {}),
+  },
+  textInputLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+    color: '#0F172A',
+  },
+  dobBoxLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  dropdownSelectTriggerLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  genderOptionChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  eduOptionBoxLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  photoUploadCardLight: {
+    backgroundColor: 'rgba(248, 250, 252, 0.85)',
+    borderColor: '#CBD5E1',
+  },
+  courseCheckCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  paymentMethodChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  slipUploadBoxLight: {
+    backgroundColor: 'rgba(248, 250, 252, 0.85)',
+    borderColor: '#CBD5E1',
+  },
+  termsModalCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  dropdownModalCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  dropdownOptionItemLight: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  successModalCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
   },
   backButtonRow: {
     flexDirection: 'row',

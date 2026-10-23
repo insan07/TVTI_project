@@ -15,6 +15,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { FONTS } from '../../config/theme';
@@ -22,6 +23,7 @@ import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function ProfileScreen() {
   const context = useContext(AuthContext);
+  const { isDark, toggleTheme } = useTheme();
   if (!context) return null;
   const { logout, user } = context as any;
 
@@ -405,6 +407,19 @@ export default function ProfileScreen() {
             <View style={styles.menuLeftContent}>
               <Icon name="lock-closed-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
               <Text style={styles.menuText}>Change Password</Text>
+            </View>
+            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+            accessibilityLabel={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>{isDark ? 'Light Mode' : 'Dark Mode'}</Text>
             </View>
             <Icon name="chevron-forward" size={18} color="#A1A1AA" />
           </TouchableOpacity>

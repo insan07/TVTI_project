@@ -9,19 +9,19 @@ export const COLORS = {
   error: '#EF4444',
   warning: '#F59E0B',
   
-  background: '#F5F5F5',    // Light neutral gray background
-  surface: '#FFFFFF',       // Card backgrounds
-  surfaceAlt: '#FFF3E6',    // Light orange tint for alternate cards
+  background: '#F6F8FC',    // Light, airy app background
+  surface: 'rgba(255, 255, 255, 0.78)',
+  surfaceAlt: 'rgba(255, 243, 230, 0.72)',
   
   textPrimary: '#1A1A1A',
   textSecondary: '#555555',
   textMuted: '#999999',
   textOnPrimary: '#FFFFFF',
   
-  border: '#E0E0E0',
-  borderLight: '#F0F0F0',
+  border: 'rgba(203, 213, 225, 0.72)',
+  borderLight: 'rgba(226, 232, 240, 0.56)',
   
-  tabBar: '#FFFFFF',
+  tabBar: 'rgba(255, 255, 255, 0.84)',
   tabBarActive: '#F58220',  // Orange active tab (matches brand)
   tabBarInactive: '#999999',
 };
