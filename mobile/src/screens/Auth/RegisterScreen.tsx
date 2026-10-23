@@ -11,7 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
-  Linking
+  Linking,
+  useWindowDimensions
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../services/api';
@@ -22,8 +23,36 @@ import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 export default function RegisterScreen() {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 900;
+
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+
+  React.useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const styleId = 'lms-autofill-styles';
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.innerHTML = `
+          input:-webkit-autofill,
+          input:-webkit-autofill:hover, 
+          input:-webkit-autofill:focus,
+          input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 1000px rgba(22, 16, 12, 0.70) inset !important;
+            -webkit-text-fill-color: #FFFFFF !important;
+            caret-color: #FFFFFF !important;
+            transition: background-color 5000s ease-in-out 0s;
+          }
+          input {
+            background-color: transparent !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+  }, []);
 
   // Wizard Step State (1 to 5)
   const [currentStep, setCurrentStep] = useState(1);
@@ -653,53 +682,37 @@ export default function RegisterScreen() {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      {/* DARK NAVY TOP BACKGROUND GRADIENT MATCHING SCREENSHOT */}
-      <View style={[styles.topGradientBackground, { paddingTop: insets.top + 8 }]}>
-        <View style={styles.topBrandRow}>
-          <TouchableOpacity style={{ padding: 4 }} onPress={handleGoToLogin}>
-            <Icon name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginHorizontal: 8 }}>
-            <Image
-              source={require('../../../assets/icon.png')}
-              style={styles.brandLogoImg}
-              resizeMode="contain"
-            />
-            <Text style={styles.topBrandTitleText} numberOfLines={1} adjustsFontSizeToFit>TVTI Student Portal</Text>
-          </View>
-          <View style={{ width: 32 }} /> {/* Empty spacer to balance the flex space-between */}
-        </View>
-      </View>
-
-      {/* MAIN WHITE CARD CONTAINER WITH ROUNDED TOP */}
-      <KeyboardAvoidingView
-        style={styles.mainCardWrapper}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+  const renderRegisterCard = () => (
+    <View style={[styles.card, isDesktop && styles.desktopCard]}>
+      {/* Back to Sign In Action */}
+      <TouchableOpacity
+        onPress={handleGoToLogin}
+        style={styles.backButtonRow}
+        activeOpacity={0.7}
       >
-        <View style={styles.whiteCardContainer}>
-          {/* STEPPER INDICATOR HEADER */}
-          {renderStepIndicator()}
+        <Icon name="arrow-back" size={18} color="#FF6500" style={{ marginRight: 6 }} />
+        <Text style={styles.backButtonText}>Back to Sign In</Text>
+      </TouchableOpacity>
 
-          {/* STEP TITLE */}
-          <Text style={styles.stepTitleHeading}>{getStepTitle()}</Text>
+      <Text style={styles.welcomeTitle}>Student Registration</Text>
+      <Text style={styles.welcomeSubtitle}>
+        Step {currentStep} of 5: {getStepTitle()}
+      </Text>
 
-          {/* ERROR BOX */}
-          {errorMsg ? (
-            <View style={styles.errorBanner}>
-              <Icon name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 6 }} />
-              <Text style={styles.errorBannerText}>{errorMsg}</Text>
-            </View>
-          ) : null}
+      {/* STEPPER INDICATOR HEADER */}
+      {renderStepIndicator()}
 
-          {/* FORM CONTENT SCROLLVIEW */}
-          <ScrollView
-            style={styles.scrollForm}
-            contentContainerStyle={styles.scrollFormContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
+      {/* ERROR BOX */}
+      {errorMsg ? (
+        <View style={styles.errorBox}>
+          <Icon name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 8, marginTop: 2 }} />
+          <Text style={styles.errorBoxText}>{errorMsg}</Text>
+        </View>
+      ) : null}
+
+      {/* FORM CONTENT SCROLLVIEW */}
+      <View style={styles.scrollForm}>
+        <View style={styles.scrollFormContent}>
             {/* ========================================================================= */}
             {/* STEP 1: YOUR PERSONAL DETAILS */}
             {/* ========================================================================= */}
@@ -1141,7 +1154,8 @@ export default function RegisterScreen() {
                 </TouchableOpacity>
               </View>
             )}
-          </ScrollView>
+        </View>
+      </View>
 
           {/* ========================================================================= */}
           {/* BOTTOM STEP NAVIGATION BUTTONS (EXACT MATCH TO DESIGN SCREENSHOT) */}
@@ -1180,7 +1194,134 @@ export default function RegisterScreen() {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+
+      {/* FOOTER */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Already have an account? </Text>
+        <TouchableOpacity onPress={handleGoToLogin}>
+          <Text style={styles.link}>Sign In</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* TVTI Campus Building Background Image */}
+      <Image
+        source={require('../../../assets/background.jpeg')}
+        style={[
+          StyleSheet.absoluteFill,
+          Platform.OS === 'web' && ({
+            position: 'fixed',
+            width: '100vw',
+            height: '100vh',
+            zIndex: -2,
+            objectFit: 'cover',
+            objectPosition: 'center',
+          } as any),
+        ]}
+        resizeMode="cover"
+      />
+
+      {/* Atmospheric Overlays */}
+      {Platform.OS === 'web' ? (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              position: 'fixed',
+              width: '100vw',
+              height: '100vh',
+              zIndex: -1,
+              pointerEvents: 'none',
+              background: isDesktop
+                ? 'radial-gradient(circle at 86% 8%, rgba(255, 115, 0, 0.22) 0%, rgba(255, 90, 0, 0.08) 35%, transparent 60%), linear-gradient(to right, rgba(14, 10, 7, 0.92) 0%, rgba(14, 10, 7, 0.64) 46%, rgba(14, 10, 7, 0.82) 100%)'
+                : 'linear-gradient(to bottom, rgba(14, 10, 7, 0.88) 0%, rgba(14, 10, 7, 0.70) 50%, rgba(14, 10, 7, 0.92) 100%)',
+            } as any,
+          ]}
+        />
+      ) : (
+        <LinearGradient
+          colors={[
+            'rgba(14, 10, 7, 0.88)',
+            'rgba(14, 10, 7, 0.65)',
+            'rgba(14, 10, 7, 0.90)',
+          ]}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {isDesktop ? (
+            /* =================== DESKTOP 2-COLUMN VIEW =================== */
+            <View style={styles.desktopContainer}>
+              {/* Left Column: TVTI Branding, Hero Typography & 3D Clay Illustration */}
+              <View style={styles.desktopLeftCol}>
+                <View style={styles.desktopBrandRow}>
+                  <Image
+                    source={require('../../../assets/logo.png')}
+                    style={styles.desktopLogo}
+                    resizeMode="contain"
+                  />
+                  <View style={{ marginLeft: 14 }}>
+                    <Text style={styles.desktopBrandTitle}>Twintec VTI</Text>
+                    <Text style={styles.desktopBrandSub}>Learning Management System</Text>
+                  </View>
+                </View>
+
+                <View style={styles.heroTextContainer}>
+                  <Text style={styles.heroLearnText}>Learn</Text>
+                  <Text style={styles.heroHighlightText}>Build Your Skills</Text>
+                  <Text style={styles.heroHighlightText}>Shape Your Future</Text>
+                  <Text style={styles.heroSubDescription}>
+                    Twintec VTI Learning Management System{'\n'}Your journey towards a brighter future starts here.
+                  </Text>
+                </View>
+
+                {/* Floating 3D Artwork */}
+                <View style={styles.heroImageWrapper}>
+                  <Image
+                    source={require('../../../assets/login_hero_clay.jpg')}
+                    style={styles.heroImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              </View>
+
+              {/* Right Column: Glassmorphism Register Card */}
+              <View style={styles.desktopRightCol}>
+                {renderRegisterCard()}
+              </View>
+            </View>
+          ) : (
+            /* =================== MOBILE 1-COLUMN VIEW =================== */
+            <View style={styles.mobileContainer}>
+              <View style={[styles.mobileHeader, { paddingTop: Math.max(insets.top, 24) }]}>
+                <Image
+                  source={require('../../../assets/logo.png')}
+                  style={styles.mobileLogo}
+                  resizeMode="contain"
+                />
+                <Text style={styles.brandTitle}>Twintec VTI</Text>
+                <Text style={styles.brandSubtitle}>Learning Management System</Text>
+              </View>
+
+              <View style={styles.mobileCardWrapper}>
+                {renderRegisterCard()}
+              </View>
+            </View>
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* ========================================================================= */}
@@ -1326,43 +1467,180 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E253B',
-  },
-  topGradientBackground: {
-    backgroundColor: '#1E253B',
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-  },
-  topBrandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  brandLogoImg: {
-    width: 32,
-    height: 32,
-    marginRight: 10,
-  },
-  topBrandTitleText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
+    backgroundColor: '#0F0B08',
   },
 
-  /* MAIN WHITE CARD CONTAINER */
-  mainCardWrapper: {
-    flex: 1,
+  /* ---------- Mobile Layout Styles ---------- */
+  mobileScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 28,
   },
-  whiteCardContainer: {
+  mobileContainer: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+  },
+  mobileHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  mobileLogo: {
+    width: 72,
+    height: 72,
+    marginBottom: 10,
+  },
+  brandTitle: {
+    fontSize: 23,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  brandSubtitle: {
+    fontSize: 13,
+    color: '#A89F93',
+    fontWeight: '400',
+    marginTop: 3,
+  },
+  mobileCardWrapper: {
+    width: '100%',
+  },
+
+  /* ---------- Desktop Layout Styles ---------- */
+  desktopScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 32,
+  },
+  desktopContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 1200,
+    gap: 48,
+  },
+  desktopLeftCol: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    maxWidth: 500,
+  },
+  desktopBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  desktopLogo: {
+    width: 60,
+    height: 60,
+  },
+  desktopBrandTitle: {
+    fontSize: 22,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  desktopBrandSub: {
+    fontSize: 13,
+    color: '#A89F93',
+    fontWeight: '400',
+    marginTop: 2,
+  },
+  heroTextContainer: {
+    marginBottom: 20,
+  },
+  heroLearnText: {
+    fontSize: 36,
+    color: '#FFFFFF',
+    fontWeight: '800',
+    lineHeight: 44,
+    letterSpacing: -0.3,
+  },
+  heroHighlightText: {
+    fontSize: 36,
+    color: '#FF6500',
+    fontWeight: '800',
+    lineHeight: 44,
+    letterSpacing: -0.3,
+  },
+  heroSubDescription: {
+    fontSize: 14,
+    color: '#C5BCB3',
+    lineHeight: 22,
+    marginTop: 14,
+  },
+  heroImageWrapper: {
+    width: '100%',
+    maxWidth: 420,
+    height: 260,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    ...(Platform.OS === 'web'
+      ? ({
+          WebkitMaskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
+          maskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
+        } as any)
+      : {}),
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  desktopRightCol: {
+    flex: 1.25,
+    maxWidth: 620,
+    width: '100%',
+  },
+  desktopCard: {
+    paddingVertical: 32,
+    paddingHorizontal: 32,
+    borderRadius: 22,
+    backgroundColor: 'rgba(28, 20, 15, 0.44)',
+    borderColor: 'rgba(255, 255, 255, 0.13)',
+  },
+
+  /* ---------- Card Component Styles ---------- */
+  card: {
+    backgroundColor: 'rgba(28, 20, 15, 0.46)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 22,
+    paddingVertical: 24,
     paddingHorizontal: 20,
-    paddingTop: 20,
-    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    elevation: 8,
+    ...(Platform.OS === 'web'
+      ? ({ backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)' } as any)
+      : {}),
+  },
+  backButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    alignSelf: 'flex-start',
+  },
+  backButtonText: {
+    color: '#FF6500',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  welcomeTitle: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  welcomeSubtitle: {
+    fontSize: 13.5,
+    color: '#A89F93',
+    lineHeight: 20,
+    marginBottom: 20,
   },
 
   /* STEPPER INDICATOR HEADER */
@@ -1375,16 +1653,16 @@ const styles = StyleSheet.create({
   },
   stepperLineBackground: {
     position: 'absolute',
-    top: 16,
+    top: 15,
     left: 20,
     right: 20,
     height: 3,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     zIndex: 1,
   },
   stepperLineProgress: {
     height: '100%',
-    backgroundColor: '#F58220',
+    backgroundColor: '#FF6500',
   },
   stepperCirclesRow: {
     flexDirection: 'row',
@@ -1393,84 +1671,76 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   stepCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(20, 15, 11, 0.85)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepCircleCompleted: {
-    backgroundColor: '#F58220',
-    borderColor: '#F58220',
+    backgroundColor: '#FF6500',
+    borderColor: '#FF6500',
   },
   stepCircleActive: {
-    backgroundColor: '#F58220',
-    borderColor: '#F58220',
+    backgroundColor: '#FF6500',
+    borderColor: '#FF6500',
   },
   stepCircleText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: '#A89F93',
   },
   stepCircleTextActive: {
     color: '#FFFFFF',
   },
 
-  /* STEP TITLE HEADING */
-  stepTitleHeading: {
-    fontSize: 21,
-    fontWeight: '800',
-    color: '#1E253B',
-    textAlign: 'center',
+  /* ERROR BOX */
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(220, 38, 38, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    borderRadius: RADIUS.md,
+    padding: 12,
     marginBottom: 16,
   },
-
-  /* ERROR BANNER */
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginBottom: 12,
-  },
-  errorBannerText: {
-    fontSize: 13,
-    color: '#DC2626',
+  errorBoxText: {
     flex: 1,
-    fontWeight: '600',
+    color: '#F87171',
+    fontSize: 13,
+    lineHeight: 19,
   },
 
   /* SCROLL FORM CONTENT */
   scrollForm: {
-    flex: 1,
+    width: '100%',
   },
   scrollFormContent: {
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   stepSectionBox: {
     gap: 12,
   },
   fieldLabel: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#4B5563',
+    fontWeight: '500',
+    color: '#D4CAC0',
     marginBottom: -4,
     marginTop: 6,
   },
   textInputStyle: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    backgroundColor: 'rgba(16, 11, 7, 0.45)',
+    borderWidth: 1.1,
+    borderColor: 'rgba(255, 255, 255, 0.13)',
     borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 14,
-    color: '#1E253B',
+    paddingVertical: 12,
+    fontSize: 14.5,
+    color: '#FFFFFF',
   },
 
   /* DOB THREE INPUT ROW */
@@ -1480,20 +1750,20 @@ const styles = StyleSheet.create({
   },
   dobBox: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    backgroundColor: 'rgba(16, 11, 7, 0.45)',
+    borderWidth: 1.1,
+    borderColor: 'rgba(255, 255, 255, 0.13)',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dobInput: {
     width: '100%',
-    paddingVertical: 11,
+    paddingVertical: 12,
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '600',
-    color: '#1E253B',
+    color: '#FFFFFF',
   },
 
   /* EMAIL OTP WRAPPER */
@@ -1503,7 +1773,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sendOtpBtn: {
-    backgroundColor: '#F58220',
+    backgroundColor: '#FF5E14',
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 10,
@@ -1518,30 +1788,30 @@ const styles = StyleSheet.create({
   verifiedBadgeBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: 'rgba(16, 185, 129, 0.4)',
   },
   verifiedText: {
-    color: '#059669',
+    color: '#10B981',
     fontSize: 12,
     fontWeight: '800',
     marginLeft: 4,
   },
   otpCardBox: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: 'rgba(35, 25, 18, 0.65)',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#FFEDD5',
+    borderColor: 'rgba(255, 101, 0, 0.3)',
     marginTop: 4,
   },
   otpInstructionText: {
     fontSize: 12,
-    color: '#C2410C',
+    color: '#FF8C38',
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -1551,9 +1821,9 @@ const styles = StyleSheet.create({
   },
   otpInputStyle: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(16, 11, 7, 0.7)',
     borderWidth: 1,
-    borderColor: '#F58220',
+    borderColor: '#FF6500',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1561,9 +1831,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     letterSpacing: 4,
+    color: '#FFFFFF',
   },
   verifyOtpBtn: {
-    backgroundColor: '#F58220',
+    backgroundColor: '#FF5E14',
     paddingHorizontal: 14,
     borderRadius: 8,
     justifyContent: 'center',
@@ -1575,12 +1846,12 @@ const styles = StyleSheet.create({
   },
   otpErrorText: {
     fontSize: 12,
-    color: '#DC2626',
+    color: '#F87171',
     marginTop: 6,
   },
   otpSuccessText: {
     fontSize: 12,
-    color: '#059669',
+    color: '#10B981',
     marginTop: 6,
   },
 
@@ -1591,24 +1862,24 @@ const styles = StyleSheet.create({
   },
   genderOptionChip: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: 'rgba(16, 11, 7, 0.45)',
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: 'rgba(255, 255, 255, 0.13)',
   },
   genderOptionChipActive: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#F58220',
+    backgroundColor: 'rgba(255, 101, 0, 0.15)',
+    borderColor: '#FF6500',
   },
   genderOptionText: {
     fontSize: 13,
-    color: '#4B5563',
+    color: '#D4CAC0',
     fontWeight: '600',
   },
   genderOptionTextActive: {
-    color: '#F58220',
+    color: '#FF6500',
     fontWeight: '800',
   },
 
@@ -1616,40 +1887,40 @@ const styles = StyleSheet.create({
   eduOptionBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(16, 11, 7, 0.45)',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: 'rgba(255, 255, 255, 0.13)',
     padding: 12,
     borderRadius: 10,
   },
   eduOptionBoxActive: {
-    borderColor: '#F58220',
-    backgroundColor: '#FFF7ED',
+    borderColor: '#FF6500',
+    backgroundColor: 'rgba(255, 101, 0, 0.15)',
   },
   eduOptionText: {
     fontSize: 13.5,
-    color: '#374151',
+    color: '#D4CAC0',
     marginLeft: 10,
     fontWeight: '600',
   },
   eduOptionTextActive: {
-    color: '#F58220',
+    color: '#FF6500',
     fontWeight: '700',
   },
 
   /* PHOTO UPLOAD */
   photoInstructionsText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#A89F93',
     lineHeight: 18,
     marginBottom: 10,
   },
   photoUploadCard: {
-    height: 220,
-    backgroundColor: '#F9FAFB',
+    height: 200,
+    backgroundColor: 'rgba(16, 11, 7, 0.45)',
     borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1659,22 +1930,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cameraIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFF7ED',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 101, 0, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
   },
   uploadPromptTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '700',
-    color: '#1E253B',
+    color: '#FFFFFF',
   },
   uploadPromptSub: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#A89F93',
     marginTop: 2,
   },
   photoPreviewContainer: {
@@ -1691,12 +1962,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 12,
     alignSelf: 'center',
-    backgroundColor: 'rgba(30, 37, 59, 0.85)',
+    backgroundColor: 'rgba(16, 11, 7, 0.85)',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   photoChangeText: {
     color: '#FFFFFF',
@@ -1717,31 +1990,31 @@ const styles = StyleSheet.create({
   },
   syllabusLinkText: {
     fontSize: 12,
-    color: '#F58220',
+    color: '#FF6500',
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
   courseCheckCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(16, 11, 7, 0.45)',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: 'rgba(255, 255, 255, 0.13)',
     padding: 12,
     borderRadius: 10,
   },
   courseCheckCardActive: {
-    borderColor: '#F58220',
-    backgroundColor: '#FFF7ED',
+    borderColor: '#FF6500',
+    backgroundColor: 'rgba(255, 101, 0, 0.15)',
   },
   courseCheckTitle: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#1E253B',
+    color: '#FFFFFF',
   },
   courseCheckCode: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: '#A89F93',
     marginTop: 2,
   },
 
@@ -1755,24 +2028,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: 'rgba(16, 11, 7, 0.45)',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: 'rgba(255, 255, 255, 0.13)',
     paddingVertical: 12,
     borderRadius: 10,
   },
   paymentMethodChipActive: {
-    borderColor: '#F58220',
-    backgroundColor: '#FFF7ED',
+    borderColor: '#FF6500',
+    backgroundColor: 'rgba(255, 101, 0, 0.15)',
   },
   paymentMethodText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: '#4B5563',
+    color: '#D4CAC0',
     marginLeft: 6,
   },
   paymentMethodTextActive: {
-    color: '#F58220',
+    color: '#FF6500',
     fontWeight: '800',
   },
 
@@ -1781,11 +2054,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   slipUploadBox: {
-    height: 140,
-    backgroundColor: '#F9FAFB',
+    height: 130,
+    backgroundColor: 'rgba(16, 11, 7, 0.45)',
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1797,8 +2070,8 @@ const styles = StyleSheet.create({
   },
   slipPlaceholderTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#6B7280',
+    fontWeight: '600',
+    color: '#A89F93',
     marginTop: 6,
   },
   slipPreviewBox: {
@@ -1815,12 +2088,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 8,
     right: 8,
-    backgroundColor: 'rgba(30, 37, 59, 0.85)',
+    backgroundColor: 'rgba(16, 11, 7, 0.85)',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   slipChangeText: {
     color: '#FFFFFF',
@@ -1839,24 +2114,24 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 5,
-    borderWidth: 2,
-    borderColor: '#F58220',
+    borderWidth: 1.5,
+    borderColor: '#FF6500',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
     marginTop: 2,
   },
   customCheckboxChecked: {
-    backgroundColor: '#F58220',
+    backgroundColor: '#FF6500',
   },
   termsAgreementText: {
     fontSize: 12.5,
-    color: '#4B5563',
+    color: '#C5BCB3',
     lineHeight: 18,
     flex: 1,
   },
   termsLinkBold: {
-    color: '#F58220',
+    color: '#FF6500',
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
@@ -1867,11 +2142,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 4,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'transparent',
     gap: 12,
+    marginTop: 8,
   },
   prevBtnOutline: {
     flex: 1,
@@ -1879,15 +2154,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 46,
-    borderRadius: 23,
-    borderWidth: 1.5,
-    borderColor: '#F58220',
-    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: '#FF6500',
+    backgroundColor: 'rgba(16, 11, 7, 0.45)',
   },
   prevBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#F58220',
+    color: '#FF6500',
   },
   nextBtnSolid: {
     flex: 1,
@@ -1895,33 +2170,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 46,
-    borderRadius: 23,
-    backgroundColor: '#F58220',
+    borderRadius: 12,
+    backgroundColor: '#FF5E14',
+    shadowColor: '#FF5E14',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
   },
   nextBtnText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-
   disabledBtn: {
     opacity: 0.6,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 18,
+  },
+  footerText: {
+    color: '#8E8276',
+    fontSize: 13.5,
+  },
+  link: {
+    color: '#FF6500',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
 
   /* MODALS */
   modalOverlayDark: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   termsModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1E1712',
     borderRadius: 20,
     padding: 20,
     width: '100%',
     maxWidth: 440,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   termsModalHeader: {
     flexDirection: 'row',
@@ -1932,15 +2226,15 @@ const styles = StyleSheet.create({
   termsModalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1E253B',
+    color: '#FFFFFF',
   },
   termsModalBodyText: {
     fontSize: 13,
-    color: '#4B5563',
+    color: '#C5BCB3',
     lineHeight: 20,
   },
   termsCloseBtn: {
-    backgroundColor: '#F58220',
+    backgroundColor: '#FF5E14',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
@@ -1953,12 +2247,14 @@ const styles = StyleSheet.create({
   },
 
   successModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1E1712',
     borderRadius: 24,
     padding: 24,
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   successIconCircle: {
     marginBottom: 12,
@@ -1966,20 +2262,20 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#1E253B',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
   },
   successMessage: {
     fontSize: 13.5,
-    color: '#4B5563',
+    color: '#C5BCB3',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 18,
   },
   successBtn: {
     width: '100%',
-    backgroundColor: '#1E253B',
+    backgroundColor: '#FF5E14',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -1995,9 +2291,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    backgroundColor: 'rgba(16, 11, 7, 0.45)',
+    borderWidth: 1.1,
+    borderColor: 'rgba(255, 255, 255, 0.13)',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -2009,16 +2305,18 @@ const styles = StyleSheet.create({
   dropdownSelectText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1E253B',
+    color: '#FFFFFF',
   },
 
   /* DROPDOWN MODAL */
   dropdownModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1E1712',
     borderRadius: 20,
     padding: 20,
     width: '100%',
     maxWidth: 400,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   dropdownModalHeader: {
     flexDirection: 'row',
@@ -2026,13 +2324,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     paddingBottom: 12,
   },
   dropdownModalTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#1E253B',
+    color: '#FFFFFF',
   },
   dropdownOptionList: {
     gap: 8,
@@ -2044,21 +2342,21 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 10,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: 'rgba(16, 11, 7, 0.65)',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   dropdownOptionItemActive: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#F58220',
+    backgroundColor: 'rgba(255, 101, 0, 0.15)',
+    borderColor: '#FF6500',
   },
   dropdownOptionLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: '#FFFFFF',
   },
   dropdownOptionLabelActive: {
-    color: '#F58220',
+    color: '#FF6500',
     fontWeight: '800',
   },
 });
