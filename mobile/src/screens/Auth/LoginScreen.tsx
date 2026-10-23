@@ -674,8 +674,8 @@ const styles = StyleSheet.create({
     elevation: 6,
     ...(Platform.OS === 'web'
       ? ({
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
+        backdropFilter: 'blur(30px)',
+        WebkitBackdropFilter: 'blur(30px)',
         boxShadow: '0 16px 40px -8px rgba(15, 23, 42, 0.10), 0 0 1px 1px rgba(255, 255, 255, 0.9)',
       } as any)
       : {}),

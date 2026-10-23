@@ -635,6 +635,10 @@ export default function RegisterScreen() {
     });
   };
 
+  const handleBackToLogin = () => {
+    navigation.navigate('Login');
+  };
+
   const renderStepIndicator = () => {
     const totalSteps = 5;
     return (
@@ -722,7 +726,7 @@ export default function RegisterScreen() {
       >
         {/* Back to Sign In Action */}
         <TouchableOpacity
-          onPress={handleGoToLogin}
+          onPress={handleBackToLogin}
           style={styles.backButtonRow}
           activeOpacity={0.7}
         >
@@ -1257,7 +1261,7 @@ export default function RegisterScreen() {
         {/* FOOTER */}
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: isLight ? '#64748B' : '#8E8276' }]}>Already have an account? </Text>
-          <TouchableOpacity onPress={handleGoToLogin}>
+          <TouchableOpacity onPress={handleBackToLogin}>
             <Text style={styles.link}>Sign In</Text>
           </TouchableOpacity>
         </View>
@@ -2034,9 +2038,13 @@ const styles = StyleSheet.create({
   otpRow: {
     flexDirection: 'row',
     gap: 8,
+    alignItems: 'center',
   },
   otpInputStyle: {
     flex: 1,
+    // Allows the input to shrink on narrow mobile screens so the button stays
+    // inside the centered OTP card instead of overflowing to the right.
+    minWidth: 0,
     backgroundColor: 'rgba(16, 11, 7, 0.7)',
     borderWidth: 1,
     borderColor: '#FF6500',
@@ -2052,6 +2060,7 @@ const styles = StyleSheet.create({
   verifyOtpBtn: {
     backgroundColor: '#FF5E14',
     paddingHorizontal: 14,
+    minHeight: 42,
     borderRadius: 8,
     justifyContent: 'center',
   },
