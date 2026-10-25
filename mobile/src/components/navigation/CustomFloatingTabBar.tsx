@@ -15,6 +15,7 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -26,6 +27,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   navigation,
 }) => {
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
   const [tabLayouts, setTabLayouts] = useState<{ [key: number]: LayoutRectangle }>({});
 
   // Filter visible routes (ignore hidden screens like MyStudents)
@@ -139,10 +141,10 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
 
   return (
     <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom + 10, 16) }]}>
-      {/* Liquid Dark Black Glass Dock Container */}
-      <View style={styles.tabBarContainer}>
+      {/* Liquid Glass Dock Container (Foggy white in light mode, midnight navy in dark mode) */}
+      <View style={[styles.tabBarContainer, isDark ? styles.tabBarContainerDark : styles.tabBarContainerLight]}>
         {/* Top Rim Glossy Liquid Reflection */}
-        <View style={styles.capsuleTopSheen} />
+        <View style={[styles.capsuleTopSheen, isDark ? styles.capsuleTopSheenDark : styles.capsuleTopSheenLight]} />
 
         <ScrollView
           horizontal
@@ -263,7 +265,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
                 <Icon
                   name={iconName as any}
                   size={20}
-                  color={isFocused ? '#FFFFFF' : '#94A3B8'}
+                  color={isFocused ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B')}
                 />
                 {isFocused && (
                   <Text style={styles.activeLabel} numberOfLines={1}>
@@ -291,7 +293,6 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   tabBarContainer: {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)', // Deep midnight navy background
     borderRadius: 36,
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -299,6 +300,9 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     borderWidth: 1.5,
+  },
+  tabBarContainerDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.95)', // Deep midnight navy background
     borderColor: 'rgba(255, 255, 255, 0.08)', // Glossy liquid drop glass rim
     ...Platform.select({
       web: {
@@ -315,15 +319,38 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  tabBarContainerLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.82)', // Foggy white frosted glass
+    borderColor: 'rgba(255, 255, 255, 0.95)', // Soft white glass rim
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(22px)',
+        WebkitBackdropFilter: 'blur(22px)',
+        boxShadow: '0px 12px 32px rgba(15, 23, 42, 0.12), 0px 4px 18px rgba(249, 115, 22, 0.18)',
+      },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+        elevation: 10,
+      },
+    }),
+  },
   capsuleTopSheen: {
     position: 'absolute',
     top: 0,
     left: 24,
     right: 24,
     height: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.50)',
     borderRadius: 1,
     zIndex: 3,
+  },
+  capsuleTopSheenDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.50)',
+  },
+  capsuleTopSheenLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
   },
   scrollContent: {
     flexDirection: 'row',
