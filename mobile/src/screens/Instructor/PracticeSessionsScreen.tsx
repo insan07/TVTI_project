@@ -10,6 +10,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../services/api';
 import { updatePracticeSlot, getSlotBookings } from '../../services/practiceService';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -49,11 +51,12 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
 
 export default function PracticeSessionsScreen() {
   const navigation = useNavigation<any>();
+  const { isDark } = useTheme();
   const [viewMode, setViewMode] = useState<'Month' | 'Week' | 'Day' | 'List'>('List');
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  
+
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -144,7 +147,7 @@ export default function PracticeSessionsScreen() {
   const [bookingsModalVisible, setBookingsModalVisible] = useState(false);
   const [slotBookings, setSlotBookings] = useState<any[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
-  
+
   const [addStudentModalVisible, setAddStudentModalVisible] = useState(false);
   const [batchStudents, setBatchStudents] = useState<any[]>([]);
   const [loadingBatchStudents, setLoadingBatchStudents] = useState(false);
@@ -155,7 +158,7 @@ export default function PracticeSessionsScreen() {
   const [editLocation, setEditLocation] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
-  const [confirmModal, setConfirmModal] = useState<any>({ visible: false, title: '', message: '', onConfirm: () => {} });
+  const [confirmModal, setConfirmModal] = useState<any>({ visible: false, title: '', message: '', onConfirm: () => { } });
   const [alertModal, setAlertModal] = useState<any>({ visible: false, title: '', message: '' });
 
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
@@ -269,18 +272,18 @@ export default function PracticeSessionsScreen() {
     try {
       const params: any = {};
       if (viewMode === 'Month') {
-         const start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-         // week_start_date represents the Monday of the week. So to get all slots that fall in this month, 
-         // we might need to fetch weeks that start a bit before the month (e.g., late previous month).
-         // To be safe, we pad the start and end by 7 days.
-         start.setDate(start.getDate() - 7);
-         const end = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 7);
-         params.startDate = getLocalDateString(start);
-         params.endDate = getLocalDateString(end);
+        const start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+        // week_start_date represents the Monday of the week. So to get all slots that fall in this month, 
+        // we might need to fetch weeks that start a bit before the month (e.g., late previous month).
+        // To be safe, we pad the start and end by 7 days.
+        start.setDate(start.getDate() - 7);
+        const end = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 7);
+        params.startDate = getLocalDateString(start);
+        params.endDate = getLocalDateString(end);
       } else {
-         params.weekStart = getLocalDateString(weekStart);
+        params.weekStart = getLocalDateString(weekStart);
       }
-      
+
       const res = await api.get('/instructors/practice-slots', { params });
       setSlots(res.data || []);
     } catch (e) {
@@ -301,7 +304,7 @@ export default function PracticeSessionsScreen() {
     nd.setDate(nd.getDate() + offset * 7);
     setWeekStart(nd);
   };
-  
+
   const changeMonth = (offset: number) => {
     const nd = new Date(selectedDate);
     nd.setMonth(nd.getMonth() + offset);
@@ -358,7 +361,7 @@ export default function PracticeSessionsScreen() {
   const handleCreateSlot = async () => {
     if (createBatchId === 'all') return showAlert('Validation Error', 'Please select a batch', undefined, 'error');
     if (!createStartTime || !createEndTime) return showAlert('Validation Error', 'Please complete time', undefined, 'error');
-    
+
     setCreating(true);
     try {
       const dayOfWeek = DAYS[createDate.getDay() === 0 ? 6 : createDate.getDay() - 1];
@@ -396,12 +399,14 @@ export default function PracticeSessionsScreen() {
     const dayShort = actualDate.toLocaleDateString('en-GB', { weekday: 'short' });
 
     return (
-      <View key={slot._id} style={styles.cardWrapper}>
-        <View style={styles.cardAccent} />
+      <View key={slot._id} style={[styles.cardWrapper, isDark && styles.cardWrapperDark]}>
+        <View style={[styles.cardAccent, { backgroundColor: '#FF5E14' }]} />
         <View style={styles.cardInner}>
           <View style={styles.cardHeaderRow}>
-            <View style={styles.cardTag}><Text style={styles.cardTagText}>PRACTICAL SLOT</Text></View>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <View style={[styles.cardTag, isDark && { backgroundColor: 'rgba(255, 94, 20, 0.15)' }]}>
+              <Text style={[styles.cardTagText, isDark && { color: '#FB923C' }]}>PRACTICAL SLOT</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={[styles.statusPill, slot.is_open ? styles.statusOpen : styles.statusLocked]}>
                 <Text style={[styles.statusPillText, slot.is_open ? styles.textOpen : styles.textLocked]}>
                   {slot.is_open ? 'OPEN' : 'LOCKED'}
@@ -416,65 +421,65 @@ export default function PracticeSessionsScreen() {
                   setActionMenuVisible(true);
                 }
               }}>
-                <Icon name="ellipsis-vertical" size={20} color="#111827" />
+                <Icon name="ellipsis-vertical" size={20} color={isDark ? '#FFFFFF' : '#111827'} />
               </TouchableOpacity>
             </View>
           </View>
-          
+
           {/* Inline Popover Menu */}
           {actionMenuVisible && actionMenuSlot?._id === slot._id && (
-            <View style={styles.inlinePopoverContainer}>
+            <View style={[styles.inlinePopoverContainer, isDark && styles.inlinePopoverContainerDark]}>
               <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); handleViewBookings(slot); }}>
-                <Text style={styles.popoverMenuText}>View Students</Text>
+                <Text style={[styles.popoverMenuText, isDark && { color: '#FFFFFF' }]}>View Students</Text>
               </TouchableOpacity>
-              <View style={styles.popoverMenuDivider} />
+              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
               <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); openEditModal(slot); }}>
-                <Text style={styles.popoverMenuText}>Edit Slot</Text>
+                <Text style={[styles.popoverMenuText, isDark && { color: '#FFFFFF' }]}>Edit Slot</Text>
               </TouchableOpacity>
-              <View style={styles.popoverMenuDivider} />
+              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
               <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); toggleSlotStatus(slot); }}>
-                <Text style={[styles.popoverMenuText, {color: slot.is_open ? '#DC2626' : '#374151'}]}>
+                <Text style={[styles.popoverMenuText, { color: slot.is_open ? '#EF4444' : (isDark ? '#34D399' : '#374151') }]}>
                   {slot.is_open ? 'Lock Slot' : 'Open Slot'}
                 </Text>
               </TouchableOpacity>
-              <View style={styles.popoverMenuDivider} />
+              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
               <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); handleDeleteSlot(slot._id); }}>
                 <Text style={styles.popoverMenuTextDanger}>Delete</Text>
               </TouchableOpacity>
             </View>
           )}
-          
-          <Text style={styles.cardCourseTitle}>{slot.batch_id?.course_id?.title || slot.batch_id?.name || 'Practical Session'}</Text>
-          <Text style={styles.cardBatchText}>Batch: {slot.batch_id?.name || 'N/A'}</Text>
-          
+
+          <Text style={[styles.cardCourseTitle, isDark && { color: '#FFFFFF' }]}>{slot.batch_id?.course_id?.title || slot.batch_id?.name || 'Practical Session'}</Text>
+          <Text style={[styles.cardBatchText, isDark && { color: '#A89F93' }]}>Batch: {slot.batch_id?.name || 'N/A'}</Text>
+
           <View style={styles.cardInfoRow}>
-            <Icon name="calendar-outline" size={14} color="#F97316" />
-            <Text style={styles.cardInfoText}>{dayShort}, {formattedDate}</Text>
-            <Icon name="time-outline" size={14} color="#6B7280" style={{marginLeft: 8}} />
-            <Text style={styles.cardInfoText}>{slot.start_time} - {slot.end_time}</Text>
+            <Icon name="calendar-outline" size={14} color="#FF5E14" />
+            <Text style={[styles.cardInfoText, isDark && { color: '#A89F93' }]}>{dayShort}, {formattedDate}</Text>
+            <Icon name="time-outline" size={14} color={isDark ? '#8A7D71' : '#6B7280'} style={{ marginLeft: 8 }} />
+            <Text style={[styles.cardInfoText, isDark && { color: '#A89F93' }]}>{slot.start_time} - {slot.end_time}</Text>
           </View>
-          
+
           {!!slot.instructor_id?.name && (
             <View style={styles.cardInfoRow}>
               <Icon name="person-outline" size={14} color="#3B82F6" />
-              <Text style={[styles.cardInfoText, {color: '#1E3A8A', fontWeight: '600'}]}>Inst. {slot.instructor_id.name}</Text>
+              <Text style={[styles.cardInfoText, { color: isDark ? '#93C5FD' : '#1E3A8A', fontWeight: '600' }]}>Inst. {slot.instructor_id.name}</Text>
             </View>
           )}
 
           {!!slot.location && (
             <View style={styles.cardInfoRow}>
-              <Icon name="location-outline" size={14} color="#6B7280" />
-              <Text style={styles.cardInfoText}>{slot.location}</Text>
+              <Icon name="location-outline" size={14} color={isDark ? '#8A7D71' : '#6B7280'} />
+              <Text style={[styles.cardInfoText, isDark && { color: '#A89F93' }]}>{slot.location}</Text>
             </View>
           )}
-          
+
           <View style={styles.capacityContainer}>
             <View style={styles.capacityRow}>
-              <Text style={styles.capacityText}>Capacity: {booked}/{max} Booked</Text>
-              <Text style={styles.capacityPct}>{Math.round(fillRatio * 100)}%</Text>
+              <Text style={[styles.capacityText, isDark && { color: '#A89F93' }]}>Capacity: {booked}/{max} Booked</Text>
+              <Text style={[styles.capacityPct, isDark && { color: '#FFFFFF' }]}>{Math.round(fillRatio * 100)}%</Text>
             </View>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${fillRatio * 100}%`, backgroundColor: fillRatio >= 1 ? '#EF4444' : '#F97316' }]} />
+            <View style={[styles.progressTrack, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.10)' }]}>
+              <View style={[styles.progressFill, { width: `${fillRatio * 100}%`, backgroundColor: fillRatio >= 1 ? '#EF4444' : '#FF5E14' }]} />
             </View>
           </View>
         </View>
@@ -483,8 +488,8 @@ export default function PracticeSessionsScreen() {
   };
 
   const renderWeekView = () => {
-    const hours = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00'];
-    const weekDates = Array.from({length: 7}).map((_,i) => {
+    const hours = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
+    const weekDates = Array.from({ length: 7 }).map((_, i) => {
       const d = new Date(weekStart);
       d.setDate(d.getDate() + i);
       return d;
@@ -500,12 +505,12 @@ export default function PracticeSessionsScreen() {
               setWeekStart(getMonday(d));
               setViewMode('Day');
             }}>
-              <Text style={styles.dayColDay}>{DAYS[i].slice(0,3)}</Text>
+              <Text style={styles.dayColDay}>{DAYS[i].slice(0, 3)}</Text>
               <Text style={styles.dayColDate}>{d.getDate()}</Text>
             </TouchableOpacity>
           ))}
         </View>
-        <ScrollView style={{flex: 1}}>
+        <ScrollView style={{ flex: 1 }}>
           <View style={styles.gridBody}>
             <View style={styles.timeAxis}>
               {hours.map(h => <Text key={h} style={styles.timeAxisLabel}>{h}</Text>)}
@@ -513,21 +518,21 @@ export default function PracticeSessionsScreen() {
             <View style={styles.gridLinesContainer}>
               {hours.map(h => <View key={h} style={styles.gridLineHorizontal} />)}
               {weekDates.map((d, i) => <View key={i} style={styles.gridLineVertical} />)}
-              
+
               {slots.map((s, idx) => {
-                 const dayIdx = DAYS.indexOf(s.day_of_week);
-                 if (dayIdx === -1) return null;
-                 const startH = parseInt(s.start_time.split(':')[0]);
-                 const endH = parseInt(s.end_time.split(':')[0]);
-                 if (startH < 8 || startH > 16) return null;
-                 const top = (startH - 8) * 60; 
-                 const height = (endH - startH) * 60;
-                 return (
-                   <View key={s._id} style={[styles.slotBlock, { left: `${(dayIdx * 14.28)}%`, top, height, backgroundColor: idx%2===0 ? '#93C5FD' : '#FDE047' }]}>
-                     <Text style={styles.slotBlockTitle}>{s.batch_id?.name || 'Slot'}</Text>
-                     <Text style={styles.slotBlockTime}>{s.start_time}</Text>
-                   </View>
-                 );
+                const dayIdx = DAYS.indexOf(s.day_of_week);
+                if (dayIdx === -1) return null;
+                const startH = parseInt(s.start_time.split(':')[0]);
+                const endH = parseInt(s.end_time.split(':')[0]);
+                if (startH < 8 || startH > 16) return null;
+                const top = (startH - 8) * 60;
+                const height = (endH - startH) * 60;
+                return (
+                  <View key={s._id} style={[styles.slotBlock, { left: `${(dayIdx * 14.28)}%`, top, height, backgroundColor: idx % 2 === 0 ? '#93C5FD' : '#FDE047' }]}>
+                    <Text style={styles.slotBlockTitle}>{s.batch_id?.name || 'Slot'}</Text>
+                    <Text style={styles.slotBlockTime}>{s.start_time}</Text>
+                  </View>
+                );
               })}
             </View>
           </View>
@@ -541,11 +546,11 @@ export default function PracticeSessionsScreen() {
     const month = selectedDate.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
+
     const startOffset = firstDay === 0 ? 6 : firstDay - 1;
-    
-    const blanks = Array.from({length: startOffset}).map((_,i) => <View key={`blank-${i}`} style={styles.monthCell} />);
-    const days = Array.from({length: daysInMonth}).map((_,i) => {
+
+    const blanks = Array.from({ length: startOffset }).map((_, i) => <View key={`blank-${i}`} style={styles.monthCell} />);
+    const days = Array.from({ length: daysInMonth }).map((_, i) => {
       const d = i + 1;
       const hasSlot = slots.some(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === d);
       return (
@@ -560,11 +565,11 @@ export default function PracticeSessionsScreen() {
         </TouchableOpacity>
       );
     });
-    
+
     return (
       <View style={styles.monthGridContainer}>
         <View style={styles.monthHeaderRow}>
-          {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => <Text key={d} style={styles.monthHeaderText}>{d}</Text>)}
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => <Text key={d} style={styles.monthHeaderText}>{d}</Text>)}
         </View>
         <View style={styles.monthDaysWrapper}>
           {blanks}
@@ -575,94 +580,93 @@ export default function PracticeSessionsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0F0B08' }]} edges={['top', 'bottom']}>
+      <ScreenBackground />
       <ScreenHeader
         title="Practice Slots"
         subtitle="Schedule & manage practical sessions"
       />
 
-
-
-      <View style={styles.viewToggleRow}>
+      <View style={[styles.viewToggleRow, isDark && styles.viewToggleRowDark]}>
         {['Month', 'Week', 'Day', 'List'].map(mode => (
-          <TouchableOpacity key={mode} style={[styles.viewToggleBtn, viewMode === mode && styles.viewToggleBtnActive]} onPress={() => setViewMode(mode as any)}>
-            <Text style={[styles.viewToggleText, viewMode === mode && styles.viewToggleTextActive]}>{mode}</Text>
+          <TouchableOpacity key={mode} style={[styles.viewToggleBtn, viewMode === mode && (isDark ? styles.viewToggleBtnActiveDark : styles.viewToggleBtnActive)]} onPress={() => setViewMode(mode as any)}>
+            <Text style={[styles.viewToggleText, isDark && { color: '#A89F93' }, viewMode === mode && styles.viewToggleTextActive]}>{mode}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       <View style={styles.subHeader}>
-         <View style={styles.subHeaderLeft}>
-            <Icon name="calendar" size={18} color="#F58220" />
-            <Text style={styles.subHeaderTitle}>My Practical Slots ({slots.length})</Text>
-         </View>
+        <View style={styles.subHeaderLeft}>
+          <Icon name="calendar" size={18} color="#FF5E14" />
+          <Text style={[styles.subHeaderTitle, isDark && { color: '#FFFFFF' }]}>My Practical Slots ({slots.length})</Text>
+        </View>
       </View>
 
-      <View style={styles.dateNavigator}>
+      <View style={[styles.dateNavigator, isDark && styles.dateNavigatorDark]}>
         <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(-1) : viewMode === 'Day' ? changeDay(-1) : changeWeek(-1)}>
-          <Icon name="chevron-back" size={20} color="#F97316" />
+          <Icon name="chevron-back" size={20} color="#FF5E14" />
         </TouchableOpacity>
-        <View style={styles.dateBadge}>
-          <Icon name="calendar-outline" size={14} color="#F97316" style={{marginRight: 6}} />
-          <Text style={styles.dateBadgeText}>
-            {viewMode === 'Month' 
+        <View style={[styles.dateBadge, isDark && styles.dateBadgeDark]}>
+          <Icon name="calendar-outline" size={14} color="#FF5E14" style={{ marginRight: 6 }} />
+          <Text style={[styles.dateBadgeText, isDark && { color: '#FB923C' }]}>
+            {viewMode === 'Month'
               ? selectedDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
               : viewMode === 'Day'
-              ? selectedDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
-              : `Week of ${getLocalDateString(weekStart)}`}
+                ? selectedDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+                : `Week of ${getLocalDateString(weekStart)}`}
           </Text>
         </View>
         <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(1) : viewMode === 'Day' ? changeDay(1) : changeWeek(1)}>
-          <Icon name="chevron-forward" size={20} color="#F97316" />
+          <Icon name="chevron-forward" size={20} color="#FF5E14" />
         </TouchableOpacity>
       </View>
 
-      <View style={{flex: 1}}>
+      <View style={{ flex: 1 }}>
         {loading ? (
-          <ActivityIndicator size="large" color="#F97316" style={{marginTop: 40}} />
+          <ActivityIndicator size="large" color="#FF5E14" style={{ marginTop: 40 }} />
         ) : (
           viewMode === 'Week' ? renderWeekView() :
-          viewMode === 'Month' ? renderMonthView() :
-          viewMode === 'Day' ? (
-            <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}}>
-              {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).length === 0 ? (
-                <View style={{alignItems: 'center', marginTop: 40}}>
-                  <Icon name="calendar-outline" size={48} color="#D1D5DB" />
-                  <Text style={{color: '#6B7280', marginVertical: 12}}>No slots scheduled for this day.</Text>
-                </View>
-              ) : (
-                <>
-                  {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).map(renderListCard)}
-                </>
-              )}
-            </ScrollView>
-          ) :
-          <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-            {slots.length === 0 ? <Text style={styles.emptyText}>No slots found</Text> : slots.map(renderListCard)}
-          </ScrollView>
+            viewMode === 'Month' ? renderMonthView() :
+              viewMode === 'Day' ? (
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+                  {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).length === 0 ? (
+                    <View style={{ alignItems: 'center', marginTop: 40 }}>
+                      <Icon name="calendar-outline" size={48} color={isDark ? '#524A42' : '#D1D5DB'} />
+                      <Text style={{ color: isDark ? '#8A7D71' : '#6B7280', marginVertical: 12 }}>No slots scheduled for this day.</Text>
+                    </View>
+                  ) : (
+                    <>
+                      {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).map(renderListCard)}
+                    </>
+                  )}
+                </ScrollView>
+              ) :
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}>
+                  {slots.length === 0 ? <Text style={[styles.emptyText, isDark && { color: '#8A7D71' }]}>No slots found</Text> : slots.map(renderListCard)}
+                </ScrollView>
         )}
       </View>
 
       {/* POP-UP MODAL FOR CREATE SLOT */}
       <Modal visible={createModalVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitleText}>Create Practical Slot</Text>
-              <TouchableOpacity onPress={() => setCreateModalVisible(false)} style={styles.closeModalIconBtn}>
-                <Icon name="close" size={20} color="#4B5563" />
+        <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
+          <View style={[styles.modalCard, isDark && styles.modalCardDark]}>
+            <View style={[styles.modalHeaderRow, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.10)' }]}>
+              <Text style={[styles.modalTitleText, isDark && { color: '#FFFFFF' }]}>Create Practical Slot</Text>
+              <TouchableOpacity onPress={() => setCreateModalVisible(false)} style={[styles.closeModalIconBtn, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.10)' }]}>
+                <Icon name="close" size={20} color={isDark ? '#FFFFFF' : '#4B5563'} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 520 }}>
-              <Text style={styles.createFormSubtitle}>Add a new practical training session</Text>
-              
+              <Text style={[styles.createFormSubtitle, isDark && { color: '#A89F93' }]}>Add a new practical training session</Text>
+
               <View style={styles.formGroup}>
-                <Text style={styles.label}><Icon name="people-outline" size={14}/> Batch *</Text>
+                <Text style={[styles.label, isDark && { color: '#D4CAC0' }]}><Icon name="people-outline" size={14} /> Batch *</Text>
                 <View style={styles.pickerWrap}>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     {batches.map(b => (
-                      <TouchableOpacity key={b._id} style={[styles.pillsForm, createBatchId === b._id && styles.pillsFormActive]} onPress={() => setCreateBatchId(b._id)}>
-                        <Text style={[styles.pillsFormText, createBatchId === b._id && {color: '#fff'}]}>{b.name}</Text>
+                      <TouchableOpacity key={b._id} style={[styles.pillsForm, isDark && styles.pillsFormDark, createBatchId === b._id && styles.pillsFormActive]} onPress={() => setCreateBatchId(b._id)}>
+                        <Text style={[styles.pillsFormText, isDark && { color: '#A89F93' }, createBatchId === b._id && { color: '#fff' }]}>{b.name}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -670,10 +674,10 @@ export default function PracticeSessionsScreen() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}><Icon name="calendar-outline" size={14}/> Date *</Text>
-                <TouchableOpacity style={styles.pickerBox} onPress={() => setShowDatePicker(true)}>
-                  <Text>{createDate.toLocaleDateString('en-GB')}</Text>
-                  <Icon name="calendar" size={18} color="#9CA3AF" />
+                <Text style={[styles.label, isDark && { color: '#D4CAC0' }]}><Icon name="calendar-outline" size={14} /> Date *</Text>
+                <TouchableOpacity style={[styles.pickerBox, isDark && styles.pickerBoxDark]} onPress={() => setShowDatePicker(true)}>
+                  <Text style={isDark && { color: '#FFFFFF' }}>{createDate.toLocaleDateString('en-GB')}</Text>
+                  <Icon name="calendar" size={18} color={isDark ? '#FB923C' : '#9CA3AF'} />
                 </TouchableOpacity>
                 {showDatePicker && (
                   <DateTimePicker value={createDate} mode="date" display="default" onChange={(e, d) => { setShowDatePicker(false); if (d) setCreateDate(d); }} />
@@ -681,31 +685,31 @@ export default function PracticeSessionsScreen() {
               </View>
 
               <View style={styles.rowGroup}>
-                <View style={[styles.formGroup, {flex: 1}]}>
-                  <Text style={styles.label}>Start Time *</Text>
-                  <TextInput style={styles.textInputBox} value={createStartTime} onChangeText={setCreateStartTime} placeholder="09:00" />
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={[styles.label, isDark && { color: '#D4CAC0' }]}>Start Time *</Text>
+                  <TextInput style={[styles.textInputBox, isDark && styles.textInputBoxDark]} value={createStartTime} onChangeText={setCreateStartTime} placeholder="09:00" placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
                 </View>
-                <View style={[styles.formGroup, {flex: 1, marginLeft: 12}]}>
-                  <Text style={styles.label}>End Time *</Text>
-                  <TextInput style={styles.textInputBox} value={createEndTime} onChangeText={setCreateEndTime} placeholder="12:00" />
+                <View style={[styles.formGroup, { flex: 1, marginLeft: 12 }]}>
+                  <Text style={[styles.label, isDark && { color: '#D4CAC0' }]}>End Time *</Text>
+                  <TextInput style={[styles.textInputBox, isDark && styles.textInputBoxDark]} value={createEndTime} onChangeText={setCreateEndTime} placeholder="12:00" placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
                 </View>
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}><Icon name="location-outline" size={14}/> Location / Lab *</Text>
-                <TextInput style={styles.textInputBox} value={createLocation} onChangeText={setCreateLocation} placeholder="Hardware Lab 01" />
+                <Text style={[styles.label, isDark && { color: '#D4CAC0' }]}><Icon name="location-outline" size={14} /> Location / Lab *</Text>
+                <TextInput style={[styles.textInputBox, isDark && styles.textInputBoxDark]} value={createLocation} onChangeText={setCreateLocation} placeholder="Hardware Lab 01" placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}><Icon name="person-outline" size={14}/> Capacity *</Text>
-                <TextInput style={styles.textInputBox} value={createCapacity} onChangeText={setCreateCapacity} keyboardType="numeric" />
+                <Text style={[styles.label, isDark && { color: '#D4CAC0' }]}><Icon name="person-outline" size={14} /> Capacity *</Text>
+                <TextInput style={[styles.textInputBox, isDark && styles.textInputBoxDark]} value={createCapacity} onChangeText={setCreateCapacity} keyboardType="numeric" placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
               </View>
-              
+
               <View style={styles.createActionsRow}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => setCreateModalVisible(false)}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                <TouchableOpacity style={[styles.cancelBtn, isDark && styles.cancelBtnDark]} onPress={() => setCreateModalVisible(false)}>
+                  <Text style={[styles.cancelBtnText, isDark && { color: '#A89F93' }]}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.submitBtn} onPress={handleCreateSlot} disabled={creating}>
+                <TouchableOpacity style={[styles.submitBtn, { backgroundColor: '#FF5E14' }]} onPress={handleCreateSlot} disabled={creating}>
                   {creating ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Create Slot</Text>}
                 </TouchableOpacity>
               </View>
@@ -721,16 +725,16 @@ export default function PracticeSessionsScreen() {
               <TouchableOpacity onPress={() => setShowFilter(false)}><Icon name="arrow-back" size={24} color="#1F2937" /></TouchableOpacity>
               <Text style={styles.filterTitle}>Filters</Text>
             </View>
-            <ScrollView style={{padding: 16}}>
+            <ScrollView style={{ padding: 16 }}>
               <Text style={styles.filterSectionTitle}>Course</Text>
               <View style={styles.pickerBox}><Text>All Courses</Text></View>
-              
-              <Text style={[styles.filterSectionTitle, {marginTop: 20}]}>Batch</Text>
+
+              <Text style={[styles.filterSectionTitle, { marginTop: 20 }]}>Batch</Text>
               <View style={styles.pickerBox}><Text>All Batches</Text></View>
 
-              <Text style={[styles.filterSectionTitle, {marginTop: 20}]}>Status</Text>
+              <Text style={[styles.filterSectionTitle, { marginTop: 20 }]}>Status</Text>
               {Object.keys(statusFilter).map(k => (
-                <TouchableOpacity key={k} style={styles.checkboxRow} onPress={() => setStatusFilter({...statusFilter, [k]: !statusFilter[k]})}>
+                <TouchableOpacity key={k} style={styles.checkboxRow} onPress={() => setStatusFilter({ ...statusFilter, [k]: !statusFilter[k] })}>
                   <View style={[styles.checkbox, statusFilter[k] && styles.checkboxActive]}>
                     {statusFilter[k] && <Icon name="checkmark" size={14} color="#fff" />}
                   </View>
@@ -748,21 +752,21 @@ export default function PracticeSessionsScreen() {
 
       {/* EDIT MODAL */}
       <Modal visible={editModalVisible} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Slot</Text>
-            <Text style={styles.label}>Capacity</Text>
-            <TextInput style={styles.textInputBox} value={editMaxStudents} onChangeText={setEditMaxStudents} keyboardType="numeric" />
-            <Text style={[styles.label, {marginTop: 12}]}>Location</Text>
-            <TextInput style={styles.textInputBox} value={editLocation} onChangeText={setEditLocation} />
-            <Text style={[styles.label, {marginTop: 12}]}>Notes</Text>
-            <TextInput style={[styles.textInputBox, {height: 80, textAlignVertical: 'top'}]} value={editEquipmentNote} onChangeText={setEditEquipmentNote} multiline />
-            
+        <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
+          <View style={[styles.modalContent, isDark && styles.modalCardDark]}>
+            <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Edit Slot</Text>
+            <Text style={[styles.label, isDark && { color: '#D4CAC0' }]}>Capacity</Text>
+            <TextInput style={[styles.textInputBox, isDark && styles.textInputBoxDark]} value={editMaxStudents} onChangeText={setEditMaxStudents} keyboardType="numeric" placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
+            <Text style={[styles.label, { marginTop: 12 }, isDark && { color: '#D4CAC0' }]}>Location</Text>
+            <TextInput style={[styles.textInputBox, isDark && styles.textInputBoxDark]} value={editLocation} onChangeText={setEditLocation} placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
+            <Text style={[styles.label, { marginTop: 12 }, isDark && { color: '#D4CAC0' }]}>Notes</Text>
+            <TextInput style={[styles.textInputBox, { height: 80, textAlignVertical: 'top' }, isDark && styles.textInputBoxDark]} value={editEquipmentNote} onChangeText={setEditEquipmentNote} multiline placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
+
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModalVisible(false)}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+              <TouchableOpacity style={[styles.cancelBtn, isDark && styles.cancelBtnDark]} onPress={() => setEditModalVisible(false)}>
+                <Text style={[styles.cancelBtnText, isDark && { color: '#A89F93' }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.submitBtn} onPress={saveEditSlot} disabled={editSaving}>
+              <TouchableOpacity style={[styles.submitBtn, { backgroundColor: '#FF5E14' }]} onPress={saveEditSlot} disabled={editSaving}>
                 {editSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Save Changes</Text>}
               </TouchableOpacity>
             </View>
@@ -772,33 +776,33 @@ export default function PracticeSessionsScreen() {
 
       {/* BOOKINGS (STUDENTS) MODAL */}
       <Modal visible={bookingsModalVisible} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, {maxHeight: '80%'}]}>
-            <Text style={styles.modalTitle}>Booked Students</Text>
-            {bookingsLoading ? <ActivityIndicator size="small" color="#2563EB" /> : (
-              <ScrollView style={{marginBottom: 20}}>
-                {slotBookings.length === 0 ? <Text style={{color: '#6B7280'}}>No students booked yet.</Text> : 
+        <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
+          <View style={[styles.modalContent, { maxHeight: '80%' }, isDark && styles.modalCardDark]}>
+            <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Booked Students</Text>
+            {bookingsLoading ? <ActivityIndicator size="small" color="#FF5E14" /> : (
+              <ScrollView style={{ marginBottom: 20 }}>
+                {slotBookings.length === 0 ? <Text style={{ color: isDark ? '#8A7D71' : '#6B7280' }}>No students booked yet.</Text> :
                   slotBookings.map((b: any) => (
-                    <View key={b._id} style={{paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-                      <View style={{flex: 1}}>
-                        <Text style={{fontWeight: '500', color: '#1F2937'}}>{b.student_id?.name || 'Unknown Student'}</Text>
-                        <Text style={{fontSize: 12, color: '#6B7280'}}>{b.student_id?.email || ''}</Text>
+                    <View key={b._id} style={[{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[{ fontWeight: '500', color: '#1F2937' }, isDark && { color: '#FFFFFF' }]}>{b.student_id?.name || 'Unknown Student'}</Text>
+                        <Text style={[{ fontSize: 12, color: '#6B7280' }, isDark && { color: '#A89F93' }]}>{b.student_id?.email || ''}</Text>
                         {b.status === 'cancellation_requested' && (
                           <View>
-                            <Text style={{fontSize: 12, color: '#F59E0B', fontWeight: '600', marginTop: 2}}>Cancellation Requested</Text>
+                            <Text style={{ fontSize: 12, color: '#F59E0B', fontWeight: '600', marginTop: 2 }}>Cancellation Requested</Text>
                             {b.cancellation_reason ? (
-                              <Text style={{fontSize: 12, color: '#6B7280', fontStyle: 'italic', marginTop: 2}}>Reason: {b.cancellation_reason}</Text>
+                              <Text style={{ fontSize: 12, color: isDark ? '#A89F93' : '#6B7280', fontStyle: 'italic', marginTop: 2 }}>Reason: {b.cancellation_reason}</Text>
                             ) : null}
                           </View>
                         )}
                       </View>
                       {b.status === 'cancellation_requested' && (
-                        <View style={{flexDirection: 'row', gap: 8}}>
-                          <TouchableOpacity style={{backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6}} onPress={() => handleApproveCancellation(b._id)}>
-                            <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>Approve</Text>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <TouchableOpacity style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }} onPress={() => handleApproveCancellation(b._id)}>
+                            <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Approve</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity style={{backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6}} onPress={() => handleRejectCancellation(b._id)}>
-                            <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>Reject</Text>
+                          <TouchableOpacity style={{ backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }} onPress={() => handleRejectCancellation(b._id)}>
+                            <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Reject</Text>
                           </TouchableOpacity>
                         </View>
                       )}
@@ -807,8 +811,8 @@ export default function PracticeSessionsScreen() {
                 }
               </ScrollView>
             )}
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setBookingsModalVisible(false)}>
-              <Text style={styles.cancelBtnText}>Close</Text>
+            <TouchableOpacity style={[styles.cancelBtn, isDark && styles.cancelBtnDark]} onPress={() => setBookingsModalVisible(false)}>
+              <Text style={[styles.cancelBtnText, isDark && { color: '#A89F93' }]}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -816,15 +820,15 @@ export default function PracticeSessionsScreen() {
 
       {/* CONFIRM MODAL */}
       <Modal visible={confirmModal.visible} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{confirmModal.title}</Text>
-            <Text style={{color: '#4B5563', marginBottom: 20}}>{confirmModal.message}</Text>
+        <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
+          <View style={[styles.modalContent, isDark && styles.modalCardDark]}>
+            <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>{confirmModal.title}</Text>
+            <Text style={[{ color: '#4B5563', marginBottom: 20 }, isDark && { color: '#A89F93' }]}>{confirmModal.message}</Text>
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setConfirmModal({...confirmModal, visible: false})}>
-                <Text style={styles.cancelBtnText}>{confirmModal.cancelText || 'Cancel'}</Text>
+              <TouchableOpacity style={[styles.cancelBtn, isDark && styles.cancelBtnDark]} onPress={() => setConfirmModal({ ...confirmModal, visible: false })}>
+                <Text style={[styles.cancelBtnText, isDark && { color: '#A89F93' }]}>{confirmModal.cancelText || 'Cancel'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.submitBtn, confirmModal.type === 'danger' && {backgroundColor: '#DC2626'}]} onPress={() => { setConfirmModal({...confirmModal, visible: false}); confirmModal.onConfirm(); }}>
+              <TouchableOpacity style={[styles.submitBtn, { backgroundColor: confirmModal.type === 'danger' ? '#EF4444' : '#FF5E14' }]} onPress={() => { setConfirmModal({ ...confirmModal, visible: false }); confirmModal.onConfirm(); }}>
                 <Text style={styles.submitBtnText}>{confirmModal.confirmText || 'Confirm'}</Text>
               </TouchableOpacity>
             </View>
@@ -834,11 +838,11 @@ export default function PracticeSessionsScreen() {
 
       {/* ALERT MODAL */}
       <Modal visible={alertModal.visible} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{alertModal.title}</Text>
-            <Text style={{color: '#4B5563', marginBottom: 20}}>{alertModal.message}</Text>
-            <TouchableOpacity style={styles.submitBtn} onPress={() => { setAlertModal({...alertModal, visible: false}); if (alertModal.onOk) alertModal.onOk(); }}>
+        <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
+          <View style={[styles.modalContent, isDark && styles.modalCardDark]}>
+            <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>{alertModal.title}</Text>
+            <Text style={[{ color: '#4B5563', marginBottom: 20 }, isDark && { color: '#A89F93' }]}>{alertModal.message}</Text>
+            <TouchableOpacity style={[styles.submitBtn, { backgroundColor: '#FF5E14' }]} onPress={() => { setAlertModal({ ...alertModal, visible: false }); if (alertModal.onOk) alertModal.onOk(); }}>
               <Text style={styles.submitBtnText}>OK</Text>
             </TouchableOpacity>
           </View>
@@ -886,7 +890,7 @@ const styles = StyleSheet.create({
   backBtn: { padding: 8, marginRight: 8 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
   headerSubtitle: { fontSize: 13, color: '#6B7280' },
-  
+
   viewToggleRow: {
     flexDirection: 'row',
     backgroundColor: '#F1F5F9',
@@ -1254,4 +1258,51 @@ const styles = StyleSheet.create({
   resetBtnText: { color: '#4B5563', fontWeight: '600' },
   applyBtn: { flex: 2, paddingVertical: 12, alignItems: 'center', backgroundColor: '#F58220', borderRadius: 8 },
   applyBtnText: { color: '#fff', fontWeight: '600' },
+
+  /* Dark mode variants */
+  cardWrapperDark: {
+    backgroundColor: '#141B26',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  inlinePopoverContainerDark: {
+    backgroundColor: '#141B26',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  viewToggleRowDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  viewToggleBtnActiveDark: {
+    backgroundColor: '#FF5E14',
+  },
+  dateNavigatorDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.90)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  dateBadgeDark: {
+    backgroundColor: 'rgba(255, 94, 20, 0.15)',
+  },
+  modalCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+  },
+  textInputBoxDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    color: '#FFFFFF',
+  },
+  pickerBoxDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  pillsFormDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  cancelBtnDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
 });

@@ -24,12 +24,15 @@ import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import { FONTS } from '../../config/theme';
 import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../../context/ThemeContext';
+import ScreenBackground from '../../components/shared/ScreenBackground';
 
 export default function AdminDashboardScreen() {
   const context = useContext(AuthContext);
   if (!context) return null;
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { isDark, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [overviewExpanded, setOverviewExpanded] = useState(false);
@@ -439,7 +442,8 @@ export default function AdminDashboardScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F8FAFC' }}>
+      <ScreenBackground />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 110 }}
@@ -472,15 +476,30 @@ export default function AdminDashboardScreen() {
               </View>
             </View>
 
-            {/* PROFESSIONAL ADMIN PORTAL BADGE (LETTERS ONLY) */}
-            <LinearGradient
-              colors={['rgba(249, 115, 22, 0.22)', 'rgba(251, 146, 60, 0.12)', 'rgba(15, 23, 42, 0.45)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.adminAIBadge}
-            >
-              <Text style={styles.adminAIBadgeText}>ADMIN PORTAL</Text>
-            </LinearGradient>
+            {/* THEME TOGGLE & PROFESSIONAL ADMIN PORTAL BADGE */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity
+                onPress={toggleTheme}
+                style={styles.themeToggleCapsule}
+                activeOpacity={0.8}
+                accessibilityLabel={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
+              >
+                <Icon
+                  name={isDark ? 'sunny-outline' : 'moon-outline'}
+                  size={14}
+                  color="#F59E0B"
+                />
+              </TouchableOpacity>
+
+              <LinearGradient
+                colors={['rgba(249, 115, 22, 0.22)', 'rgba(251, 146, 60, 0.12)', 'rgba(15, 23, 42, 0.45)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.adminAIBadge}
+              >
+                <Text style={styles.adminAIBadgeText}>ADMIN PORTAL</Text>
+              </LinearGradient>
+            </View>
           </View>
 
         </LinearGradient>
@@ -495,21 +514,25 @@ export default function AdminDashboardScreen() {
               <TouchableOpacity
                 onPress={() => navigation.navigate('PostAnnouncement')}
                 activeOpacity={0.82}
-                style={styles.glassCardWrapper}
+                style={[styles.glassCardWrapper, isDark && styles.glassCardWrapperDark]}
               >
                 <LinearGradient
-                  colors={['rgba(255, 255, 255, 0.94)', 'rgba(255, 247, 237, 0.82)', 'rgba(255, 255, 255, 0.88)']}
+                  colors={
+                    isDark
+                      ? ['#1A2433', '#141B26', '#101722']
+                      : ['rgba(255, 255, 255, 0.94)', 'rgba(255, 247, 237, 0.82)', 'rgba(255, 255, 255, 0.88)']
+                  }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.noticeCard}
+                  style={[styles.noticeCard, isDark && styles.noticeCardDark]}
                 >
                   <View style={styles.glassAccentBar} />
-                  <View style={styles.noticeIconBox}>
+                  <View style={[styles.noticeIconBox, isDark && styles.noticeIconBoxDark]}>
                     <Icon name="megaphone-outline" size={20} color="#F58220" />
                   </View>
                   <View style={styles.noticeContent}>
-                    <Text style={styles.noticeTitle}>Announcements</Text>
-                    <Text style={styles.noticeSub} numberOfLines={1}>Broadcast notices & manage all updates</Text>
+                    <Text style={[styles.noticeTitle, isDark && { color: '#FFFFFF' }]}>Announcements</Text>
+                    <Text style={[styles.noticeSub, isDark && { color: '#CBD5E1' }]} numberOfLines={1}>Broadcast notices & manage all updates</Text>
                   </View>
                   <View style={styles.noticeCtaBtn}>
                     <Text style={styles.noticeCtaText}>Post</Text>
@@ -526,18 +549,22 @@ export default function AdminDashboardScreen() {
                 style={styles.glassCardWrapper}
               >
                 <LinearGradient
-                  colors={['rgba(255, 255, 255, 0.96)', 'rgba(238, 242, 255, 0.88)', 'rgba(255, 255, 255, 0.94)']}
+                  colors={
+                    isDark
+                      ? ['#1A2433', '#141B26', '#101722']
+                      : ['rgba(255, 255, 255, 0.96)', 'rgba(238, 242, 255, 0.88)', 'rgba(255, 255, 255, 0.94)']
+                  }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.noticeCard}
+                  style={[styles.noticeCard, isDark && { borderColor: '#3B82F6', borderWidth: 1.5, backgroundColor: '#141B26' }]}
                 >
                   <View style={[styles.glassAccentBar, { backgroundColor: '#3B82F6' }]} />
-                  <View style={[styles.noticeIconBox, { borderColor: 'rgba(59, 130, 246, 0.25)', backgroundColor: '#EFF6FF' }]}>
+                  <View style={[styles.noticeIconBox, { borderColor: 'rgba(59, 130, 246, 0.25)', backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#EFF6FF' }]}>
                     <Icon name="globe-outline" size={20} color="#3B82F6" />
                   </View>
                   <View style={styles.noticeContent}>
-                    <Text style={styles.noticeTitle}>Website Tools & Config</Text>
-                    <Text style={styles.noticeSub} numberOfLines={1}>Banners, contact details, registration & maintenance</Text>
+                    <Text style={[styles.noticeTitle, isDark && { color: '#FFFFFF' }]}>Website Tools & Config</Text>
+                    <Text style={[styles.noticeSub, isDark && { color: '#CBD5E1' }]} numberOfLines={1}>Banners, contact details, registration & maintenance</Text>
                   </View>
                   <View style={[styles.noticeCtaBtn, { backgroundColor: '#2563EB' }]}>
                     <Text style={styles.noticeCtaText}>Manage</Text>
@@ -547,9 +574,9 @@ export default function AdminDashboardScreen() {
             </View>
 
             {/* Pending Approvals Section */}
-            <View style={styles.sectionCard}>
+            <View style={[styles.sectionCard, isDark && styles.sectionCardDark]}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Pending Approvals</Text>
+                <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Pending Approvals</Text>
                 <TouchableOpacity onPress={() => navigation.navigate('Users', { initialTab: 'pending' })}>
                   <Text style={styles.viewAllText}>View All</Text>
                 </TouchableOpacity>
@@ -557,30 +584,30 @@ export default function AdminDashboardScreen() {
 
               {stats.pendingUsers.length === 0 ? (
                 <View style={styles.emptyApprovalsContainer}>
-                  <View style={styles.simpleCheckCircle}>
+                  <View style={[styles.simpleCheckCircle, isDark && { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
                     <Icon name="checkmark" size={18} color="#10B981" />
                   </View>
-                  <Text style={styles.allCaughtUpText}>All caught up</Text>
+                  <Text style={[styles.allCaughtUpText, isDark && { color: '#94A3B8' }]}>All caught up</Text>
                 </View>
               ) : (
                 stats.pendingUsers.map((user, index) => (
-                  <View key={user._id} style={[styles.userRow, index > 0 && styles.rowBorder]}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{user.initials}</Text>
+                  <View key={user._id} style={[styles.userRow, index > 0 && (isDark ? styles.rowBorderDark : styles.rowBorder)]}>
+                    <View style={[styles.avatar, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                      <Text style={[styles.avatarText, isDark && { color: '#FED7AA' }]}>{user.initials}</Text>
                     </View>
                     <View style={styles.userInfo}>
-                      <Text style={styles.userName}>{user.name}</Text>
-                      <Text style={styles.userSubtext}>{user.subtext}</Text>
+                      <Text style={[styles.userName, isDark && { color: '#FFFFFF' }]}>{user.name}</Text>
+                      <Text style={[styles.userSubtext, isDark && { color: '#94A3B8' }]}>{user.subtext}</Text>
                     </View>
                     <View style={styles.actionButtons}>
                       <TouchableOpacity
-                        style={styles.approveIconBtn}
+                        style={[styles.approveIconBtn, isDark && { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}
                         onPress={() => handleApprove(user._id, user.name)}
                       >
                         <Icon name="checkmark" size={18} color="#10B981" />
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={styles.rejectIconBtn}
+                        style={[styles.rejectIconBtn, isDark && { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}
                         onPress={() => handleReject(user._id, user.name)}
                       >
                         <Icon name="close" size={18} color="#EF4444" />
@@ -590,26 +617,26 @@ export default function AdminDashboardScreen() {
                 ))
               )}
             </View>
-            <View style={styles.sectionCard}>
+            <View style={[styles.sectionCard, isDark && styles.sectionCardDark]}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Recent Activity</Text>
+                <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Recent Activity</Text>
                 <TouchableOpacity onPress={handleOpenAllActivities} activeOpacity={0.7}>
                   <Text style={styles.viewAllText}>View All</Text>
                 </TouchableOpacity>
               </View>
 
               {stats.recentActivities.length === 0 ? (
-                <Text style={styles.emptyText}>No recent activities recorded.</Text>
+                <Text style={[styles.emptyText, isDark && { color: '#94A3B8' }]}>No recent activities recorded.</Text>
               ) : (
                 <View style={styles.activityList}>
                   {stats.recentActivities.map((act, index) => (
                     <View key={act.id || String(index)} style={styles.activityItem}>
-                      <View style={[styles.activityIconCircle, { backgroundColor: `${act.color || '#F97316'}15` }]}>
+                      <View style={[styles.activityIconCircle, { backgroundColor: `${act.color || '#F97316'}20` }]}>
                         <Icon name={act.icon || 'notifications-outline'} size={16} color={act.color || '#F97316'} />
                       </View>
                       <View style={styles.activityContent}>
-                        <Text style={styles.activityText}>{act.text}</Text>
-                        <Text style={styles.activityTime}>{act.time}</Text>
+                        <Text style={[styles.activityText, isDark && { color: '#FFFFFF' }]}>{act.text}</Text>
+                        <Text style={[styles.activityTime, isDark && { color: '#94A3B8' }]}>{act.time}</Text>
                       </View>
                     </View>
                   ))}
@@ -617,7 +644,7 @@ export default function AdminDashboardScreen() {
               )}
             </View>
 
-            <View style={styles.sectionCard}>
+            <View style={[styles.sectionCard, isDark && styles.sectionCardDark]}>
               <TouchableOpacity
                 style={styles.overviewToggle}
                 onPress={() => setOverviewExpanded((expanded) => !expanded)}
@@ -625,61 +652,61 @@ export default function AdminDashboardScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ expanded: overviewExpanded }}
               >
-                <View style={styles.overviewIconBox}>
+                <View style={[styles.overviewIconBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
                   <Icon name="stats-chart-outline" size={18} color="#F97316" />
                 </View>
                 <View style={styles.overviewTitleContainer}>
-                  <Text style={styles.sectionTitle}>Institution overview</Text>
-                  <Text style={styles.overviewSubtext}>
+                  <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Institution overview</Text>
+                  <Text style={[styles.overviewSubtext, isDark && { color: '#94A3B8' }]}>
                     {overviewExpanded ? 'Tap to hide summary metrics' : 'Summary metrics (4 items)'}
                   </Text>
                 </View>
                 <Icon
                   name={overviewExpanded ? 'chevron-up' : 'chevron-down'}
                   size={20}
-                  color="#64748B"
+                  color={isDark ? '#94A3B8' : '#64748B'}
                 />
               </TouchableOpacity>
               {overviewExpanded && (
                 <View style={styles.statsContainer}>
-                  <View style={styles.statCard}>
+                  <View style={[styles.statCard, isDark && styles.statCardDark]}>
                     <View style={styles.statCardTop}>
-                      <Text style={styles.statLabel}>STUDENTS</Text>
-                      <View style={styles.statIconBox}>
+                      <Text style={[styles.statLabel, isDark && { color: '#94A3B8' }]}>STUDENTS</Text>
+                      <View style={[styles.statIconBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
                         <Icon name="people" size={13} color="#F97316" />
                       </View>
                     </View>
-                    <Text style={styles.statValue}>{stats.totalStudents}</Text>
+                    <Text style={[styles.statValue, isDark && { color: '#FFFFFF' }]}>{stats.totalStudents}</Text>
                   </View>
 
-                  <View style={styles.statCard}>
+                  <View style={[styles.statCard, isDark && styles.statCardDark]}>
                     <View style={styles.statCardTop}>
-                      <Text style={styles.statLabel}>INSTRUCTORS</Text>
-                      <View style={styles.statIconBox}>
+                      <Text style={[styles.statLabel, isDark && { color: '#94A3B8' }]}>INSTRUCTORS</Text>
+                      <View style={[styles.statIconBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
                         <Icon name="school" size={13} color="#F97316" />
                       </View>
                     </View>
-                    <Text style={styles.statValue}>{stats.totalInstructors}</Text>
+                    <Text style={[styles.statValue, isDark && { color: '#FFFFFF' }]}>{stats.totalInstructors}</Text>
                   </View>
 
-                  <View style={styles.statCard}>
+                  <View style={[styles.statCard, isDark && styles.statCardDark]}>
                     <View style={styles.statCardTop}>
-                      <Text style={styles.statLabel}>COURSES</Text>
-                      <View style={styles.statIconBox}>
+                      <Text style={[styles.statLabel, isDark && { color: '#94A3B8' }]}>COURSES</Text>
+                      <View style={[styles.statIconBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
                         <Icon name="book" size={13} color="#F97316" />
                       </View>
                     </View>
-                    <Text style={styles.statValue}>{stats.activeCourses}</Text>
+                    <Text style={[styles.statValue, isDark && { color: '#FFFFFF' }]}>{stats.activeCourses}</Text>
                   </View>
 
-                  <View style={styles.statCard}>
+                  <View style={[styles.statCard, isDark && styles.statCardDark]}>
                     <View style={styles.statCardTop}>
-                      <Text style={styles.statLabel}>PENDING</Text>
-                      <View style={styles.statIconBox}>
+                      <Text style={[styles.statLabel, isDark && { color: '#94A3B8' }]}>PENDING</Text>
+                      <View style={[styles.statIconBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
                         <Icon name="time" size={13} color="#F97316" />
                       </View>
                     </View>
-                    <Text style={styles.statValue}>{stats.pendingApprovalsCount}</Text>
+                    <Text style={[styles.statValue, isDark && { color: '#FFFFFF' }]}>{stats.pendingApprovalsCount}</Text>
                   </View>
                 </View>
               )}
@@ -695,17 +722,17 @@ export default function AdminDashboardScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setAllActivitiesVisible(false)}
       >
-        <View style={[styles.modalContainer, { paddingTop: Platform.OS === 'ios' ? insets.top : 16 }]}>
-          <View style={styles.modalHeader}>
+        <View style={[styles.modalContainer, isDark && { backgroundColor: '#141B26' }, { paddingTop: Platform.OS === 'ios' ? insets.top : 16 }]}>
+          <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
             <View>
-              <Text style={styles.modalTitle}>System Activities</Text>
-              <Text style={styles.modalSub}>Complete log of recent institutional events</Text>
+              <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>System Activities</Text>
+              <Text style={[styles.modalSub, isDark && { color: '#94A3B8' }]}>Complete log of recent institutional events</Text>
             </View>
             <TouchableOpacity
-              style={styles.modalCloseBtn}
+              style={[styles.modalCloseBtn, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
               onPress={() => setAllActivitiesVisible(false)}
             >
-              <Icon name="close" size={22} color="#1F2937" />
+              <Icon name="close" size={22} color={isDark ? '#FFFFFF' : '#1F2937'} />
             </TouchableOpacity>
           </View>
 
@@ -731,17 +758,17 @@ export default function AdminDashboardScreen() {
               ListEmptyComponent={
                 <View style={styles.modalCenter}>
                   <Icon name="time-outline" size={48} color="#D1D5DB" />
-                  <Text style={styles.emptyActivitiesText}>No system activities recorded yet.</Text>
+                  <Text style={[styles.emptyActivitiesText, isDark && { color: '#94A3B8' }]}>No system activities recorded yet.</Text>
                 </View>
               }
               renderItem={({ item, index }) => (
-                <View style={[styles.modalActivityItem, index > 0 && styles.rowBorder]}>
+                <View style={[styles.modalActivityItem, index > 0 && (isDark ? styles.rowBorderDark : styles.rowBorder)]}>
                   <View style={[styles.activityIconCircle, { backgroundColor: `${item.color || '#F97316'}15` }]}>
                     <Icon name={item.icon || 'notifications-outline'} size={18} color={item.color || '#F97316'} />
                   </View>
                   <View style={styles.activityContent}>
-                    <Text style={styles.activityText}>{item.text}</Text>
-                    <Text style={styles.activityTime}>{item.time}</Text>
+                    <Text style={[styles.activityText, isDark && { color: '#FFFFFF' }]}>{item.text}</Text>
+                    <Text style={[styles.activityTime, isDark && { color: '#94A3B8' }]}>{item.time}</Text>
                   </View>
                 </View>
               )}
@@ -758,41 +785,41 @@ export default function AdminDashboardScreen() {
         onRequestClose={() => setWebsiteToolsVisible(false)}
       >
         <KeyboardAvoidingView
-          style={[styles.modalContainer, { paddingTop: Platform.OS === 'ios' ? insets.top : 16 }]}
+          style={[styles.modalContainer, isDark && { backgroundColor: '#141B26' }, { paddingTop: Platform.OS === 'ios' ? insets.top : 16 }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
             <View>
-              <Text style={styles.modalTitle}>Website Tools & Settings</Text>
-              <Text style={styles.modalSub}>Manage website content, banners, news & gallery</Text>
+              <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Website Tools & Settings</Text>
+              <Text style={[styles.modalSub, isDark && { color: '#94A3B8' }]}>Manage website content, banners, news & gallery</Text>
             </View>
             <TouchableOpacity
-              style={styles.modalCloseBtn}
+              style={[styles.modalCloseBtn, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
               onPress={() => setWebsiteToolsVisible(false)}
             >
-              <Icon name="close" size={22} color="#1F2937" />
+              <Icon name="close" size={22} color={isDark ? '#FFFFFF' : '#1F2937'} />
             </TouchableOpacity>
           </View>
 
           {/* WEBSITE TOOLS TAB SELECTOR */}
-          <View style={{ flexDirection: 'row', backgroundColor: '#F1F5F9', padding: 4, marginHorizontal: 18, marginTop: 12, borderRadius: 12 }}>
+          <View style={{ flexDirection: 'row', backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : '#F1F5F9', padding: 4, marginHorizontal: 18, marginTop: 12, borderRadius: 12 }}>
             <TouchableOpacity
-              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'settings' ? '#FFFFFF' : 'transparent' }}
+              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'settings' ? (isDark ? '#1E293B' : '#FFFFFF') : 'transparent' }}
               onPress={() => setActiveToolsTab('settings')}
             >
-              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'settings' ? '#F58220' : '#64748B' }}>Site Config</Text>
+              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'settings' ? '#F58220' : (isDark ? '#94A3B8' : '#64748B') }}>Site Config</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'news' ? '#FFFFFF' : 'transparent' }}
+              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'news' ? (isDark ? '#1E293B' : '#FFFFFF') : 'transparent' }}
               onPress={() => setActiveToolsTab('news')}
             >
-              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'news' ? '#F58220' : '#64748B' }}>Update News</Text>
+              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'news' ? '#F58220' : (isDark ? '#94A3B8' : '#64748B') }}>Update News</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'gallery' ? '#FFFFFF' : 'transparent' }}
+              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'gallery' ? (isDark ? '#1E293B' : '#FFFFFF') : 'transparent' }}
               onPress={() => setActiveToolsTab('gallery')}
             >
-              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'gallery' ? '#F58220' : '#64748B' }}>Update Gallery</Text>
+              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'gallery' ? '#F58220' : (isDark ? '#94A3B8' : '#64748B') }}>Update Gallery</Text>
             </TouchableOpacity>
           </View>
 
@@ -2044,5 +2071,39 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     ...FONTS.bold,
+  },
+  themeToggleCapsule: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  glassCardWrapperDark: {
+    borderColor: 'rgba(249, 115, 22, 0.3)',
+    shadowColor: '#000',
+  },
+  noticeCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(249, 115, 22, 0.25)',
+  },
+  noticeIconBoxDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.18)',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+  },
+  sectionCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: '#000',
+  },
+  statCardDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  rowBorderDark: {
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
 });

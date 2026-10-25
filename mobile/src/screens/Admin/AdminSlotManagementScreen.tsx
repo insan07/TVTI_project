@@ -23,6 +23,8 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../services/api';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -65,6 +67,7 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
 };
 
 export default function AdminSlotManagementScreen() {
+  const { isDark } = useTheme();
   const [viewMode, setViewMode] = useState<'Month' | 'Week' | 'Day' | 'List'>('List');
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
@@ -608,11 +611,11 @@ export default function AdminSlotManagementScreen() {
     const dayShort = actualDate.toLocaleDateString('en-GB', { weekday: 'short' });
 
     return (
-      <View key={slot._id} style={styles.cardWrapper}>
+      <View key={slot._id} style={[styles.cardWrapper, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}>
         <View style={styles.cardAccent} />
         <View style={styles.cardInner}>
           <View style={styles.cardHeaderRow}>
-            <View style={styles.cardTag}><Text style={styles.cardTagText}>PRACTICAL SLOT</Text></View>
+            <View style={[styles.cardTag, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}><Text style={styles.cardTagText}>PRACTICAL SLOT</Text></View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               <View style={[styles.statusPillBadge, slot.is_open ? styles.statusOpen : styles.statusLocked]}>
                 <Text style={[styles.statusPillBadgeText, slot.is_open ? styles.textOpen : styles.textLocked]}>
@@ -628,71 +631,71 @@ export default function AdminSlotManagementScreen() {
                   setActionMenuVisible(true);
                 }
               }}>
-                <Icon name="ellipsis-vertical" size={20} color="#111827" />
+                <Icon name="ellipsis-vertical" size={20} color={isDark ? "#FFFFFF" : "#111827"} />
               </TouchableOpacity>
             </View>
           </View>
           
           {/* Inline Popover Menu */}
           {actionMenuVisible && actionMenuSlot?._id === slot._id && (
-            <View style={styles.inlinePopoverContainer}>
+            <View style={[styles.inlinePopoverContainer, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
               <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); openBookingsModal(slot); }}>
-                <Text style={styles.popoverMenuText}>View Students</Text>
+                <Text style={[styles.popoverMenuText, isDark && { color: '#FFFFFF' }]}>View Students</Text>
               </TouchableOpacity>
-              <View style={styles.popoverMenuDivider} />
+              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
               <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); openEditModal(slot); }}>
-                <Text style={styles.popoverMenuText}>Edit Slot</Text>
+                <Text style={[styles.popoverMenuText, isDark && { color: '#FFFFFF' }]}>Edit Slot</Text>
               </TouchableOpacity>
-              <View style={styles.popoverMenuDivider} />
+              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
               <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); toggleSlotStatus(slot); }}>
-                <Text style={[styles.popoverMenuText, {color: slot.is_open ? '#DC2626' : '#374151'}]}>
+                <Text style={[styles.popoverMenuText, {color: slot.is_open ? '#EF4444' : (isDark ? '#38BDF8' : '#374151')}]}>
                   {slot.is_open ? 'Lock Slot' : 'Open Slot'}
                 </Text>
               </TouchableOpacity>
-              <View style={styles.popoverMenuDivider} />
+              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
               <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); handleDeleteSlot(slot._id); }}>
                 <Text style={styles.popoverMenuTextDanger}>Delete</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          <Text style={styles.cardCourseTitle}>{slot.batch_id?.course_id?.title || slot.batch_id?.name || 'Practical Session'}</Text>
-          <Text style={styles.cardBatchText}>Batch: {slot.batch_id?.name || 'N/A'}</Text>
+          <Text style={[styles.cardCourseTitle, isDark && { color: '#FFFFFF' }]}>{slot.batch_id?.course_id?.title || slot.batch_id?.name || 'Practical Session'}</Text>
+          <Text style={[styles.cardBatchText, isDark && { color: '#94A3B8' }]}>Batch: {slot.batch_id?.name || 'N/A'}</Text>
 
           <View style={styles.cardInfoRow}>
             <Icon name="calendar-outline" size={14} color="#F97316" />
-            <Text style={styles.cardInfoText}>{dayShort}, {formattedDate}</Text>
-            <Icon name="time-outline" size={14} color="#6B7280" style={{ marginLeft: 8 }} />
-            <Text style={styles.cardInfoText}>{slot.start_time} - {slot.end_time}</Text>
+            <Text style={[styles.cardInfoText, isDark && { color: '#94A3B8' }]}>{dayShort}, {formattedDate}</Text>
+            <Icon name="time-outline" size={14} color={isDark ? "#94A3B8" : "#6B7280"} style={{ marginLeft: 8 }} />
+            <Text style={[styles.cardInfoText, isDark && { color: '#94A3B8' }]}>{slot.start_time} - {slot.end_time}</Text>
           </View>
 
           {!!slot.instructor_id?.name && (
             <View style={styles.cardInfoRow}>
               <Icon name="person-outline" size={14} color="#3B82F6" />
-              <Text style={[styles.cardInfoText, { color: '#1E3A8A', fontWeight: '600' }]}>Inst. {slot.instructor_id.name}</Text>
+              <Text style={[styles.cardInfoText, { color: isDark ? '#60A5FA' : '#1E3A8A', fontWeight: '600' }]}>Inst. {slot.instructor_id.name}</Text>
             </View>
           )}
 
           {slot.location && (
             <View style={styles.cardInfoRow}>
-              <Icon name="location-outline" size={14} color="#6B7280" />
-              <Text style={styles.cardInfoText}>{slot.location}</Text>
+              <Icon name="location-outline" size={14} color={isDark ? "#94A3B8" : "#6B7280"} />
+              <Text style={[styles.cardInfoText, isDark && { color: '#94A3B8' }]}>{slot.location}</Text>
             </View>
           )}
 
           {slot.equipment_note ? (
-            <View style={styles.noteBox}>
+            <View style={[styles.noteBox, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
               <Icon name="hardware-chip-outline" size={14} color="#64748B" style={{ marginRight: 6 }} />
-              <Text style={styles.noteText}>{slot.equipment_note}</Text>
+              <Text style={[styles.noteText, isDark && { color: '#94A3B8' }]}>{slot.equipment_note}</Text>
             </View>
           ) : null}
 
           <View style={styles.capacityContainer}>
             <View style={styles.capacityRow}>
-              <Text style={styles.capacityText}>Capacity: {booked}/{max} Booked</Text>
-              <Text style={styles.capacityPct}>{Math.round(fillRatio * 100)}%</Text>
+              <Text style={[styles.capacityText, isDark && { color: '#94A3B8' }]}>Capacity: {booked}/{max} Booked</Text>
+              <Text style={[styles.capacityPct, isDark && { color: '#CBD5E1' }]}>{Math.round(fillRatio * 100)}%</Text>
             </View>
-            <View style={styles.progressTrack}>
+            <View style={[styles.progressTrack, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}>
               <View style={[styles.progressFill, { width: `${fillRatio * 100}%`, backgroundColor: fillRatio >= 1 ? '#EF4444' : '#F97316' }]} />
             </View>
           </View>
@@ -794,27 +797,32 @@ export default function AdminSlotManagementScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top', 'bottom']}>
+      <ScreenBackground />
       <ScreenHeader
         title="Slot Management"
         subtitle="Configure & manage practical training slots"
       />
 
       {/* Mode View Tabs (Month / Week / Day / List) */}
-      <View style={styles.viewToggleRow}>
+      <View style={[styles.viewToggleRow, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
         {['Month', 'Week', 'Day', 'List'].map(mode => (
-          <TouchableOpacity key={mode} style={[styles.viewToggleBtn, viewMode === mode && styles.viewToggleBtnActive]} onPress={() => setViewMode(mode as any)}>
-            <Text style={[styles.viewToggleText, viewMode === mode && styles.viewToggleTextActive]}>{mode}</Text>
+          <TouchableOpacity
+            key={mode}
+            style={[styles.viewToggleBtn, viewMode === mode && styles.viewToggleBtnActive, isDark && viewMode === mode && { backgroundColor: '#F97316' }]}
+            onPress={() => setViewMode(mode as any)}
+          >
+            <Text style={[styles.viewToggleText, isDark && { color: '#94A3B8' }, viewMode === mode && styles.viewToggleTextActive]}>{mode}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {/* Date Navigator Bar */}
-      <View style={styles.dateNavigator}>
+      <View style={[styles.dateNavigator, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
         <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(-1) : viewMode === 'Day' ? changeDay(-1) : changeWeek(-1)}>
           <Icon name="chevron-back" size={20} color="#F58220" />
         </TouchableOpacity>
-        <View style={styles.dateBadge}>
+        <View style={[styles.dateBadge, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
           <Icon name="calendar-outline" size={14} color="#F58220" style={{ marginRight: 6 }} />
           <Text style={styles.dateBadgeText}>
             {viewMode === 'Month'
@@ -849,27 +857,28 @@ export default function AdminSlotManagementScreen() {
               overflow: 'hidden',
             }}
           >
-            <View style={styles.listTopBar}>
+            <View style={[styles.listTopBar, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
               <View style={styles.metricsRow}>
-                <View style={styles.metricItem}><Text style={styles.metricVal}>{slots.length}</Text><Text style={styles.metricLbl}>TOTAL SLOTS</Text></View>
-                <View style={styles.metricItem}><Text style={[styles.metricVal, { color: '#10B981' }]}>{slots.filter(s => s.is_open).length}</Text><Text style={styles.metricLbl}>OPEN SLOTS</Text></View>
-                <View style={styles.metricItem}><Text style={[styles.metricVal, { color: '#3B82F6' }]}>{slots.reduce((acc, s) => acc + (s.booked_count || 0), 0)}</Text><Text style={styles.metricLbl}>BOOKED SEATS</Text></View>
+                <View style={styles.metricItem}><Text style={[styles.metricVal, isDark && { color: '#FFFFFF' }]}>{slots.length}</Text><Text style={[styles.metricLbl, isDark && { color: '#94A3B8' }]}>TOTAL SLOTS</Text></View>
+                <View style={styles.metricItem}><Text style={[styles.metricVal, { color: '#10B981' }]}>{slots.filter(s => s.is_open).length}</Text><Text style={[styles.metricLbl, isDark && { color: '#94A3B8' }]}>OPEN SLOTS</Text></View>
+                <View style={styles.metricItem}><Text style={[styles.metricVal, { color: '#3B82F6' }]}>{slots.reduce((acc, s) => acc + (s.booked_count || 0), 0)}</Text><Text style={[styles.metricLbl, isDark && { color: '#94A3B8' }]}>BOOKED SEATS</Text></View>
               </View>
               <View style={styles.searchFilterRow}>
-                <View style={styles.searchBox}>
-                  <Icon name="search-outline" size={16} color="#9CA3AF" />
+                <View style={[styles.searchBox, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                  <Icon name="search-outline" size={16} color={isDark ? "#94A3B8" : "#9CA3AF"} />
                   <TextInput
-                    style={styles.searchInput}
+                    style={[styles.searchInput, isDark && { color: '#FFFFFF' }]}
                     placeholder="Search by batch, note..."
+                    placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                     value={search}
                     onChangeText={setSearch}
                     onFocus={() => setIsSearchFocused(true)}
                     onBlur={() => setIsSearchFocused(false)}
                   />
                 </View>
-                <TouchableOpacity style={styles.filterBtnOutline} onPress={() => setShowFilter(true)}>
-                  <Icon name="options-outline" size={16} color="#4B5563" />
-                  <Text style={styles.filterBtnOutlineText}>Filters</Text>
+                <TouchableOpacity style={[styles.filterBtnOutline, isDark && { borderColor: 'rgba(255, 255, 255, 0.1)', backgroundColor: '#0F172A' }]} onPress={() => setShowFilter(true)}>
+                  <Icon name="options-outline" size={16} color={isDark ? "#94A3B8" : "#4B5563"} />
+                  <Text style={[styles.filterBtnOutlineText, isDark && { color: '#CBD5E1' }]}>Filters</Text>
                 </TouchableOpacity>
               </View>
             </View>

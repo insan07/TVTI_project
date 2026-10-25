@@ -4,10 +4,13 @@ import api from '../../services/api';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 import { Ionicons as Icon } from '@expo/vector-icons';
 
 export default function EnrollStudentScreen() {
+  const { isDark } = useTheme();
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { batchId, capacity, enrolled } = route.params;
@@ -70,51 +73,62 @@ export default function EnrollStudentScreen() {
   const availableStudents = activeStudents.filter(s => !enrolledIds.includes(s._id) && (s.name.toLowerCase().includes(search.toLowerCase()) || s.email.toLowerCase().includes(search.toLowerCase())));
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#F3F4F6'}} edges={['top']}>
+    <SafeAreaView style={{flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F3F4F6'}} edges={['top']}>
+      <ScreenBackground />
       <KeyboardAvoidingView style={{flex: 1}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.container}>
+        <View style={[styles.container, isDark && { backgroundColor: 'transparent' }]}>
           <ScreenHeader
             title="Enroll Students"
             subtitle={`Capacity: ${enrolledStudents.length} / ${capacity} Enrolled`}
             showBack={true}
           />
 
-      <TextInput style={styles.search} placeholder="Search available students..." value={search} onChangeText={setSearch} />
+          <TextInput
+            style={[styles.search, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', color: '#FFFFFF' }]}
+            placeholder="Search available students..."
+            placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
+            value={search}
+            onChangeText={setSearch}
+          />
 
-      {loading ? <ActivityIndicator size="large" color="#2563EB" style={{marginTop: 50}} /> : (
-        <FlatList
-          data={availableStudents}
-          keyExtractor={i => i._id}
-          getItemLayout={(data, index) => ({ length: 80, offset: 80 * index, index })}
-          contentContainerStyle={{paddingBottom: 20}}
-          renderItem={({item}) => (
-            <TouchableOpacity style={styles.row} onPress={() => toggleSelect(item._id)}>
-              <View style={[styles.checkbox, selectedIds.includes(item._id) && styles.checkboxActive]} />
-              <View>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.email}>{item.email}</Text>
-              </View>
-            </TouchableOpacity>
+          {loading ? <ActivityIndicator size="large" color="#F97316" style={{marginTop: 50}} /> : (
+            <FlatList
+              data={availableStudents}
+              keyExtractor={i => i._id}
+              getItemLayout={(data, index) => ({ length: 80, offset: 80 * index, index })}
+              contentContainerStyle={{paddingBottom: 20}}
+              renderItem={({item}) => (
+                <TouchableOpacity
+                  style={[styles.row, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}
+                  onPress={() => toggleSelect(item._id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, isDark && { borderColor: 'rgba(255, 255, 255, 0.2)' }, selectedIds.includes(item._id) && [styles.checkboxActive, { backgroundColor: '#F97316', borderColor: '#F97316' }]]} />
+                  <View>
+                    <Text style={[styles.name, isDark && { color: '#FFFFFF' }]}>{item.name}</Text>
+                    <Text style={[styles.email, isDark && { color: '#94A3B8' }]}>{item.email}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={<Text style={[{textAlign: 'center', marginTop: 20, color: '#6B7280'}, isDark && { color: '#64748B' }]}>No available students found.</Text>}
+            />
           )}
-          ListEmptyComponent={<Text style={{textAlign: 'center', marginTop: 20}}>No available students found.</Text>}
-        />
-      )}
 
-      {selectedIds.length > 0 && (
-        <View style={styles.footer}>
-          <Text style={{fontWeight: 'bold'}}>{selectedIds.length} Selected</Text>
-          <TouchableOpacity style={styles.btn} onPress={handleEnroll} disabled={saving}>
-            {saving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Icon name="person-add-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.btnText}>Enroll Now</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
+          {selectedIds.length > 0 && (
+            <View style={[styles.footer, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+              <Text style={[{fontWeight: 'bold', color: '#111827'}, isDark && { color: '#FFFFFF' }]}>{selectedIds.length} Selected</Text>
+              <TouchableOpacity style={[styles.btn, { backgroundColor: '#F97316' }]} onPress={handleEnroll} disabled={saving}>
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="person-add-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.btnText}>Enroll Now</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

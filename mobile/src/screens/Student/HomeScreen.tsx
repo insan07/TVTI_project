@@ -17,10 +17,14 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../context/ThemeContext';
+import ScreenBackground from '../../components/shared/ScreenBackground';
 
 export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadCount?: number }) {
   const { user } = useContext(AuthContext) as any;
   const navigation = useNavigation<any>();
+  const { isDark, toggleTheme } = useTheme();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [bookmarkedLessons, setBookmarkedLessons] = useState<{ [key: string]: boolean }>({});
@@ -50,7 +54,8 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, isDark && { backgroundColor: '#0B0F19' }]}>
+        <ScreenBackground />
         <ActivityIndicator size="large" color="#F58220" />
       </View>
     );
@@ -101,9 +106,18 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
   const theoryLessons = data?.theory_lessons || [];
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F8FAFC' }}>
+      <ScreenBackground />
       {/* FIXED STICKY ENTIRE DARK HEADER CARD */}
-      <View style={[styles.stickyHeaderCard, { paddingTop: Math.max(insets.top + 8, 16) }]}>
+      <LinearGradient
+        colors={['#0F172A', '#1E293B', '#090D16']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.stickyHeaderCard, { paddingTop: Math.max(insets.top + 8, 16) }]}
+      >
+        <View style={styles.glowOrbOrange} pointerEvents="none" />
+        <View style={styles.glowOrbBlue} pointerEvents="none" />
+
         {/* Top Brand Logo & Notification Bar */}
         <View style={styles.brandHeaderRow}>
           <View style={styles.brandLogoGroup}>
@@ -117,13 +131,28 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.bellBtn}
-            onPress={() => navigation.navigate('Notifications')}
-          >
-            <Icon name="notifications-outline" size={22} color="#FFF" />
-            {unreadCount > 0 && <View style={styles.badgeDot} />}
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <TouchableOpacity
+              onPress={toggleTheme}
+              style={styles.themeToggleCapsule}
+              activeOpacity={0.8}
+              accessibilityLabel={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
+            >
+              <Icon
+                name={isDark ? 'sunny-outline' : 'moon-outline'}
+                size={16}
+                color="#F59E0B"
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.bellBtn}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <Icon name="notifications-outline" size={20} color="#FFF" />
+              {unreadCount > 0 && <View style={styles.badgeDot} />}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Welcome Section */}
@@ -134,7 +163,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
             REG NO : {user?.index_number || user?.nic || 'N/A'}
           </Text>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* SCROLLABLE MAIN CONTENT */}
       <ScrollView
@@ -149,29 +178,29 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
         {nextPractice && (
           <View>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Upcoming Practical</Text>
+              <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Upcoming Practical</Text>
             </View>
 
             <TouchableOpacity
-              style={styles.upcomingCard}
+              style={[styles.upcomingCard, isDark && styles.upcomingCardDark]}
               activeOpacity={0.9}
               onPress={() => navigation.navigate('Schedule')}
             >
               {/* Top Row: Date Badge + Title/Time */}
-              <View style={styles.cardTopRow}>
+              <View style={[styles.cardTopRow, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
                 {/* Soft Peach Date Badge */}
-                <View style={styles.dateBadgeBox}>
-                  <Text style={styles.dateMonthText}>{pracMonth}</Text>
-                  <Text style={styles.dateDayText}>{pracDay}</Text>
+                <View style={[styles.dateBadgeBox, isDark && styles.dateBadgeBoxDark]}>
+                  <Text style={[styles.dateMonthText, isDark && { color: '#FB923C' }]}>{pracMonth}</Text>
+                  <Text style={[styles.dateDayText, isDark && { color: '#FED7AA' }]}>{pracDay}</Text>
                 </View>
 
                 <View style={styles.cardDetailsColumn}>
-                  <Text style={styles.practicalTitle} numberOfLines={1}>
+                  <Text style={[styles.practicalTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
                     {practicalTitle}
                   </Text>
                   <View style={styles.timeLocRow}>
-                    <Icon name="time-outline" size={14} color="#6B7280" style={{ marginRight: 4 }} />
-                    <Text style={styles.timeLocText} numberOfLines={1}>
+                    <Icon name="time-outline" size={14} color={isDark ? '#FED7AA' : '#6B7280'} style={{ marginRight: 4 }} />
+                    <Text style={[styles.timeLocText, isDark && { color: '#94A3B8' }]} numberOfLines={1}>
                       {timeLocationText}
                     </Text>
                   </View>
@@ -190,17 +219,17 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
                     style={styles.instructorAvatar}
                   />
                   <View style={styles.instructorTextColumn}>
-                    <Text style={styles.instructorName}>{instructorName}</Text>
-                    <Text style={styles.instructorRole}>Course Instructor</Text>
+                    <Text style={[styles.instructorName, isDark && { color: '#FFFFFF' }]}>{instructorName}</Text>
+                    <Text style={[styles.instructorRole, isDark && { color: '#94A3B8' }]}>Course Instructor</Text>
                   </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.viewSlotBtn}
+                  style={[styles.viewSlotBtn, isDark && styles.viewSlotBtnDark]}
                   onPress={() => navigation.navigate('Schedule')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.viewSlotBtnText}>{data?.next_practice ? 'View Slot' : 'Book Slot'}</Text>
+                  <Text style={[styles.viewSlotBtnText, isDark && { color: '#FFFFFF' }]}>{data?.next_practice ? 'View Slot' : 'Book Slot'}</Text>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
@@ -211,7 +240,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
         {/* SECTION 2: RECENT THEORY LESSONS */}
         {/* ========================================================================= */}
         <View style={[styles.sectionHeaderRow, { marginTop: 28 }]}>
-          <Text style={styles.sectionTitle}>Recent Theory Lessons</Text>
+          <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Recent Theory Lessons</Text>
         </View>
 
         <View style={styles.lessonsListContainer}>
@@ -232,7 +261,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
             return (
               <TouchableOpacity
                 key={lesson._id}
-                style={styles.lessonCard}
+                style={[styles.lessonCard, isDark && styles.lessonCardDark]}
                 activeOpacity={0.85}
                 onPress={() => navigation.navigate('Videos')}
               >
@@ -242,7 +271,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
                     <Image source={{ uri: thumbUrl }} style={styles.thumbnailImg} />
                   ) : (
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                      <Icon name={lesson.content_type === 'material' ? 'document-text' : 'videocam'} size={32} color="#9CA3AF" />
+                      <Icon name={lesson.content_type === 'material' ? 'document-text' : 'videocam'} size={32} color={isDark ? '#64748B' : '#9CA3AF'} />
                     </View>
                   )}
                   {lesson.content_type !== 'material' && (
@@ -255,13 +284,13 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
                 {/* Lesson Info */}
                 <View style={styles.lessonContentColumn}>
                   <View style={styles.tagDurationRow}>
-                    <View style={styles.tagBadgePill}>
-                      <Text style={styles.tagBadgeText}>{(lesson.topic || 'General').toUpperCase()}</Text>
+                    <View style={[styles.tagBadgePill, isDark && styles.tagBadgePillDark]}>
+                      <Text style={[styles.tagBadgeText, isDark && { color: '#CBD5E1' }]}>{(lesson.topic || 'General').toUpperCase()}</Text>
                     </View>
-                    <Text style={styles.durationText}>{lesson.duration || '--:--'}</Text>
+                    <Text style={[styles.durationText, isDark && { color: '#94A3B8' }]}>{lesson.duration || '--:--'}</Text>
                   </View>
 
-                  <Text style={styles.lessonTitleText} numberOfLines={1}>
+                  <Text style={[styles.lessonTitleText, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
                     {lesson.title}
                   </Text>
                 </View>
@@ -274,7 +303,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
                   <Icon
                     name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
                     size={20}
-                    color={isBookmarked ? '#F58220' : '#A1A1AA'}
+                    color={isBookmarked ? '#F58220' : isDark ? '#64748B' : '#A1A1AA'}
                   />
                 </TouchableOpacity>
               </TouchableOpacity>
@@ -287,27 +316,27 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
       {/* Instructor Profile Modal */}
       <Modal visible={instructorModalVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Instructor Profile</Text>
+          <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
+            <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+              <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Instructor Profile</Text>
               <TouchableOpacity onPress={() => setInstructorModalVisible(false)}>
-                <Icon name="close" size={24} color="#4B5563" />
+                <Icon name="close" size={24} color={isDark ? '#94A3B8' : '#4B5563'} />
               </TouchableOpacity>
             </View>
             
             <View style={styles.modalBody}>
               <Image source={{ uri: avatarUrl }} style={styles.modalAvatar} />
-              <Text style={styles.modalName}>{instructorName}</Text>
-              <Text style={styles.modalRole}>Course Instructor</Text>
+              <Text style={[styles.modalName, isDark && { color: '#FFFFFF' }]}>{instructorName}</Text>
+              <Text style={[styles.modalRole, isDark && { color: '#94A3B8' }]}>Course Instructor</Text>
               
-              <View style={styles.modalInfoBox}>
-                <View style={styles.modalInfoRow}>
-                  <Icon name="mail-outline" size={18} color="#6B7280" />
-                  <Text style={styles.modalInfoText}>{instructorEmail}</Text>
+              <View style={[styles.modalInfoBox, isDark && styles.modalInfoBoxDark]}>
+                <View style={[styles.modalInfoRow, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                  <Icon name="mail-outline" size={18} color="#FF5E14" />
+                  <Text style={[styles.modalInfoText, isDark && { color: '#CBD5E1' }]}>{instructorEmail}</Text>
                 </View>
                 <View style={[styles.modalInfoRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-                  <Icon name="call-outline" size={18} color="#6B7280" />
-                  <Text style={styles.modalInfoText}>{instructorPhone}</Text>
+                  <Icon name="call-outline" size={18} color="#FF5E14" />
+                  <Text style={[styles.modalInfoText, isDark && { color: '#CBD5E1' }]}>{instructorPhone}</Text>
                 </View>
               </View>
             </View>
@@ -703,5 +732,90 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     fontWeight: '500',
+  },
+
+  /* Glow Orbs & Theme Toggle */
+  glowOrbOrange: {
+    position: 'absolute',
+    top: -40,
+    right: -30,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(249, 115, 22, 0.22)',
+    ...Platform.select({
+      web: { filter: 'blur(36px)' },
+    }),
+  },
+  glowOrbBlue: {
+    position: 'absolute',
+    bottom: -20,
+    left: -20,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    ...Platform.select({
+      web: { filter: 'blur(32px)' },
+    }),
+  },
+  themeToggleCapsule: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+
+  /* Dark Mode Variants */
+  upcomingCardDark: {
+    backgroundColor: '#141B26',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#F97316',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.08)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 3,
+      },
+    }),
+  },
+  dateBadgeBoxDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+  },
+  viewSlotBtnDark: {
+    backgroundColor: '#FF5E14',
+  },
+  lessonCardDark: {
+    backgroundColor: '#141B26',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.08)',
+      },
+    }),
+  },
+  tagBadgePillDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modalContentDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+  },
+  modalInfoBoxDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
 });

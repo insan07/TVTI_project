@@ -24,6 +24,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -32,6 +34,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 type Tab = 'all' | 'active' | 'archived';
 
 export default function CourseManagementScreen() {
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<Tab>('all');
 
   useFocusEffect(
@@ -265,32 +268,35 @@ export default function CourseManagementScreen() {
   });
 
   const renderCourseCard = ({ item }: { item: any }) => (
-    <View style={styles.card}>
+    <View style={[styles.card, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
       <View style={styles.cardHeader}>
-        <Text style={styles.courseTitle}>{item.title}</Text>
-        <View style={[styles.statusBadge, item.is_active ? styles.activeBadge : styles.archivedBadge]}>
-          <Text style={[styles.statusBadgeText, item.is_active ? styles.activeBadgeText : styles.archivedBadgeText]}>
+        <Text style={[styles.courseTitle, isDark && { color: '#FFFFFF' }]}>{item.title}</Text>
+        <View style={[styles.statusBadge, item.is_active ? styles.activeBadge : (isDark ? { backgroundColor: 'rgba(255, 255, 255, 0.08)' } : styles.archivedBadge)]}>
+          <Text style={[styles.statusBadgeText, item.is_active ? styles.activeBadgeText : (isDark ? { color: '#94A3B8' } : styles.archivedBadgeText)]}>
             {item.is_active ? 'ACTIVE' : 'ARCHIVED'}
           </Text>
         </View>
       </View>
 
-      <Text style={styles.descriptionText}>{item.description}</Text>
+      <Text style={[styles.descriptionText, isDark && { color: '#94A3B8' }]}>{item.description}</Text>
 
       <View style={styles.metaRow}>
         <View style={styles.metaItem}>
-          <Icon name="people-outline" size={15} color="#6B7280" style={{ marginRight: 4 }} />
-          <Text style={styles.metaText}>Enrollments: {item.enrollment_count || 0}</Text>
+          <Icon name="people-outline" size={15} color={isDark ? "#94A3B8" : "#6B7280"} style={{ marginRight: 4 }} />
+          <Text style={[styles.metaText, isDark && { color: '#94A3B8' }]}>Enrollments: {item.enrollment_count || 0}</Text>
         </View>
         <View style={styles.metaItem}>
-          <Icon name="time-outline" size={15} color="#6B7280" style={{ marginRight: 4 }} />
-          <Text style={styles.metaText}>{item.duration_weeks || 0} Weeks</Text>
+          <Icon name="time-outline" size={15} color={isDark ? "#94A3B8" : "#6B7280"} style={{ marginRight: 4 }} />
+          <Text style={[styles.metaText, isDark && { color: '#94A3B8' }]}>{item.duration_weeks || 0} Weeks</Text>
         </View>
       </View>
 
       <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.editOutlineBtn} onPress={() => openEditModal(item)}>
-          <Icon name="pencil-outline" size={16} color="#374151" />
+        <TouchableOpacity
+          style={[styles.editOutlineBtn, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}
+          onPress={() => openEditModal(item)}
+        >
+          <Icon name="pencil-outline" size={16} color={isDark ? "#E2E8F0" : "#374151"} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.viewBatchesBtn}
@@ -304,7 +310,8 @@ export default function CourseManagementScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
+      <ScreenBackground />
       <ScreenHeader
         title="Course Management"
         subtitle="Create & manage vocational training courses"
@@ -330,12 +337,12 @@ export default function CourseManagementScreen() {
         }}
       >
         <View style={styles.searchFilterRow}>
-          <View style={styles.searchBox}>
-            <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+          <View style={[styles.searchBox, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+            <Icon name="search-outline" size={18} color={isDark ? "#94A3B8" : "#9CA3AF"} style={{ marginRight: 8 }} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, isDark && { color: '#FFFFFF' }]}
               placeholder="Search courses..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
               value={search}
               onChangeText={setSearch}
               onFocus={() => setIsSearchFocused(true)}
@@ -343,43 +350,43 @@ export default function CourseManagementScreen() {
             />
           </View>
           <TouchableOpacity
-            style={[styles.filterBtn, showFilter && styles.filterBtnActive]}
+            style={[styles.filterBtn, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, showFilter && styles.filterBtnActive]}
             onPress={() => setShowFilter(!showFilter)}
             activeOpacity={0.8}
           >
-            <Icon name="options-outline" size={18} color={showFilter ? '#FFFFFF' : '#374151'} style={{ marginRight: 6 }} />
-            <Text style={[styles.filterBtnText, showFilter && { color: '#FFFFFF' }]}>Filters</Text>
+            <Icon name="options-outline" size={18} color={showFilter ? '#FFFFFF' : (isDark ? '#94A3B8' : '#374151')} style={{ marginRight: 6 }} />
+            <Text style={[styles.filterBtnText, isDark && { color: '#94A3B8' }, showFilter && { color: '#FFFFFF' }]}>Filters</Text>
           </TouchableOpacity>
         </View>
 
         {/* Filter Options Panel for All / Active / Archived */}
         {showFilter && (
-          <View style={styles.filterOptionsPanel}>
+          <View style={[styles.filterOptionsPanel, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               <TouchableOpacity
-                style={[styles.filterChip, activeTab === 'all' && styles.filterChipActive]}
+                style={[styles.filterChip, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, activeTab === 'all' && styles.filterChipActive]}
                 onPress={() => setActiveTab('all')}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.filterChipText, activeTab === 'all' && styles.filterChipTextActive]}>
+                <Text style={[styles.filterChipText, isDark && { color: '#94A3B8' }, activeTab === 'all' && styles.filterChipTextActive]}>
                   All ({courses.length})
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.filterChip, activeTab === 'active' && styles.filterChipActive]}
+                style={[styles.filterChip, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, activeTab === 'active' && styles.filterChipActive]}
                 onPress={() => setActiveTab('active')}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.filterChipText, activeTab === 'active' && styles.filterChipTextActive]}>
+                <Text style={[styles.filterChipText, isDark && { color: '#94A3B8' }, activeTab === 'active' && styles.filterChipTextActive]}>
                   Active ({courses.filter(c => c.is_active).length})
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.filterChip, activeTab === 'archived' && styles.filterChipActive]}
+                style={[styles.filterChip, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, activeTab === 'archived' && styles.filterChipActive]}
                 onPress={() => setActiveTab('archived')}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.filterChipText, activeTab === 'archived' && styles.filterChipTextActive]}>
+                <Text style={[styles.filterChipText, isDark && { color: '#94A3B8' }, activeTab === 'archived' && styles.filterChipTextActive]}>
                   Archived ({courses.filter(c => !c.is_active).length})
                 </Text>
               </TouchableOpacity>
@@ -397,7 +404,7 @@ export default function CourseManagementScreen() {
           keyExtractor={item => item._id}
           renderItem={renderCourseCard}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }}
-          ListEmptyComponent={<Text style={styles.emptyText}>No courses found.</Text>}
+          ListEmptyComponent={<Text style={[styles.emptyText, isDark && { color: '#64748B' }]}>No courses found.</Text>}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         />
@@ -436,22 +443,24 @@ export default function CourseManagementScreen() {
       {/* Add / Edit Course Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalTitle}>{editingCourseId ? 'Edit Course' : 'Create Course'}</Text>
+              <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>{editingCourseId ? 'Edit Course' : 'Create Course'}</Text>
 
-              <Text style={styles.label}>Course Title *</Text>
+              <Text style={[styles.label, isDark && { color: '#CBD5E1' }]}>Course Title *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)', color: '#FFFFFF' }]}
                 placeholder="e.g. Automotive Diagnostics Level 1"
+                placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                 value={formData.title}
                 onChangeText={t => setFormData({ ...formData, title: t })}
               />
 
-              <Text style={styles.label}>Description</Text>
+              <Text style={[styles.label, isDark && { color: '#CBD5E1' }]}>Description</Text>
               <TextInput
-                style={[styles.input, { height: 75 }]}
+                style={[styles.input, { height: 75 }, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)', color: '#FFFFFF' }]}
                 placeholder="Overview of syllabus and course goals..."
+                placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                 multiline
                 numberOfLines={3}
                 value={formData.description}
@@ -460,20 +469,22 @@ export default function CourseManagementScreen() {
 
               <View style={styles.rowInputs}>
                 <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={styles.label}>Fee (LKR)</Text>
+                  <Text style={[styles.label, isDark && { color: '#CBD5E1' }]}>Fee (LKR)</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)', color: '#FFFFFF' }]}
                     placeholder="25000"
+                    placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                     keyboardType="numeric"
                     value={formData.fee}
                     onChangeText={t => setFormData({ ...formData, fee: t })}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Duration (Weeks)</Text>
+                  <Text style={[styles.label, isDark && { color: '#CBD5E1' }]}>Duration (Weeks)</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)', color: '#FFFFFF' }]}
                     placeholder="8"
+                    placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                     keyboardType="numeric"
                     value={formData.duration_weeks}
                     onChangeText={t => setFormData({ ...formData, duration_weeks: t })}
@@ -481,16 +492,17 @@ export default function CourseManagementScreen() {
                 </View>
               </View>
 
-              <Text style={styles.label}>Prerequisites</Text>
+              <Text style={[styles.label, isDark && { color: '#CBD5E1' }]}>Prerequisites</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)', color: '#FFFFFF' }]}
                 placeholder="e.g. Basic Electronics"
+                placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                 value={formData.prerequisites}
                 onChangeText={t => setFormData({ ...formData, prerequisites: t })}
               />
 
               <View style={styles.switchRow}>
-                <Text style={styles.switchLabel}>Active Status</Text>
+                <Text style={[styles.switchLabel, isDark && { color: '#FFFFFF' }]}>Active Status</Text>
                 <Switch
                   value={formData.is_active}
                   onValueChange={v => setFormData({ ...formData, is_active: v })}
@@ -500,7 +512,7 @@ export default function CourseManagementScreen() {
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.cancelModalText}>Cancel</Text>
+                  <Text style={[styles.cancelModalText, isDark && { color: '#94A3B8' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.submitModalBtn} onPress={saveCourse} disabled={saving}>
                   {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitModalText}>Save Course</Text>}

@@ -15,10 +15,13 @@ import { COLORS, FONTS } from '../../config/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500MB
 
 export default function UploadVideoScreen() {
+  const { isDark } = useTheme();
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
 
@@ -30,13 +33,13 @@ export default function UploadVideoScreen() {
   const [uploadMode, setUploadMode] = useState<'video' | 'material'>('video');
   const [videoSource, setVideoSource] = useState<'youtube' | 'file'>('youtube');
   const [listMode, setListMode] = useState<'video' | 'material'>('video');
-  
+
   const [myVideos, setMyVideos] = useState<any[]>([]);
   const [myMaterials, setMyMaterials] = useState<any[]>([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const [expandedModules, setExpandedModules] = useState<{ [key: string]: boolean }>({});
   const toggleModule = (topic: string) => {
     setExpandedModules(prev => ({ ...prev, [topic]: !prev[topic] }));
@@ -57,7 +60,7 @@ export default function UploadVideoScreen() {
     visible: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const [alertModal, setAlertModal] = useState<{
@@ -364,7 +367,8 @@ export default function UploadVideoScreen() {
   }, [currentList]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top', 'bottom']}>
+      <ScreenBackground />
       <ScreenHeader
         title="Upload Content"
         subtitle="Publish video lessons & study materials"
@@ -372,31 +376,39 @@ export default function UploadVideoScreen() {
 
       {activeTab === 'upload' ? (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
-          <View style={styles.card}>
+          <View style={[styles.card, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>New Upload</Text>
-              <TouchableOpacity onPress={() => setActiveTab('my_videos')} style={{ padding: 4, backgroundColor: '#F1F5F9', borderRadius: 20 }}>
-                <Icon name="close" size={22} color="#64748B" />
+              <Text style={[{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }, isDark && { color: '#FFFFFF' }]}>New Upload</Text>
+              <TouchableOpacity onPress={() => setActiveTab('my_videos')} style={[{ padding: 4, backgroundColor: '#F1F5F9', borderRadius: 20 }, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                <Icon name="close" size={22} color={isDark ? '#94A3B8' : '#64748B'} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modeRow}>
               <TouchableOpacity
-                style={[styles.modeBtn, uploadMode === 'video' && styles.modeBtnActive]}
+                style={[
+                  styles.modeBtn,
+                  isDark && { backgroundColor: 'rgba(255, 255, 255, 0.06)', borderColor: 'rgba(255, 255, 255, 0.10)' },
+                  uploadMode === 'video' && (isDark ? { backgroundColor: '#FF5E14', borderColor: '#FF5E14' } : styles.modeBtnActive)
+                ]}
                 onPress={() => { setUploadMode('video'); resetForm(); }}
               >
-                <Text style={[styles.modeBtnText, uploadMode === 'video' && styles.modeBtnTextActive]}>Video Lecture</Text>
+                <Text style={[styles.modeBtnText, isDark && { color: '#A89F93' }, uploadMode === 'video' && styles.modeBtnTextActive]}>Video Lecture</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modeBtn, uploadMode === 'material' && styles.modeBtnActive]}
+                style={[
+                  styles.modeBtn,
+                  isDark && { backgroundColor: 'rgba(255, 255, 255, 0.06)', borderColor: 'rgba(255, 255, 255, 0.10)' },
+                  uploadMode === 'material' && (isDark ? { backgroundColor: '#FF5E14', borderColor: '#FF5E14' } : styles.modeBtnActive)
+                ]}
                 onPress={() => { setUploadMode('material'); resetForm(); }}
               >
-                <Text style={[styles.modeBtnText, uploadMode === 'material' && styles.modeBtnTextActive]}>Study Material</Text>
+                <Text style={[styles.modeBtnText, isDark && { color: '#A89F93' }, uploadMode === 'material' && styles.modeBtnTextActive]}>Study Material</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.label}>Select Target Batch *</Text>
+            <Text style={[styles.label, isDark && { color: '#E5E7EB' }]}>Select Target Batch *</Text>
             {batchesLoading ? (
               <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 8 }} />
             ) : batches.length === 0 ? (
@@ -419,7 +431,7 @@ export default function UploadVideoScreen() {
               />
             )}
 
-            <Text style={styles.label}>Topic / Chapter *</Text>
+            <Text style={[styles.label, isDark && { color: '#E5E7EB' }]}>Topic / Chapter *</Text>
             {topics.length > 0 && (
               <CustomDropdown
                 placeholder="Choose existing topic..."
@@ -442,42 +454,50 @@ export default function UploadVideoScreen() {
 
             {(topics.length === 0 || formData.new_topic !== '') && (
               <TextInput
-                style={styles.input}
+                style={[styles.input, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.08)', color: '#FFFFFF' }]}
                 placeholder="Enter new topic / chapter name"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                 value={formData.new_topic.trimStart()}
                 onChangeText={t => setFormData(prev => ({ ...prev, new_topic: t }))}
               />
             )}
 
-            <Text style={styles.label}>{uploadMode === 'video' ? 'Video' : 'Document'} Title *</Text>
+            <Text style={[styles.label, isDark && { color: '#E5E7EB' }]}>{uploadMode === 'video' ? 'Video' : 'Document'} Title *</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.08)', color: '#FFFFFF' }]}
               placeholder={uploadMode === 'video' ? 'e.g. Introduction to Engine Overhaul' : 'e.g. Chapter 1 Summary Notes'}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
               value={formData.title}
               onChangeText={t => setFormData(prev => ({ ...prev, title: t }))}
             />
 
             {uploadMode === 'video' && (
               <>
-                <Text style={styles.label}>Video Source *</Text>
+                <Text style={[styles.label, isDark && { color: '#E5E7EB' }]}>Video Source *</Text>
                 <View style={styles.sourceSelectorRow}>
                   <TouchableOpacity
-                    style={[styles.sourceBtn, videoSource === 'youtube' && styles.sourceBtnActive]}
+                    style={[
+                      styles.sourceBtn,
+                      isDark && { backgroundColor: 'rgba(255, 255, 255, 0.06)', borderColor: 'rgba(255, 255, 255, 0.12)' },
+                      videoSource === 'youtube' && (isDark ? { backgroundColor: 'rgba(255, 94, 20, 0.15)', borderColor: '#FF5E14' } : styles.sourceBtnActive)
+                    ]}
                     onPress={() => setVideoSource('youtube')}
                   >
-                    <Icon name="logo-youtube" size={16} color={videoSource === 'youtube' ? '#EF4444' : '#6B7280'} />
-                    <Text style={[styles.sourceBtnText, videoSource === 'youtube' && styles.sourceBtnTextActive]}>
+                    <Icon name="logo-youtube" size={16} color={videoSource === 'youtube' ? '#EF4444' : isDark ? '#A89F93' : '#6B7280'} />
+                    <Text style={[styles.sourceBtnText, isDark && { color: '#A89F93' }, videoSource === 'youtube' && (isDark ? { color: '#FF5E14', fontWeight: 'bold' } : styles.sourceBtnTextActive)]}>
                       YouTube Link
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.sourceBtn, videoSource === 'file' && styles.sourceBtnActive]}
+                    style={[
+                      styles.sourceBtn,
+                      isDark && { backgroundColor: 'rgba(255, 255, 255, 0.06)', borderColor: 'rgba(255, 255, 255, 0.12)' },
+                      videoSource === 'file' && (isDark ? { backgroundColor: 'rgba(255, 94, 20, 0.15)', borderColor: '#FF5E14' } : styles.sourceBtnActive)
+                    ]}
                     onPress={() => setVideoSource('file')}
                   >
-                    <Icon name="folder-open" size={16} color={videoSource === 'file' ? COLORS.primary : '#6B7280'} />
-                    <Text style={[styles.sourceBtnText, videoSource === 'file' && styles.sourceBtnTextActive]}>
+                    <Icon name="folder-open" size={16} color={videoSource === 'file' ? '#FF5E14' : isDark ? '#A89F93' : '#6B7280'} />
+                    <Text style={[styles.sourceBtnText, isDark && { color: '#A89F93' }, videoSource === 'file' && (isDark ? { color: '#FF5E14', fontWeight: 'bold' } : styles.sourceBtnTextActive)]}>
                       Upload File
                     </Text>
                   </TouchableOpacity>
@@ -485,31 +505,31 @@ export default function UploadVideoScreen() {
 
                 {videoSource === 'youtube' ? (
                   <>
-                    <Text style={styles.label}>YouTube Video URL *</Text>
+                    <Text style={[styles.label, isDark && { color: '#E5E7EB' }]}>YouTube Video URL *</Text>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.08)', color: '#FFFFFF' }]}
                       placeholder="https://www.youtube.com/watch?v=..."
-                      placeholderTextColor="#9CA3AF"
+                      placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                       value={formData.youtube_url}
                       onChangeText={t => setFormData(prev => ({ ...prev, youtube_url: t }))}
                     />
                   </>
                 ) : (
                   <>
-                    <Text style={styles.label}>Video File *</Text>
-                    <TouchableOpacity style={styles.uploadBox} onPress={pickVideoFile}>
-                      <Icon name="videocam-outline" size={24} color={COLORS.primary} />
-                      <Text style={[styles.uploadBoxText, { color: videoFile ? '#1E3A8A' : '#6B7280' }]} numberOfLines={1}>
+                    <Text style={[styles.label, isDark && { color: '#E5E7EB' }]}>Video File *</Text>
+                    <TouchableOpacity style={[styles.uploadBox, isDark && { backgroundColor: 'rgba(255, 94, 20, 0.08)', borderColor: '#FF5E14' }]} onPress={pickVideoFile}>
+                      <Icon name="videocam-outline" size={24} color="#FF5E14" />
+                      <Text style={[styles.uploadBoxText, { color: videoFile ? (isDark ? '#F3F4F6' : '#1E3A8A') : (isDark ? '#A89F93' : '#6B7280') }]} numberOfLines={1}>
                         {videoFile ? `Selected: ${videoFile.name}` : 'Tap to select video file (MP4, MOV)'}
                       </Text>
                     </TouchableOpacity>
                   </>
                 )}
 
-                <Text style={styles.label}>Attach PDF Notes (Optional)</Text>
-                <TouchableOpacity style={styles.uploadBox} onPress={pickNotesFile}>
-                  <Icon name="document-text-outline" size={24} color={COLORS.primary} />
-                  <Text style={[styles.uploadBoxText, { color: notesFile ? '#1E3A8A' : '#6B7280' }]} numberOfLines={1}>
+                <Text style={[styles.label, isDark && { color: '#E5E7EB' }]}>Attach PDF Notes (Optional)</Text>
+                <TouchableOpacity style={[styles.uploadBox, isDark && { backgroundColor: 'rgba(255, 94, 20, 0.08)', borderColor: '#FF5E14' }]} onPress={pickNotesFile}>
+                  <Icon name="document-text-outline" size={24} color="#FF5E14" />
+                  <Text style={[styles.uploadBoxText, { color: notesFile ? (isDark ? '#F3F4F6' : '#1E3A8A') : (isDark ? '#A89F93' : '#6B7280') }]} numberOfLines={1}>
                     {notesFile ? `Selected: ${notesFile.name}` : 'Tap to select PDF notes'}
                   </Text>
                 </TouchableOpacity>
@@ -518,10 +538,10 @@ export default function UploadVideoScreen() {
 
             {uploadMode === 'material' && (
               <>
-                <Text style={styles.label}>Select Document File (PDF, Word) *</Text>
-                <TouchableOpacity style={styles.uploadBox} onPress={pickMaterial}>
-                  <Icon name="document-attach-outline" size={24} color={COLORS.primary} />
-                  <Text style={[styles.uploadBoxText, { color: materialFile ? '#1E3A8A' : '#6B7280' }]} numberOfLines={1}>
+                <Text style={[styles.label, isDark && { color: '#E5E7EB' }]}>Select Document File (PDF, Word) *</Text>
+                <TouchableOpacity style={[styles.uploadBox, isDark && { backgroundColor: 'rgba(255, 94, 20, 0.08)', borderColor: '#FF5E14' }]} onPress={pickMaterial}>
+                  <Icon name="document-attach-outline" size={24} color="#FF5E14" />
+                  <Text style={[styles.uploadBoxText, { color: materialFile ? (isDark ? '#F3F4F6' : '#1E3A8A') : (isDark ? '#A89F93' : '#6B7280') }]} numberOfLines={1}>
                     {materialFile ? `Selected: ${materialFile.name}` : 'Tap to select file (PDF, DOC, DOCX)'}
                   </Text>
                 </TouchableOpacity>
@@ -534,7 +554,7 @@ export default function UploadVideoScreen() {
               disabled={uploading || batches.length === 0}
             >
               <LinearGradient
-                colors={[COLORS.primary, '#1E3A8A']}
+                colors={['#FF5E14', '#FF8C00']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.btn}
@@ -554,42 +574,50 @@ export default function UploadVideoScreen() {
         <View style={{ flex: 1 }}>
           <View style={styles.modeRowList}>
             <TouchableOpacity
-              style={[styles.modeBtn, listMode === 'video' && styles.modeBtnActive]}
+              style={[
+                styles.modeBtn,
+                isDark && { backgroundColor: 'rgba(20, 27, 38, 0.88)', borderColor: 'rgba(255, 255, 255, 0.08)' },
+                listMode === 'video' && (isDark ? { backgroundColor: '#FF5E14', borderColor: '#FF5E14' } : styles.modeBtnActive)
+              ]}
               onPress={() => setListMode('video')}
             >
-              <Text style={[styles.modeBtnText, listMode === 'video' && styles.modeBtnTextActive]}>Video Lectures ({myVideos.length})</Text>
+              <Text style={[styles.modeBtnText, isDark && { color: '#94A3B8' }, listMode === 'video' && { color: '#FFFFFF', fontWeight: 'bold' }]}>Video Lectures ({myVideos.length})</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.modeBtn, listMode === 'material' && styles.modeBtnActive]}
+              style={[
+                styles.modeBtn,
+                isDark && { backgroundColor: 'rgba(20, 27, 38, 0.88)', borderColor: 'rgba(255, 255, 255, 0.08)' },
+                listMode === 'material' && (isDark ? { backgroundColor: '#FF5E14', borderColor: '#FF5E14' } : styles.modeBtnActive)
+              ]}
               onPress={() => setListMode('material')}
             >
-              <Text style={[styles.modeBtnText, listMode === 'material' && styles.modeBtnTextActive]}>Documents ({myMaterials.length})</Text>
+              <Text style={[styles.modeBtnText, isDark && { color: '#94A3B8' }, listMode === 'material' && { color: '#FFFFFF', fontWeight: 'bold' }]}>Documents ({myMaterials.length})</Text>
             </TouchableOpacity>
           </View>
 
           {currentLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={styles.loadingText}>Loading {listMode === 'video' ? 'videos' : 'materials'}...</Text>
+              <ActivityIndicator size="large" color="#FF5E14" />
+              <Text style={[styles.loadingText, isDark && { color: '#94A3B8' }]}>Loading {listMode === 'video' ? 'videos' : 'materials'}...</Text>
             </View>
           ) : Object.keys(groupedItems).length > 0 ? (
             <ScrollView contentContainerStyle={{ padding: 15, paddingBottom: 120 }}>
               {Object.keys(groupedItems).sort().map((topic, idx) => {
                 const isExpanded = !!expandedModules[topic];
                 return (
-                  <View key={topic} style={styles.moduleSectionBox}>
+                  <View key={topic} style={[styles.moduleSectionBox, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}>
                     <TouchableOpacity
                       style={[styles.moduleHeader, { marginBottom: isExpanded ? 12 : 0 }]}
                       activeOpacity={0.8}
                       onPress={() => toggleModule(topic)}
                     >
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.moduleTag}>MODULE {idx + 1}</Text>
-                        <Text style={styles.moduleTitle}>{topic}</Text>
+                        <Text style={[styles.moduleTag, isDark && { color: '#FF5E14' }]}>MODULE {idx + 1}</Text>
+                        <Text style={[styles.moduleTitle, isDark && { color: '#FFFFFF' }]}>{topic}</Text>
                       </View>
-                      <Icon name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color="#1A1A1A" />
+                      <Icon name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color={isDark ? '#CBD5E1' : '#1A1A1A'} />
                     </TouchableOpacity>
-                    
+
                     {isExpanded && (
                       <View style={styles.moduleVideosContainer}>
                         {groupedItems[topic].map((item: any, itemIdx: number) => {
@@ -617,7 +645,7 @@ export default function UploadVideoScreen() {
                             return (
                               <View key={item._id || itemIdx} style={{ position: 'relative', marginBottom: 16 }}>
                                 <TouchableOpacity
-                                  style={styles.youtubeVideoCard}
+                                  style={[styles.youtubeVideoCard, isDark && { backgroundColor: '#101722', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
                                   activeOpacity={0.88}
                                   onPress={() => {
                                     let url = item.cloudinary_url || item.youtube_url;
@@ -661,19 +689,19 @@ export default function UploadVideoScreen() {
                                   </View>
                                   <View style={styles.youtubeVideoMeta}>
                                     <View style={styles.metaHeaderRow}>
-                                      <View style={styles.topicBadgePill}>
-                                        <Text style={styles.topicBadgeText}>{(item.topic || 'LECTURE').toUpperCase()}</Text>
+                                      <View style={[styles.topicBadgePill, isDark && { backgroundColor: 'rgba(255, 94, 20, 0.15)' }]}>
+                                        <Text style={[styles.topicBadgeText, isDark && { color: '#FF5E14' }]}>{(item.topic || 'LECTURE').toUpperCase()}</Text>
                                       </View>
                                     </View>
-                                    <Text style={styles.youtubeVideoTitle} numberOfLines={2}>{item.title}</Text>
+                                    <Text style={[styles.youtubeVideoTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={2}>{item.title}</Text>
                                     <View style={styles.youtubeChannelRow}>
-                                      <Icon name="time-outline" size={14} color="#71717A" style={{ marginRight: 4 }} />
-                                      <Text style={styles.youtubeChannelText}>Uploaded just now</Text>
+                                      <Icon name="time-outline" size={14} color={isDark ? '#94A3B8' : '#71717A'} style={{ marginRight: 4 }} />
+                                      <Text style={[styles.youtubeChannelText, isDark && { color: '#94A3B8' }]}>Uploaded just now</Text>
                                     </View>
                                   </View>
                                 </TouchableOpacity>
-                                
-                                <TouchableOpacity onPress={() => handleDeleteVideo(item._id, item.title)} style={styles.cardDeleteBtn}>
+
+                                <TouchableOpacity onPress={() => handleDeleteVideo(item._id, item.title)} style={[styles.cardDeleteBtn, isDark && { backgroundColor: 'rgba(20, 27, 38, 0.85)' }]}>
                                   <Icon name="trash-outline" size={18} color="#EF4444" />
                                 </TouchableOpacity>
                               </View>
@@ -681,27 +709,27 @@ export default function UploadVideoScreen() {
                           } else {
                             // Document / Material Card
                             return (
-                              <View key={item._id || itemIdx} style={styles.videoCard}>
+                              <View key={item._id || itemIdx} style={[styles.videoCard, isDark && { backgroundColor: '#101722', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
                                 <TouchableOpacity style={styles.videoCardLeft} onPress={() => {
-                                    let url = item.cloudinary_url;
-                                    if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
-                                      url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
-                                    }
-                                    if (url) {
-                                      if (Platform.OS === 'web') window.open(url, '_blank');
-                                      else Linking.openURL(url);
-                                    }
+                                  let url = item.cloudinary_url;
+                                  if (url && (url.startsWith('/uploads/') || url.startsWith('/api/files/'))) {
+                                    url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
+                                  }
+                                  if (url) {
+                                    if (Platform.OS === 'web') window.open(url, '_blank');
+                                    else Linking.openURL(url);
+                                  }
                                 }}>
-                                  <View style={[styles.videoIcon, { backgroundColor: 'transparent' }]}>
+                                  <View style={[styles.videoIcon, { backgroundColor: 'transparent' }, isDark && { borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
                                     {thumbUrl ? (
                                       <Image source={{ uri: thumbUrl }} style={[styles.thumbnailImage, { borderRadius: 8 }]} resizeMode="cover" />
                                     ) : (
-                                      <Icon name="document-text" size={26} color="#F58220" />
+                                      <Icon name="document-text" size={26} color="#FF5E14" />
                                     )}
                                   </View>
                                   <View style={{ flex: 1, paddingLeft: 6 }}>
-                                    <Text style={styles.videoTitle}>{item.title}</Text>
-                                    <Text style={styles.videoDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                                    <Text style={[styles.videoTitle, isDark && { color: '#FFFFFF' }]}>{item.title}</Text>
+                                    <Text style={[styles.videoDate, isDark && { color: '#94A3B8' }]}>{new Date(item.createdAt).toLocaleDateString()}</Text>
                                   </View>
                                 </TouchableOpacity>
                                 <TouchableOpacity onPress={() => handleDeleteVideo(item._id, item.title)} style={styles.deleteBtn}>
@@ -719,11 +747,11 @@ export default function UploadVideoScreen() {
             </ScrollView>
           ) : (
             <View style={styles.emptyContainer}>
-              <Icon name={listMode === 'video' ? 'videocam-outline' : 'document-text-outline'} size={64} color="#D1D5DB" />
-              <Text style={styles.emptyTitle}>No {listMode === 'video' ? 'videos' : 'materials'} uploaded yet</Text>
-              <Text style={styles.emptySubtitle}>Upload your first {listMode === 'video' ? 'course video' : 'document material'}</Text>
+              <Icon name={listMode === 'video' ? 'videocam-outline' : 'document-text-outline'} size={64} color={isDark ? '#475569' : '#D1D5DB'} />
+              <Text style={[styles.emptyTitle, isDark && { color: '#FFFFFF' }]}>No {listMode === 'video' ? 'videos' : 'materials'} uploaded yet</Text>
+              <Text style={[styles.emptySubtitle, isDark && { color: '#A89F93' }]}>Upload your first {listMode === 'video' ? 'course video' : 'document material'}</Text>
             </View>
-          )}  
+          )}
         </View>
       )}
 
@@ -734,26 +762,26 @@ export default function UploadVideoScreen() {
         animationType="fade"
         onRequestClose={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
       >
-        <View style={styles.popupOverlay}>
-          <View style={styles.popupCard}>
-            <View style={[styles.popupIconCircle, { backgroundColor: confirmModal.type === 'danger' ? '#FEE2E2' : '#FEF3C7' }]}>
+        <View style={[styles.popupOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
+          <View style={[styles.popupCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}>
+            <View style={[styles.popupIconCircle, { backgroundColor: confirmModal.type === 'danger' ? (isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') : (isDark ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7') }]}>
               <Icon
                 name={confirmModal.type === 'danger' ? 'trash-outline' : 'alert-circle-outline'}
                 size={28}
-                color={confirmModal.type === 'danger' ? '#DC2626' : '#D97706'}
+                color={confirmModal.type === 'danger' ? '#EF4444' : '#F59E0B'}
               />
             </View>
-            <Text style={styles.popupTitle}>{confirmModal.title}</Text>
-            <Text style={styles.popupMessage}>{confirmModal.message}</Text>
+            <Text style={[styles.popupTitle, isDark && { color: '#FFFFFF' }]}>{confirmModal.title}</Text>
+            <Text style={[styles.popupMessage, isDark && { color: '#CBD5E1' }]}>{confirmModal.message}</Text>
             <View style={styles.popupBtnRow}>
               <TouchableOpacity
-                style={styles.popupCancelBtn}
+                style={[styles.popupCancelBtn, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.12)' }]}
                 onPress={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
               >
-                <Text style={styles.popupCancelText}>{confirmModal.cancelText || 'Cancel'}</Text>
+                <Text style={[styles.popupCancelText, isDark && { color: '#94A3B8' }]}>{confirmModal.cancelText || 'Cancel'}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.popupConfirmBtn, { backgroundColor: confirmModal.type === 'danger' ? '#DC2626' : '#F58220' }]}
+                style={[styles.popupConfirmBtn, { backgroundColor: confirmModal.type === 'danger' ? '#DC2626' : '#FF5E14' }]}
                 onPress={() => {
                   const action = confirmModal.onConfirm;
                   setConfirmModal(prev => ({ ...prev, visible: false }));
@@ -774,36 +802,36 @@ export default function UploadVideoScreen() {
         animationType="fade"
         onRequestClose={() => setAlertModal(prev => ({ ...prev, visible: false }))}
       >
-        <View style={styles.popupOverlay}>
-          <View style={styles.popupCard}>
+        <View style={[styles.popupOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
+          <View style={[styles.popupCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}>
             <View style={[
               styles.popupIconCircle,
-              { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
+              { backgroundColor: alertModal.type === 'success' ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#DCFCE7') : alertModal.type === 'error' ? (isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') : (isDark ? 'rgba(59, 130, 246, 0.2)' : '#EFF6FF') }
             ]}>
               <Icon
                 name={
                   alertModal.type === 'success'
                     ? 'checkmark-circle-outline'
                     : alertModal.type === 'error'
-                    ? 'close-circle-outline'
-                    : 'information-circle-outline'
+                      ? 'close-circle-outline'
+                      : 'information-circle-outline'
                 }
                 size={28}
                 color={
                   alertModal.type === 'success'
-                    ? '#16A34A'
+                    ? '#10B981'
                     : alertModal.type === 'error'
-                    ? '#DC2626'
-                    : '#2563EB'
+                      ? '#EF4444'
+                      : '#3B82F6'
                 }
               />
             </View>
-            <Text style={styles.popupTitle}>{alertModal.title}</Text>
-            <Text style={styles.popupMessage}>{alertModal.message}</Text>
+            <Text style={[styles.popupTitle, isDark && { color: '#FFFFFF' }]}>{alertModal.title}</Text>
+            <Text style={[styles.popupMessage, isDark && { color: '#CBD5E1' }]}>{alertModal.message}</Text>
             <TouchableOpacity
               style={[
                 styles.popupSingleBtn,
-                { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#F58220' }
+                { backgroundColor: alertModal.type === 'error' ? '#EF4444' : alertModal.type === 'success' ? '#10B981' : '#FF5E14' }
               ]}
               onPress={() => {
                 const action = alertModal.onOk;
@@ -991,7 +1019,7 @@ const styles = StyleSheet.create({
   emptyBtn: { marginTop: 16, backgroundColor: '#F58220', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   emptyBtnText: { color: '#FFFFFF', ...FONTS.bold },
   videoCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 14, padding: 16, elevation: 1, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)', borderRadius: 16, marginBottom: 14, padding: 16, elevation: 1, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.90)',
     ...Platform.select({
       web: { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)' },
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
@@ -1090,12 +1118,12 @@ const styles = StyleSheet.create({
 
   /* Accordion Module UI */
   moduleSectionBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.78)',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: 'rgba(255, 255, 255, 0.90)',
     ...Platform.select({
       web: { boxShadow: '0px 2px 8px rgba(0,0,0,0.03)' },
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }
@@ -1110,10 +1138,10 @@ const styles = StyleSheet.create({
   moduleTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
   moduleVideosContainer: { paddingTop: 4 },
   youtubeVideoCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: 'rgba(255, 255, 255, 0.90)',
     overflow: 'hidden',
   },
   widescreenThumbWrapper: {

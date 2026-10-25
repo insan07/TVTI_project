@@ -64,7 +64,7 @@ export default function PasswordResetSuccessScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0F0B08' }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]} edges={['top', 'bottom']}>
       {/* Floating Dark / Light Theme Toggle Button */}
       <View style={[styles.topBarContainer, { paddingTop: Math.max(insets.top, 16) }]}>
         <TouchableOpacity
@@ -124,8 +124,8 @@ export default function PasswordResetSuccessScreen() {
                   ? 'radial-gradient(ellipse at 50% 45%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.28) 55%, rgba(255, 255, 255, 0.42) 88%), linear-gradient(to right, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.16) 48%, rgba(255, 255, 255, 0.34) 100%)'
                   : 'linear-gradient(to bottom, rgba(255, 255, 255, 0.36) 0%, rgba(255, 255, 255, 0.16) 45%, rgba(255, 255, 255, 0.40) 100%)')
                 : (isDesktop
-                  ? 'radial-gradient(circle at 86% 8%, rgba(255, 115, 0, 0.22) 0%, rgba(255, 90, 0, 0.08) 35%, transparent 60%), linear-gradient(to right, rgba(14, 10, 7, 0.92) 0%, rgba(14, 10, 7, 0.64) 46%, rgba(14, 10, 7, 0.82) 100%)'
-                  : 'linear-gradient(to bottom, rgba(14, 10, 7, 0.88) 0%, rgba(14, 10, 7, 0.70) 50%, rgba(14, 10, 7, 0.92) 100%)'),
+                  ? 'radial-gradient(circle at 86% 8%, rgba(249, 115, 22, 0.18) 0%, rgba(249, 115, 22, 0.05) 35%, transparent 60%), linear-gradient(to right, rgba(15, 23, 42, 0.94) 0%, rgba(20, 28, 44, 0.88) 46%, rgba(10, 15, 26, 0.97) 100%)'
+                  : 'linear-gradient(to bottom, rgba(15, 23, 42, 0.95) 0%, rgba(20, 28, 44, 0.90) 50%, rgba(10, 15, 26, 0.98) 100%)'),
             } as any,
           ]}
         />
@@ -134,7 +134,7 @@ export default function PasswordResetSuccessScreen() {
           colors={
             isLight
               ? ['rgba(255, 255, 255, 0.36)', 'rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.40)']
-              : ['rgba(14, 10, 7, 0.88)', 'rgba(14, 10, 7, 0.65)', 'rgba(14, 10, 7, 0.90)']
+              : ['rgba(15, 23, 42, 0.95)', 'rgba(20, 28, 44, 0.90)', 'rgba(10, 15, 26, 0.98)']
           }
           style={StyleSheet.absoluteFill}
         />
@@ -265,8 +265,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(226, 232, 240, 0.95)',
   },
   themeToggleBtnDark: {
-    backgroundColor: 'rgba(30, 22, 16, 0.75)',
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: 'rgba(20, 27, 38, 0.85)',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
   },
   themeToggleText: {
     fontSize: 12.5,
@@ -418,16 +418,20 @@ const styles = StyleSheet.create({
       : {}),
   },
   cardDark: {
-    backgroundColor: 'rgba(28, 20, 15, 0.46)',
+    backgroundColor: 'rgba(20, 27, 38, 0.82)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.10)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.80,
-    shadowRadius: 24,
+    shadowOpacity: 0.50,
+    shadowRadius: 28,
     elevation: 8,
     ...(Platform.OS === 'web'
-      ? ({ backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)' } as any)
+      ? ({
+        backdropFilter: 'blur(26px)',
+        WebkitBackdropFilter: 'blur(26px)',
+        boxShadow: '0 20px 48px -10px rgba(0, 0, 0, 0.55), 0 0 1px 1px rgba(255, 255, 255, 0.08)',
+      } as any)
       : {}),
   },
   desktopCardLight: {

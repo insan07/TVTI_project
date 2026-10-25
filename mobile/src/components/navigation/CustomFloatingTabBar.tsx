@@ -169,7 +169,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
               ]}
             >
               <LinearGradient
-                colors={['#FFA000', '#F97316', '#EA580C']}
+                colors={['rgba(255, 160, 0, 1)', 'rgba(249, 115, 22, 1)', 'rgba(234, 88, 12, 1)']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.liquidGradient}
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   tabBarContainer: {
-    backgroundColor: '#090A0E', // Deep liquid pitch black background
+    backgroundColor: 'rgba(15, 23, 42, 0.95)', // Deep midnight navy background
     borderRadius: 36,
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -299,9 +299,11 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.12)', // Glossy liquid drop glass rim
+    borderColor: 'rgba(255, 255, 255, 0.08)', // Glossy liquid drop glass rim
     ...Platform.select({
       web: {
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         boxShadow: '0px 14px 36px rgba(0, 0, 0, 0.75), 0px 4px 20px rgba(249, 115, 22, 0.25)',
       },
       default: {
@@ -319,7 +321,7 @@ const styles = StyleSheet.create({
     left: 24,
     right: 24,
     height: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.50)',
     borderRadius: 1,
     zIndex: 3,
   },

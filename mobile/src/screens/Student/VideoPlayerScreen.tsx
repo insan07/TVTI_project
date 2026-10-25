@@ -19,6 +19,8 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 const formatUploadedTime = (dateStr?: string) => {
   if (!dateStr) return 'Upload date unknown';
@@ -41,6 +43,7 @@ export default function VideoPlayerScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
   const videoId = route.params?.videoId;
 
   const [videoData, setVideoData] = useState<any>(null);
@@ -107,7 +110,7 @@ export default function VideoPlayerScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, isDark && { backgroundColor: '#0B0F19' }]}>
         <ActivityIndicator size="large" color={COLORS.secondary} />
       </View>
     );
@@ -116,7 +119,8 @@ export default function VideoPlayerScreen() {
   const yTId = videoData?.type === 'youtube' && videoData?.url ? getYoutubeId(videoData.url) : null;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
+      <ScreenBackground />
       <View style={{ paddingTop: insets.top }}>
         <ScreenHeader
           title="Video Player"
@@ -155,38 +159,38 @@ export default function VideoPlayerScreen() {
         {/* Content Details Body */}
         <View style={styles.contentPadding}>
           {/* Title & Subtitle */}
-          <Text style={styles.videoTitle}>
+          <Text style={[styles.videoTitle, isDark && { color: '#FFFFFF' }]}>
             {videoData?.title || 'Session Video'}
           </Text>
           {videoData?.module_name ? (
-            <Text style={styles.moduleSubtitle}>
+            <Text style={[styles.moduleSubtitle, isDark && { color: '#94A3B8' }]}>
               {videoData.module_name}
             </Text>
           ) : null}
 
           {/* Uploaded Time Row */}
           <View style={styles.uploadedTimeRow}>
-            <Icon name="time-outline" size={15} color="#71717A" style={{ marginRight: 6 }} />
-            <Text style={styles.uploadedTimeText}>
+            <Icon name="time-outline" size={15} color={isDark ? '#94A3B8' : '#71717A'} style={{ marginRight: 6 }} />
+            <Text style={[styles.uploadedTimeText, isDark && { color: '#94A3B8' }]}>
               {formatUploadedTime(videoData?.createdAt || videoData?.uploaded_at)}
             </Text>
           </View>
 
           {/* Attached Notes Card */}
           {notesUrl && (
-            <View style={styles.notesCard}>
+            <View style={[styles.notesCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
               <View style={styles.notesCardHeaderRow}>
-                <View style={styles.pdfIconCircle}>
-                  <Icon name="document-text-outline" size={22} color="#1A1A1A" />
+                <View style={[styles.pdfIconCircle, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
+                  <Icon name="document-text-outline" size={22} color={isDark ? '#FB923C' : '#1A1A1A'} />
                 </View>
                 <View style={styles.notesTitleContainer}>
-                  <Text style={styles.notesCardTitle}>Attached Notes</Text>
-                  <Text style={styles.notesCardSubtitle}>PDF Document</Text>
+                  <Text style={[styles.notesCardTitle, isDark && { color: '#FFFFFF' }]}>Attached Notes</Text>
+                  <Text style={[styles.notesCardSubtitle, isDark && { color: '#94A3B8' }]}>PDF Document</Text>
                 </View>
               </View>
 
               <TouchableOpacity
-                style={styles.viewNotesButton}
+                style={[styles.viewNotesButton, isDark && { backgroundColor: '#F97316' }]}
                 activeOpacity={0.8}
                 onPress={() => {
                   if (notesUrl) {
@@ -211,8 +215,8 @@ export default function VideoPlayerScreen() {
           )}
 
           {/* Session Overview Section */}
-          <Text style={styles.sectionTitle}>Session Overview</Text>
-          <Text style={styles.overviewParagraph}>
+          <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Session Overview</Text>
+          <Text style={[styles.overviewParagraph, isDark && { color: '#CBD5E1' }]}>
             {videoData?.description || 'No description available for this video.'}
           </Text>
         </View>

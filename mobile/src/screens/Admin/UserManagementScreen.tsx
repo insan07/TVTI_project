@@ -26,6 +26,8 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import ApplicationsManagementScreen from './ApplicationsManagementScreen';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
 import WhatsAppSelectionHeader from '../../components/shared/WhatsAppSelectionHeader';
 import * as Print from 'expo-print';
@@ -58,6 +60,7 @@ const EXPORT_AVAILABLE_FIELDS = [
 ];
 
 export default function UserManagementScreen() {
+  const { isDark } = useTheme();
   const route = useRoute<any>();
 
   let initialMode: ModeType = 'applications';
@@ -942,6 +945,7 @@ export default function UserManagementScreen() {
       <TouchableOpacity
         style={[
           styles.card,
+          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
           isMenuOpen && { zIndex: 9999, elevation: 25 },
           isSelectMode && isSelected && styles.whatsappSelectedCard,
         ]}
@@ -970,8 +974,8 @@ export default function UserManagementScreen() {
             {photo ? (
               <Image source={{ uri: photo }} style={styles.avatarImg} />
             ) : (
-              <View style={styles.avatar}>
-                <Icon name="person" size={24} color="#475569" />
+              <View style={[styles.avatar, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+                <Icon name="person" size={24} color={isDark ? "#94A3B8" : "#475569"} />
               </View>
             )}
             {isSelectMode && (
@@ -982,9 +986,9 @@ export default function UserManagementScreen() {
           </View>
 
           <View style={styles.headerDetails}>
-            <Text style={styles.userName}>{name}</Text>
-            <Text style={styles.userEmail}>{item.email}</Text>
-            <Text style={styles.userSubtext}>NIC / Reg: {item.nic_number || item.nic || item.index_number || 'N/A'}</Text>
+            <Text style={[styles.userName, isDark && { color: '#FFFFFF' }]}>{name}</Text>
+            <Text style={[styles.userEmail, isDark && { color: '#94A3B8' }]}>{item.email}</Text>
+            <Text style={[styles.userSubtext, isDark && { color: '#64748B' }]}>NIC / Reg: {item.nic_number || item.nic || item.index_number || 'N/A'}</Text>
           </View>
 
           <View style={styles.rightCardCol}>
@@ -1080,6 +1084,7 @@ export default function UserManagementScreen() {
       <TouchableOpacity
         style={[
           styles.card,
+          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
           isDeactivated && { opacity: 0.65 },
           isMenuOpen && { zIndex: 9999, elevation: 25 },
           isSelectMode && isSelected && styles.whatsappSelectedCard,
@@ -1109,8 +1114,8 @@ export default function UserManagementScreen() {
             {item.profile_photo ? (
               <Image source={{ uri: item.profile_photo }} style={styles.avatarImg} />
             ) : (
-              <View style={styles.avatar}>
-                <Icon name="person" size={24} color="#475569" />
+              <View style={[styles.avatar, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+                <Icon name="person" size={24} color={isDark ? "#94A3B8" : "#475569"} />
               </View>
             )}
             {isSelectMode && (
@@ -1121,9 +1126,9 @@ export default function UserManagementScreen() {
           </View>
 
           <View style={styles.headerDetails}>
-            <Text style={styles.userName}>{item.name}</Text>
-            <Text style={styles.userEmail}>{item.email}</Text>
-            <Text style={styles.userSubtext}>Reg No: {item.index_number || item.nic || 'N/A'}</Text>
+            <Text style={[styles.userName, isDark && { color: '#FFFFFF' }]}>{item.name}</Text>
+            <Text style={[styles.userEmail, isDark && { color: '#94A3B8' }]}>{item.email}</Text>
+            <Text style={[styles.userSubtext, isDark && { color: '#64748B' }]}>Reg No: {item.index_number || item.nic || 'N/A'}</Text>
           </View>
           <View style={styles.rightCardCol}>
             {!isSelectMode && (
@@ -1190,6 +1195,7 @@ export default function UserManagementScreen() {
       <TouchableOpacity
         style={[
           styles.card,
+          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
           !item.is_active && { opacity: 0.65 },
           isMenuOpen && { zIndex: 9999, elevation: 25 },
           isSelectMode && isSelected && styles.whatsappSelectedCard,
@@ -1217,8 +1223,8 @@ export default function UserManagementScreen() {
             {item.profile_photo ? (
               <Image source={{ uri: item.profile_photo }} style={styles.avatarImg} />
             ) : (
-              <View style={styles.avatar}>
-                <Icon name="person" size={24} color="#475569" />
+              <View style={[styles.avatar, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+                <Icon name="person" size={24} color={isDark ? "#94A3B8" : "#475569"} />
               </View>
             )}
             {isSelectMode && (
@@ -1228,9 +1234,9 @@ export default function UserManagementScreen() {
             )}
           </View>
           <View style={styles.headerDetails}>
-            <Text style={styles.userName}>{item.name}</Text>
-            <Text style={styles.userEmail}>{item.email}</Text>
-            {item.phone ? <Text style={styles.userSubtext}>{item.phone}</Text> : null}
+            <Text style={[styles.userName, isDark && { color: '#FFFFFF' }]}>{item.name}</Text>
+            <Text style={[styles.userEmail, isDark && { color: '#94A3B8' }]}>{item.email}</Text>
+            {item.phone ? <Text style={[styles.userSubtext, isDark && { color: '#64748B' }]}>{item.phone}</Text> : null}
           </View>
           <View style={styles.rightCardCol}>
             {!isSelectMode && (
@@ -1273,6 +1279,7 @@ export default function UserManagementScreen() {
       <TouchableOpacity
         style={[
           styles.card,
+          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
           isSelectMode && isSelected && styles.whatsappSelectedCard,
         ]}
         onPress={() => {
@@ -1293,7 +1300,7 @@ export default function UserManagementScreen() {
       >
         <View style={styles.cardHeader}>
           <View style={{ position: 'relative' }}>
-            <View style={[styles.avatar, { backgroundColor: '#FEF3C7' }]}>
+            <View style={[styles.avatar, isDark ? { backgroundColor: 'rgba(249, 115, 22, 0.15)', borderColor: 'rgba(249, 115, 22, 0.3)' } : { backgroundColor: '#FEF3C7' }]}>
               <Icon name="wallet" size={24} color="#F59E0B" />
             </View>
             {isSelectMode && (
@@ -1305,15 +1312,15 @@ export default function UserManagementScreen() {
 
           <View style={styles.headerDetails}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <Text style={styles.userName}>{item.name}</Text>
+              <Text style={[styles.userName, isDark && { color: '#FFFFFF' }]}>{item.name}</Text>
               {hasPendingSlips && (
                 <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
                   <Text style={{ fontSize: 10, fontWeight: '700', color: '#D97706' }}>NEW SLIP</Text>
                 </View>
               )}
             </View>
-            <Text style={styles.userEmail}>{item.email}</Text>
-            <Text style={styles.userSubtext}>
+            <Text style={[styles.userEmail, isDark && { color: '#94A3B8' }]}>{item.email}</Text>
+            <Text style={[styles.userSubtext, isDark && { color: '#64748B' }]}>
               Reg/Index: {item.index_number || item.nic || 'N/A'} • {item.payment_method === 'bank_transfer' ? 'Bank Deposit' : 'Cash Deposit'}
             </Text>
           </View>
@@ -1534,7 +1541,8 @@ export default function UserManagementScreen() {
 
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
+      <ScreenBackground />
       {activeMenuUserId && (
         <TouchableOpacity
           activeOpacity={1}
@@ -1558,11 +1566,11 @@ export default function UserManagementScreen() {
             showBack={true}
           />
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 100 }}>
-            <Text style={styles.hubSectionHeaderTitle}>Choose Activity</Text>
+            <Text style={[styles.hubSectionHeaderTitle, isDark && { color: '#FFFFFF' }]}>Choose Activity</Text>
 
             {/* 1. Applications Card */}
             <TouchableOpacity
-              style={styles.hubVerticalCard}
+              style={[styles.hubVerticalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
               onPress={() => {
                 setActiveMode('applications');
                 setApplicationsSubFilter('pending');
@@ -1570,19 +1578,19 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={styles.hubVerticalIconBox}>
+              <View style={[styles.hubVerticalIconBox, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
                 <Icon name="document-text-outline" size={24} color="#F59E0B" />
               </View>
               <View style={styles.hubVerticalTextCol}>
-                <Text style={styles.hubVerticalTitle}>Applications</Text>
-                <Text style={styles.hubVerticalSub}>{appMetrics.pending} Pending Applications</Text>
+                <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Applications</Text>
+                <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{appMetrics.pending} Pending Applications</Text>
               </View>
-              <Icon name="chevron-forward" size={18} color="#D4D4D8" />
+              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#D4D4D8"} />
             </TouchableOpacity>
 
             {/* 2. Students Card */}
             <TouchableOpacity
-              style={styles.hubVerticalCard}
+              style={[styles.hubVerticalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
               onPress={() => {
                 setActiveMode('students');
                 setStudentsSubFilter('all');
@@ -1590,19 +1598,19 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={styles.hubVerticalIconBox}>
+              <View style={[styles.hubVerticalIconBox, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
                 <Icon name="people-outline" size={24} color="#F59E0B" />
               </View>
               <View style={styles.hubVerticalTextCol}>
-                <Text style={styles.hubVerticalTitle}>Students</Text>
-                <Text style={styles.hubVerticalSub}>{studentsMetrics.all} Enrolled Students</Text>
+                <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Students</Text>
+                <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{studentsMetrics.all} Enrolled Students</Text>
               </View>
-              <Icon name="chevron-forward" size={18} color="#D4D4D8" />
+              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#D4D4D8"} />
             </TouchableOpacity>
 
             {/* 3. Payments Card */}
             <TouchableOpacity
-              style={styles.hubVerticalCard}
+              style={[styles.hubVerticalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
               onPress={() => {
                 setActiveMode('payments');
                 setPaymentsSubFilter('pending');
@@ -1610,19 +1618,19 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={styles.hubVerticalIconBox}>
+              <View style={[styles.hubVerticalIconBox, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
                 <Icon name="wallet-outline" size={24} color="#F59E0B" />
               </View>
               <View style={styles.hubVerticalTextCol}>
-                <Text style={styles.hubVerticalTitle}>Payments</Text>
-                <Text style={styles.hubVerticalSub}>{paymentsMetrics.pending} Pending Slips</Text>
+                <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Payments</Text>
+                <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{paymentsMetrics.pending} Pending Slips</Text>
               </View>
-              <Icon name="chevron-forward" size={18} color="#D4D4D8" />
+              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#D4D4D8"} />
             </TouchableOpacity>
 
             {/* 4. Instructors Card */}
             <TouchableOpacity
-              style={styles.hubVerticalCard}
+              style={[styles.hubVerticalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
               onPress={() => {
                 setActiveMode('instructors');
                 setInstructorsSubFilter('active');
@@ -1630,14 +1638,14 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={styles.hubVerticalIconBox}>
+              <View style={[styles.hubVerticalIconBox, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
                 <Icon name="school-outline" size={24} color="#F59E0B" />
               </View>
               <View style={styles.hubVerticalTextCol}>
-                <Text style={styles.hubVerticalTitle}>Instructors</Text>
-                <Text style={styles.hubVerticalSub}>{instructorsMetrics.active} Active Staff</Text>
+                <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Instructors</Text>
+                <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{instructorsMetrics.active} Active Staff</Text>
               </View>
-              <Icon name="chevron-forward" size={18} color="#D4D4D8" />
+              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#D4D4D8"} />
             </TouchableOpacity>
           </ScrollView>
         </>
@@ -1709,31 +1717,31 @@ export default function UserManagementScreen() {
           )}
 
           {/* Sub-Filter Pill Bar */}
-          <View style={styles.subFilterBarSection}>
+          <View style={[styles.subFilterBarSection, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subFilterBarScroll}>
               {activeMode === 'applications' && (
                 <>
                   <TouchableOpacity
-                    style={[styles.subFilterPill, applicationsSubFilter === 'pending' && styles.subFilterPillActive]}
+                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, applicationsSubFilter === 'pending' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
                     onPress={() => setApplicationsSubFilter('pending')}
                   >
-                    <Text style={[styles.subFilterPillText, applicationsSubFilter === 'pending' && styles.subFilterPillTextActive]}>
+                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, applicationsSubFilter === 'pending' && styles.subFilterPillTextActive]}>
                       Pending ({appMetrics.pending})
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.subFilterPill, applicationsSubFilter === 'approved' && styles.subFilterPillActive]}
+                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, applicationsSubFilter === 'approved' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
                     onPress={() => setApplicationsSubFilter('approved')}
                   >
-                    <Text style={[styles.subFilterPillText, applicationsSubFilter === 'approved' && styles.subFilterPillTextActive]}>
+                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, applicationsSubFilter === 'approved' && styles.subFilterPillTextActive]}>
                       Approved ({appMetrics.approved})
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.subFilterPill, applicationsSubFilter === 'rejected' && styles.subFilterPillActive]}
+                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, applicationsSubFilter === 'rejected' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
                     onPress={() => setApplicationsSubFilter('rejected')}
                   >
-                    <Text style={[styles.subFilterPillText, applicationsSubFilter === 'rejected' && styles.subFilterPillTextActive]}>
+                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, applicationsSubFilter === 'rejected' && styles.subFilterPillTextActive]}>
                       Rejected ({appMetrics.rejected})
                     </Text>
                   </TouchableOpacity>
@@ -1743,34 +1751,34 @@ export default function UserManagementScreen() {
               {activeMode === 'students' && (
                 <>
                   <TouchableOpacity
-                    style={[styles.subFilterPill, studentsSubFilter === 'all' && styles.subFilterPillActive]}
+                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, studentsSubFilter === 'all' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
                     onPress={() => setStudentsSubFilter('all')}
                   >
-                    <Text style={[styles.subFilterPillText, studentsSubFilter === 'all' && styles.subFilterPillTextActive]}>
+                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, studentsSubFilter === 'all' && styles.subFilterPillTextActive]}>
                       All ({studentsMetrics.all})
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.subFilterPill, studentsSubFilter === 'active' && styles.subFilterPillActive]}
+                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, studentsSubFilter === 'active' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
                     onPress={() => setStudentsSubFilter('active')}
                   >
-                    <Text style={[styles.subFilterPillText, studentsSubFilter === 'active' && styles.subFilterPillTextActive]}>
+                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, studentsSubFilter === 'active' && styles.subFilterPillTextActive]}>
                       Active ({studentsMetrics.active})
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.subFilterPill, studentsSubFilter === 'deactive' && styles.subFilterPillActive]}
+                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, studentsSubFilter === 'deactive' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
                     onPress={() => setStudentsSubFilter('deactive')}
                   >
-                    <Text style={[styles.subFilterPillText, studentsSubFilter === 'deactive' && styles.subFilterPillTextActive]}>
+                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, studentsSubFilter === 'deactive' && styles.subFilterPillTextActive]}>
                       Deactive ({studentsMetrics.deactive})
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.subFilterPill, studentsSubFilter === 'completed' && styles.subFilterPillActive]}
+                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, studentsSubFilter === 'completed' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
                     onPress={() => setStudentsSubFilter('completed')}
                   >
-                    <Text style={[styles.subFilterPillText, studentsSubFilter === 'completed' && styles.subFilterPillTextActive]}>
+                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, studentsSubFilter === 'completed' && styles.subFilterPillTextActive]}>
                       Completed ({studentsMetrics.completed})
                     </Text>
                   </TouchableOpacity>
@@ -1780,18 +1788,18 @@ export default function UserManagementScreen() {
               {activeMode === 'payments' && (
                 <>
                   <TouchableOpacity
-                    style={[styles.subFilterPill, paymentsSubFilter === 'pending' && styles.subFilterPillActive]}
+                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, paymentsSubFilter === 'pending' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
                     onPress={() => setPaymentsSubFilter('pending')}
                   >
-                    <Text style={[styles.subFilterPillText, paymentsSubFilter === 'pending' && styles.subFilterPillTextActive]}>
+                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, paymentsSubFilter === 'pending' && styles.subFilterPillTextActive]}>
                       Pending Slips ({paymentsMetrics.pending})
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.subFilterPill, paymentsSubFilter === 'completed' && styles.subFilterPillActive]}
+                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, paymentsSubFilter === 'completed' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
                     onPress={() => setPaymentsSubFilter('completed')}
                   >
-                    <Text style={[styles.subFilterPillText, paymentsSubFilter === 'completed' && styles.subFilterPillTextActive]}>
+                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, paymentsSubFilter === 'completed' && styles.subFilterPillTextActive]}>
                       Completed ({paymentsMetrics.completed})
                     </Text>
                   </TouchableOpacity>
@@ -1801,18 +1809,18 @@ export default function UserManagementScreen() {
               {activeMode === 'instructors' && (
                 <>
                   <TouchableOpacity
-                    style={[styles.subFilterPill, instructorsSubFilter === 'active' && styles.subFilterPillActive]}
+                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, instructorsSubFilter === 'active' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
                     onPress={() => setInstructorsSubFilter('active')}
                   >
-                    <Text style={[styles.subFilterPillText, instructorsSubFilter === 'active' && styles.subFilterPillTextActive]}>
+                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, instructorsSubFilter === 'active' && styles.subFilterPillTextActive]}>
                       Active Staff ({instructorsMetrics.active})
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.subFilterPill, instructorsSubFilter === 'deactive' && styles.subFilterPillActive]}
+                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, instructorsSubFilter === 'deactive' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
                     onPress={() => setInstructorsSubFilter('deactive')}
                   >
-                    <Text style={[styles.subFilterPillText, instructorsSubFilter === 'deactive' && styles.subFilterPillTextActive]}>
+                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, instructorsSubFilter === 'deactive' && styles.subFilterPillTextActive]}>
                       Deactivated ({instructorsMetrics.deactive})
                     </Text>
                   </TouchableOpacity>
@@ -1825,12 +1833,12 @@ export default function UserManagementScreen() {
           <>
             {/* Search Box */}
             <View style={styles.searchFilterRow}>
-              <View style={styles.searchBox}>
-                <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+              <View style={[styles.searchBox, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                <Icon name="search-outline" size={18} color={isDark ? "#94A3B8" : "#9CA3AF"} style={{ marginRight: 8 }} />
                 <TextInput
-                  style={styles.searchInput}
+                  style={[styles.searchInput, isDark && { color: '#FFFFFF' }]}
                   placeholder="Search by name, email, reg no, or NIC..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                   value={search}
                   onChangeText={setSearch}
                   onFocus={() => setIsSearchFocused(true)}

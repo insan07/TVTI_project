@@ -15,11 +15,12 @@ import {
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import api from '../../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons as Icon } from '@expo/vector-icons';
-
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function ManageResultsScreen() {
+  const { isDark } = useTheme();
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>('');
 
@@ -238,7 +239,8 @@ export default function ManageResultsScreen() {
   const liveGrade = livePct !== null ? calculateGrade(livePct) : null;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
+      <ScreenBackground />
       <ScreenHeader
         title="Results & Evaluation"
         subtitle="Student grades & batch scoreboards"
@@ -262,37 +264,37 @@ export default function ManageResultsScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.toggleBtn, isBulkView && styles.toggleBtnActive]}
+          style={[styles.toggleBtn, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, isBulkView && styles.toggleBtnActive]}
           onPress={() => setIsBulkView(!isBulkView)}
         >
-          <Icon name={isBulkView ? 'list-outline' : 'grid-outline'} size={18} color={isBulkView ? '#FFFFFF' : '#374151'} style={{ marginRight: 6 }} />
-          <Text style={[styles.toggleBtnText, isBulkView && styles.toggleBtnTextActive]}>
+          <Icon name={isBulkView ? 'list-outline' : 'grid-outline'} size={18} color={isBulkView ? '#FFFFFF' : (isDark ? '#94A3B8' : '#374151')} style={{ marginRight: 6 }} />
+          <Text style={[styles.toggleBtnText, isDark && { color: '#94A3B8' }, isBulkView && styles.toggleBtnTextActive]}>
             {isBulkView ? 'List View' : 'Bulk View'}
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Batch Overview Banner */}
-      <View style={styles.overviewBanner}>
+      <View style={[styles.overviewBanner, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}>
         <View style={styles.overviewStat}>
           <Text style={styles.overviewStatVal}>{students.length}</Text>
           <Text style={styles.overviewStatLbl}>TOTAL STUDENTS</Text>
         </View>
-        <View style={styles.overviewStatDivider} />
+        <View style={[styles.overviewStatDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
         <View style={styles.overviewStat}>
           <Text style={styles.overviewStatVal}>{totalEvaluationsCount}</Text>
           <Text style={styles.overviewStatLbl}>EVALUATIONS</Text>
         </View>
-        <View style={styles.overviewStatDivider} />
+        <View style={[styles.overviewStatDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
         <View style={styles.overviewStat}>
-          <Text style={styles.overviewStatVal}>{overallBatchAverage}%</Text>
+          <Text style={[styles.overviewStatVal, { color: '#F97316' }]}>{overallBatchAverage}%</Text>
           <Text style={styles.overviewStatLbl}>CLASS AVG</Text>
         </View>
       </View>
 
       {/* Main Content Area */}
       {loading ? (
-        <ActivityIndicator size="large" color="#000000" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color="#F97316" style={{ marginTop: 40 }} />
       ) : isBulkView ? (
         renderBulkView()
       ) : (
@@ -300,7 +302,7 @@ export default function ManageResultsScreen() {
           data={students}
           keyExtractor={item => item?._id || item?.id || String(Math.random())}
           contentContainerStyle={{ paddingBottom: 110 }}
-          ListEmptyComponent={<Text style={styles.emptyText}>No students in this batch.</Text>}
+          ListEmptyComponent={<Text style={[styles.emptyText, isDark && { color: '#64748B' }]}>No students in this batch.</Text>}
           renderItem={({ item }) => {
             const sResults = results.filter(
               r => r.student_id?._id === item._id || r.student_id === item._id
@@ -311,18 +313,18 @@ export default function ManageResultsScreen() {
 
             return (
               <TouchableOpacity
-                style={styles.studentCard}
+                style={[styles.studentCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
                 onPress={() => openStudentModal(item)}
                 activeOpacity={0.7}
               >
-                <View style={styles.avatarBox}>
-                  <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
+                <View style={[styles.avatarBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
+                  <Text style={[styles.avatarText, isDark && { color: '#F97316' }]}>{getInitials(item.name)}</Text>
                 </View>
 
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.studentName}>{item.name}</Text>
-                  <Text style={styles.studentSub}>Reg No: {item.index_number || item.nic || 'N/A'}</Text>
-                  <Text style={styles.evalCountText}>{sResults.length} Assessment{sResults.length === 1 ? '' : 's'} recorded</Text>
+                  <Text style={[styles.studentName, isDark && { color: '#FFFFFF' }]}>{item.name}</Text>
+                  <Text style={[styles.studentSub, isDark && { color: '#94A3B8' }]}>Reg No: {item.index_number || item.nic || 'N/A'}</Text>
+                  <Text style={[styles.evalCountText, isDark && { color: '#64748B' }]}>{sResults.length} Assessment{sResults.length === 1 ? '' : 's'} recorded</Text>
                 </View>
 
                 <View style={styles.studentRightAction}>
@@ -332,10 +334,10 @@ export default function ManageResultsScreen() {
                       <Text style={styles.avgBadgeLbl}>Avg</Text>
                     </View>
                   ) : (
-                    <Text style={styles.noResultsText}>No marks</Text>
+                    <Text style={[styles.noResultsText, isDark && { color: '#64748B' }]}>No marks</Text>
                   )}
                   <View style={styles.addMarkIconBtn}>
-                    <Icon name="add-circle" size={24} color="#000000" />
+                    <Icon name="add-circle" size={24} color={isDark ? "#F97316" : "#000000"} />
                   </View>
                 </View>
               </TouchableOpacity>
@@ -349,27 +351,27 @@ export default function ManageResultsScreen() {
       {/* ========================================================================= */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
+          <View style={[styles.modalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+            <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>{selectedStudent?.name}</Text>
-                <Text style={styles.modalSub}>Reg No: {selectedStudent?.index_number || selectedStudent?.nic || 'N/A'}</Text>
+                <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>{selectedStudent?.name}</Text>
+                <Text style={[styles.modalSub, isDark && { color: '#94A3B8' }]}>Reg No: {selectedStudent?.index_number || selectedStudent?.nic || 'N/A'}</Text>
               </View>
               <TouchableOpacity style={styles.closeModalIconBtn} onPress={() => setModalVisible(false)}>
-                <Icon name="close" size={22} color="#4B5563" />
+                <Icon name="close" size={22} color={isDark ? "#94A3B8" : "#4B5563"} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
               {/* Form to Add New Result */}
-              <View style={styles.addFormCard}>
-                <Text style={styles.formTitle}>Publish New Assessment Result</Text>
+              <View style={[styles.addFormCard, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                <Text style={[styles.formTitle, isDark && { color: '#FFFFFF' }]}>Publish New Assessment Result</Text>
 
-                <Text style={styles.inputLabel}>Assessment Title *</Text>
+                <Text style={[styles.inputLabel, isDark && { color: '#CBD5E1' }]}>Assessment Title *</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)', color: '#FFFFFF' }]}
                   placeholder="e.g. Engine Overhaul Practical Exam"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                   value={assessmentName}
                   onChangeText={setAssessmentName}
                 />
@@ -427,18 +429,18 @@ export default function ManageResultsScreen() {
               </View>
 
               {/* List of Existing Results for Student */}
-              <Text style={styles.sectionTitle}>Recorded Assessments ({studentResults.length})</Text>
+              <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Recorded Assessments ({studentResults.length})</Text>
               {studentResults.length === 0 ? (
-                <Text style={styles.emptyText}>No evaluation marks recorded yet.</Text>
+                <Text style={[styles.emptyText, isDark && { color: '#64748B' }]}>No evaluation marks recorded yet.</Text>
               ) : (
                 studentResults.map(item => (
-                  <View key={item._id} style={styles.resultItemRow}>
+                  <View key={item._id} style={[styles.resultItemRow, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.resName}>{item.assessment_name}</Text>
-                      <Text style={styles.resDate}>Recorded: {new Date(item.createdAt || Date.now()).toLocaleDateString()}</Text>
+                      <Text style={[styles.resName, isDark && { color: '#FFFFFF' }]}>{item.assessment_name}</Text>
+                      <Text style={[styles.resDate, isDark && { color: '#94A3B8' }]}>Recorded: {new Date(item.createdAt || Date.now()).toLocaleDateString()}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={styles.resScoreText}>{item.marks.toFixed(1)} / 100</Text>
+                      <Text style={[styles.resScoreText, isDark && { color: '#FFFFFF' }]}>{item.marks.toFixed(1)} / 100</Text>
                       <View style={[styles.gradeChip, { backgroundColor: getGradeColor(item.grade) }]}>
                         <Text style={styles.gradeChipText}>{item.grade || calculateGrade(item.marks)}</Text>
                       </View>
