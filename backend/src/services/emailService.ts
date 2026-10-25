@@ -12,6 +12,35 @@ export interface SendOtpMailOptions {
   otp: string;
 }
 
+export interface SendPasswordResetOtpMailOptions {
+  to: string;
+  otp: string;
+}
+
+export interface SendApplicationSubmissionEmailOptions {
+  to: string;
+  studentName: string;
+}
+
+export interface SendApprovalCredentialsEmailOptions {
+  to: string;
+  studentName: string;
+  indexNumber: string;
+  tempPassword: string;
+}
+
+export interface SendPasswordResetEmailOptions {
+  to: string;
+  resetLink: string;
+}
+
+export interface SendCertificateVerificationOtpMailOptions {
+  to: string;
+  studentName: string;
+  indexNumber: string;
+  otp: string;
+}
+
 /**
  * Creates and returns a Nodemailer Transporter based on environment variables.
  */
@@ -59,11 +88,27 @@ const getTransporter = () => {
   });
 };
 
+const DEFAULT_FROM_ADDRESS = process.env.MAIL_FROM || process.env.SMTP_FROM || '"Twintec Vocational Training Institute" <admissions@tvti.edu>';
+
+const renderHeaderCard = () => `
+  <div class="header">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 14px auto;">
+      <tr>
+        <td align="center" style="background: #ea580c; width: 52px; height: 52px; border-radius: 14px; text-align: center; vertical-align: middle; color: #ffffff; font-size: 26px; font-weight: 900; font-family: Arial, sans-serif;">
+          T
+        </td>
+      </tr>
+    </table>
+    <h1>TWINTEC VOCATIONAL TRAINING INSTITUTE</h1>
+    <p>OFFICIAL ADMISSIONS PORTAL</p>
+  </div>
+`;
+
 /**
  * Sends a 6-digit OTP verification email via Nodemailer.
  */
 export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = process.env.MAIL_FROM || process.env.SMTP_FROM || '"TVTI Institute" <admissions@tvti.edu>';
+  const from = DEFAULT_FROM_ADDRESS;
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -71,13 +116,13 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
     <html>
     <head>
       <meta charset="utf-8">
-      <title>TVTI Email Verification</title>
+      <title>Twintec Email Verification</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
         .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
         .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 3px solid #ea580c; }
-        .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
-        .header p { color: #94a3b8; margin: 4px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
         .content { padding: 36px 32px; text-align: center; }
         .title { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
         .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 28px; }
@@ -90,14 +135,11 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <h1>TECHNICAL & VOCATIONAL TRAINING INSTITUTE</h1>
-          <p>OFFICIAL ADMISSIONS PORTAL</p>
-        </div>
+        ${renderHeaderCard()}
         <div class="content">
           <h2 class="title">Email Address Verification</h2>
           <p class="description">
-            Thank you for initiating your registration with the Technical & Vocational Training Institute. Please enter the verification code below to confirm your email address.
+            Thank you for initiating your registration with Twintec Vocational Training Institute. Please enter the verification code below to confirm your email address.
           </p>
           <div class="otp-box">
             <div class="otp-code">${otp}</div>
@@ -110,7 +152,7 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
           </div>
         </div>
         <div class="footer">
-          Technical & Vocational Training Institute &bull; Official Communication
+          Twintec Vocational Training Institute &bull; Official Communication
         </div>
       </div>
     </body>
@@ -122,8 +164,8 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
       await transporter.sendMail({
         from,
         to,
-        subject: `TVTI Verification Code: ${otp}`,
-        text: `Your TVTI Verification Code is: ${otp}. It expires in 10 minutes.`,
+        subject: `Twintec Verification Code: ${otp}`,
+        text: `Your Twintec Verification Code is: ${otp}. It expires in 10 minutes.`,
         html: htmlContent,
       });
       return { success: true };
@@ -135,22 +177,17 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
   console.log(`\n======================================================`);
   console.log(`[DEV OTP EMAIL NOTICE]`);
   console.log(`To: ${to}`);
-  console.log(`OTP Code: [ ${otp} ]`);
+  console.log(`OTP Code: [REDACTED]`);
   console.log(`Valid for 10 minutes`);
   console.log(`======================================================\n`);
   return { success: true, simulated: true };
 };
 
-export interface SendApplicationSubmissionEmailOptions {
-  to: string;
-  studentName: string;
-}
-
 /**
- * Sends a confirmation email when a student registers (Status: Pending Review).
+ * Sends a 6-digit OTP for Password Reset via Nodemailer.
  */
-export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendApplicationSubmissionEmailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = process.env.MAIL_FROM || process.env.SMTP_FROM || '"TVTI Institute" <admissions@tvti.edu>';
+export const sendPasswordResetOtpEmail = async ({ to, otp }: SendPasswordResetOtpMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = DEFAULT_FROM_ADDRESS;
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -158,13 +195,92 @@ export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendAp
     <html>
     <head>
       <meta charset="utf-8">
-      <title>TVTI Application Confirmation</title>
+      <title>TVTI Password Reset</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
+        .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+        .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 3px solid #ea580c; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .content { padding: 36px 32px; text-align: center; }
+        .title { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
+        .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 28px; }
+        .otp-box { background: #f8fafc; border: 2px solid #cbd5e1; border-radius: 8px; padding: 20px 32px; display: inline-block; margin: 0 auto 24px auto; }
+        .otp-code { font-size: 38px; font-weight: 800; letter-spacing: 10px; color: #ea580c; margin: 0; font-family: 'Courier New', Courier, monospace; }
+        .expiry-note { font-size: 13px; color: #64748b; margin-bottom: 24px; font-weight: 500; }
+        .security-note { font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; line-height: 1.5; text-align: left; }
+        .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        ${renderHeaderCard()}
+        <div class="content">
+          <h2 class="title">Password Reset Verification</h2>
+          <p class="description">
+            We received a request to reset your TVTI account password. Please enter the verification code below to proceed.
+          </p>
+          <div class="otp-box">
+            <div class="otp-code">${otp}</div>
+          </div>
+          <p class="expiry-note">
+            Verification Code Expiry: <strong>10 Minutes</strong>
+          </p>
+          <div class="security-note">
+            <strong>Security Notice:</strong> If you did not request a password reset, you can safely ignore this email.
+          </div>
+        </div>
+        <div class="footer">
+          TVTI - Technical & Vocational Training Institute &bull; Official Communication
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject: `TVTI Password Reset Verification Code: ${otp}`,
+        text: `Your TVTI Password Reset Verification Code is: ${otp}. It expires in 10 minutes. If you did not request a password reset, please ignore this email.`,
+        html: htmlContent,
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.warn(`[RESET OTP EMAIL SMTP WARNING] (${err?.message || err}). Falling back to dev logger.`);
+    }
+  }
+
+  console.log(`\n======================================================`);
+  console.log(`[DEV PASSWORD RESET OTP EMAIL NOTICE]`);
+  console.log(`To: ${to}`);
+  console.log(`OTP Code: [ ${otp} ]`);
+  console.log(`Valid for 10 minutes`);
+  console.log(`======================================================\n`);
+  return { success: true, simulated: true };
+};
+
+/**
+ * Sends a confirmation email when a student registers (Status: Pending Review).
+ */
+export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendApplicationSubmissionEmailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = DEFAULT_FROM_ADDRESS;
+  const transporter = getTransporter();
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Twintec Application Confirmation</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
         .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
         .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 3px solid #ea580c; }
-        .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
-        .header p { color: #94a3b8; margin: 4px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
         .content { padding: 36px 32px; }
         .title { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
         .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px; }
@@ -179,15 +295,12 @@ export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendAp
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <h1>TECHNICAL & VOCATIONAL TRAINING INSTITUTE</h1>
-          <p>OFFICIAL ADMISSIONS PORTAL</p>
-        </div>
+        ${renderHeaderCard()}
         <div class="content">
           <h2 class="title">Application Submission Confirmation</h2>
           <p class="description">
             Dear <strong>${studentName}</strong>,<br><br>
-            Your application for course enrollment has been successfully submitted to the Technical & Vocational Training Institute (TVTI).
+            Your application for course enrollment has been successfully submitted to Twintec Vocational Training Institute.
           </p>
 
           <div class="status-box">
@@ -198,12 +311,12 @@ export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendAp
           <div class="info-card">
             <div class="info-card-title">Official Portal Credentials Notice</div>
             <div class="info-card-text">
-              Upon approval of your application by the TVTI Admissions Board, your official <strong>Registration Number (Index No)</strong> and temporary login password will be dispatched to this email address.
+              Upon approval of your application by the Twintec Admissions Board, your official <strong>Registration Number (Index No)</strong> and temporary login password will be dispatched to the email address linked to your application.
             </div>
           </div>
         </div>
         <div class="footer">
-          Technical & Vocational Training Institute &bull; Official Communication
+          Twintec Vocational Training Institute &bull; Official Communication
         </div>
       </div>
     </body>
@@ -215,8 +328,8 @@ export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendAp
       await transporter.sendMail({
         from,
         to,
-        subject: `TVTI Course Application Confirmation - ${studentName}`,
-        text: `Dear ${studentName}, your TVTI application has been received and is pending administrative review.`,
+        subject: `Twintec Course Application Confirmation - ${studentName}`,
+        text: `Dear ${studentName}, your Twintec application has been received and is pending administrative review.`,
         html: htmlContent,
       });
       return { success: true };
@@ -234,13 +347,6 @@ export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendAp
   return { success: true, simulated: true };
 };
 
-export interface SendApprovalCredentialsEmailOptions {
-  to: string;
-  studentName: string;
-  indexNumber: string;
-  tempPassword: string;
-}
-
 /**
  * Sends official approval email containing Student Registration No and Temporary Password.
  */
@@ -250,7 +356,7 @@ export const sendApprovalCredentialsEmail = async ({
   indexNumber,
   tempPassword
 }: SendApprovalCredentialsEmailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = process.env.MAIL_FROM || process.env.SMTP_FROM || '"TVTI Institute" <admissions@tvti.edu>';
+  const from = DEFAULT_FROM_ADDRESS;
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -258,19 +364,19 @@ export const sendApprovalCredentialsEmail = async ({
     <html>
     <head>
       <meta charset="utf-8">
-      <title>TVTI Official Credentials & Portal Access</title>
+      <title>Twintec Official Credentials & Portal Access</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
         .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
         .header { background: #0f172a; padding: 36px 28px; text-align: center; border-bottom: 4px solid #10b981; }
-        .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
-        .header p { color: #94a3b8; margin: 4px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
         .content { padding: 40px 36px; }
         .title { font-size: 22px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
         .subtitle { font-size: 13px; font-weight: 700; color: #059669; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 24px; }
         .description { font-size: 14.5px; line-height: 1.6; color: #334155; margin-bottom: 32px; }
         .cred-card { background: #0f172a; border-radius: 8px; padding: 28px; color: #ffffff; margin-bottom: 32px; box-shadow: 0 4px 12px rgba(15,23,42,0.15); }
-        .cred-card-header { font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 20px; }
+        .cred-card-header { font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 18px; }
         .cred-group { margin-bottom: 20px; }
         .cred-group:last-child { margin-bottom: 0; }
         .cred-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
@@ -282,16 +388,13 @@ export const sendApprovalCredentialsEmail = async ({
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <h1>TECHNICAL & VOCATIONAL TRAINING INSTITUTE</h1>
-          <p>OFFICIAL ADMISSIONS PORTAL</p>
-        </div>
+        ${renderHeaderCard()}
         <div class="content">
           <div class="subtitle">Official Admission Decision: Approved</div>
           <h2 class="title">Student Access Credentials</h2>
           <p class="description">
             Dear <strong>${studentName}</strong>,<br><br>
-            Your application for course admission has been formally <strong>Approved</strong> by the TVTI Admissions Office. Below are your official institutional credentials for accessing the Student Learning Management System portal.
+            Your application for course admission has been formally <strong>Approved</strong> by the Twintec Admissions Office. Below are your official institutional credentials for accessing the student portal.
           </p>
 
           <div class="cred-card">
@@ -315,11 +418,11 @@ export const sendApprovalCredentialsEmail = async ({
 
           <div class="security-box">
             <div class="security-box-title">Important Policy & Password Expiry Notice</div>
-            Your temporary password is valid for <strong>7 days</strong>. Upon your initial login to the TVTI Student Portal, you will be required to establish a secure permanent password.
+            Your temporary password is valid for <strong>7 days</strong>. Upon your initial login to the Twintec Student Portal, you will be required to establish a secure permanent password.
           </div>
         </div>
         <div class="footer">
-          Technical & Vocational Training Institute &bull; Official Communication
+          Twintec Vocational Training Institute &bull; Official Communication
         </div>
       </div>
     </body>
@@ -331,8 +434,8 @@ export const sendApprovalCredentialsEmail = async ({
       await transporter.sendMail({
         from,
         to,
-        subject: `TVTI Application Approved - Registration No: ${indexNumber}`,
-        text: `Dear ${studentName}, your TVTI course application has been approved. Registration Number: ${indexNumber}, Temporary Password: ${tempPassword}. Please log in to set your permanent password.`,
+        subject: `Twintec Application Approved - Registration No: ${indexNumber}`,
+        text: `Dear ${studentName}, your Twintec course application has been approved. Registration Number: ${indexNumber}, Temporary Password: ${tempPassword}. Please log in to set your permanent password.`,
         html: htmlContent,
       });
       console.log(`[APPROVAL EMAIL SENT SUCCESSFULLY via SMTP] To: ${to}`);
@@ -347,7 +450,620 @@ export const sendApprovalCredentialsEmail = async ({
   console.log(`To: ${to}`);
   console.log(`Student: ${studentName}`);
   console.log(`Registration No: [ ${indexNumber} ]`);
-  console.log(`Temporary Password: [ ${tempPassword} ]`);
+  console.log(`Temporary Password: [REDACTED]`);
   console.log(`======================================================\n`);
   return { success: true, simulated: true };
 };
+
+/**
+ * Sends password reset link email.
+ */
+export const sendPasswordResetEmail = async ({ to, resetLink }: SendPasswordResetEmailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = DEFAULT_FROM_ADDRESS;
+  const transporter = getTransporter();
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Twintec Password Reset</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
+        .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+        .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 3px solid #ea580c; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .content { padding: 36px 32px; text-align: center; }
+        .title { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
+        .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 28px; }
+        .btn-link { display: inline-block; background: #ea580c; color: #ffffff; font-weight: 800; font-size: 15px; padding: 14px 28px; border-radius: 8px; text-decoration: none; margin-bottom: 24px; }
+        .expiry-note { font-size: 13px; color: #64748b; margin-bottom: 24px; font-weight: 500; }
+        .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        ${renderHeaderCard()}
+        <div class="content">
+          <h2 class="title">Password Reset Request</h2>
+          <p class="description">
+            You requested a password reset for your Twintec Student Portal account. Click the button below to establish a new password:
+          </p>
+          <a href="${resetLink}" class="btn-link" target="_blank">Reset Your Password</a>
+          <p class="expiry-note">
+            Password Reset Link Expiry: <strong>1 Hour</strong>
+          </p>
+        </div>
+        <div class="footer">
+          Twintec Vocational Training Institute &bull; Official Communication
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject: `Twintec Password Reset Request`,
+        text: `Click the following link to reset your Twintec password: ${resetLink}. It expires in 1 hour.`,
+        html: htmlContent,
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.warn(`[RESET EMAIL SMTP WARNING] (${err?.message || err}).`);
+    }
+  }
+
+  return { success: true, simulated: true };
+};
+
+export interface SendApprovalMailOptions {
+  to: string;
+  name: string;
+  registrationNumber: string;
+  temporaryPassword: string;
+}
+
+/**
+ * Sends an approval confirmation email with Registration Number and Temporary Password via Nodemailer.
+ */
+export const sendApprovalEmail = async ({
+  to,
+  name,
+  registrationNumber,
+  temporaryPassword,
+}: SendApprovalMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = process.env.MAIL_FROM || process.env.SMTP_FROM || `"TVTI Institute" <${process.env.SMTP_USER || 'admissions@tvti.edu'}>`;
+  const transporter = getTransporter();
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>TVTI Application Approved</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; color: #1a1a1a; }
+        .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: 1px solid #e5e7eb; }
+        .header { background: #0f172a; padding: 28px 24px; text-align: center; }
+        .header h1 { color: #f97316; margin: 0; font-size: 24px; letter-spacing: 0.5px; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
+        .content { padding: 32px 28px; }
+        .badge { display: inline-block; background: #ecfdf5; color: #047857; font-weight: 700; font-size: 12px; padding: 4px 12px; border-radius: 9999px; margin-bottom: 16px; border: 1px solid #a7f3d0; }
+        .title { font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
+        .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px; }
+        .credentials-card { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 20px; margin: 24px 0; }
+        .credential-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0; }
+        .credential-row:last-child { border-bottom: none; }
+        .label { font-size: 13px; font-weight: 600; color: #64748b; }
+        .value { font-size: 15px; font-weight: 700; color: #0f172a; font-family: monospace; }
+        .highlight { color: #ea580c; }
+        .notice { font-size: 13px; line-height: 1.5; color: #b45309; background: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin: 20px 0; }
+        .footer { background: #f8fafc; padding: 16px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>TVTI Institute</h1>
+          <p>Application Approved</p>
+        </div>
+        <div class="content">
+          <div class="badge">✓ APPLICATION APPROVED</div>
+          <h2 class="title">Dear ${name},</h2>
+          <p class="description">
+            Congratulations!<br><br>
+            Your TVTI application has been approved. Your official account details are provided below:
+          </p>
+          
+          <div class="credentials-card">
+            <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; color: #64748b; margin-bottom: 12px; letter-spacing: 0.5px;">Account Details</div>
+            <div class="credential-row">
+              <span class="label">Registration Number:</span>
+              <span class="value highlight">${registrationNumber}</span>
+            </div>
+            <div class="credential-row">
+              <span class="label">Temporary Password:</span>
+              <span class="value">${temporaryPassword}</span>
+            </div>
+            <div class="credential-row">
+              <span class="label">Registered Email:</span>
+              <span class="value" style="font-family: inherit;">${to}</span>
+            </div>
+          </div>
+
+          <p class="description">
+            Please use these credentials to log in to the TVTI system.
+          </p>
+
+          <div class="notice">
+            🔒 <strong>Security Notice:</strong> For security reasons, please change your temporary password after your first login.
+          </div>
+
+          <p class="description" style="margin-top: 24px;">
+            Regards,<br>
+            <strong>TVTI Institute</strong>
+          </p>
+        </div>
+        <div class="footer">
+          &copy; ${new Date().getFullYear()} TVTI - Technical & Vocational Training Institute. All rights reserved.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const textContent = `TVTI Institute\nApplication Approved\n\nDear ${name},\n\nCongratulations!\n\nYour TVTI application has been approved.\n\nYour account details are:\n\nRegistration Number:\n${registrationNumber}\nTemporary Password:\n${temporaryPassword}\n\nPlease change your password after logging in.\n`;
+
+  if (!transporter) {
+    console.log(`\n======================================================`);
+    console.log(`[DEV APPROVAL EMAIL NOTICE]`);
+    console.log(`To: ${to} (${name})`);
+    console.log(`Registration No: ${registrationNumber}`);
+    console.log(`Temp Password: [REDACTED]`);
+    console.log(`======================================================\n`);
+    return { success: true, simulated: true };
+  }
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: `TVTI Application Approved — Your Registration Number & Login Credentials`,
+    text: textContent,
+    html: htmlContent,
+  });
+
+  return { success: true };
+};
+
+export interface SendBatchAssignmentMailOptions {
+  to: string;
+  studentName: string;
+  registrationNumber: string;
+  courseName: string;
+  batchName: string;
+  startDate: string;
+  endDate: string;
+}
+
+/**
+ * Sends a notification email when an approved student is assigned to a batch.
+ */
+export const sendBatchAssignmentEmail = async ({
+  to,
+  studentName,
+  registrationNumber,
+  courseName,
+  batchName,
+  startDate,
+  endDate,
+}: SendBatchAssignmentMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = DEFAULT_FROM_ADDRESS;
+  const transporter = getTransporter();
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>TVTI Course and Batch Assignment</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+        .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 3px solid #10b981; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .content { padding: 36px 32px; }
+        .title { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
+        .description { font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 24px; }
+        .info-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; margin-bottom: 28px; }
+        .info-row { margin-bottom: 16px; }
+        .info-row:last-child { margin-bottom: 0; }
+        .label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+        .value { font-size: 15px; font-weight: 600; color: #0f172a; }
+        .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        ${renderHeaderCard()}
+        <div class="content">
+          <h2 class="title">Course and Batch Assignment</h2>
+          <p class="description">
+            Dear <strong>${studentName}</strong>,<br><br>
+            Your TVTI application has been approved and you have been successfully assigned to the following course and batch.
+          </p>
+
+          <div class="info-card">
+            <div class="info-row">
+              <span class="label">Registration Number</span>
+              <span class="value" style="color: #ea580c;">${registrationNumber}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Assigned Course</span>
+              <span class="value">${courseName}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Batch</span>
+              <span class="value">${batchName}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Batch Start Date</span>
+              <span class="value">${startDate}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Batch End Date</span>
+              <span class="value">${endDate}</span>
+            </div>
+          </div>
+
+          <p class="description">
+            Please log in to the TVTI portal for further information and updates regarding your schedule and classes.
+          </p>
+          <p class="description" style="margin-bottom: 0;">
+            Regards,<br>
+            <strong>Technical & Vocational Training Institute (TVTI)</strong>
+          </p>
+        </div>
+        <div class="footer">
+          Twintec Vocational Training Institute &bull; Official Communication
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject: `TVTI Course and Batch Assignment`,
+        text: `Dear ${studentName},\n\nYour TVTI application has been approved and you have been assigned to the following course and batch.\n\nRegistration Number: ${registrationNumber}\nCourse: ${courseName}\nBatch: ${batchName}\nBatch Start Date: ${startDate}\nBatch End Date: ${endDate}\n\nPlease log in to the TVTI portal for further information.\n\nRegards,\nTechnical & Vocational Training Institute (TVTI)`,
+        html: htmlContent,
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.warn(`[BATCH ASSIGNMENT EMAIL WARNING] (${err?.message || err}).`);
+      throw err;
+    }
+  }
+
+  return { success: true, simulated: true };
+};
+
+export interface SendRejectionMailOptions {
+  to: string;
+  name: string;
+  rejectionReason: string;
+}
+
+/**
+ * Sends a rejection notification email with the specified reason and resubmission instructions via Nodemailer.
+ */
+export const sendRejectionEmail = async ({
+  to,
+  name,
+  rejectionReason,
+}: SendRejectionMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = process.env.MAIL_FROM || process.env.SMTP_FROM || `"TVTI Institute" <${process.env.SMTP_USER || 'admissions@tvti.edu'}>`;
+  const transporter = getTransporter();
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>TVTI Application Status Update</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; color: #1a1a1a; }
+        .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: 1px solid #e5e7eb; }
+        .header { background: #0f172a; padding: 28px 24px; text-align: center; border-bottom: 3px solid #ef4444; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .content { padding: 32px 28px; }
+        .badge { display: inline-block; background: #fef2f2; color: #dc2626; font-weight: 700; font-size: 12px; padding: 4px 12px; border-radius: 9999px; margin-bottom: 16px; border: 1px solid #fecaca; }
+        .title { font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
+        .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 20px; }
+        .reason-card { background: #fff5f5; border: 1.5px solid #feb2b2; border-radius: 10px; padding: 18px; margin: 20px 0; }
+        .reason-label { font-size: 12px; font-weight: 800; text-transform: uppercase; color: #9b2c2c; margin-bottom: 6px; letter-spacing: 0.5px; }
+        .reason-text { font-size: 14.5px; line-height: 1.5; color: #742a2a; font-weight: 500; }
+        .resubmit-note { font-size: 13.5px; line-height: 1.6; color: #1e293b; background: #f8fafc; border-left: 4px solid #ea580c; padding: 14px; border-radius: 4px; margin: 20px 0; }
+        .footer { background: #f8fafc; padding: 16px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>TVTI Institute</h1>
+          <p>Application Status Notice</p>
+        </div>
+        <div class="content">
+          <div class="badge">APPLICATION REJECTED</div>
+          <h2 class="title">Dear ${name},</h2>
+          <p class="description">
+            Thank you for your interest in enrolling at Twintec Vocational Training Institute. After reviewing your submitted application details, we regret to inform you that your application could not be approved at this time.
+          </p>
+          
+          <div class="reason-card">
+            <div class="reason-label">Reason for Rejection:</div>
+            <div class="reason-text">${rejectionReason || 'Details/documents provided do not meet the minimum entry requirements.'}</div>
+          </div>
+
+          <div class="resubmit-note">
+            💡 <strong>Next Steps / Resubmission:</strong><br>
+            You are welcome to correct or update your application details and resubmit a new application anytime via our official website registration portal.
+          </div>
+
+          <p class="description" style="margin-top: 24px;">
+            If you have any questions or require further assistance, please contact the admissions department.<br><br>
+            Regards,<br>
+            <strong>Admissions Team &bull; TVTI Institute</strong>
+          </p>
+        </div>
+        <div class="footer">
+          &copy; ${new Date().getFullYear()} TVTI - Technical & Vocational Training Institute. All rights reserved.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (!transporter) {
+    console.log(`\n======================================================`);
+    console.log(`[DEV REJECTION EMAIL NOTICE]`);
+    console.log(`To: ${to} (${name})`);
+    console.log(`Reason: ${rejectionReason}`);
+    console.log(`======================================================\n`);
+    return { success: true, simulated: true };
+  }
+
+  try {
+    await transporter.sendMail({
+      from,
+      to,
+      subject: `TVTI Application Status — Rejection Notice & Resubmission Information`,
+      text: `Dear ${name},\n\nYour application to TVTI has been rejected.\n\nReason: ${rejectionReason}\n\nYou may resubmit your application through our official website portal.\n\nRegards,\nTVTI Institute`,
+      html: htmlContent,
+    });
+    return { success: true };
+  } catch (err: any) {
+    console.warn(`[REJECTION EMAIL SMTP WARNING] (${err?.message || err}).`);
+    return { success: false };
+  }
+};
+
+export interface SendDeactivationMailOptions {
+  to: string;
+  studentName: string;
+  registrationNumber: string;
+}
+
+/**
+ * Sends a notification email when a student's account is deactivated by the administration.
+ */
+export const sendDeactivationEmail = async ({
+  to,
+  studentName,
+  registrationNumber,
+}: SendDeactivationMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = DEFAULT_FROM_ADDRESS;
+  const transporter = getTransporter();
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>TVTI Account Deactivated</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+        .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 3px solid #ef4444; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .content { padding: 36px 32px; }
+        .title { font-size: 20px; font-weight: 700; color: #b91c1c; margin-top: 0; margin-bottom: 12px; }
+        .description { font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 24px; }
+        .info-card { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+        .info-row { margin-bottom: 12px; }
+        .info-row:last-child { margin-bottom: 0; }
+        .label { font-size: 12px; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+        .value { font-size: 15px; font-weight: 600; color: #7f1d1d; }
+        .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        ${renderHeaderCard()}
+        <div class="content">
+          <h2 class="title">Account Deactivated</h2>
+          <p class="description">
+            Dear <strong>${studentName}</strong>,<br><br>
+            Your TVTI student account has been deactivated by the administration. You are currently unable to log in to the TVTI system.
+          </p>
+
+          <div class="info-card">
+            <div class="info-row">
+              <span class="label">Registration Number</span>
+              <span class="value">${registrationNumber}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Account Status</span>
+              <span class="value">Deactivated</span>
+            </div>
+          </div>
+
+          <p class="description">
+            If you believe this was done by mistake or require further information, please contact the TVTI administration.
+          </p>
+          <p class="description" style="margin-bottom: 0;">
+            Regards,<br>
+            <strong>Technical & Vocational Training Institute (TVTI)</strong>
+          </p>
+        </div>
+        <div class="footer">
+          Twintec Vocational Training Institute &bull; Official Communication
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject: `TVTI Account Deactivated`,
+        text: `Dear ${studentName},\n\nYour TVTI student account has been deactivated by the administration.\n\nRegistration Number: ${registrationNumber}\n\nYou are currently unable to log in to the TVTI system.\n\nIf you believe this was done by mistake or require further information, please contact the TVTI administration.\n\nRegards,\nTechnical & Vocational Training Institute (TVTI)`,
+        html: htmlContent,
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.warn(`[DEACTIVATION EMAIL WARNING] (${err?.message || err}).`);
+      throw err; // Re-throw so controller can catch and log DB error status
+    }
+  }
+
+  return { success: true, simulated: true };
+};
+
+export const sendRawEmail = async (to: string, subject: string, body: string) => {
+  const transporter = getTransporter();
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@tvti.edu.lk';
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject,
+        text: body,
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.warn(`[RAW EMAIL WARNING] (${err?.message || err}).`);
+    }
+  }
+  return { success: true, simulated: true };
+};
+
+/**
+ * Sends a 6-digit OTP verification email for Certificate Verification.
+ */
+export const sendCertificateVerificationOtpEmail = async ({
+  to,
+  studentName,
+  indexNumber,
+  otp,
+}: SendCertificateVerificationOtpMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+  const from = DEFAULT_FROM_ADDRESS;
+  const transporter = getTransporter();
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>TVTI Certificate Verification Code</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
+        .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+        .header { background: #0f172a; padding: 32px 24px; text-align: center; border-bottom: 4px solid #ea580c; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+        .header p { color: #94a3b8; margin: 6px 0 0 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+        .content { padding: 36px 32px; text-align: center; }
+        .badge { display: inline-block; background: #fff7ed; color: #c2410c; font-weight: 800; font-size: 11px; padding: 6px 14px; border-radius: 9999px; margin-bottom: 20px; border: 1px solid #ffedd5; letter-spacing: 1px; text-transform: uppercase; }
+        .title { font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 0; margin-bottom: 12px; }
+        .description { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px; text-align: left; }
+        .student-info { background: #f8fafc; border-left: 4px solid #ea580c; padding: 14px 18px; border-radius: 6px; margin-bottom: 24px; text-align: left; font-size: 13.5px; }
+        .otp-box { background: #0f172a; border-radius: 10px; padding: 22px 32px; display: inline-block; margin: 0 auto 24px auto; box-shadow: 0 4px 12px rgba(15,23,42,0.15); }
+        .otp-code { font-size: 38px; font-weight: 900; letter-spacing: 12px; color: #f97316; margin: 0; font-family: 'Courier New', Courier, monospace; }
+        .expiry-note { font-size: 13px; color: #64748b; margin-bottom: 24px; font-weight: 500; }
+        .security-note { font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; line-height: 1.5; text-align: left; }
+        .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        ${renderHeaderCard()}
+        <div class="content">
+          <div class="badge">🔒 SECURITY VERIFICATION CODE</div>
+          <h2 class="title">Certificate Verification Request</h2>
+          <p class="description">
+            A verification request was initiated on the Twintec Official Registry portal to view the academic certificate for <strong>${studentName}</strong> (Index No: <strong>${indexNumber}</strong>).
+          </p>
+          <div class="student-info">
+            <strong>Verification Target:</strong> ${studentName}<br>
+            <strong>Index Number:</strong> ${indexNumber}
+          </div>
+          <p class="description" style="text-align: center; font-size: 13px; color: #64748b; margin-bottom: 12px;">
+            Please enter the 6-digit verification code below on the verification page:
+          </p>
+          <div class="otp-box">
+            <div class="otp-code">${otp}</div>
+          </div>
+          <p class="expiry-note">
+            Code Expiry: <strong>10 Minutes</strong>
+          </p>
+          <div class="security-note">
+            <strong>Security Notice:</strong> This code is single-use and intended to protect student academic credentials. If you did not initiate this certificate verification, please disregard this email.
+          </div>
+        </div>
+        <div class="footer">
+          Twintec Vocational Training Institute &bull; Registry & Credential Authentication
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject: `[TVTI Verification] Certificate Security Code: ${otp} for Index ${indexNumber}`,
+        text: `Twintec Certificate Verification Code: ${otp}. Student: ${studentName}, Index: ${indexNumber}. Valid for 10 minutes.`,
+        html: htmlContent,
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.warn(`[CERT OTP EMAIL SMTP WARNING] (${err?.message || err}). Falling back to dev logger.`);
+    }
+  }
+
+  console.log(`\n======================================================`);
+  console.log(`[DEV CERTIFICATE OTP EMAIL NOTICE]`);
+  console.log(`To: ${to}`);
+  console.log(`Student: ${studentName} (${indexNumber})`);
+  console.log(`OTP Code: [ ${otp} ]`);
+  console.log(`======================================================\n`);
+  return { success: true, simulated: true };
+};
+
+

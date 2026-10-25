@@ -2,7 +2,7 @@ import express from 'express';
 import { getMySchedule, getDashboardStats, getMyStudents } from '../controllers/instructorController';
 import { getBatchTopics, getMyVideos, getMyMaterials, uploadVideo, updateVideo, deleteVideo } from '../controllers/videoController';
 import { uploadMaterial } from '../controllers/uploadController';
-import { createSlots, getMySlots, updateSlot, deleteSlot, getSlotBookings, cancelBookingByAdmin, addStudentBookingByAdmin } from '../controllers/practiceSlotController';
+import { createSlots, getMySlots, updateSlot, deleteSlot, getSlotBookings, cancelBookingByAdmin, addStudentBookingByAdmin, approveCancellation, rejectCancellation } from '../controllers/practiceSlotController';
 import { protect } from '../middleware/authMiddleware';
 import { checkRole } from '../middleware/roleMiddleware';
 import { upload } from '../middleware/uploadMiddleware';
@@ -50,5 +50,7 @@ router.delete('/practice-slots/:slotId',                   deleteSlot);
 router.get('/practice-slots/:slotId/bookings',             getSlotBookings);
 router.post('/practice-slots/:slotId/bookings',            addStudentBookingByAdmin);
 router.delete('/practice-slots/:slotId/bookings/:bookingId', cancelBookingByAdmin);
+router.post('/practice-slots/:slotId/bookings/:bookingId/approve-cancellation', approveCancellation);
+router.post('/practice-slots/:slotId/bookings/:bookingId/reject-cancellation', rejectCancellation);
 
 export default router;

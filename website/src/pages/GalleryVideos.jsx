@@ -3,9 +3,12 @@ import { Link } from 'react-router-dom'
 import SectionHeading from '../components/SectionHeading'
 import Card from '../components/Card'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function GalleryVideos() {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [activeVideo, setActiveVideo] = useState(null)
+  const [videosList, setVideosList] = useState([])
 
   useEffect(() => {
     document.title = 'Video Gallery | Twintec Vocational Training Institute'
@@ -16,11 +19,41 @@ export default function GalleryVideos() {
         'Watch our classroom demonstrations, student projects, practical guides, and facility walkthroughs at Twintec Vocational Training Institute.'
       )
     }
+
+    const fetchVideos = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/gallery?type=video`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const formatted = data.map(item => {
+              let ytId = item.youtubeId;
+              if (!ytId && item.url) {
+                const match = item.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+                if (match) ytId = match[1];
+              }
+              return {
+                id: item._id,
+                youtubeId: ytId || 'S2pPyA2xV1s',
+                title: item.title,
+                category: item.category || 'Course Practical Guides',
+                duration: '3:45',
+                description: item.description || ''
+              };
+            });
+            setVideosList(formatted);
+          }
+        }
+      } catch (e) {
+        console.log('Failed to fetch video gallery:', e);
+      }
+    };
+    fetchVideos();
   }, [])
 
   const categories = ['All', 'Course Practical Guides', 'Student Showcases', 'Facility Tours']
 
-  const videos = [
+  const defaultVideos = [
     {
       youtubeId: 'S2pPyA2xV1s',
       title: 'Mobile Phone Hardware Micro-soldering Demonstration',
@@ -65,9 +98,10 @@ export default function GalleryVideos() {
     },
   ]
 
+  const activeVideos = videosList.length > 0 ? videosList : defaultVideos;
   const filteredVideos = selectedCategory === 'All'
-    ? videos
-    : videos.filter(video => video.category === selectedCategory)
+    ? activeVideos
+    : activeVideos.filter(video => video.category === selectedCategory)
 
   return (
     <div className="flex flex-col w-full overflow-hidden select-none">

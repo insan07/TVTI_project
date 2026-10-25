@@ -14,11 +14,14 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config/constants';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
+import ScreenHeader from '../../components/shared/ScreenHeader';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function PdfViewerScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
 
   const rawUrl: string = route.params?.pdfUrl || '';
   const title: string = route.params?.title || 'PDF Document';
@@ -82,30 +85,30 @@ export default function PdfViewerScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={[styles.topHeaderBar, { paddingTop: insets.top + 6 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('StudentApp'))}>
-          <Icon name="arrow-back" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        <TouchableOpacity style={styles.externalBtn} onPress={handleExternalOpen}>
-          <Icon name="open-outline" size={22} color="#F58220" />
-        </TouchableOpacity>
+    <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
+      <View style={{ paddingTop: insets.top }}>
+        <ScreenHeader
+          title={title}
+          subtitle="PDF Document Viewer"
+          showBack={true}
+          rightElement={
+            <TouchableOpacity style={styles.externalBtn} onPress={handleExternalOpen}>
+              <Icon name="open-outline" size={20} color="#F58220" />
+            </TouchableOpacity>
+          }
+        />
       </View>
 
       {/* Main Container */}
-      <View style={styles.bodyContainer}>
+      <View style={[styles.bodyContainer, isDark && { backgroundColor: '#0B0F19' }]}>
         {/* PDF Document Header Card */}
-        <View style={styles.previewCard}>
-          <View style={styles.pdfIconCircle}>
+        <View style={[styles.previewCard, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+          <View style={[styles.pdfIconCircle, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
             <Icon name="document-text" size={28} color="#F58220" />
           </View>
           <View style={styles.cardDetails}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
-            <Text style={styles.cardSubtitle}>PDF Document</Text>
+            <Text style={[styles.cardTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>{title}</Text>
+            <Text style={[styles.cardSubtitle, isDark && { color: '#94A3B8' }]}>PDF Document</Text>
           </View>
 
           <TouchableOpacity style={styles.openButton} onPress={handleExternalOpen} activeOpacity={0.85}>
@@ -250,7 +253,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',

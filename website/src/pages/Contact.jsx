@@ -3,15 +3,17 @@ import { Link } from 'react-router-dom'
 import SectionHeading from '../components/SectionHeading'
 import Card from '../components/Card'
 import Button from '../components/Button'
+import { useSiteSettings } from '../context/SiteSettingsContext'
 
 export default function Contact() {
+  const { settings } = useSiteSettings()
   useEffect(() => {
     document.title = 'Contact Us | Twintec Vocational Training Institute Puttalam'
     const metaDesc = document.querySelector('meta[name="description"]')
     if (metaDesc) {
       metaDesc.setAttribute(
         'content',
-        'Contact TVTI Puttalam. Reach us at 0117 270 270, email info@tvti.lk, view our campus location on maps, or submit a message directly.'
+        'Contact TVTI Puttalam. Reach us at 076 538 0715, email twintec.official@gmail.com, view our campus location on maps, or submit a message directly.'
       )
     }
   }, [])
@@ -39,11 +41,26 @@ export default function Contact() {
     setContactError('')
     setContactLoading(true)
 
-    // Simulate sending message
+    // Build mailto link to automatically send email to twintec.official@gmail.com
+    const recipient = 'twintec.official@gmail.com'
+    const emailSubject = encodeURIComponent(`[TVTI Website Inquiry] ${contactData.subject} - ${contactData.name.trim()}`)
+    const emailBody = encodeURIComponent(
+      `Full Name: ${contactData.name.trim()}\n` +
+      `Phone / WhatsApp: ${contactData.phone.trim()}\n` +
+      `Email Address: ${contactData.email.trim() || 'N/A'}\n` +
+      `Inquiry Topic: ${contactData.subject}\n\n` +
+      `Message:\n${contactData.message.trim()}`
+    )
+
+    const mailtoUrl = `mailto:${recipient}?subject=${emailSubject}&body=${emailBody}`
+
+    // Trigger user mail client automatically
+    window.location.href = mailtoUrl
+
     setTimeout(() => {
       setContactLoading(false)
       setContactSubmitted(true)
-    }, 800)
+    }, 500)
   }
 
   const handleResetForm = () => {
@@ -108,7 +125,7 @@ export default function Contact() {
                 <div className="space-y-1">
                   <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-brand-charcoal/50">Campus Address</h4>
                   <p className="font-sans text-brand-black text-sm sm:text-base font-semibold">
-                    Mannar Road, Puttalam, Sri Lanka
+                    {settings?.address || 'Mannar Road, Puttalam, Sri Lanka'}
                   </p>
                 </div>
               </div>
@@ -123,7 +140,7 @@ export default function Contact() {
                 <div className="space-y-1">
                   <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-brand-charcoal/50">Admissions Hotline</h4>
                   <p className="font-sans text-brand-black text-sm sm:text-base font-semibold">
-                    076 538 0715 / 078 538 0715
+                    {settings?.contact_phone || '076 538 0715 / 078 538 0715'}
                   </p>
                 </div>
               </div>
@@ -138,7 +155,9 @@ export default function Contact() {
                 <div className="space-y-1">
                   <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-brand-charcoal/50">Support Email</h4>
                   <p className="font-sans text-brand-black text-sm sm:text-base font-semibold">
-                    info@tvti.edu.lk
+                    <a href={`mailto:${settings?.contact_email || 'twintec.official@gmail.com'}`} className="hover:text-brand-orange transition-colors">
+                      {settings?.contact_email || 'twintec.official@gmail.com'}
+                    </a>
                   </p>
                 </div>
               </div>

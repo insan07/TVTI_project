@@ -1,20 +1,21 @@
-import http from 'http';
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Application, Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
-import dns from 'dns';
 import multer from 'multer';
+import dns from 'dns';
 
-// Force Google DNS servers to resolve MongoDB Atlas queryTxt/SRV lookups reliably
-// Backend updated: OTP Verification re-enabled
-dns.setServers(['8.8.8.8', '8.8.4.4']);
-
-// Import Socket initialization
-import { initSocket } from './services/notificationService';
+// Fix for Windows / ISP DNS refusing SRV queries (querySrv ECONNREFUSED) for MongoDB Atlas
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+} catch {
+  // fallback for serverless or environments with locked DNS
+}
 
 // Import Routes
 import authRoutes from './routes/auth';
@@ -27,29 +28,25 @@ import applicationRoutes from './routes/applications';
 import certificateRoutes from './routes/certificateRoutes';
 import notificationRoutes from './routes/notifications';
 import announcementRoutes from './routes/announcements';
+import galleryRoutes from './routes/galleryRoutes';
+import newsRoutes from './routes/newsRoutes';
 import User from './models/User';
 import { getGridFSDownloadStream } from './services/fileStorage';
-
-// Load environment variables
-dotenv.config();
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
-// Create HTTP server
-const server = http.createServer(app);
-
-// Initialize Socket.io
-initSocket(server);
-
 import path from 'path';
+
+import { corsOptions } from './config/cors';
 
 // Middleware
 app.use(helmet({ crossOriginResourcePolicy: false }));
-app.use(cors());
+// CORS Configuration with full support for official domains, Vercel deployments, and dev servers
+app.use(cors(corsOptions));
 app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ limit: '5mb', extended: true }));
 app.use('/uploads', (req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -65,7 +62,15 @@ app.get('/api/files/:fileId', (req: Request, res: Response) => {
     const fileId = Array.isArray(req.params.fileId) ? req.params.fileId[0] : req.params.fileId;
     const downloadStream = getGridFSDownloadStream(fileId);
     downloadStream.on('file', (file) => {
-      const contentType = file.metadata?.contentType || (file.filename?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+      let contentType = file.metadata?.contentType;
+      if (!contentType || contentType === 'application/octet-stream') {
+        const fn = (file.filename || '').toLowerCase();
+        if (fn.endsWith('.png')) contentType = 'image/png';
+        else if (fn.endsWith('.webp')) contentType = 'image/webp';
+        else if (fn.endsWith('.gif')) contentType = 'image/gif';
+        else if (fn.endsWith('.pdf')) contentType = 'application/pdf';
+        else contentType = 'image/jpeg';
+      }
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', 'inline');
       res.setHeader('Access-Control-Allow-Origin', '*');
@@ -89,15 +94,14 @@ const apiLimiter = rateLimit({
 });
 app.use('/api', apiLimiter);
 
-// Database Connection
+// Database Connection — lazy connect for Vercel serverless
 let isConnected = false;
 const connectDB = async () => {
   if (isConnected) return;
   try {
     const mongoURI = process.env.MONGO_URI;
     if (!mongoURI) {
-      console.error('CRITICAL ERROR: MONGO_URI is not defined in your .env file! Please set MONGO_URI in backend/.env');
-      process.exit(1);
+      throw new Error('CRITICAL ERROR: MONGO_URI is not defined. Please set MONGO_URI in environment variables.');
     }
     await mongoose.connect(mongoURI);
     isConnected = true;
@@ -120,13 +124,28 @@ const connectDB = async () => {
     }
   } catch (err: any) {
     console.error('MongoDB connection error:', err.message);
+    throw err; // Let the request fail visibly instead of silently proceeding
   }
 };
+
+// Middleware: ensure DB is connected before handling any request (critical for serverless)
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(503).json({ success: false, message: 'Database connection failed' });
+  }
+});
+
+import { getSiteSettings } from './controllers/settingsController';
 
 // Use Routes
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({ message: 'Welcome to the LMS API - Server is LIVE' });
 });
+
+app.get('/api/settings', getSiteSettings);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
@@ -138,10 +157,28 @@ app.use('/api/students', studentRoutes);
 app.use('/api/instructors', instructorRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/gallery', galleryRoutes);
+app.use('/api/news', newsRoutes);
 
 // Global Error Handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
+
+  if (err.message && err.message.toLowerCase().includes('cors')) {
+    res.status(403).json({
+      success: false,
+      message: err.message,
+    });
+    return;
+  }
+
+  if ((err as any).type === 'entity.too.large' || (err as any).status === 413) {
+    res.status(413).json({
+      success: false,
+      message: 'Request entity too large. The uploaded image or file data exceeds size limits.',
+    });
+    return;
+  }
 
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
@@ -165,18 +202,14 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Connect Database & Start Server
-const startServer = async () => {
-  await connectDB();
-
-  if (process.env.NODE_ENV !== 'production') {
-    server.listen(PORT, () => {
-      console.log(`Server & Socket.io running on port ${PORT}`);
+// Start server for local development only (Vercel uses the default export directly)
+if (process.env.NODE_ENV !== 'production') {
+  connectDB().then(() => {
+    app.listen(Number(PORT), '0.0.0.0', () => {
+      console.log(`Server running on port ${PORT} (0.0.0.0)`);
     });
-  }
-};
-
-startServer();
+  });
+}
 
 export default app;
 

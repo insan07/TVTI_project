@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import api from '../../services/api';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
+
+import { Ionicons as Icon } from '@expo/vector-icons';
 
 export default function EnrollStudentScreen() {
+  const { isDark } = useTheme();
   const route = useRoute<any>();
+  const navigation = useNavigation<any>();
   const { batchId, capacity, enrolled } = route.params;
 
   const [activeStudents, setActiveStudents] = useState<any[]>([]);
@@ -66,43 +73,62 @@ export default function EnrollStudentScreen() {
   const availableStudents = activeStudents.filter(s => !enrolledIds.includes(s._id) && (s.name.toLowerCase().includes(search.toLowerCase()) || s.email.toLowerCase().includes(search.toLowerCase())));
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#F3F4F6'}} edges={['top']}>
+    <SafeAreaView style={{flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F3F4F6'}} edges={['top']}>
+      <ScreenBackground />
       <KeyboardAvoidingView style={{flex: 1}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Enroll Students</Text>
-        <Text style={styles.stats}>Capacity: {enrolledStudents.length} / {capacity}</Text>
-      </View>
+        <View style={[styles.container, isDark && { backgroundColor: 'transparent' }]}>
+          <ScreenHeader
+            title="Enroll Students"
+            subtitle={`Capacity: ${enrolledStudents.length} / ${capacity} Enrolled`}
+            showBack={true}
+          />
 
-      <TextInput style={styles.search} placeholder="Search available students..." value={search} onChangeText={setSearch} />
+          <TextInput
+            style={[styles.search, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', color: '#FFFFFF' }]}
+            placeholder="Search available students..."
+            placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
+            value={search}
+            onChangeText={setSearch}
+          />
 
-      {loading ? <ActivityIndicator size="large" color="#2563EB" style={{marginTop: 50}} /> : (
-        <FlatList
-          data={availableStudents}
-          keyExtractor={i => i._id}
-          getItemLayout={(data, index) => ({ length: 80, offset: 80 * index, index })}
-          contentContainerStyle={{paddingBottom: 20}}
-          renderItem={({item}) => (
-            <TouchableOpacity style={styles.row} onPress={() => toggleSelect(item._id)}>
-              <View style={[styles.checkbox, selectedIds.includes(item._id) && styles.checkboxActive]} />
-              <View>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.email}>{item.email}</Text>
-              </View>
-            </TouchableOpacity>
+          {loading ? <ActivityIndicator size="large" color="#F97316" style={{marginTop: 50}} /> : (
+            <FlatList
+              data={availableStudents}
+              keyExtractor={i => i._id}
+              getItemLayout={(data, index) => ({ length: 80, offset: 80 * index, index })}
+              contentContainerStyle={{paddingBottom: 20}}
+              renderItem={({item}) => (
+                <TouchableOpacity
+                  style={[styles.row, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}
+                  onPress={() => toggleSelect(item._id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, isDark && { borderColor: 'rgba(255, 255, 255, 0.2)' }, selectedIds.includes(item._id) && [styles.checkboxActive, { backgroundColor: '#F97316', borderColor: '#F97316' }]]} />
+                  <View>
+                    <Text style={[styles.name, isDark && { color: '#FFFFFF' }]}>{item.name}</Text>
+                    <Text style={[styles.email, isDark && { color: '#94A3B8' }]}>{item.email}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={<Text style={[{textAlign: 'center', marginTop: 20, color: '#6B7280'}, isDark && { color: '#64748B' }]}>No available students found.</Text>}
+            />
           )}
-          ListEmptyComponent={<Text style={{textAlign: 'center', marginTop: 20}}>No available students found.</Text>}
-        />
-      )}
 
-      {selectedIds.length > 0 && (
-        <View style={styles.footer}>
-          <Text style={{fontWeight: 'bold'}}>{selectedIds.length} Selected</Text>
-          <TouchableOpacity style={styles.btn} onPress={handleEnroll} disabled={saving}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Enroll Now</Text>}
-          </TouchableOpacity>
-        </View>
-      )}
+          {selectedIds.length > 0 && (
+            <View style={[styles.footer, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+              <Text style={[{fontWeight: 'bold', color: '#111827'}, isDark && { color: '#FFFFFF' }]}>{selectedIds.length} Selected</Text>
+              <TouchableOpacity style={[styles.btn, { backgroundColor: '#F97316' }]} onPress={handleEnroll} disabled={saving}>
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="person-add-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.btnText}>Enroll Now</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -113,14 +139,27 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   header: { padding: 20, backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: 20, fontWeight: 'bold' },
-  stats: { color: '#10B981', fontWeight: 'bold' },
-  search: { backgroundColor: '#fff', padding: 12, margin: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, marginHorizontal: 10, marginBottom: 8, borderRadius: 8 },
-  checkbox: { width: 24, height: 24, borderRadius: 4, borderWidth: 2, borderColor: '#ccc', marginRight: 12 },
-  checkboxActive: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+  stats: { color: '#059669', fontWeight: 'bold' },
+  search: { backgroundColor: '#fff', padding: 12, margin: 10, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' },
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, marginHorizontal: 10, marginBottom: 8, borderRadius: 12 },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#D1D5DB', marginRight: 12 },
+  checkboxActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
   name: { fontWeight: 'bold', fontSize: 16 },
   email: { color: '#6B7280' },
   footer: { padding: 20, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  btn: { backgroundColor: '#2563EB', padding: 12, borderRadius: 8, minWidth: 100, alignItems: 'center' },
-  btnText: { color: '#fff', fontWeight: 'bold' }
+  btn: {
+    backgroundColor: '#4F46E5',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    minWidth: 130,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 }
 });

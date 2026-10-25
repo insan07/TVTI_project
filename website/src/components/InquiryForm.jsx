@@ -116,6 +116,7 @@ export default function InquiryForm({ defaultCourse = null }) {
   const handleSendOtp = async () => {
     setOtpError('')
     setOtpSuccessMsg('')
+    setOtpCode('')
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!formData.email.trim() || !emailRegex.test(formData.email.trim())) {
       setOtpError('Please enter a valid email address before requesting an OTP.')
@@ -137,6 +138,8 @@ export default function InquiryForm({ defaultCourse = null }) {
         setOtpSuccessMsg(data.message || 'A 6-digit verification code has been sent to your email.')
         if (data.devOtp) {
           setOtpCode(data.devOtp)
+        } else {
+          setOtpCode('')
         }
         setResendCooldown(60)
       } else {

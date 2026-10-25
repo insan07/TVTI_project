@@ -7,6 +7,7 @@ export interface IBatch extends Document {
   end_date: Date;
   schedule_json: any;
   capacity: number;
+  room?: string;
   instructor_ids: mongoose.Types.ObjectId[];
   status: 'active' | 'completed' | 'cancelled';
 }
@@ -19,6 +20,7 @@ const batchSchema = new Schema<IBatch>(
     end_date: { type: Date, required: true },
     schedule_json: { type: Schema.Types.Mixed },
     capacity: { type: Number, required: true },
+    room: { type: String },
     instructor_ids: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     status: { type: String, enum: ['active', 'completed', 'cancelled'], default: 'active' }
   },

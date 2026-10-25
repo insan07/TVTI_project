@@ -57,8 +57,8 @@ const seedDatabase = async () => {
     // 1. Create Admin User
     const admin = await User.create({
       name: 'System Admin',
-      email: 'admin@tvti.edu',
-      password_hash: commonPassword,
+      email: 'admin@tvti.edu.lk',
+      password_hash: await bcrypt.hash('admin123', 10),
       role: 'admin',
       is_approved: true,
       is_active: true,

@@ -3,7 +3,10 @@ import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
 import Result from '../models/Result';
 import Video from '../models/Video';
-
+import PracticeSlot from '../models/PracticeSlot';
+import SlotBooking from '../models/SlotBooking';
+import User from '../models/User';
+import { sendBatchAssignmentEmail } from '../services/emailService';
 export const getAdminBatches = async (req: Request, res: Response): Promise<void> => {
   try {
     const batches = await Batch.find()
@@ -68,8 +71,8 @@ export const createBatch = async (req: Request, res: Response): Promise<void> =>
   try {
     const batch = await Batch.create(req.body);
     res.status(201).json(batch);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || 'Server error' });
   }
 };
 
@@ -83,6 +86,39 @@ export const updateBatch = async (req: Request, res: Response): Promise<void> =>
     res.json(batch);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const deleteBatchCompletely = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const batchId = req.params.id;
+    const batch = await Batch.findById(batchId);
+    if (!batch) {
+      res.status(404).json({ message: 'Batch not found' });
+      return;
+    }
+
+    // Delete associated enrollments, results, videos
+    await Enrollment.deleteMany({ batch_id: batchId });
+    await Result.deleteMany({ batch_id: batchId });
+    await Video.deleteMany({ batch_id: batchId });
+
+    // Delete associated practice slots and their bookings
+    const slots = await PracticeSlot.find({ batch_id: batchId }).select('_id');
+    const slotIds = slots.map(s => s._id);
+    
+    if (slotIds.length > 0) {
+      await SlotBooking.deleteMany({ slot_id: { $in: slotIds } });
+      await PracticeSlot.deleteMany({ batch_id: batchId });
+    }
+
+    // Delete the batch
+    await batch.deleteOne();
+
+    res.json({ message: 'Batch and all related records deleted completely' });
+  } catch (error) {
+    console.error('Error deleting batch:', error);
+    res.status(500).json({ message: 'Server error during batch deletion' });
   }
 };
 
@@ -113,14 +149,54 @@ export const enrollStudents = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const enrollmentsToCreate = studentIds.map((id: string) => ({
+    // Find existing enrollments for this batch to prevent duplicates
+    const existingEnrollments = await Enrollment.find({ batch_id });
+    const existingStudentIds = new Set(existingEnrollments.map(e => e.student_id.toString()));
+
+    const newStudentIds = studentIds.filter((id: string) => !existingStudentIds.has(id.toString()));
+
+    if (newStudentIds.length === 0) {
+      res.json({ message: 'All selected students are already enrolled in this batch' });
+      return;
+    }
+
+    const enrollmentsToCreate = newStudentIds.map((id: string) => ({
       student_id: id,
       batch_id,
       enrolled_date: new Date(),
       status: 'active'
     }));
 
-    await Enrollment.insertMany(enrollmentsToCreate);
+    const createdEnrollments = await Enrollment.insertMany(enrollmentsToCreate);
+
+    const Course = (await import('../models/Course')).default;
+    const course = await Course.findById(batch.course_id);
+
+    for (const enrollment of createdEnrollments) {
+      const student = await User.findById(enrollment.student_id);
+      if (student && course) {
+        try {
+          await sendBatchAssignmentEmail({
+            to: student.email,
+            studentName: student.name,
+            registrationNumber: student.index_number || student.registration_number || 'N/A',
+            courseName: (course as any).title || 'TVTI Course',
+            batchName: batch.name,
+            startDate: new Date(batch.start_date).toLocaleDateString(),
+            endDate: new Date(batch.end_date).toLocaleDateString()
+          });
+          await Enrollment.findByIdAndUpdate(enrollment._id, {
+            batch_assignment_email_sent: true,
+            batch_assignment_email_sent_at: new Date()
+          });
+        } catch (emailErr: any) {
+          await Enrollment.findByIdAndUpdate(enrollment._id, {
+            batch_assignment_email_sent: false,
+            batch_assignment_email_error: emailErr.message || String(emailErr)
+          });
+        }
+      }
+    }
 
     res.json({ message: 'Students enrolled successfully' });
   } catch (error) {

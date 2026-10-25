@@ -15,14 +15,17 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { FONTS } from '../../config/theme';
+import ScreenHeader from '../../components/shared/ScreenHeader';
 
 export default function ProfileScreen() {
   const context = useContext(AuthContext);
+  const { isDark, toggleTheme } = useTheme();
   if (!context) return null;
-  const { logout } = context as any;
+  const { logout, user } = context as any;
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -31,6 +34,16 @@ export default function ProfileScreen() {
   // Tab / Detail Modals
   const [myDetailsModalVisible, setMyDetailsModalVisible] = useState(false);
   const [paymentDetailsModalVisible, setPaymentDetailsModalVisible] = useState(false);
+
+  // Student Payment Slips & Upload States
+  const [mySlipsList, setMySlipsList] = useState<any[]>([]);
+  const [mySlipsSummary, setMySlipsSummary] = useState<any>(null);
+  const [loadingMySlips, setLoadingMySlips] = useState(false);
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [uploadForm, setUploadForm] = useState({ amount: '', payment_method: 'bank_transfer', notes: '' });
+  const [uploadSlipAsset, setUploadSlipAsset] = useState<any>(null);
+  const [uploadingSlip, setUploadingSlip] = useState(false);
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
 
   // Edit Profile Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -87,6 +100,75 @@ export default function ProfileScreen() {
     }
   };
 
+  const fetchMyPaymentSlips = async () => {
+    setLoadingMySlips(true);
+    try {
+      const res = await api.get('/students/payments/my-slips');
+      setMySlipsSummary(res.data.summary);
+      setMySlipsList(res.data.slips || []);
+    } catch (e) {
+      console.warn('Failed to fetch payment slips', e);
+    } finally {
+      setLoadingMySlips(false);
+    }
+  };
+
+  const pickPaymentSlipImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      if (asset.fileSize && asset.fileSize > 8 * 1024 * 1024) {
+        showAck('File Too Large', 'Selected slip document is larger than 8MB. Please upload a smaller image.', 'error');
+        return;
+      }
+      setUploadSlipAsset(asset);
+    }
+  };
+
+  const handleUploadPaymentSlip = async () => {
+    if (!uploadForm.amount || isNaN(Number(uploadForm.amount)) || Number(uploadForm.amount) <= 0) {
+      return showAck('Required Field', 'Please enter a valid payment amount (e.g. 10000).', 'error');
+    }
+    if (!uploadSlipAsset) {
+      return showAck('Required Field', 'Please select or capture a payment slip document image.', 'error');
+    }
+
+    setUploadingSlip(true);
+    try {
+      const data = new FormData();
+      data.append('amount', uploadForm.amount.trim());
+      data.append('payment_method', uploadForm.payment_method);
+      data.append('notes', uploadForm.notes.trim());
+
+      if (Platform.OS === 'web' && uploadSlipAsset.file instanceof File) {
+        data.append('slip_file', uploadSlipAsset.file, uploadSlipAsset.fileName || 'slip.jpg');
+      } else {
+        const localUri = uploadSlipAsset.uri;
+        const filename = uploadSlipAsset.fileName || localUri.split('/').pop() || 'slip.jpg';
+        const type = uploadSlipAsset.mimeType || 'image/jpeg';
+        data.append('slip_file', { uri: localUri, name: filename, type } as any);
+      }
+
+      await api.post('/students/payments/upload-slip', data);
+      showAck('Slip Uploaded', 'Your payment slip has been submitted successfully for admin review.', 'success', () => {
+        setUploadModalVisible(false);
+        setUploadSlipAsset(null);
+        setUploadForm({ amount: '', payment_method: 'bank_transfer', notes: '' });
+        fetchMyPaymentSlips();
+        fetchProfile();
+      });
+    } catch (e: any) {
+      showAck('Error', e.response?.data?.message || 'Failed to upload payment slip', 'error');
+    } finally {
+      setUploadingSlip(false);
+    }
+  };
+
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -96,7 +178,12 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPhotoAsset(result.assets[0]);
+      const asset = result.assets[0];
+      if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+        showAck('Image Too Large', 'Selected profile photo is larger than 5MB. Please choose an image smaller than 5MB.', 'error');
+        return;
+      }
+      setPhotoAsset(asset);
     }
   };
 
@@ -128,7 +215,12 @@ export default function ProfileScreen() {
         fetchProfile();
       });
     } catch (e: any) {
-      showAck('Error', e.response?.data?.message || 'Failed to update profile', 'error');
+      const serverMsg = e.response?.data?.message;
+      if (e.response?.status === 413 || (serverMsg && serverMsg.toLowerCase().includes('too large'))) {
+        showAck('Photo Too Large', 'The selected profile photo is too large (request entity too large). Please upload a smaller image under 5MB.', 'error');
+      } else {
+        showAck('Error', serverMsg || 'Failed to update profile', 'error');
+      }
     } finally {
       setSaving(false);
     }
@@ -219,10 +311,13 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* FIXED STICKY TOP HEADER */}
-      <View style={styles.stickyHeader}>
-        <Text style={styles.mainTitle}>Student Profile</Text>
-      </View>
+      <ScreenHeader
+        title={
+          user?.role === 'instructor' ? 'Instructor Profile' :
+          user?.role === 'admin' ? 'Admin Profile' : 'Student Profile'
+        }
+        subtitle="Account details & preferences"
+      />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -256,7 +351,8 @@ export default function ProfileScreen() {
               {profile.email}
             </Text>
             <Text style={styles.regNumberText}>
-              REG NO : {profile.index_number || profile.nic || 'TVTI/STUDENT'}
+              {user?.role === 'student' ? 'REG NO : ' : 'ID : '}
+              {profile.index_number || profile.nic || (user?.role === 'student' ? 'TVTI/STUDENT' : 'N/A')}
             </Text>
           </View>
 
@@ -288,17 +384,19 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           {/* Payment Details Option Card */}
-          <TouchableOpacity
-            style={styles.menuCard}
-            onPress={() => setPaymentDetailsModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuLeftContent}>
-              <Icon name="card-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Payment Details</Text>
-            </View>
-            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
-          </TouchableOpacity>
+          {user?.role === 'student' && (
+            <TouchableOpacity
+              style={styles.menuCard}
+              onPress={() => setPaymentDetailsModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuLeftContent}>
+                <Icon name="card-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Payment Details</Text>
+              </View>
+              <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+            </TouchableOpacity>
+          )}
 
           {/* Change Password Option Card */}
           <TouchableOpacity
@@ -309,6 +407,19 @@ export default function ProfileScreen() {
             <View style={styles.menuLeftContent}>
               <Icon name="lock-closed-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
               <Text style={styles.menuText}>Change Password</Text>
+            </View>
+            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+            accessibilityLabel={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+          >
+            <View style={styles.menuLeftContent}>
+              <Icon name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color="#3F3F46" style={styles.menuIcon} />
+              <Text style={styles.menuText}>{isDark ? 'Light Mode' : 'Dark Mode'}</Text>
             </View>
             <Icon name="chevron-forward" size={18} color="#A1A1AA" />
           </TouchableOpacity>
@@ -413,101 +524,105 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            {/* 2. Parent / Guardian Details Card */}
-            <View style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <Icon name="people-outline" size={20} color="#F58220" />
-                <Text style={styles.cardHeaderTitle}>Parent / Guardian Information</Text>
-              </View>
-              <View style={styles.cardDivider} />
-
-              <View style={styles.infoGrid}>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Guardian Name</Text>
-                  <Text style={styles.infoValue}>{profile.guardian?.name || 'Not Provided'}</Text>
-                </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Relationship</Text>
-                  <Text style={styles.infoValue}>{profile.guardian?.relationship || 'Not Provided'}</Text>
-                </View>
-                <View style={[styles.infoItem, { width: '100%' }]}>
-                  <Text style={styles.infoLabel}>Guardian Contact Phone</Text>
-                  <Text style={styles.infoValue}>{profile.guardian?.phone || 'Not Provided'}</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* 3. Educational Background Card */}
-            <View style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <Icon name="school-outline" size={20} color="#F58220" />
-                <Text style={styles.cardHeaderTitle}>Educational Qualifications</Text>
-              </View>
-              <View style={styles.cardDivider} />
-
-              <View style={styles.infoGrid}>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Highest Level Attained</Text>
-                  <Text style={styles.infoValue}>
-                    {profile.educational_qualification?.highest_level || 'Not Specified'}
-                  </Text>
-                </View>
-                {profile.educational_qualification?.grade_level ? (
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Current Grade Level</Text>
-                    <Text style={styles.infoValue}>{profile.educational_qualification.grade_level}</Text>
+            {user?.role === 'student' && (
+              <>
+                {/* 2. Parent / Guardian Details Card */}
+                <View style={styles.detailCard}>
+                  <View style={styles.cardHeaderRow}>
+                    <Icon name="people-outline" size={20} color="#F58220" />
+                    <Text style={styles.cardHeaderTitle}>Parent / Guardian Information</Text>
                   </View>
-                ) : null}
-                {profile.educational_qualification?.institute_name ? (
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>School / Institute</Text>
-                    <Text style={styles.infoValue}>{profile.educational_qualification.institute_name}</Text>
-                  </View>
-                ) : null}
-                <View style={[styles.infoItem, { width: '100%' }]}>
-                  <Text style={styles.infoLabel}>Qualification Details</Text>
-                  <Text style={styles.infoValue}>
-                    {profile.educational_qualification?.details || 'No additional details logged'}
-                  </Text>
-                </View>
-              </View>
-            </View>
+                  <View style={styles.cardDivider} />
 
-            {/* 4. Enrolled Courses Card */}
-            <View style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <Icon name="book-outline" size={20} color="#F58220" />
-                <Text style={styles.cardHeaderTitle}>Enrolled Courses</Text>
-              </View>
-              <View style={styles.cardDivider} />
-
-              {profile.enrolled_courses && profile.enrolled_courses.length > 0 ? (
-                profile.enrolled_courses.map((course: any, idx: number) => (
-                  <View key={course._id || idx} style={styles.courseRowItem}>
-                    <View style={styles.courseBadge}>
-                      <Text style={styles.courseBadgeText}>{course.code || 'COURSE'}</Text>
+                  <View style={styles.infoGrid}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Guardian Name</Text>
+                      <Text style={styles.infoValue}>{profile.guardian?.name || 'Not Provided'}</Text>
                     </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.courseTitleText}>{course.title}</Text>
-                      {course.course_fee !== undefined ? (
-                        <Text style={styles.courseSubFee}>Fee: {formatCurrency(course.course_fee)}</Text>
-                      ) : null}
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Relationship</Text>
+                      <Text style={styles.infoValue}>{profile.guardian?.relationship || 'Not Provided'}</Text>
+                    </View>
+                    <View style={[styles.infoItem, { width: '100%' }]}>
+                      <Text style={styles.infoLabel}>Guardian Contact Phone</Text>
+                      <Text style={styles.infoValue}>{profile.guardian?.phone || 'Not Provided'}</Text>
                     </View>
                   </View>
-                ))
-              ) : (
-                <Text style={styles.emptyText}>No enrolled courses registered yet.</Text>
-              )}
-            </View>
+                </View>
+
+                {/* 3. Educational Background Card */}
+                <View style={styles.detailCard}>
+                  <View style={styles.cardHeaderRow}>
+                    <Icon name="school-outline" size={20} color="#F58220" />
+                    <Text style={styles.cardHeaderTitle}>Educational Qualifications</Text>
+                  </View>
+                  <View style={styles.cardDivider} />
+
+                  <View style={styles.infoGrid}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Highest Level Attained</Text>
+                      <Text style={styles.infoValue}>
+                        {profile.educational_qualification?.highest_level || 'Not Specified'}
+                      </Text>
+                    </View>
+                    {profile.educational_qualification?.grade_level ? (
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Current Grade Level</Text>
+                        <Text style={styles.infoValue}>{profile.educational_qualification.grade_level}</Text>
+                      </View>
+                    ) : null}
+                    {profile.educational_qualification?.institute_name ? (
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>School / Institute</Text>
+                        <Text style={styles.infoValue}>{profile.educational_qualification.institute_name}</Text>
+                      </View>
+                    ) : null}
+                    <View style={[styles.infoItem, { width: '100%' }]}>
+                      <Text style={styles.infoLabel}>Qualification Details</Text>
+                      <Text style={styles.infoValue}>
+                        {profile.educational_qualification?.details || 'No additional details logged'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* 4. Enrolled Courses Card */}
+                <View style={styles.detailCard}>
+                  <View style={styles.cardHeaderRow}>
+                    <Icon name="book-outline" size={20} color="#F58220" />
+                    <Text style={styles.cardHeaderTitle}>Enrolled Courses</Text>
+                  </View>
+                  <View style={styles.cardDivider} />
+
+                  {profile.enrolled_courses && profile.enrolled_courses.length > 0 ? (
+                    profile.enrolled_courses.map((course: any, idx: number) => (
+                      <View key={course._id || idx} style={styles.courseRowItem}>
+                        <View style={styles.courseBadge}>
+                          <Text style={styles.courseBadgeText}>{course.code || 'COURSE'}</Text>
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={styles.courseTitleText}>{course.title}</Text>
+                          {course.course_fee !== undefined ? (
+                            <Text style={styles.courseSubFee}>Fee: {formatCurrency(course.course_fee)}</Text>
+                          ) : null}
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.emptyText}>No enrolled courses registered yet.</Text>
+                  )}
+                </View>
+              </>
+            )}
           </ScrollView>
         </SafeAreaView>
       </Modal>
 
       {/* ========================================================================= */}
-      {/* PAYMENT DETAILS MODAL VIEW */}
+      {/* PAYMENT DETAILS & SLIP HISTORY MODAL VIEW */}
       {/* ========================================================================= */}
       <Modal visible={paymentDetailsModalVisible} animationType="slide" transparent={false}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F4F6' }} edges={['top']}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }} edges={['top']}>
           {/* Modal Header */}
           <View style={styles.modalHeaderBar}>
             <TouchableOpacity
@@ -517,113 +632,278 @@ export default function ProfileScreen() {
             >
               <Icon name="chevron-back" size={24} color="#18181B" />
             </TouchableOpacity>
-            <Text style={styles.modalHeaderTitle}>Payment Details</Text>
-            <View style={{ width: 40 }} />
+            <Text style={styles.modalHeaderTitle}>My Payments & Slips</Text>
+            <TouchableOpacity
+              style={{ padding: 6 }}
+              onPress={fetchMyPaymentSlips}
+              activeOpacity={0.7}
+            >
+              <Icon name="refresh" size={20} color="#64748B" />
+            </TouchableOpacity>
           </View>
 
           <ScrollView
-            contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 14 }}
+            contentContainerStyle={{ padding: 18, paddingBottom: 40, gap: 16 }}
             showsVerticalScrollIndicator={false}
           >
+            {/* 1. Summary Card */}
             <View style={styles.detailCard}>
               <View style={styles.cardHeaderRow}>
-                <Icon name="card-outline" size={20} color="#F58220" />
-                <Text style={styles.cardHeaderTitle}>Payment Information</Text>
+                <Icon name="wallet-outline" size={22} color="#F59E0B" />
+                <Text style={styles.cardHeaderTitle}>Fee Summary</Text>
               </View>
               <View style={styles.cardDivider} />
 
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Total Course Fee</Text>
-                  <Text style={styles.infoValue}>{formatCurrency(totalFee)}</Text>
+                  <Text style={styles.infoValue}>{formatCurrency(mySlipsSummary?.total_fee || totalFee)}</Text>
                 </View>
 
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Amount Paid</Text>
-                  <Text style={[styles.infoValue, { color: '#15803D' }]}>{formatCurrency(amountPaid)}</Text>
+                  <Text style={[styles.infoValue, { color: '#10B981' }]}>{formatCurrency(mySlipsSummary?.amount_paid || amountPaid)}</Text>
                 </View>
 
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Remaining Balance</Text>
-                  <Text style={[styles.infoValue, { color: remainingBalance > 0 ? '#C2410C' : '#15803D' }]}>
-                    {formatCurrency(remainingBalance)}
+                  <Text style={[styles.infoValue, { color: (mySlipsSummary?.remaining_balance ?? remainingBalance) > 0 ? '#EF4444' : '#10B981' }]}>
+                    {formatCurrency(mySlipsSummary?.remaining_balance ?? remainingBalance)}
                   </Text>
                 </View>
 
                 <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Payment Status</Text>
+                  <Text style={styles.infoLabel}>Overall Status</Text>
                   <Text style={[styles.infoValue, { color: statusBadge.color, fontWeight: '700' }]}>
-                    {statusBadge.text}
+                    {mySlipsSummary?.payment_status === 'paid' ? 'Fully Paid' : mySlipsSummary?.payment_status === 'partially_paid' ? 'Partially Paid' : 'Pending Review'}
                   </Text>
                 </View>
-
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Payment Method</Text>
-                  <Text style={styles.infoValue}>
-                    {paymentInfo.payment_method === 'bank_slip' || paymentInfo.payment_method === 'bank_transfer'
-                      ? 'Bank Deposit Slip'
-                      : paymentInfo.payment_method === 'physical_cash' || paymentInfo.payment_method === 'physical_pay'
-                      ? 'Physical Cash Payment'
-                      : 'Physical Cash Payment'}
-                  </Text>
-                </View>
-
-                {paymentInfo.receipt_number ? (
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Official Receipt No</Text>
-                    <Text style={styles.infoValue}>{paymentInfo.receipt_number}</Text>
-                  </View>
-                ) : null}
-
-                {paymentInfo.notes ? (
-                  <View style={[styles.infoItem, { width: '100%' }]}>
-                    <Text style={styles.infoLabel}>Admin Remarks</Text>
-                    <Text style={styles.infoValue}>{paymentInfo.notes}</Text>
-                  </View>
-                ) : null}
               </View>
 
-              {/* Bank Deposit Slip Thumbnail if available */}
-              {paymentInfo.payment_slip ? (
-                <View style={styles.slipContainer}>
-                  <Text style={styles.slipTitle}>Bank Deposit Slip Document</Text>
+              {/* Upload Slip Action Button */}
+              <TouchableOpacity
+                style={{
+                  marginTop: 16,
+                  backgroundColor: '#0F172A',
+                  paddingVertical: 13,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+                onPress={() => setUploadModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Icon name="cloud-upload-outline" size={20} color="#FFFFFF" />
+                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Upload Payment Slip</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 2. Sent Slips History Section */}
+            <View>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 12 }}>
+                Sent Slips History ({mySlipsList.length})
+              </Text>
+
+              {loadingMySlips ? (
+                <ActivityIndicator size="small" color="#F59E0B" style={{ marginVertical: 20 }} />
+              ) : mySlipsList.length === 0 ? (
+                <View style={{ backgroundColor: '#FFFFFF', padding: 20, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' }}>
+                  <Icon name="receipt-outline" size={32} color="#94A3B8" />
+                  <Text style={{ color: '#64748B', marginTop: 8, fontSize: 13 }}>No payment slips submitted yet.</Text>
                   <TouchableOpacity
-                    style={styles.slipImageWrapper}
-                    onPress={() => setSlipZoomVisible(true)}
-                    activeOpacity={0.8}
+                    style={{ marginTop: 10 }}
+                    onPress={() => setUploadModalVisible(true)}
                   >
-                    <Image
-                      source={paymentInfo.payment_slip}
-                      style={styles.slipImagePreview}
-                      contentFit="cover"
-                    />
-                    <View style={styles.slipOverlayBadge}>
-                      <Icon name="expand-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.slipOverlayText}>Tap to View Full Image</Text>
-                    </View>
+                    <Text style={{ color: '#2563EB', fontWeight: '700', fontSize: 13 }}>+ Upload your first slip</Text>
                   </TouchableOpacity>
                 </View>
-              ) : null}
+              ) : (
+                mySlipsList.map((slip: any, index: number) => {
+                  const isVerified = slip.status === 'verified';
+                  const isRejected = slip.status === 'rejected';
+                  return (
+                    <View
+                      key={slip._id || index}
+                      style={{
+                        backgroundColor: '#FFFFFF',
+                        borderRadius: 14,
+                        padding: 14,
+                        marginBottom: 12,
+                        borderWidth: 1,
+                        borderColor: isVerified ? '#BBF7D0' : isRejected ? '#FECDD3' : '#E2E8F0',
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A' }}>
+                          LKR {(slip.amount || 0).toLocaleString()}
+                        </Text>
+                        <View
+                          style={{
+                            backgroundColor: isVerified ? '#D1FAE5' : isRejected ? '#FFE4E6' : '#FEF3C7',
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                            borderRadius: 12,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              fontWeight: '700',
+                              color: isVerified ? '#065F46' : isRejected ? '#BE123C' : '#D97706',
+                            }}
+                          >
+                            {isVerified ? 'Verified & Approved' : isRejected ? 'Rejected' : 'Pending Review'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={{ marginTop: 8, gap: 4 }}>
+                        <Text style={{ fontSize: 12.5, color: '#64748B' }}>
+                          Method: {slip.payment_method === 'bank_transfer' ? 'Bank Deposit' : slip.payment_method === 'online_transfer' ? 'Online Transfer' : 'Physical Cash'}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: '#94A3B8' }}>
+                          Submitted: {slip.createdAt ? new Date(slip.createdAt).toLocaleString() : 'Recently'}
+                        </Text>
+                        {slip.notes ? <Text style={{ fontSize: 12, color: '#475569', fontStyle: 'italic' }}>Note: {slip.notes}</Text> : null}
+                        {isRejected && slip.rejection_reason ? (
+                          <Text style={{ fontSize: 12.5, color: '#BE123C', fontWeight: '600', marginTop: 4 }}>
+                            Rejection Reason: {slip.rejection_reason}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      {slip.slip_url ? (
+                        <TouchableOpacity
+                          style={{ marginTop: 10, borderRadius: 8, overflow: 'hidden', height: 100, backgroundColor: '#F1F5F9', position: 'relative' }}
+                          onPress={() => setZoomImageUrl(slip.slip_url)}
+                          activeOpacity={0.8}
+                        >
+                          <Image source={{ uri: slip.slip_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                          <View style={{ position: 'absolute', bottom: 6, right: 6, backgroundColor: 'rgba(15, 23, 42, 0.75)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Icon name="expand" size={12} color="#FFFFFF" />
+                            <Text style={{ color: '#FFFFFF', fontSize: 10.5, fontWeight: '600' }}>Preview Slip</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  );
+                })
+              )}
             </View>
           </ScrollView>
         </SafeAreaView>
       </Modal>
 
       {/* ========================================================================= */}
-      {/* BANK SLIP ZOOM MODAL */}
+      {/* UPLOAD PAYMENT SLIP MODAL */}
       {/* ========================================================================= */}
-      <Modal visible={slipZoomVisible} transparent animationType="fade">
+      <Modal visible={uploadModalVisible} animationType="slide" transparent={true}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Upload Payment Slip</Text>
+              <TouchableOpacity onPress={() => setUploadModalVisible(false)}>
+                <Icon name="close" size={22} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity onPress={pickPaymentSlipImage} style={[styles.photoUploadBox, { borderRadius: 12, height: 120, width: '100%' }]}>
+              {uploadSlipAsset?.uri ? (
+                <Image source={{ uri: uploadSlipAsset.uri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} contentFit="cover" />
+              ) : (
+                <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="camera-outline" size={32} color="#64748B" />
+                  <Text style={{ color: '#64748B', fontSize: 12, marginTop: 4 }}>Tap to select slip document photo</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <Text style={styles.inputLabel}>Paid Amount (LKR) *</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={uploadForm.amount}
+              onChangeText={t => setUploadForm({ ...uploadForm, amount: t })}
+              placeholder="e.g. 10000"
+              keyboardType="numeric"
+              placeholderTextColor="#9CA3AF"
+            />
+
+            <Text style={styles.inputLabel}>Payment Method</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+              {[
+                { id: 'bank_transfer', label: 'Bank Slip' },
+                { id: 'online_transfer', label: 'Online Bank' },
+                { id: 'physical_cash', label: 'Cash' },
+              ].map(method => (
+                <TouchableOpacity
+                  key={method.id}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: uploadForm.payment_method === method.id ? '#0F172A' : '#E2E8F0',
+                    backgroundColor: uploadForm.payment_method === method.id ? '#0F172A' : '#FFFFFF',
+                    alignItems: 'center',
+                  }}
+                  onPress={() => setUploadForm({ ...uploadForm, payment_method: method.id })}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: uploadForm.payment_method === method.id ? '#FFFFFF' : '#475569' }}>
+                    {method.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.inputLabel}>Notes / Reference Number (Optional)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={uploadForm.notes}
+              onChangeText={t => setUploadForm({ ...uploadForm, notes: t })}
+              placeholder="Bank branch or ref no"
+              placeholderTextColor="#9CA3AF"
+            />
+
+            <View style={styles.modalFooterBtns}>
+              <TouchableOpacity
+                style={styles.cancelModalBtn}
+                onPress={() => setUploadModalVisible(false)}
+                disabled={uploadingSlip}
+              >
+                <Text style={styles.cancelModalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveModalBtn, uploadingSlip && { opacity: 0.6 }]}
+                onPress={handleUploadPaymentSlip}
+                disabled={uploadingSlip}
+              >
+                {uploadingSlip ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveModalBtnText}>Submit Slip</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* FULL-SCREEN SLIP IMAGE ZOOM MODAL */}
+      {/* ========================================================================= */}
+      <Modal visible={Boolean(zoomImageUrl)} transparent animationType="fade">
         <View style={styles.zoomModalOverlay}>
-          <TouchableOpacity style={styles.zoomCloseBtn} onPress={() => setSlipZoomVisible(false)}>
+          <TouchableOpacity style={styles.zoomCloseBtn} onPress={() => setZoomImageUrl(null)}>
             <Icon name="close" size={26} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.zoomImageContainer}>
-            {paymentInfo.payment_slip ? (
-              <Image
-                source={paymentInfo.payment_slip}
-                style={styles.fullZoomImage}
-                contentFit="contain"
-              />
+            {zoomImageUrl ? (
+              <Image source={{ uri: zoomImageUrl }} style={styles.fullZoomImage} contentFit="contain" />
             ) : null}
           </View>
         </View>
@@ -838,42 +1118,85 @@ export default function ProfileScreen() {
       {/* ========================================================================= */}
       {/* LOGOUT CONFIRMATION MODAL */}
       {/* ========================================================================= */}
-      <Modal
-        visible={logoutModalVisible}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setLogoutModalVisible(false)}
-      >
-        <View style={styles.popupOverlay}>
-          <View style={styles.popupCard}>
-            <View style={[styles.popupIconCircle, { backgroundColor: '#FEE2E2' }]}>
-              <Icon name="log-out-outline" size={28} color="#DC2626" />
+      <Modal visible={logoutModalVisible} animationType="fade" transparent={true} onRequestClose={() => setLogoutModalVisible(false)}>
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20
+        }}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 20,
+            padding: 24,
+            width: '100%',
+            maxWidth: 380,
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.25,
+            shadowRadius: 20,
+            elevation: 10
+          }}>
+            <View style={{
+              width: 64,
+              height: 64,
+              borderRadius: 32,
+              backgroundColor: '#FEE2E2',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 16
+            }}>
+              <Icon name="shield-checkmark-outline" size={32} color="#DC2626" />
             </View>
-            <Text style={styles.popupTitle}>Confirm Logout</Text>
-            <Text style={styles.popupMessage}>
-              Are you sure you want to log out of your TVTI account?
+
+            <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#0F172A', textAlign: 'center', marginBottom: 6 }}>
+              Confirm Logout
             </Text>
-            <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginTop: 16 }}>
+
+            <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 18, marginBottom: 16 }}>
+              Are you sure you want to log out of your session? You can log back in at any time.
+            </Text>
+
+            {/* Account Details Safety Badge */}
+            <View style={{
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              borderRadius: 12,
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              width: '100%',
+              alignItems: 'center',
+              marginBottom: 20
+            }}>
+              <Text style={{ fontSize: 12, color: '#475569', fontWeight: '600' }}>
+                Account: <Text style={{ color: '#0F172A', fontWeight: 'bold' }}>{profile.name || profile.email}</Text> ({profile.role?.toUpperCase() || 'USER'})
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  backgroundColor: '#F1F5F9',
+                  backgroundColor: '#0F172A',
                   paddingVertical: 12,
                   borderRadius: 10,
-                  alignItems: 'center',
-                  borderWidth: 1,
-                  borderColor: '#CBD5E1',
+                  alignItems: 'center'
                 }}
                 onPress={() => setLogoutModalVisible(false)}
+                activeOpacity={0.8}
               >
-                <Text style={{ color: '#475569', fontWeight: 'bold', fontSize: 14 }}>
-                  Cancel
-                </Text>
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Stay Logged In</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  backgroundColor: '#DC2626',
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FCA5A5',
                   paddingVertical: 12,
                   borderRadius: 10,
                   alignItems: 'center',
@@ -882,10 +1205,9 @@ export default function ProfileScreen() {
                   setLogoutModalVisible(false);
                   logout();
                 }}
+                activeOpacity={0.8}
               >
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>
-                  Logout
-                </Text>
+                <Text style={{ color: '#DC2626', fontWeight: 'bold', fontSize: 14 }}>Yes, Log Out</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -972,6 +1294,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 100,
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
   },
   loadingScreen: {
     flex: 1,
@@ -1048,6 +1373,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
     ...Platform.select({
       web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
       default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
@@ -1394,6 +1722,30 @@ const styles = StyleSheet.create({
   },
   eyeBtn: {
     padding: 4,
+  },
+  modalFooterBtns: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+    gap: 10,
+  },
+  cancelModalBtnText: {
+    color: '#71717A',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  saveModalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  saveModalBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   modalActions: {
     flexDirection: 'row',

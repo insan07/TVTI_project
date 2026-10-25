@@ -3,6 +3,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { View, Platform } from 'react-native';
 import { AuthProvider } from './src/context/AuthContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import Toast from './src/components/shared/Toast';
 import OfflineBanner from './src/components/shared/OfflineBanner';
@@ -103,14 +104,27 @@ export default function App() {
 
   return (
     <SafeAreaProvider style={{ flex: 1 }}>
-      <View style={{ flex: 1 }}>
-        <StatusBar style="dark" backgroundColor="#ffffff" />
+      <ThemeProvider>
+        <ThemedApp />
+      </ThemeProvider>
+    </SafeAreaProvider>
+  );
+}
+
+function ThemedApp() {
+  const { isDark } = useTheme();
+  const backgroundColor = isDark ? '#111827' : '#ffffff';
+
+  return (
+    <View style={{ flex: 1, backgroundColor }}>
+      <View style={{ flex: 1, width: '100%', backgroundColor }}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
         <AuthProvider>
           <OfflineBanner />
           <AppNavigator />
           <Toast />
         </AuthProvider>
       </View>
-    </SafeAreaProvider>
+    </View>
   );
 }

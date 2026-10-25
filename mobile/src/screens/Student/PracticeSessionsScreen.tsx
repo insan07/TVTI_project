@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import {
@@ -19,6 +20,9 @@ import api from '../../services/api';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 const parseUTCDate = (dateStr: string) => {
   const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -45,6 +49,7 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
 export default function PracticeSessionsScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<'book' | 'my_sessions'>('my_sessions');
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
   const [slots, setSlots] = useState<any[]>([]);
@@ -156,43 +161,56 @@ export default function PracticeSessionsScreen() {
   const hasBookedThisWeek = slots.some((s) => s.already_booked);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
+      <ScreenBackground />
+      <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
+        <ScreenHeader title="Practice Sessions" subtitle="Book and manage practical lab slots" />
+      </View>
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
-        <View style={[styles.contentPadding, { paddingTop: Math.max(insets.top + 12, 20) }]}>
-          {/* Main Title */}
-          <Text style={styles.pageTitle}>Practice Sessions</Text>
-
+        <View style={styles.contentPadding}>
           {/* Warning Info Box */}
-          <View style={styles.infoBanner}>
-            <Icon name="information-circle-outline" size={20} color="#D97706" style={{ marginRight: 10 }} />
-            <Text style={styles.infoBannerText}>
+          <View style={[styles.infoBanner, isDark && { backgroundColor: 'rgba(217, 119, 6, 0.12)', borderColor: 'rgba(245, 158, 11, 0.25)' }]}>
+            <Icon name="information-circle-outline" size={20} color="#F59E0B" style={{ marginRight: 10 }} />
+            <Text style={[styles.infoBannerText, isDark && { color: '#FCD34D' }]}>
               One booking per week allowed to ensure fair access for all students.
             </Text>
           </View>
 
           {/* Tab Switcher Bar */}
-          <View style={styles.tabSwitcherRow}>
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'book' && styles.tabButtonActive]}
-              onPress={() => setActiveTab('book')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabButtonText, activeTab === 'book' && styles.tabButtonTextActive]}>
-                Book a Session
-              </Text>
-              {activeTab === 'book' && <View style={styles.activeTabUnderline} />}
-            </TouchableOpacity>
+          <View style={styles.segmentedTrackContainer}>
+            <View style={[styles.segmentedTrack, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.85)', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+              <TouchableOpacity
+                style={[styles.segmentedTab, activeTab === 'book' && (isDark ? { backgroundColor: '#F97316' } : styles.segmentedTabActive)]}
+                onPress={() => setActiveTab('book')}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name={activeTab === 'book' ? 'calendar' : 'calendar-outline'}
+                  size={16}
+                  color={activeTab === 'book' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B')}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.segmentedTabText, activeTab === 'book' && styles.segmentedTabTextActive, activeTab !== 'book' && isDark && { color: '#94A3B8' }]}>
+                  Book a Session
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'my_sessions' && styles.tabButtonActive]}
-              onPress={() => setActiveTab('my_sessions')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabButtonText, activeTab === 'my_sessions' && styles.tabButtonTextActive]}>
-                My Sessions
-              </Text>
-              {activeTab === 'my_sessions' && <View style={styles.activeTabUnderline} />}
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segmentedTab, activeTab === 'my_sessions' && (isDark ? { backgroundColor: '#F97316' } : styles.segmentedTabActive)]}
+                onPress={() => setActiveTab('my_sessions')}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name={activeTab === 'my_sessions' ? 'bookmark' : 'bookmark-outline'}
+                  size={16}
+                  color={activeTab === 'my_sessions' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B')}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.segmentedTabText, activeTab === 'my_sessions' && styles.segmentedTabTextActive, activeTab !== 'my_sessions' && isDark && { color: '#94A3B8' }]}>
+                  My Sessions
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* TAB 1: BOOK A SESSION */}
@@ -204,10 +222,15 @@ export default function PracticeSessionsScreen() {
                   {batches.map((b) => (
                     <TouchableOpacity
                       key={b._id}
-                      style={[styles.batchPill, selectedBatch === b._id ? styles.batchPillActive : styles.batchPillInactive]}
+                      style={[
+                        styles.batchPill,
+                        selectedBatch === b._id
+                          ? (isDark ? { backgroundColor: '#F97316' } : styles.batchPillActive)
+                          : (isDark ? { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 } : styles.batchPillInactive)
+                      ]}
                       onPress={() => setSelectedBatch(b._id)}
                     >
-                      <Text style={selectedBatch === b._id ? styles.batchPillTextActive : styles.batchPillTextInactive}>
+                      <Text style={selectedBatch === b._id ? styles.batchPillTextActive : (isDark ? { color: '#94A3B8', ...FONTS.medium } : styles.batchPillTextInactive)}>
                         {b.name || 'Batch'}
                       </Text>
                     </TouchableOpacity>
@@ -225,46 +248,46 @@ export default function PracticeSessionsScreen() {
                   const dateString = actualSlotDate.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
 
                   return (
-                    <View key={slot._id} style={styles.sessionCard}>
+                    <View key={slot._id} style={[styles.sessionCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
                       <View style={styles.sessionCardAccentBar} />
                       <View style={styles.sessionCardContent}>
                         <View style={styles.pillTagsRow}>
-                          <View style={styles.practiceTypeTag}>
-                            <Text style={styles.practiceTypeTagText}>PRACTICE SLOT</Text>
+                          <View style={[styles.practiceTypeTag, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.18)', borderColor: 'rgba(249, 115, 22, 0.3)' }]}>
+                            <Text style={[styles.practiceTypeTagText, isDark && { color: '#FB923C' }]}>PRACTICE SLOT</Text>
                           </View>
-                          <View style={styles.coursePillTag}>
-                            <Text style={styles.coursePillText}>
+                          <View style={[styles.coursePillTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                            <Text style={[styles.coursePillText, isDark && { color: '#E2E8F0' }]}>
                               {slot.batch_id?.course_id?.title || 'Practice Session'}
                             </Text>
                           </View>
                         </View>
 
-                        <Text style={styles.sessionDateText}>{dateString}</Text>
-                        <Text style={styles.sessionTimeText}>
+                        <Text style={[styles.sessionDateText, isDark && { color: '#FFFFFF' }]}>{dateString}</Text>
+                        <Text style={[styles.sessionTimeText, isDark && { color: '#CBD5E1' }]}>
                           {slot.start_time} – {slot.end_time}
                         </Text>
 
                         <View style={styles.instructorRow}>
-                          <Icon name="person-outline" size={15} color="#666" style={{ marginRight: 4 }} />
-                          <Text style={styles.instructorText}>
+                          <Icon name="person-outline" size={15} color={isDark ? '#94A3B8' : '#666'} style={{ marginRight: 4 }} />
+                          <Text style={[styles.instructorText, isDark && { color: '#94A3B8' }]}>
                             Inst. {slot.instructor_id?.name || 'Instructor'}
                           </Text>
                         </View>
 
                         {slot.already_booked ? (
                           <TouchableOpacity
-                            style={styles.cancelOutlineButton}
+                            style={[styles.cancelOutlineButton, isDark && { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
                             onPress={() => handleCancelBooking(slot._id)}
                           >
-                            <Text style={styles.cancelOutlineButtonText}>Cancel</Text>
+                            <Text style={[styles.cancelOutlineButtonText, isDark && { color: '#EF4444' }]}>Cancel</Text>
                           </TouchableOpacity>
                         ) : (
                           <TouchableOpacity
-                            style={[styles.bookSolidButton, disabled && styles.disabledButton]}
+                            style={[styles.bookSolidButton, disabled && (isDark ? { backgroundColor: 'rgba(255, 255, 255, 0.08)' } : styles.disabledButton)]}
                             disabled={disabled}
                             onPress={() => handleBookSlot(slot._id)}
                           >
-                            <Text style={styles.bookSolidButtonText}>
+                            <Text style={[styles.bookSolidButtonText, disabled && isDark && { color: '#64748B' }]}>
                               {isFull ? 'Full' : hasBookedThisWeek ? 'Already booked this week' : 'Book Session'}
                             </Text>
                           </TouchableOpacity>
@@ -274,7 +297,7 @@ export default function PracticeSessionsScreen() {
                   );
                 })
               ) : (
-                <Text style={styles.emptyText}>No open practice slots available.</Text>
+                <Text style={[styles.emptyText, isDark && { color: '#94A3B8' }]}>No open practice slots available.</Text>
               )}
             </View>
           )}
@@ -294,44 +317,44 @@ export default function PracticeSessionsScreen() {
                   const isFuture = actualSlotDate >= today;
 
                   return (
-                    <View key={booking._id} style={[styles.sessionCard, !isFuture && styles.pastSessionCard]}>
+                    <View key={booking._id} style={[styles.sessionCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, !isFuture && (isDark ? { opacity: 0.6 } : styles.pastSessionCard)]}>
                       {isFuture && <View style={styles.sessionCardAccentBar} />}
                       <View style={styles.sessionCardContent}>
                         <View style={styles.pillTagsRow}>
-                          <View style={[styles.coursePillTag, !isFuture && styles.pastPillTag]}>
-                            <Text style={[styles.coursePillText, !isFuture && styles.pastPillText]}>
+                          <View style={[styles.coursePillTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }, !isFuture && styles.pastPillTag]}>
+                            <Text style={[styles.coursePillText, isDark && { color: '#E2E8F0' }, !isFuture && styles.pastPillText]}>
                               {slot.batch_id?.course_id?.title || 'Practice Session'}
                             </Text>
                           </View>
-                          <View style={[styles.batchPillTag, !isFuture && styles.pastPillTag]}>
-                            <Text style={[styles.batchPillTagText, !isFuture && styles.pastPillText]}>
+                          <View style={[styles.batchPillTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }, !isFuture && styles.pastPillTag]}>
+                            <Text style={[styles.batchPillTagText, isDark && { color: '#CBD5E1' }, !isFuture && styles.pastPillText]}>
                               {slot.batch_id?.name || 'Batch 01'}
                             </Text>
                           </View>
                         </View>
 
-                        <Text style={[styles.sessionDateText, !isFuture && styles.pastText]}>
+                        <Text style={[styles.sessionDateText, isDark && { color: '#FFFFFF' }, !isFuture && styles.pastText]}>
                           {actualSlotDate.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'short' })}
                           {!isFuture ? ' (Past)' : ''}
                         </Text>
 
-                        <Text style={[styles.sessionTimeText, !isFuture && styles.pastText]}>
+                        <Text style={[styles.sessionTimeText, isDark && { color: '#CBD5E1' }, !isFuture && styles.pastText]}>
                           {slot.start_time} – {slot.end_time}
                         </Text>
 
                         <View style={styles.instructorRow}>
-                          <Icon name="person-outline" size={15} color={isFuture ? '#666' : '#B0B0B0'} style={{ marginRight: 4 }} />
-                          <Text style={[styles.instructorText, !isFuture && styles.pastText]}>
+                          <Icon name="person-outline" size={15} color={isFuture ? (isDark ? '#94A3B8' : '#666') : '#B0B0B0'} style={{ marginRight: 4 }} />
+                          <Text style={[styles.instructorText, isDark && { color: '#94A3B8' }, !isFuture && styles.pastText]}>
                             Inst. {slot.instructor_id?.name || 'Instructor'}
                           </Text>
                         </View>
 
                         {isFuture && (
                           <TouchableOpacity
-                            style={styles.cancelOutlineButton}
+                            style={[styles.cancelOutlineButton, isDark && { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
                             onPress={() => handleCancelBooking(slot._id)}
                           >
-                            <Text style={styles.cancelOutlineButtonText}>Cancel</Text>
+                            <Text style={[styles.cancelOutlineButtonText, isDark && { color: '#EF4444' }]}>Cancel</Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -339,7 +362,7 @@ export default function PracticeSessionsScreen() {
                   );
                 })
               ) : (
-                <Text style={{ color: '#888888', ...FONTS.regular, textAlign: 'center', marginTop: 30 }}>
+                <Text style={{ color: isDark ? '#94A3B8' : '#888888', ...FONTS.regular, textAlign: 'center', marginTop: 30 }}>
                   No practice bookings found.
                 </Text>
               )}
@@ -397,36 +420,51 @@ const styles = StyleSheet.create({
     ...FONTS.regular,
     lineHeight: 18,
   },
-  tabSwitcherRow: {
+  segmentedTrackContainer: {
+    marginVertical: SPACING.md,
+  },
+  segmentedTrack: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EAEAEA',
-    marginBottom: SPACING.lg,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 26,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
+      default: {}
+    }),
   },
-  tabButton: {
+  segmentedTab: {
     flex: 1,
-    paddingVertical: SPACING.md,
+    flexDirection: 'row',
     alignItems: 'center',
-    position: 'relative',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 22,
   },
-  tabButtonActive: {},
-  tabButtonText: {
-    fontSize: 15,
-    color: '#888888',
+  segmentedTabActive: {
+    backgroundColor: '#0F172A',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+        elevation: 4,
+      }
+    }),
+  },
+  segmentedTabText: {
+    fontSize: 13.5,
+    color: '#64748B',
     ...FONTS.semiBold,
   },
-  tabButtonTextActive: {
-    color: '#F58220',
+  segmentedTabTextActive: {
+    color: '#FFFFFF',
     ...FONTS.bold,
-  },
-  activeTabUnderline: {
-    position: 'absolute',
-    bottom: -1,
-    left: 10,
-    right: 10,
-    height: 3,
-    backgroundColor: '#F58220',
-    borderRadius: 1.5,
   },
   batchPill: {
     paddingHorizontal: 16,

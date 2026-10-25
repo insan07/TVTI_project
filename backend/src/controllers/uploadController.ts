@@ -5,6 +5,7 @@ import Video from '../models/Video';
 import cloudinary from '../config/cloudinary';
 import { sendNotification } from '../services/notificationService';
 import { saveBufferToGridFS } from '../services/fileStorage';
+import os from 'os';
 
 const saveFileToDisk = (buffer: Buffer, originalName: string, subfolder: 'videos' | 'notes' | 'materials'): string => {
   const uploadsDir = path.join(process.cwd(), 'uploads', subfolder);
@@ -89,6 +90,35 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
     );
     const cloudinary_url = `/api/files/${file_id}`;
 
+    let thumbnail_url = undefined;
+    if (materialFile.mimetype === 'application/pdf') {
+      try {
+        // pdf2pic requires GraphicsMagick — not available on Vercel serverless.
+        // Gracefully skip thumbnail generation if it fails.
+        const { fromBuffer } = await import('pdf2pic');
+        const options = {
+          density: 100,
+          saveFilename: `thumb_${Date.now()}`,
+          savePath: os.tmpdir(),
+          format: "jpg",
+          width: 600,
+          height: 800
+        };
+        const storeAsImage = fromBuffer(materialFile.buffer, options);
+        const result = await storeAsImage(1, { responseType: "buffer" }) as any;
+        if (result && result.buffer) {
+          const thumbId = await saveBufferToGridFS(
+            result.buffer,
+            `thumb_${originalName}.jpg`,
+            'image/jpeg'
+          );
+          thumbnail_url = `/api/files/${thumbId}`;
+        }
+      } catch (pdfErr) {
+        console.warn('[uploadMaterial] PDF thumbnail skipped (GraphicsMagick may not be available):', (pdfErr as Error).message);
+      }
+    }
+
     const material = await Video.create({
       batch_id,
       instructor_id: (req as any).user._id,
@@ -96,6 +126,7 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
       title,
       cloudinary_url,
       file_id,
+      thumbnail: thumbnail_url,
       content_type: 'material',
       order_index: Number(order_index) || 0,
     });
@@ -119,5 +150,29 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
     console.error('Material upload failed:', error);
     const message = error instanceof Error && error.message ? error.message : 'Material upload failed';
     res.status(500).json({ message });
+  }
+};
+
+// ─── POST /api/admin/upload-image ──────────────────────────────────────────────
+export const uploadAdminImage = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const file = req.file;
+    if (!file || !file.buffer) {
+      res.status(400).json({ message: 'No image file uploaded' });
+      return;
+    }
+
+    const originalName = file.originalname || 'image.jpg';
+    const file_id = await saveBufferToGridFS(
+      file.buffer,
+      originalName,
+      file.mimetype || 'image/jpeg'
+    );
+
+    const url = `/api/files/${file_id}`;
+    res.status(200).json({ url, file_id });
+  } catch (error) {
+    console.error('Image upload failed:', error);
+    res.status(500).json({ message: 'Image upload failed' });
   }
 };

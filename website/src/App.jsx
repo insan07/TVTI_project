@@ -1,5 +1,6 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import ScrollToTop from './components/ScrollToTop'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import Home from './pages/Home'
@@ -11,13 +12,16 @@ import Inquiry from './pages/Inquiry'
 import Verify from './pages/Verify'
 import GalleryVideos from './pages/GalleryVideos'
 import GalleryPhotos from './pages/GalleryPhotos'
+import { SiteSettingsProvider } from './context/SiteSettingsContext'
 
 function App() {
   return (
-    <Router>
-      <div className="flex flex-col min-h-screen bg-brand-white selection:bg-brand-orange/30 selection:text-brand-black">
-        {/* Shared Layout Header */}
-        <Header />
+    <SiteSettingsProvider>
+      <Router>
+        <ScrollToTop />
+        <div className="flex flex-col min-h-screen bg-brand-white selection:bg-brand-orange/30 selection:text-brand-black">
+          {/* Shared Layout Header */}
+          <Header />
 
         {/* Dynamic Route Pages */}
         <main className="flex-grow">
@@ -38,6 +42,7 @@ function App() {
         <Footer />
       </div>
     </Router>
+  </SiteSettingsProvider>
   )
 }
 

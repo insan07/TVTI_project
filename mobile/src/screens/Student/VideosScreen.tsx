@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,21 +16,22 @@ import {
   TouchableWithoutFeedback
 } from 'react-native';
 import api from '../../services/api';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config/constants';
+import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
-if (Platform.OS === 'android') {
-  if (UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-  }
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const formatUploadedTime = (dateStr?: string) => {
-  if (!dateStr) return 'Uploaded 2 days ago';
+  if (!dateStr) return 'Upload date unknown';
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return 'Uploaded recently';
 
@@ -49,6 +50,7 @@ const formatUploadedTime = (dateStr?: string) => {
 export default function VideosScreen({ unreadCount }: { unreadCount?: number }) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'videos' | 'pdf'>('all');
   const [batches, setBatches] = useState<any[]>([]);
@@ -63,23 +65,20 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
 
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    fetchBatches();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      api.get('/students/batches').then(res => {
+        setBatches(res.data || []);
+        if (res.data && res.data.length > 0) {
+          const targetId = activeBatchId || res.data[0]._id;
+          if (!activeBatchId) setActiveBatchId(targetId);
+          fetchContent(targetId);
+        }
+      }).catch(e => console.warn('Failed to load batches:', e));
+    }, [activeBatchId])
+  );
 
-  const fetchBatches = async () => {
-    try {
-      const res = await api.get('/students/batches');
-      setBatches(res.data || []);
-      if (res.data && res.data.length > 0) {
-        const firstId = res.data[0]._id;
-        setActiveBatchId(firstId);
-        fetchContent(firstId);
-      }
-    } catch (e) {
-      console.warn('Failed to load batches:', e);
-    }
-  };
+  // We can remove the old fetchBatches function as it's handled in useFocusEffect now
 
   const fetchContent = (batchId: string) => {
     fetchVideos(batchId);
@@ -153,72 +152,72 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
   const showPdfs = activeFilter === 'all' || activeFilter === 'pdf';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
+      <ScreenBackground />
       {/* FIXED STICKY TOP HEADER */}
-      <View style={[styles.stickyHeader, { paddingTop: Math.max(insets.top + 8, 16) }]}>
-        {/* Main Heading */}
-        <Text style={styles.mainTitle}>Uploads</Text>
+      <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
+        <ScreenHeader title="Uploads" subtitle="Course videos & study materials" />
 
         {/* Course Selector Dropdown Pill */}
         <TouchableOpacity
-          style={styles.compactCourseSelect}
+          style={[styles.compactCourseSelect, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
           activeOpacity={0.85}
           onPress={() => setCourseModalVisible(true)}
         >
           <View style={styles.courseSelectLeft}>
-            <Text style={styles.compactCourseTitle} numberOfLines={1}>
+            <Text style={[styles.compactCourseTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
               {courseTitle}
             </Text>
           </View>
-          <Icon name="chevron-down" size={18} color="#71717A" />
+          <Icon name="chevron-down" size={18} color={isDark ? '#94A3B8' : '#71717A'} />
         </TouchableOpacity>
 
         {/* Filter Bar Pills */}
-        <View style={styles.compactFilterRow}>
+        <View style={[styles.compactFilterRow, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.85)', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
           <TouchableOpacity
-            style={[styles.compactFilterPill, activeFilter === 'all' && styles.compactFilterPillActive]}
+            style={[styles.compactFilterPill, activeFilter === 'all' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
             onPress={() => setActiveFilter('all')}
             activeOpacity={0.8}
           >
             <Icon
               name="grid-outline"
               size={13}
-              color={activeFilter === 'all' ? '#FFFFFF' : '#52525B'}
+              color={activeFilter === 'all' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
               style={{ marginRight: 4 }}
             />
-            <Text style={[styles.compactFilterText, activeFilter === 'all' && styles.compactFilterTextActive]}>
+            <Text style={[styles.compactFilterText, activeFilter === 'all' && styles.compactFilterTextActive, activeFilter !== 'all' && isDark && { color: '#94A3B8' }]}>
               All ({videos.length + materials.length})
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.compactFilterPill, activeFilter === 'videos' && styles.compactFilterPillActive]}
+            style={[styles.compactFilterPill, activeFilter === 'videos' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
             onPress={() => setActiveFilter('videos')}
             activeOpacity={0.8}
           >
             <Icon
               name="play-circle-outline"
               size={13}
-              color={activeFilter === 'videos' ? '#FFFFFF' : '#52525B'}
+              color={activeFilter === 'videos' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
               style={{ marginRight: 4 }}
             />
-            <Text style={[styles.compactFilterText, activeFilter === 'videos' && styles.compactFilterTextActive]}>
+            <Text style={[styles.compactFilterText, activeFilter === 'videos' && styles.compactFilterTextActive, activeFilter !== 'videos' && isDark && { color: '#94A3B8' }]}>
               Videos ({videos.length})
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.compactFilterPill, activeFilter === 'pdf' && styles.compactFilterPillActive]}
+            style={[styles.compactFilterPill, activeFilter === 'pdf' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
             onPress={() => setActiveFilter('pdf')}
             activeOpacity={0.8}
           >
             <Icon
               name="document-text-outline"
               size={13}
-              color={activeFilter === 'pdf' ? '#FFFFFF' : '#52525B'}
+              color={activeFilter === 'pdf' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
               style={{ marginRight: 4 }}
             />
-            <Text style={[styles.compactFilterText, activeFilter === 'pdf' && styles.compactFilterTextActive]}>
+            <Text style={[styles.compactFilterText, activeFilter === 'pdf' && styles.compactFilterTextActive, activeFilter !== 'pdf' && isDark && { color: '#94A3B8' }]}>
               PDFs ({materials.length})
             </Text>
           </TouchableOpacity>
@@ -237,7 +236,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
           {showVideos && (
             <View style={styles.contentSectionGroup}>
               {activeFilter === 'all' && (
-                <Text style={styles.sectionHeadingTitle}>Video Lectures</Text>
+                <Text style={[styles.sectionHeadingTitle, isDark && { color: '#FFFFFF' }]}>Video Lectures</Text>
               )}
 
               {loadingVideos ? (
@@ -248,18 +247,18 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                   return (
                     <View key={topic} style={styles.moduleSectionBox}>
                       <TouchableOpacity
-                        style={[styles.moduleHeader, { marginBottom: isExpanded ? 12 : 0 }]}
+                        style={[styles.moduleHeader, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, { marginBottom: isExpanded ? 12 : 0 }]}
                         activeOpacity={0.8}
                         onPress={() => toggleModule(topic)}
                       >
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.moduleTag}>MODULE {idx + 1}</Text>
-                          <Text style={styles.moduleTitle}>{topic}</Text>
+                          <Text style={[styles.moduleTag, isDark && { color: '#FB923C' }]}>MODULE {idx + 1}</Text>
+                          <Text style={[styles.moduleTitle, isDark && { color: '#FFFFFF' }]}>{topic}</Text>
                         </View>
                         <Icon
                           name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
                           size={20}
-                          color="#1A1A1A"
+                          color={isDark ? '#94A3B8' : '#1A1A1A'}
                         />
                       </TouchableOpacity>
 
@@ -287,18 +286,13 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                             }
 
                             if (!thumbUrl && !isLocalVideo) {
-                              const sampleThumbs = [
-                                'https://images.unsplash.com/photo-1581092160607-ee22621dd758?q=80&w=600&auto=format&fit=crop',
-                                'https://images.unsplash.com/photo-1581092335397-9583fe92d232?q=80&w=600&auto=format&fit=crop',
-                                'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=600&auto=format&fit=crop',
-                              ];
-                              thumbUrl = sampleThumbs[vIdx % sampleThumbs.length];
+                              thumbUrl = null; // Will fall through to placeholder icon
                             }
 
                             return (
                               <TouchableOpacity
                                 key={v._id || vIdx}
-                                style={styles.youtubeVideoCard}
+                                style={[styles.youtubeVideoCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
                                 activeOpacity={0.88}
                                 onPress={() =>
                                   navigation.navigate('VideoPlayer', {
@@ -347,7 +341,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                                   {/* Duration Badge */}
                                   <View style={styles.durationPill}>
                                     <Text style={styles.durationPillText}>
-                                      {v.duration || '15:30'}
+                                      {v.duration || '--:--'}
                                     </Text>
                                   </View>
                                 </View>
@@ -355,26 +349,26 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                                 {/* Video Meta Info */}
                                 <View style={styles.youtubeVideoMeta}>
                                   <View style={styles.metaHeaderRow}>
-                                    <View style={styles.topicBadgePill}>
-                                      <Text style={styles.topicBadgeText}>
+                                    <View style={[styles.topicBadgePill, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.18)' }]}>
+                                      <Text style={[styles.topicBadgeText, isDark && { color: '#FB923C' }]}>
                                         {(v.topic || 'LECTURE').toUpperCase()}
                                       </Text>
                                     </View>
 
                                     {v.notes_url ? (
-                                      <View style={styles.pdfBadgePill}>
+                                      <View style={[styles.pdfBadgePill, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.18)' }]}>
                                         <Icon
                                           name="document-text"
                                           size={12}
-                                          color="#B45309"
+                                          color={isDark ? '#FBBF24' : '#B45309'}
                                           style={{ marginRight: 4 }}
                                         />
-                                        <Text style={styles.pdfBadgeText}>PDF Notes</Text>
+                                        <Text style={[styles.pdfBadgeText, isDark && { color: '#FBBF24' }]}>PDF Notes</Text>
                                       </View>
                                     ) : null}
                                   </View>
 
-                                  <Text style={styles.youtubeVideoTitle} numberOfLines={2}>
+                                  <Text style={[styles.youtubeVideoTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={2}>
                                     {v.title}
                                   </Text>
 
@@ -382,10 +376,10 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                                     <Icon
                                       name="time-outline"
                                       size={14}
-                                      color="#71717A"
+                                      color={isDark ? '#94A3B8' : '#71717A'}
                                       style={{ marginRight: 4 }}
                                     />
-                                    <Text style={styles.youtubeChannelText}>
+                                    <Text style={[styles.youtubeChannelText, isDark && { color: '#94A3B8' }]}>
                                       {formatUploadedTime(v.createdAt || v.uploaded_at)}
                                     </Text>
                                   </View>
@@ -399,9 +393,9 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                   );
                 })
               ) : (
-                <View style={styles.emptyMaterialsBox}>
-                  <Icon name="play-circle-outline" size={44} color="#CBD5E1" />
-                  <Text style={styles.emptyStateText}>
+                <View style={[styles.emptyMaterialsBox, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                  <Icon name="play-circle-outline" size={44} color={isDark ? '#475569' : '#CBD5E1'} />
+                  <Text style={[styles.emptyStateText, isDark && { color: '#94A3B8' }]}>
                     No video lectures available for this course.
                   </Text>
                 </View>
@@ -413,7 +407,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
           {showPdfs && (
             <View style={styles.contentSectionGroup}>
               {activeFilter === 'all' && (
-                <Text style={[styles.sectionHeadingTitle, { marginTop: showVideos ? 24 : 0 }]}>
+                <Text style={[styles.sectionHeadingTitle, isDark && { color: '#FFFFFF' }, { marginTop: showVideos ? 24 : 0 }]}>
                   PDF Study Notes
                 </Text>
               )}
@@ -422,15 +416,24 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                 <ActivityIndicator size="large" color="#F58220" style={{ marginVertical: 30 }} />
               ) : materials.length > 0 ? (
                 <View style={styles.materialsListContainer}>
-                  {materials.map((mat) => (
-                    <View key={mat._id} style={styles.materialCard}>
-                      <View style={styles.materialIconCircle}>
-                        <Icon name="document-text" size={26} color="#F58220" />
+                  {materials.map((mat) => {
+                    let thumbUrl = null;
+                    if (mat.cloudinary_url && mat.cloudinary_url.includes('cloudinary.com')) {
+                      thumbUrl = mat.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
+                    }
+                    return (
+                    <View key={mat._id} style={[styles.materialCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                      <View style={[styles.materialIconCircle, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }, thumbUrl ? { backgroundColor: 'transparent' } : {}]}>
+                        {thumbUrl ? (
+                          <Image source={{ uri: thumbUrl }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+                        ) : (
+                          <Icon name="document-text" size={26} color="#F58220" />
+                        )}
                       </View>
                       <View style={styles.materialInfo}>
-                        <Text style={styles.materialTitle}>{mat.title}</Text>
-                        <Text style={styles.materialTopic}>Topic: {mat.topic || 'General'}</Text>
-                        <Text style={styles.materialDate}>
+                        <Text style={[styles.materialTitle, isDark && { color: '#FFFFFF' }]}>{mat.title}</Text>
+                        <Text style={[styles.materialTopic, isDark && { color: '#94A3B8' }]}>Topic: {mat.topic || 'General'}</Text>
+                        <Text style={[styles.materialDate, isDark && { color: '#64748B' }]}>
                           Posted: {new Date(mat.createdAt).toLocaleDateString()}
                         </Text>
                       </View>
@@ -451,12 +454,13 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                         </LinearGradient>
                       </TouchableOpacity>
                     </View>
-                  ))}
+                    );
+                  })}
                 </View>
               ) : (
-                <View style={styles.emptyMaterialsBox}>
-                  <Icon name="document-text-outline" size={44} color="#CBD5E1" />
-                  <Text style={styles.emptyStateText}>
+                <View style={[styles.emptyMaterialsBox, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                  <Icon name="document-text-outline" size={44} color={isDark ? '#475569' : '#CBD5E1'} />
+                  <Text style={[styles.emptyStateText, isDark && { color: '#94A3B8' }]}>
                     No PDF study materials posted yet for this course.
                   </Text>
                 </View>
@@ -479,15 +483,15 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
           onPress={() => setCourseModalVisible(false)}
         >
           <TouchableWithoutFeedback>
-            <View style={styles.dropdownModalCard}>
-              <View style={styles.dropdownHeader}>
-                <Text style={styles.dropdownTitle}>Select Course</Text>
+            <View style={[styles.dropdownModalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+              <View style={[styles.dropdownHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                <Text style={[styles.dropdownTitle, isDark && { color: '#FFFFFF' }]}>Select Course</Text>
                 <TouchableOpacity
                   onPress={() => setCourseModalVisible(false)}
                   style={styles.closeBtn}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Icon name="close" size={20} color="#71717A" />
+                  <Icon name="close" size={20} color={isDark ? '#94A3B8' : '#71717A'} />
                 </TouchableOpacity>
               </View>
 
@@ -502,7 +506,8 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                         key={batch._id}
                         style={[
                           styles.courseOptionItem,
-                          isSelected && styles.courseOptionItemSelected,
+                          isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.08)' },
+                          isSelected && (isDark ? { backgroundColor: 'rgba(249, 115, 22, 0.18)', borderColor: '#F97316' } : styles.courseOptionItemSelected),
                         ]}
                         activeOpacity={0.7}
                         onPress={() => {
@@ -514,6 +519,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                           <Text
                             style={[
                               styles.courseOptionText,
+                              isDark && { color: '#FFFFFF' },
                               isSelected && styles.courseOptionTextSelected,
                             ]}
                             numberOfLines={1}
@@ -521,7 +527,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                             {title}
                           </Text>
                           {batchCode ? (
-                            <Text style={styles.courseOptionSub}>Batch: {batchCode}</Text>
+                            <Text style={[styles.courseOptionSub, isDark && { color: '#94A3B8' }]}>Batch: {batchCode}</Text>
                           ) : null}
                         </View>
                         {isSelected ? (
@@ -529,14 +535,14 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                             <Icon name="checkmark" size={14} color="#FFFFFF" />
                           </View>
                         ) : (
-                          <Icon name="chevron-forward" size={16} color="#D4D4D8" />
+                          <Icon name="chevron-forward" size={16} color={isDark ? '#64748B' : '#D4D4D8'} />
                         )}
                       </TouchableOpacity>
                     );
                   })
                 ) : (
                   <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                    <Text style={{ color: '#71717A', fontSize: 14 }}>No courses available</Text>
+                    <Text style={{ color: isDark ? '#94A3B8' : '#71717A', fontSize: 14 }}>No courses available</Text>
                   </View>
                 )}
               </ScrollView>
@@ -627,30 +633,43 @@ const styles = StyleSheet.create({
   },
   compactFilterRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 26,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     marginBottom: 20,
+    ...Platform.select({
+      web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
+      default: {}
+    }),
   },
   compactFilterPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderRadius: 22,
   },
   compactFilterPillActive: {
-    backgroundColor: '#18181B',
-    borderColor: '#18181B',
+    backgroundColor: '#0F172A',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+        elevation: 4,
+      }
+    }),
   },
   compactFilterText: {
-    fontSize: 12,
+    fontSize: 12.5,
     ...FONTS.medium,
-    color: '#52525B',
+    color: '#64748B',
   },
   compactFilterTextActive: {
     color: '#FFFFFF',
@@ -812,7 +831,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   thumbPlayOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',

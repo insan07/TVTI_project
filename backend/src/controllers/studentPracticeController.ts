@@ -27,13 +27,13 @@ export const getOpenSlots = async (req: AuthRequest, res: Response): Promise<voi
     const slotIds = slots.map(s => s._id);
     const [counts, myBookings] = await Promise.all([
       SlotBooking.aggregate([
-        { $match: { slot_id: { $in: slotIds }, status: 'confirmed' } },
+        { $match: { slot_id: { $in: slotIds }, status: { $in: ['confirmed', 'cancellation_requested'] } } },
         { $group: { _id: '$slot_id', count: { $sum: 1 } } }
       ]),
-      SlotBooking.find({ slot_id: { $in: slotIds }, student_id: req.user?._id, status: 'confirmed' }).select('slot_id')
+      SlotBooking.find({ slot_id: { $in: slotIds }, student_id: req.user?._id, status: { $in: ['confirmed', 'cancellation_requested'] } }).select('slot_id status')
     ]);
 
-    const myBookedSlotIds = new Set(myBookings.map(b => String(b.slot_id)));
+    const myBookedSlotMap = new Map(myBookings.map(b => [String(b.slot_id), b.status]));
 
     const result = slots.map(s => {
       const booked = counts.find(x => String(x._id) === String(s._id))?.count || 0;
@@ -41,7 +41,8 @@ export const getOpenSlots = async (req: AuthRequest, res: Response): Promise<voi
         ...s.toObject(),
         seats_taken: booked,
         seats_available: s.max_students - booked,
-        already_booked: myBookedSlotIds.has(String(s._id)),
+        already_booked: myBookedSlotMap.has(String(s._id)),
+        booking_status: myBookedSlotMap.get(String(s._id)) || null,
       };
     });
 
@@ -57,7 +58,7 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
     const slot = await PracticeSlot.findById(req.params.slotId);
     if (!slot || !slot.is_open) { res.status(404).json({ message: 'Slot not available' }); return; }
 
-    const confirmed = await SlotBooking.countDocuments({ slot_id: slot._id, status: 'confirmed' });
+    const confirmed = await SlotBooking.countDocuments({ slot_id: slot._id, status: { $in: ['confirmed', 'cancellation_requested'] } });
     if (confirmed >= slot.max_students) { res.status(400).json({ message: 'This slot is full' }); return; }
 
     // One booking per week per batch rule
@@ -66,7 +67,7 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
     const alreadyBooked = await SlotBooking.findOne({
       slot_id: { $in: weekSlotIds },
       student_id: req.user?._id,
-      status: 'confirmed'
+      status: { $in: ['confirmed', 'cancellation_requested'] }
     });
     if (alreadyBooked) {
       res.status(400).json({ message: 'You already have a session booked this week for this batch' });
@@ -95,28 +96,30 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
 };
 
 // DELETE /api/student/practice-slots/:slotId/book
+// Body: { reason?: string }
 export const cancelBooking = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const { reason } = req.body || {};
     const result = await SlotBooking.findOneAndUpdate(
-      { slot_id: req.params.slotId, student_id: req.user?._id, status: 'confirmed' },
-      { status: 'cancelled' },
+      { slot_id: req.params.slotId, student_id: req.user?._id, $or: [{ status: 'confirmed' }, { status: { $exists: false } }] },
+      { status: 'cancellation_requested', cancellation_reason: reason || '' },
       { new: true }
     );
-    if (!result) { res.status(404).json({ message: 'Booking not found' }); return; }
+    if (!result) { res.status(404).json({ message: 'Booking not found or already pending cancellation' }); return; }
 
     const slot = await PracticeSlot.findById(req.params.slotId);
     if (slot && slot.instructor_id) {
       await sendNotification({
         userIds: [slot.instructor_id.toString()],
-        title: 'Booking Cancelled',
-        message: `${req.user?.name || 'A student'} cancelled their booking for ${slot.day_of_week} (${slot.start_time} - ${slot.end_time}).`,
+        title: 'Booking Cancellation Requested',
+        message: `${req.user?.name || 'A student'} requested to cancel their booking for ${slot.day_of_week} (${slot.start_time} - ${slot.end_time}).`,
         type: 'booking_cancelled',
         relatedId: slot._id,
         link: '/instructor/slots'
       });
     }
 
-    res.json({ message: 'Booking cancelled' });
+    res.json({ message: 'Cancellation requested' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -125,7 +128,7 @@ export const cancelBooking = async (req: AuthRequest, res: Response): Promise<vo
 // GET /api/student/my-practice-bookings
 export const getMyBookings = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const bookings = await SlotBooking.find({ student_id: req.user?._id, status: 'confirmed' })
+    const bookings = await SlotBooking.find({ student_id: req.user?._id, status: { $in: ['confirmed', 'cancellation_requested'] } })
       .populate({
         path: 'slot_id',
         populate: [

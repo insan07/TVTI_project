@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,17 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Platform,
+  TextInput,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getOpenPracticeSlots, bookPracticeSlot, cancelPracticeBooking } from '../../services/practiceService';
 import api from '../../services/api';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 const parseUTCDate = (dateStr: string) => {
   if (!dateStr) return new Date();
@@ -45,12 +49,27 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
 export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: number }) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
   const [courseModalVisible, setCourseModalVisible] = useState(false);
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelSlotId, setCancelSlotId] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+
+  const [alertModal, setAlertModal] = useState<{ visible: boolean; title: string; message: string; onOk?: () => void }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (title: string, message: string, onOk?: () => void) => {
+    setAlertModal({ visible: true, title, message, onOk });
+  };
 
   // Generate next 14 days for the calendar strip
   const calendarDays = Array.from({ length: 14 }).map((_, i) => {
@@ -60,13 +79,27 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
     return d;
   });
 
-  useEffect(() => {
-    fetchBatches();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      api.get('/students/batches').then(res => {
+        setBatches(res.data || []);
+        let currentBatch = selectedBatch;
+        if (res.data && res.data.length > 0) {
+          if (!currentBatch) {
+            currentBatch = res.data[0];
+            setSelectedBatch(currentBatch);
+          } else {
+            fetchSlots(currentBatch);
+          }
+        }
+      }).catch(e => console.log('Error fetching batches', e));
+    }, [selectedBatch])
+  );
 
+  // Still keep this to fetch when batch changes
   useEffect(() => {
     if (selectedBatch) {
-      fetchSlots();
+      fetchSlots(selectedBatch);
     }
   }, [selectedBatch]);
 
@@ -82,11 +115,11 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
     }
   };
 
-  const fetchSlots = async () => {
-    if (!selectedBatch) return;
+  const fetchSlots = async (batch = selectedBatch) => {
+    if (!batch) return;
     setLoading(true);
     try {
-      const data = await getOpenPracticeSlots({ batchId: selectedBatch._id });
+      const data = await getOpenPracticeSlots({ batchId: batch._id });
       setSlots(data);
     } catch (e) {
       console.log(e);
@@ -98,29 +131,29 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
   const handleBookSlot = async (slotId: string) => {
     try {
       await bookPracticeSlot(slotId);
-      Alert.alert('Success', 'Practice session booked successfully!');
+      showAlert('Success', 'Practice session booked successfully!');
       fetchSlots();
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to book slot');
+      showAlert('Error', e.response?.data?.message || 'Failed to book slot');
     }
   };
 
   const handleCancelBooking = async (slotId: string) => {
-    Alert.alert('Confirm', 'Are you sure you want to cancel this booking?', [
-      { text: 'No' },
-      {
-        text: 'Yes',
-        onPress: async () => {
-          try {
-            await cancelPracticeBooking(slotId);
-            Alert.alert('Success', 'Booking cancelled');
-            fetchSlots();
-          } catch (e) {
-            Alert.alert('Error', 'Failed to cancel booking');
-          }
-        },
-      },
-    ]);
+    setCancelSlotId(slotId);
+    setCancelReason('');
+    setCancelModalVisible(true);
+  };
+
+  const confirmCancelBooking = async () => {
+    setCancelModalVisible(false);
+    try {
+      await cancelPracticeBooking(cancelSlotId, cancelReason);
+      showAlert('Success', 'Cancellation requested successfully! Please wait for instructor approval.');
+      fetchSlots();
+    } catch (e: any) {
+      console.error('Cancellation error', e.response?.data || e.message);
+      showAlert('Error', e.response?.data?.message || 'Failed to cancel booking');
+    }
   };
 
   const getLocalDateString = (d: Date) => {
@@ -145,10 +178,10 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
           title: selectedBatch?.course_id?.title || 'Vocational Training Course',
           days: Array.isArray(selectedBatch?.schedule_json?.days)
             ? selectedBatch.schedule_json.days.join(', ')
-            : (selectedBatch?.schedule_json?.days || 'Mon, Wed, Fri'),
-          time: selectedBatch?.schedule_json?.time || '09:00 - 11:30',
-          room: selectedBatch?.room || 'Main Workshop',
-          instructor: selectedBatch?.instructor_ids?.[0]?.name || 'Instructor',
+            : (selectedBatch?.schedule_json?.days || 'Days TBD'),
+          time: selectedBatch?.schedule_json?.time || 'Time TBD',
+          room: selectedBatch?.room || 'Room TBD',
+          instructor: selectedBatch?.instructor_ids?.[0]?.name || 'Instructor TBD',
         },
       ]
     : [];
@@ -173,27 +206,25 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
   const courseTitle = selectedBatch?.course_id?.title || selectedBatch?.name || 'Select Course';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
+      <ScreenBackground />
       {/* FIXED STICKY TOP HEADER */}
-      <View style={[styles.stickyHeader, { paddingTop: Math.max(insets.top + 8, 16) }]}>
-        {/* Main Title */}
-        <View style={styles.pageTitleContainer}>
-          <Text style={styles.pageTitle}>Schedule</Text>
-        </View>
+      <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
+        <ScreenHeader title="Schedule" subtitle="Timetable & practical slots" />
 
         {/* Sleek Compact Course Selector Header Bar */}
         <View style={styles.courseSelectContainer}>
           <TouchableOpacity
-            style={styles.compactCourseSelect}
+            style={[styles.compactCourseSelect, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
             activeOpacity={0.85}
             onPress={() => setCourseModalVisible(true)}
           >
             <View style={styles.courseSelectLeft}>
-              <Text style={styles.compactCourseTitle} numberOfLines={1}>
+              <Text style={[styles.compactCourseTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
                 {courseTitle}
               </Text>
             </View>
-            <Icon name="chevron-down" size={18} color="#71717A" />
+            <Icon name="chevron-down" size={18} color={isDark ? '#94A3B8' : '#71717A'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -207,46 +238,46 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
         ) : (
           <View style={styles.contentPadding}>
             {/* Section 1: Regular Classes (Blue Theme) */}
-            <Text style={styles.sectionTitle}>Regular Classes</Text>
+            <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Regular Classes</Text>
 
             {regularClasses.length > 0 ? (
               regularClasses.map((cls, i) => (
-                <View key={i} style={styles.classCard}>
+                <View key={i} style={[styles.classCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
                   <View style={styles.classCardAccentBar} />
                   <View style={styles.classCardContent}>
                     <View style={styles.classCardTopRow}>
-                      <Text style={styles.classCourseTitle}>{cls.title}</Text>
-                      <View style={styles.theoryBadge}>
-                        <Text style={styles.theoryBadgeText}>THEORY CLASS</Text>
+                      <Text style={[styles.classCourseTitle, isDark && { color: '#FFFFFF' }]}>{cls.title}</Text>
+                      <View style={[styles.theoryBadge, isDark && { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
+                        <Text style={[styles.theoryBadgeText, isDark && { color: '#60A5FA' }]}>THEORY CLASS</Text>
                       </View>
                     </View>
                     <View style={styles.classCardInfoRow}>
-                      <Icon name="calendar-outline" size={15} color="#2563EB" style={{ marginRight: 4 }} />
-                      <Text style={[styles.classCardInfoText, { fontWeight: 'bold', color: '#1E40AF' }]}>
+                      <Icon name="calendar-outline" size={15} color="#3B82F6" style={{ marginRight: 4 }} />
+                      <Text style={[styles.classCardInfoText, { fontWeight: 'bold', color: isDark ? '#93C5FD' : '#1E40AF' }]}>
                         {cls.days}
                       </Text>
-                      <Text style={styles.dotSeparator}>•</Text>
-                      <Icon name="time-outline" size={15} color="#2563EB" style={{ marginRight: 4 }} />
-                      <Text style={styles.classCardInfoText}>{cls.time}</Text>
+                      <Text style={[styles.dotSeparator, isDark && { color: '#64748B' }]}>•</Text>
+                      <Icon name="time-outline" size={15} color="#3B82F6" style={{ marginRight: 4 }} />
+                      <Text style={[styles.classCardInfoText, isDark && { color: '#94A3B8' }]}>{cls.time}</Text>
                     </View>
                     <View style={styles.classCardInfoRow}>
-                      <Icon name="location-outline" size={15} color="#666" style={{ marginRight: 4 }} />
-                      <Text style={styles.classCardInfoText}>{cls.room || 'Main Workshop'}</Text>
-                      <Text style={styles.dotSeparator}>•</Text>
-                      <Icon name="person-outline" size={15} color="#666" style={{ marginRight: 4 }} />
-                      <Text style={styles.classCardInfoText}>Inst. {cls.instructor}</Text>
+                      <Icon name="location-outline" size={15} color={isDark ? '#94A3B8' : '#666'} style={{ marginRight: 4 }} />
+                      <Text style={[styles.classCardInfoText, isDark && { color: '#94A3B8' }]}>{cls.room || 'Room TBD'}</Text>
+                      <Text style={[styles.dotSeparator, isDark && { color: '#64748B' }]}>•</Text>
+                      <Icon name="person-outline" size={15} color={isDark ? '#94A3B8' : '#666'} style={{ marginRight: 4 }} />
+                      <Text style={[styles.classCardInfoText, isDark && { color: '#94A3B8' }]}>{cls.instructor}</Text>
                     </View>
                   </View>
                 </View>
               ))
             ) : (
-              <Text style={{ color: '#888888', ...FONTS.regular, marginVertical: SPACING.md }}>
+              <Text style={{ color: isDark ? '#94A3B8' : '#888888', ...FONTS.regular, marginVertical: SPACING.md }}>
                 No regular classes found for this batch.
               </Text>
             )}
 
             {/* Section 2: Practice Sessions (Orange Theme) */}
-            <Text style={[styles.sectionTitle, { marginTop: SPACING.xl }]}>Practice Sessions & Lab Slots</Text>
+            <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }, { marginTop: SPACING.xl }]}>Practice Sessions & Lab Slots</Text>
 
             {slots.length > 0 ? (
               slots.map((slot) => {
@@ -262,22 +293,22 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                 return (
                   <View
                     key={slot._id}
-                    style={[styles.practiceCard, isFull && styles.practiceCardFull]}
+                    style={[styles.practiceCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, isFull && (isDark ? { opacity: 0.6 } : styles.practiceCardFull)]}
                   >
                     <View style={styles.practiceCardTopRow}>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                          <View style={styles.practiceBadge}>
-                            <Text style={styles.practiceBadgeText}>PRACTICE SLOT</Text>
+                          <View style={[styles.practiceBadge, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.18)' }]}>
+                            <Text style={[styles.practiceBadgeText, isDark && { color: '#FB923C' }]}>PRACTICE SLOT</Text>
                           </View>
                         </View>
-                        <Text style={[styles.practiceTitle, isFull && styles.dimmedText]}>
+                        <Text style={[styles.practiceTitle, isDark && { color: '#FFFFFF' }, isFull && styles.dimmedText]}>
                           {slot.batch_id?.course_id?.title || 'Practice Session'}
                         </Text>
                       </View>
 
                       {slot.already_booked ? (
-                        <View style={styles.bookedBadge}>
+                        <View style={[styles.bookedBadge, isDark && { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
                           <Icon
                             name="checkmark-circle-outline"
                             size={13}
@@ -287,13 +318,13 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                           <Text style={styles.bookedBadgeText}>BOOKED</Text>
                         </View>
                       ) : isFull ? (
-                        <Text style={styles.seatsLeftTextFull}>0 / {maxSeats} left</Text>
+                        <Text style={[styles.seatsLeftTextFull, isDark && { color: '#94A3B8' }]}>0 / {maxSeats} left</Text>
                       ) : (
                         <View style={styles.seatsProgressContainer}>
-                          <Text style={styles.seatsLeftText}>
+                          <Text style={[styles.seatsLeftText, isDark && { color: '#94A3B8' }]}>
                             {seatsLeft} / {maxSeats} left
                           </Text>
-                          <View style={styles.progressBarTrack}>
+                          <View style={[styles.progressBarTrack, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}>
                             <View
                               style={[styles.progressBarFill, { width: `${fillRatio * 100}%` }]}
                             />
@@ -309,7 +340,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                         color={isFull ? '#B0B0B0' : '#D97706'}
                         style={{ marginRight: 4 }}
                       />
-                      <Text style={[styles.practiceDateText, isFull && styles.dimmedText]}>
+                      <Text style={[styles.practiceDateText, isDark && { color: '#CBD5E1' }, isFull && styles.dimmedText]}>
                         {dateString}
                       </Text>
                     </View>
@@ -318,43 +349,49 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                       <Icon
                         name="time-outline"
                         size={15}
-                        color={isFull ? '#B0B0B0' : '#666'}
+                        color={isFull ? '#B0B0B0' : (isDark ? '#94A3B8' : '#666')}
                         style={{ marginRight: 4 }}
                       />
-                      <Text style={[styles.practiceInfoText, isFull && styles.dimmedText]}>
+                      <Text style={[styles.practiceInfoText, isDark && { color: '#94A3B8' }, isFull && styles.dimmedText]}>
                         {slot.start_time} - {slot.end_time}
                       </Text>
-                      <Text style={styles.dotSeparator}>•</Text>
+                      <Text style={[styles.dotSeparator, isDark && { color: '#64748B' }]}>•</Text>
                       <Icon
                         name="person-outline"
                         size={15}
-                        color={isFull ? '#B0B0B0' : '#666'}
+                        color={isFull ? '#B0B0B0' : (isDark ? '#94A3B8' : '#666')}
                         style={{ marginRight: 4 }}
                       />
-                      <Text style={[styles.practiceInfoText, isFull && styles.dimmedText]}>
-                        Inst. {slot.instructor_id?.name || 'Instructor'}
+                      <Text style={[styles.practiceInfoText, isDark && { color: '#94A3B8' }, isFull && styles.dimmedText]}>
+                        {slot.instructor_id?.name || 'Instructor TBD'}
                       </Text>
                     </View>
 
                     {/* Action Buttons */}
                     {isFull ? (
-                      <View style={styles.fullStatusContainer}>
-                        <Text style={styles.fullText}>FULL</Text>
+                      <View style={[styles.fullStatusContainer, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                        <Text style={[styles.fullText, isDark && { color: '#94A3B8' }]}>FULL</Text>
                       </View>
                     ) : slot.already_booked ? (
-                      <TouchableOpacity
-                        style={styles.cancelBookingButton}
-                        onPress={() => handleCancelBooking(slot._id)}
-                      >
-                        <Text style={styles.cancelBookingButtonText}>Cancel Booking</Text>
-                      </TouchableOpacity>
+                      slot.booking_status === 'cancellation_requested' ? (
+                        <View style={[styles.cancelBookingButton, { borderColor: '#F59E0B' }, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                          <Text style={[styles.cancelBookingButtonText, { color: '#F59E0B' }]}>Pending Cancellation</Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={[styles.cancelBookingButton, isDark && { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderColor: '#EF4444' }]}
+                          onPress={() => handleCancelBooking(slot._id)}
+                        >
+                          <Text style={styles.cancelBookingButtonText}>Cancel Booking</Text>
+                        </TouchableOpacity>
+                      )
                     ) : (
                       <TouchableOpacity
-                        style={[styles.bookSlotButton, disabled && styles.disabledButton]}
+                        style={[styles.bookSlotButton, disabled && (isDark ? { backgroundColor: 'rgba(255, 255, 255, 0.08)' } : styles.disabledButton)]}
                         disabled={disabled}
                         onPress={() => handleBookSlot(slot._id)}
                       >
-                        <Text style={styles.bookSlotButtonText}>
+                        <Text style={[styles.bookSlotButtonText, disabled && isDark && { color: '#64748B' }]}>
                           {bookedThisWeek ? 'Max 1 Booking / Week' : 'Book Slot'}
                         </Text>
                       </TouchableOpacity>
@@ -363,7 +400,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                 );
               })
             ) : (
-              <Text style={{ color: '#888888', ...FONTS.regular, marginVertical: SPACING.md }}>
+              <Text style={{ color: isDark ? '#94A3B8' : '#888888', ...FONTS.regular, marginVertical: SPACING.md }}>
                 No practice sessions available.
               </Text>
             )}
@@ -384,15 +421,15 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
           onPress={() => setCourseModalVisible(false)}
         >
           <TouchableWithoutFeedback>
-            <View style={styles.dropdownModalCard}>
-              <View style={styles.dropdownHeader}>
-                <Text style={styles.dropdownTitle}>Select Course</Text>
+            <View style={[styles.dropdownModalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+              <View style={[styles.dropdownHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                <Text style={[styles.dropdownTitle, isDark && { color: '#FFFFFF' }]}>Select Course</Text>
                 <TouchableOpacity
                   onPress={() => setCourseModalVisible(false)}
                   style={styles.closeBtn}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Icon name="close" size={20} color="#71717A" />
+                  <Icon name="close" size={20} color={isDark ? '#94A3B8' : '#71717A'} />
                 </TouchableOpacity>
               </View>
 
@@ -407,7 +444,8 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                         key={batch._id}
                         style={[
                           styles.courseOptionItem,
-                          isSelected && styles.courseOptionItemSelected,
+                          isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.08)' },
+                          isSelected && (isDark ? { backgroundColor: 'rgba(249, 115, 22, 0.18)', borderColor: '#F97316' } : styles.courseOptionItemSelected),
                         ]}
                         activeOpacity={0.7}
                         onPress={() => {
@@ -419,6 +457,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                           <Text
                             style={[
                               styles.courseOptionText,
+                              isDark && { color: '#FFFFFF' },
                               isSelected && styles.courseOptionTextSelected,
                             ]}
                             numberOfLines={1}
@@ -426,7 +465,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                             {title}
                           </Text>
                           {batchCode ? (
-                            <Text style={styles.courseOptionSub}>Batch: {batchCode}</Text>
+                            <Text style={[styles.courseOptionSub, isDark && { color: '#94A3B8' }]}>Batch: {batchCode}</Text>
                           ) : null}
                         </View>
                         {isSelected ? (
@@ -434,14 +473,14 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                             <Icon name="checkmark" size={14} color="#FFFFFF" />
                           </View>
                         ) : (
-                          <Icon name="chevron-forward" size={16} color="#D4D4D8" />
+                          <Icon name="chevron-forward" size={16} color={isDark ? '#64748B' : '#D4D4D8'} />
                         )}
                       </TouchableOpacity>
                     );
                   })
                 ) : (
                   <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                    <Text style={{ color: '#71717A', fontSize: 14 }}>No courses available</Text>
+                    <Text style={{ color: isDark ? '#94A3B8' : '#71717A', fontSize: 14 }}>No courses available</Text>
                   </View>
                 )}
               </ScrollView>
@@ -449,6 +488,75 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
           </TouchableWithoutFeedback>
         </TouchableOpacity>
       </Modal>
+
+      {/* Cancellation Reason Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setCancelModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.modalContent, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }, { maxWidth: 400 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Cancel Booking</Text>
+                  <TouchableOpacity onPress={() => setCancelModalVisible(false)} style={{ padding: 6 }}>
+                    <Icon name="close" size={24} color={isDark ? '#94A3B8' : '#666'} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={{ fontSize: 14, color: isDark ? '#94A3B8' : '#666', marginBottom: 15 }}>
+                  Are you sure you want to cancel this practice session? Please provide a reason for the instructor.
+                </Text>
+
+                <TextInput
+                  style={[
+                    { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, height: 80, textAlignVertical: 'top', padding: 12, fontSize: 14, color: '#1F2937' },
+                    isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.12)', color: '#FFFFFF' }
+                  ]}
+                  placeholder="Reason for cancellation (optional)"
+                  placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                  multiline
+                  numberOfLines={3}
+                  value={cancelReason}
+                  onChangeText={setCancelReason}
+                />
+
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
+                  <TouchableOpacity
+                    style={{ padding: 10, marginRight: 15 }}
+                    onPress={() => setCancelModalVisible(false)}
+                  >
+                    <Text style={{ color: isDark ? '#94A3B8' : '#666', ...FONTS.bold }}>Keep Booking</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#F58220', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+                    onPress={confirmCancelBooking}
+                  >
+                    <Text style={{ color: '#FFF', ...FONTS.bold }}>Submit Request</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ALERT MODAL */}
+      <Modal visible={alertModal.visible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+            <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>{alertModal.title}</Text>
+            <Text style={{color: isDark ? '#94A3B8' : '#4B5563', marginBottom: 20}}>{alertModal.message}</Text>
+            <TouchableOpacity style={styles.submitBtn} onPress={() => { setAlertModal({...alertModal, visible: false}); if (alertModal.onOk) alertModal.onOk(); }}>
+              <Text style={styles.submitBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -838,5 +946,28 @@ const styles = StyleSheet.create({
     ...FONTS.bold,
     letterSpacing: 1,
   },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxWidth: 440,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+  submitBtn: { 
+    flex: 1, 
+    paddingVertical: 12, 
+    alignItems: 'center', 
+    backgroundColor: '#0F172A', 
+    borderRadius: 24 
+  },
+  submitBtnText: { 
+    color: '#FFFFFF', 
+    fontWeight: 'bold' 
+  },
 });
-

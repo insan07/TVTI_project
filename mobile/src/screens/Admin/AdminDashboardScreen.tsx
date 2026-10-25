@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useContext, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,25 +7,123 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  RefreshControl
+  RefreshControl,
+  Image,
+  Modal,
+  FlatList,
+  Platform,
+  TextInput,
+  Switch,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
+import { AuthContext } from '../../context/AuthContext';
+import { FONTS } from '../../config/theme';
+import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../../context/ThemeContext';
+import ScreenBackground from '../../components/shared/ScreenBackground';
 
 export default function AdminDashboardScreen() {
+  const context = useContext(AuthContext);
+  if (!context) return null;
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const { isDark, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+  const [overviewExpanded, setOverviewExpanded] = useState(false);
+
+  // All activities modal state
+  const [allActivitiesVisible, setAllActivitiesVisible] = useState(false);
+  const [allActivities, setAllActivities] = useState<any[]>([]);
+  const [loadingAllActivities, setLoadingAllActivities] = useState(false);
+  const [refreshingAllActivities, setRefreshingAllActivities] = useState(false);
+
+  // Popup Acknowledgement Modal State
+  const [ackModal, setAckModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'info' | 'warning' | 'danger';
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'success',
+  });
+
+  const showAck = (title: string, message: string, type: 'success' | 'info' | 'warning' | 'danger' = 'success') => {
+    setAckModal({
+      visible: true,
+      title,
+      message,
+      type,
+    });
+  };
+
+  const getFullImageUrl = (path?: string) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+      return path;
+    }
+    const baseUrl = api.defaults.baseURL?.replace(/\/api\/?$/, '') || 'http://localhost:5000';
+    return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+  };
+
+  // Website Tools Modal state
+  const [websiteToolsVisible, setWebsiteToolsVisible] = useState(false);
+  const [activeToolsTab, setActiveToolsTab] = useState<'settings' | 'news' | 'gallery'>('settings');
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [siteSettings, setSiteSettings] = useState({
+    site_title: 'Twintec VTI',
+    announcement_banner: 'Admissions are OPEN for 2026 batches! Register now to secure your seat.',
+    show_announcement: true,
+    contact_phone: '+94 77 123 4567',
+    contact_email: 'info@twintec.edu.lk',
+    whatsapp_number: '+94771234567',
+    address: 'Twintec VTI Main Campus, Sri Lanka',
+    registration_open: true,
+    maintenance_mode: false,
+    maintenance_message: 'The website is undergoing scheduled maintenance. Please check back shortly.',
+  });
+
+  // News State
+  const [newsList, setNewsList] = useState<any[]>([]);
+  const [loadingNews, setLoadingNews] = useState(false);
+  const [savingNews, setSavingNews] = useState(false);
+  const [newNews, setNewNews] = useState({
+    title: '',
+    category: 'ADMISSIONS',
+    summary: '',
+    message: '',
+    image_url: '',
+  });
+
+  // Gallery State
+  const [galleryList, setGalleryList] = useState<any[]>([]);
+  const [loadingGallery, setLoadingGallery] = useState(false);
+  const [savingGallery, setSavingGallery] = useState(false);
+  const [newGallery, setNewGallery] = useState({
+    title: '',
+    category: 'Workshops & Labs',
+    type: 'photo' as 'photo' | 'video',
+    url: '',
+    description: '',
+    youtubeId: '',
+  });
+
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalInstructors: 0,
     activeCourses: 0,
     pendingApprovalsCount: 0,
     pendingUsers: [] as any[],
-    recentActivities: [] as any[]
+    recentActivities: [] as any[],
   });
 
   const fetchDashboardData = async () => {
@@ -41,14 +139,17 @@ export default function AdminDashboardScreen() {
           _id: u._id,
           name: u.name,
           subtext: u.email || 'Applicant',
-          initials: u.name ? u.name.trim().split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'U'
+          initials: u.name
+            ? u.name
+                .trim()
+                .split(' ')
+                .map((n: string) => n[0])
+                .join('')
+                .substring(0, 2)
+                .toUpperCase()
+            : 'U',
         })),
-        recentActivities: (data.recentActivities || []).map((a: any, idx: number) => ({
-          id: a.id || String(idx),
-          text: a.text,
-          time: a.time,
-          color: idx === 0 ? '#F97316' : '#9CA3AF'
-        }))
+        recentActivities: (data.recentActivities || []).slice(0, 5),
       });
     } catch (e) {
       console.log('Failed to fetch admin stats:', e);
@@ -58,9 +159,248 @@ export default function AdminDashboardScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  const fetchAllActivities = async () => {
+    setLoadingAllActivities(true);
+    try {
+      const res = await api.get('/admin/activities?limit=50');
+      setAllActivities(res.data || []);
+    } catch (e) {
+      console.log('Failed to fetch all activities:', e);
+    } finally {
+      setLoadingAllActivities(false);
+      setRefreshingAllActivities(false);
+    }
+  };
+
+  const handleOpenAllActivities = () => {
+    setAllActivitiesVisible(true);
+    fetchAllActivities();
+  };
+
+  const fetchSiteSettings = async () => {
+    setLoadingSettings(true);
+    try {
+      const res = await api.get('/admin/settings');
+      if (res.data) {
+        setSiteSettings(prev => ({
+          ...prev,
+          ...res.data,
+        }));
+      }
+    } catch (e) {
+      console.log('Failed to fetch site settings:', e);
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
+
+  const fetchNewsList = async () => {
+    setLoadingNews(true);
+    try {
+      const res = await api.get('/news');
+      setNewsList(res.data || []);
+    } catch (e) {
+      console.log('Failed to fetch news list:', e);
+    } finally {
+      setLoadingNews(false);
+    }
+  };
+
+  const handleCreateNews = async () => {
+    if (!newNews.title.trim() || !newNews.message.trim()) {
+      showAck('Missing Information', 'Please enter a title and description content for the news article.', 'warning');
+      return;
+    }
+    setSavingNews(true);
+    try {
+      await api.post('/news', {
+        title: newNews.title,
+        category: newNews.category,
+        summary: newNews.summary,
+        content: newNews.message,
+        image_url: newNews.image_url,
+      });
+      showAck(
+        'News Article Published!',
+        `The news article "${newNews.title}" has been published live to the public website!`,
+        'success'
+      );
+      setNewNews({ title: '', category: 'ADMISSIONS', summary: '', message: '', image_url: '' });
+      fetchNewsList();
+    } catch (e: any) {
+      showAck('Publish Error', e.response?.data?.message || 'Failed to post news article', 'danger');
+    } finally {
+      setSavingNews(false);
+    }
+  };
+
+  const handleDeleteNews = async (id: string) => {
+    try {
+      await api.delete(`/news/${id}`);
+      showAck('News Item Removed', 'The selected news article has been deleted from the website.', 'info');
+      setNewsList(prev => prev.filter(item => item._id !== id));
+    } catch (e: any) {
+      showAck('Delete Error', e.response?.data?.message || 'Failed to delete news item', 'danger');
+    }
+  };
+
+  const fetchGalleryList = async () => {
+    setLoadingGallery(true);
+    try {
+      const res = await api.get('/gallery');
+      setGalleryList(res.data || []);
+    } catch (e) {
+      console.log('Failed to fetch gallery list:', e);
+    } finally {
+      setLoadingGallery(false);
+    }
+  };
+
+  const handleCreateGallery = async () => {
+    if (!newGallery.title.trim() || !newGallery.url.trim()) {
+      showAck('Missing Information', 'Please enter a title and image/video URL.', 'warning');
+      return;
+    }
+    setSavingGallery(true);
+    try {
+      await api.post('/gallery', newGallery);
+      showAck(
+        'Gallery Item Added!',
+        `"${newGallery.title}" has been added and published to the website photo & video gallery!`,
+        'success'
+      );
+      setNewGallery({ title: '', category: 'Workshops & Labs', type: 'photo', url: '', description: '', youtubeId: '' });
+      fetchGalleryList();
+    } catch (e: any) {
+      showAck('Upload Error', e.response?.data?.message || 'Failed to add gallery item', 'danger');
+    } finally {
+      setSavingGallery(false);
+    }
+  };
+
+  const handleDeleteGallery = async (id: string) => {
+    try {
+      await api.delete(`/gallery/${id}`);
+      showAck('Gallery Item Removed', 'The selected media item has been removed from the website gallery.', 'info');
+      setGalleryList(prev => prev.filter(item => item._id !== id));
+    } catch (e: any) {
+      showAck('Delete Error', e.response?.data?.message || 'Failed to delete gallery item', 'danger');
+    }
+  };
+
+  const [uploadingNewsImg, setUploadingNewsImg] = useState(false);
+  const [uploadingGalleryImg, setUploadingGalleryImg] = useState(false);
+
+  const handlePickNewsImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setUploadingNewsImg(true);
+
+        const formData = new FormData();
+        if (Platform.OS === 'web') {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          formData.append('image', blob, 'news_image.jpg');
+        } else {
+          formData.append('image', {
+            uri: asset.uri,
+            name: 'news_image.jpg',
+            type: 'image/jpeg',
+          } as any);
+        }
+
+        const res = await api.post('/admin/upload-image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (res.data && res.data.url) {
+          setNewNews(prev => ({ ...prev, image_url: res.data.url }));
+          showAck('Photo Uploaded', 'Cover photo attached from device successfully!', 'success');
+        }
+      }
+    } catch (e: any) {
+      showAck('Upload Failed', e.message || 'Failed to upload photo', 'danger');
+    } finally {
+      setUploadingNewsImg(false);
+    }
+  };
+
+  const handlePickGalleryPhoto = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setUploadingGalleryImg(true);
+
+        const formData = new FormData();
+        if (Platform.OS === 'web') {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          formData.append('image', blob, 'gallery_photo.jpg');
+        } else {
+          formData.append('image', {
+            uri: asset.uri,
+            name: 'gallery_photo.jpg',
+            type: 'image/jpeg',
+          } as any);
+        }
+
+        const res = await api.post('/admin/upload-image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (res.data && res.data.url) {
+          setNewGallery(prev => ({ ...prev, url: res.data.url }));
+          showAck('Photo Uploaded', 'Gallery photo uploaded from device successfully!', 'success');
+        }
+      }
+    } catch (e: any) {
+      showAck('Upload Failed', e.message || 'Failed to upload gallery photo', 'danger');
+    } finally {
+      setUploadingGalleryImg(false);
+    }
+  };
+
+  const handleOpenWebsiteTools = () => {
+    setWebsiteToolsVisible(true);
+    fetchSiteSettings();
+    fetchNewsList();
+    fetchGalleryList();
+  };
+
+  const handleSaveWebsiteSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const res = await api.put('/admin/settings', siteSettings);
+      showAck(
+        'Website Settings Saved',
+        res.data?.message || 'Website configuration and live announcement ticker updated successfully!',
+        'success'
+      );
+    } catch (e: any) {
+      showAck('Update Error', e.response?.data?.message || 'Failed to update website settings.', 'danger');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDashboardData();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -74,10 +414,10 @@ export default function AdminDashboardScreen() {
     } catch (e) {
       Alert.alert('Approved', `${name} approved successfully.`);
     }
-    setStats(prev => ({
+    setStats((prev) => ({
       ...prev,
-      pendingUsers: prev.pendingUsers.filter(u => u._id !== id),
-      pendingApprovalsCount: Math.max(0, prev.pendingApprovalsCount - 1)
+      pendingUsers: prev.pendingUsers.filter((u) => u._id !== id),
+      pendingApprovalsCount: Math.max(0, prev.pendingApprovalsCount - 1),
     }));
   };
 
@@ -91,144 +431,183 @@ export default function AdminDashboardScreen() {
           try {
             await api.put(`/admin/users/${id}/reject`, { reason: 'Rejected by admin' });
           } catch (e) {}
-          setStats(prev => ({
+          setStats((prev) => ({
             ...prev,
-            pendingUsers: prev.pendingUsers.filter(u => u._id !== id),
-            pendingApprovalsCount: Math.max(0, prev.pendingApprovalsCount - 1)
+            pendingUsers: prev.pendingUsers.filter((u) => u._id !== id),
+            pendingApprovalsCount: Math.max(0, prev.pendingApprovalsCount - 1),
           }));
-        }
-      }
+        },
+      },
     ]);
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={{ flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F8FAFC' }}>
+      <ScreenBackground />
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F97316']} />}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 110 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F97316']} />
+        }
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <Text style={styles.headerTitle}>Dashboard</Text>
+        {/* 1. GRAPHIC TOP HERO BANNER */}
+        <LinearGradient
+          colors={['#0F172A', '#1E293B', '#090D16']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.graphicHeader, { paddingTop: Math.max(insets.top + 8, 16) }]}
+        >
+          {/* Ambient Glow Orbs for Graphic Depth */}
+          <View style={styles.glowOrbOrange} pointerEvents="none" />
+          <View style={styles.glowOrbBlue} pointerEvents="none" />
 
+          {/* Top Brand Logo Row */}
+          <View style={styles.brandHeaderRow}>
+            <View style={styles.brandLogoGroup}>
+              <Image
+                source={require('../../../assets/logo.png')}
+                style={styles.brandLogoImg}
+                resizeMode="contain"
+              />
+              <View style={styles.brandTextColumn}>
+                <Text style={styles.brandTitleText}>TWINTEC VTI</Text>
+              </View>
+            </View>
+
+            {/* THEME TOGGLE & PROFESSIONAL ADMIN PORTAL BADGE */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity
+                onPress={toggleTheme}
+                style={styles.themeToggleCapsule}
+                activeOpacity={0.8}
+                accessibilityLabel={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
+              >
+                <Icon
+                  name={isDark ? 'sunny-outline' : 'moon-outline'}
+                  size={14}
+                  color="#F59E0B"
+                />
+              </TouchableOpacity>
+
+              <LinearGradient
+                colors={['rgba(249, 115, 22, 0.22)', 'rgba(251, 146, 60, 0.12)', 'rgba(15, 23, 42, 0.45)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.adminAIBadge}
+              >
+                <Text style={styles.adminAIBadgeText}>ADMIN PORTAL</Text>
+              </LinearGradient>
+            </View>
+          </View>
+
+        </LinearGradient>
+
+        {/* 2. BODY CONTENT (BELOW GRAPHIC HEADER) */}
         {loading ? (
           <ActivityIndicator size="large" color="#F97316" style={{ marginTop: 40 }} />
         ) : (
           <>
-            {/* Stat Cards Grid (2x2) */}
-            <View style={styles.gridContainer}>
-              <View style={styles.statCard}>
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.statLabel}>Total Students</Text>
-                  <View style={styles.iconCircle}>
-                    <Icon name="people-outline" size={16} color="#F97316" />
+            {/* Announcements Glassmorphic Card */}
+            <View style={{ marginHorizontal: 16, marginBottom: 12 }}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('PostAnnouncement')}
+                activeOpacity={0.82}
+                style={[styles.glassCardWrapper, isDark && styles.glassCardWrapperDark]}
+              >
+                <LinearGradient
+                  colors={
+                    isDark
+                      ? ['#1A2433', '#141B26', '#101722']
+                      : ['rgba(255, 255, 255, 0.94)', 'rgba(255, 247, 237, 0.82)', 'rgba(255, 255, 255, 0.88)']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.noticeCard, isDark && styles.noticeCardDark]}
+                >
+                  <View style={styles.glassAccentBar} />
+                  <View style={[styles.noticeIconBox, isDark && styles.noticeIconBoxDark]}>
+                    <Icon name="megaphone-outline" size={20} color="#F58220" />
                   </View>
-                </View>
-                <Text style={styles.statValue}>{stats.totalStudents.toLocaleString()}</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.statLabel}>Instructors</Text>
-                  <View style={styles.iconCircle}>
-                    <Icon name="school-outline" size={16} color="#F97316" />
+                  <View style={styles.noticeContent}>
+                    <Text style={[styles.noticeTitle, isDark && { color: '#FFFFFF' }]}>Announcements</Text>
+                    <Text style={[styles.noticeSub, isDark && { color: '#CBD5E1' }]} numberOfLines={1}>Broadcast notices & manage all updates</Text>
                   </View>
-                </View>
-                <Text style={styles.statValue}>{stats.totalInstructors.toLocaleString()}</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.statLabel}>Active Courses</Text>
-                  <View style={styles.iconCircle}>
-                    <Icon name="book-outline" size={16} color="#F97316" />
+                  <View style={styles.noticeCtaBtn}>
+                    <Text style={styles.noticeCtaText}>Post</Text>
                   </View>
-                </View>
-                <Text style={styles.statValue}>{stats.activeCourses.toLocaleString()}</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.statLabel}>Pending Appr.</Text>
-                  <View style={styles.iconCircle}>
-                    <Icon name="clipboard-outline" size={16} color="#F97316" />
-                  </View>
-                </View>
-                <Text style={styles.statValue}>{stats.pendingApprovalsCount.toLocaleString()}</Text>
-              </View>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
 
-            {/* Quick Management Actions Section */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Quick Management</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    minWidth: '45%',
-                    backgroundColor: '#FFF7ED',
-                    borderWidth: 1,
-                    borderColor: '#FDBA74',
-                    padding: 12,
-                    borderRadius: 10,
-                    flexDirection: 'row',
-                    alignItems: 'center'
-                  }}
-                  onPress={() => navigation.navigate('PostAnnouncement')}
+            {/* WEBSITE TOOLS CARD */}
+            <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+              <TouchableOpacity
+                onPress={handleOpenWebsiteTools}
+                activeOpacity={0.82}
+                style={styles.glassCardWrapper}
+              >
+                <LinearGradient
+                  colors={
+                    isDark
+                      ? ['#1A2433', '#141B26', '#101722']
+                      : ['rgba(255, 255, 255, 0.96)', 'rgba(238, 242, 255, 0.88)', 'rgba(255, 255, 255, 0.94)']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.noticeCard, isDark && { borderColor: '#3B82F6', borderWidth: 1.5, backgroundColor: '#141B26' }]}
                 >
-                  <Icon name="megaphone-outline" size={20} color="#D97706" style={{ marginRight: 8 }} />
-                  <Text style={{ fontWeight: 'bold', color: '#92400E', fontSize: 13 }}>Announcement</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    minWidth: '45%',
-                    backgroundColor: '#EFF6FF',
-                    borderWidth: 1,
-                    borderColor: '#BFDBFE',
-                    padding: 12,
-                    borderRadius: 10,
-                    flexDirection: 'row',
-                    alignItems: 'center'
-                  }}
-                  onPress={() => navigation.navigate('Practice')}
-                >
-                  <Icon name="calendar-outline" size={20} color="#2563EB" style={{ marginRight: 8 }} />
-                  <Text style={{ fontWeight: 'bold', color: '#1E40AF', fontSize: 13 }}>Practical Slots</Text>
-                </TouchableOpacity>
-              </View>
+                  <View style={[styles.glassAccentBar, { backgroundColor: '#3B82F6' }]} />
+                  <View style={[styles.noticeIconBox, { borderColor: 'rgba(59, 130, 246, 0.25)', backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#EFF6FF' }]}>
+                    <Icon name="globe-outline" size={20} color="#3B82F6" />
+                  </View>
+                  <View style={styles.noticeContent}>
+                    <Text style={[styles.noticeTitle, isDark && { color: '#FFFFFF' }]}>Website Tools & Config</Text>
+                    <Text style={[styles.noticeSub, isDark && { color: '#CBD5E1' }]} numberOfLines={1}>Banners, contact details, registration & maintenance</Text>
+                  </View>
+                  <View style={[styles.noticeCtaBtn, { backgroundColor: '#2563EB' }]}>
+                    <Text style={styles.noticeCtaText}>Manage</Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
 
             {/* Pending Approvals Section */}
-            <View style={styles.sectionCard}>
+            <View style={[styles.sectionCard, isDark && styles.sectionCardDark]}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Pending Approvals</Text>
+                <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Pending Approvals</Text>
                 <TouchableOpacity onPress={() => navigation.navigate('Users', { initialTab: 'pending' })}>
                   <Text style={styles.viewAllText}>View All</Text>
                 </TouchableOpacity>
               </View>
 
               {stats.pendingUsers.length === 0 ? (
-                <Text style={styles.emptyText}>No pending approvals.</Text>
+                <View style={styles.emptyApprovalsContainer}>
+                  <View style={[styles.simpleCheckCircle, isDark && { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                    <Icon name="checkmark" size={18} color="#10B981" />
+                  </View>
+                  <Text style={[styles.allCaughtUpText, isDark && { color: '#94A3B8' }]}>All caught up</Text>
+                </View>
               ) : (
                 stats.pendingUsers.map((user, index) => (
-                  <View key={user._id} style={[styles.userRow, index > 0 && styles.rowBorder]}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{user.initials}</Text>
+                  <View key={user._id} style={[styles.userRow, index > 0 && (isDark ? styles.rowBorderDark : styles.rowBorder)]}>
+                    <View style={[styles.avatar, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                      <Text style={[styles.avatarText, isDark && { color: '#FED7AA' }]}>{user.initials}</Text>
                     </View>
                     <View style={styles.userInfo}>
-                      <Text style={styles.userName}>{user.name}</Text>
-                      <Text style={styles.userSubtext}>{user.subtext}</Text>
+                      <Text style={[styles.userName, isDark && { color: '#FFFFFF' }]}>{user.name}</Text>
+                      <Text style={[styles.userSubtext, isDark && { color: '#94A3B8' }]}>{user.subtext}</Text>
                     </View>
                     <View style={styles.actionButtons}>
                       <TouchableOpacity
-                        style={styles.approveIconBtn}
+                        style={[styles.approveIconBtn, isDark && { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}
                         onPress={() => handleApprove(user._id, user.name)}
                       >
                         <Icon name="checkmark" size={18} color="#10B981" />
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={styles.rejectIconBtn}
+                        style={[styles.rejectIconBtn, isDark && { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}
                         onPress={() => handleReject(user._id, user.name)}
                       >
                         <Icon name="close" size={18} color="#EF4444" />
@@ -238,120 +617,1204 @@ export default function AdminDashboardScreen() {
                 ))
               )}
             </View>
-
-            {/* Recent Activity Section */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Recent Activity</Text>
-              
-              <View style={styles.activityList}>
-                {stats.recentActivities.map((act, index) => (
-                  <View key={act.id} style={styles.activityItem}>
-                    <View style={styles.timelineLeft}>
-                      <View style={[styles.dot, { backgroundColor: act.color }]} />
-                      {index < stats.recentActivities.length - 1 && <View style={styles.timelineLine} />}
-                    </View>
-                    <View style={styles.activityContent}>
-                      <Text style={styles.activityText}>{act.text}</Text>
-                      <Text style={styles.activityTime}>{act.time}</Text>
-                    </View>
-                  </View>
-                ))}
+            <View style={[styles.sectionCard, isDark && styles.sectionCardDark]}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Recent Activity</Text>
+                <TouchableOpacity onPress={handleOpenAllActivities} activeOpacity={0.7}>
+                  <Text style={styles.viewAllText}>View All</Text>
+                </TouchableOpacity>
               </View>
+
+              {stats.recentActivities.length === 0 ? (
+                <Text style={[styles.emptyText, isDark && { color: '#94A3B8' }]}>No recent activities recorded.</Text>
+              ) : (
+                <View style={styles.activityList}>
+                  {stats.recentActivities.map((act, index) => (
+                    <View key={act.id || String(index)} style={styles.activityItem}>
+                      <View style={[styles.activityIconCircle, { backgroundColor: `${act.color || '#F97316'}20` }]}>
+                        <Icon name={act.icon || 'notifications-outline'} size={16} color={act.color || '#F97316'} />
+                      </View>
+                      <View style={styles.activityContent}>
+                        <Text style={[styles.activityText, isDark && { color: '#FFFFFF' }]}>{act.text}</Text>
+                        <Text style={[styles.activityTime, isDark && { color: '#94A3B8' }]}>{act.time}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <View style={[styles.sectionCard, isDark && styles.sectionCardDark]}>
+              <TouchableOpacity
+                style={styles.overviewToggle}
+                onPress={() => setOverviewExpanded((expanded) => !expanded)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: overviewExpanded }}
+              >
+                <View style={[styles.overviewIconBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
+                  <Icon name="stats-chart-outline" size={18} color="#F97316" />
+                </View>
+                <View style={styles.overviewTitleContainer}>
+                  <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Institution overview</Text>
+                  <Text style={[styles.overviewSubtext, isDark && { color: '#94A3B8' }]}>
+                    {overviewExpanded ? 'Tap to hide summary metrics' : 'Summary metrics (4 items)'}
+                  </Text>
+                </View>
+                <Icon
+                  name={overviewExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color={isDark ? '#94A3B8' : '#64748B'}
+                />
+              </TouchableOpacity>
+              {overviewExpanded && (
+                <View style={styles.statsContainer}>
+                  <View style={[styles.statCard, isDark && styles.statCardDark]}>
+                    <View style={styles.statCardTop}>
+                      <Text style={[styles.statLabel, isDark && { color: '#94A3B8' }]}>STUDENTS</Text>
+                      <View style={[styles.statIconBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
+                        <Icon name="people" size={13} color="#F97316" />
+                      </View>
+                    </View>
+                    <Text style={[styles.statValue, isDark && { color: '#FFFFFF' }]}>{stats.totalStudents}</Text>
+                  </View>
+
+                  <View style={[styles.statCard, isDark && styles.statCardDark]}>
+                    <View style={styles.statCardTop}>
+                      <Text style={[styles.statLabel, isDark && { color: '#94A3B8' }]}>INSTRUCTORS</Text>
+                      <View style={[styles.statIconBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
+                        <Icon name="school" size={13} color="#F97316" />
+                      </View>
+                    </View>
+                    <Text style={[styles.statValue, isDark && { color: '#FFFFFF' }]}>{stats.totalInstructors}</Text>
+                  </View>
+
+                  <View style={[styles.statCard, isDark && styles.statCardDark]}>
+                    <View style={styles.statCardTop}>
+                      <Text style={[styles.statLabel, isDark && { color: '#94A3B8' }]}>COURSES</Text>
+                      <View style={[styles.statIconBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
+                        <Icon name="book" size={13} color="#F97316" />
+                      </View>
+                    </View>
+                    <Text style={[styles.statValue, isDark && { color: '#FFFFFF' }]}>{stats.activeCourses}</Text>
+                  </View>
+
+                  <View style={[styles.statCard, isDark && styles.statCardDark]}>
+                    <View style={styles.statCardTop}>
+                      <Text style={[styles.statLabel, isDark && { color: '#94A3B8' }]}>PENDING</Text>
+                      <View style={[styles.statIconBox, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
+                        <Icon name="time" size={13} color="#F97316" />
+                      </View>
+                    </View>
+                    <Text style={[styles.statValue, isDark && { color: '#FFFFFF' }]}>{stats.pendingApprovalsCount}</Text>
+                  </View>
+                </View>
+              )}
             </View>
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+
+      {/* 3. ALL ACTIVITIES MODAL ("VIEW ALL" EXPERIENCE) */}
+      <Modal
+        visible={allActivitiesVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setAllActivitiesVisible(false)}
+      >
+        <View style={[styles.modalContainer, isDark && { backgroundColor: '#141B26' }, { paddingTop: Platform.OS === 'ios' ? insets.top : 16 }]}>
+          <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+            <View>
+              <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>System Activities</Text>
+              <Text style={[styles.modalSub, isDark && { color: '#94A3B8' }]}>Complete log of recent institutional events</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.modalCloseBtn, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
+              onPress={() => setAllActivitiesVisible(false)}
+            >
+              <Icon name="close" size={22} color={isDark ? '#FFFFFF' : '#1F2937'} />
+            </TouchableOpacity>
+          </View>
+
+          {loadingAllActivities ? (
+            <View style={styles.modalCenter}>
+              <ActivityIndicator size="large" color="#F97316" />
+            </View>
+          ) : (
+            <FlatList
+              data={allActivities}
+              keyExtractor={(item) => item.id}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshingAllActivities}
+                  onRefresh={() => {
+                    setRefreshingAllActivities(true);
+                    fetchAllActivities();
+                  }}
+                  colors={['#F97316']}
+                />
+              }
+              contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
+              ListEmptyComponent={
+                <View style={styles.modalCenter}>
+                  <Icon name="time-outline" size={48} color="#D1D5DB" />
+                  <Text style={[styles.emptyActivitiesText, isDark && { color: '#94A3B8' }]}>No system activities recorded yet.</Text>
+                </View>
+              }
+              renderItem={({ item, index }) => (
+                <View style={[styles.modalActivityItem, index > 0 && (isDark ? styles.rowBorderDark : styles.rowBorder)]}>
+                  <View style={[styles.activityIconCircle, { backgroundColor: `${item.color || '#F97316'}15` }]}>
+                    <Icon name={item.icon || 'notifications-outline'} size={18} color={item.color || '#F97316'} />
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={[styles.activityText, isDark && { color: '#FFFFFF' }]}>{item.text}</Text>
+                    <Text style={[styles.activityTime, isDark && { color: '#94A3B8' }]}>{item.time}</Text>
+                  </View>
+                </View>
+              )}
+            />
+          )}
+        </View>
+      </Modal>
+
+      {/* 4. WEBSITE TOOLS & CONFIGURATION MODAL */}
+      <Modal
+        visible={websiteToolsVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setWebsiteToolsVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={[styles.modalContainer, isDark && { backgroundColor: '#141B26' }, { paddingTop: Platform.OS === 'ios' ? insets.top : 16 }]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+            <View>
+              <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Website Tools & Settings</Text>
+              <Text style={[styles.modalSub, isDark && { color: '#94A3B8' }]}>Manage website content, banners, news & gallery</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.modalCloseBtn, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
+              onPress={() => setWebsiteToolsVisible(false)}
+            >
+              <Icon name="close" size={22} color={isDark ? '#FFFFFF' : '#1F2937'} />
+            </TouchableOpacity>
+          </View>
+
+          {/* WEBSITE TOOLS TAB SELECTOR */}
+          <View style={{ flexDirection: 'row', backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : '#F1F5F9', padding: 4, marginHorizontal: 18, marginTop: 12, borderRadius: 12 }}>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'settings' ? (isDark ? '#1E293B' : '#FFFFFF') : 'transparent' }}
+              onPress={() => setActiveToolsTab('settings')}
+            >
+              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'settings' ? '#F58220' : (isDark ? '#94A3B8' : '#64748B') }}>Site Config</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'news' ? (isDark ? '#1E293B' : '#FFFFFF') : 'transparent' }}
+              onPress={() => setActiveToolsTab('news')}
+            >
+              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'news' ? '#F58220' : (isDark ? '#94A3B8' : '#64748B') }}>Update News</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'gallery' ? (isDark ? '#1E293B' : '#FFFFFF') : 'transparent' }}
+              onPress={() => setActiveToolsTab('gallery')}
+            >
+              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'gallery' ? '#F58220' : (isDark ? '#94A3B8' : '#64748B') }}>Update Gallery</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loadingSettings ? (
+            <View style={styles.modalCenter}>
+              <ActivityIndicator size="large" color="#F58220" />
+              <Text style={{ marginTop: 12, color: '#64748B', fontSize: 13 }}>Loading website settings...</Text>
+            </View>
+          ) : (
+            <ScrollView
+              contentContainerStyle={{ padding: 18, paddingBottom: 60 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {activeToolsTab === 'settings' && (
+                <>
+                  {/* SECTION 2: ANNOUNCEMENT BANNER & TICKER */}
+                  <View style={styles.settingsCardSection}>
+                    <View style={styles.settingsCardHeader}>
+                      <Icon name="megaphone-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
+                      <Text style={styles.settingsSectionTitle}>Announcement Banner & Ticker</Text>
+                    </View>
+
+                    <View style={styles.switchRow}>
+                      <View style={{ flex: 1, marginRight: 12 }}>
+                        <Text style={styles.switchLabel}>Show Banner Ticker on Website</Text>
+                        <Text style={styles.switchSub}>Displays top alert message banner for all website visitors</Text>
+                      </View>
+                      <Switch
+                        value={siteSettings.show_announcement}
+                        onValueChange={val => setSiteSettings({ ...siteSettings, show_announcement: val })}
+                        trackColor={{ false: '#E2E8F0', true: '#FED7AA' }}
+                        thumbColor={siteSettings.show_announcement ? '#F58220' : '#94A3B8'}
+                      />
+                    </View>
+
+                    <Text style={styles.formInputLabel}>Announcement Banner Text</Text>
+                    <TextInput
+                      style={[styles.formTextInput, { height: 75, textAlignVertical: 'top' }]}
+                      multiline
+                      value={siteSettings.announcement_banner}
+                      onChangeText={t => setSiteSettings({ ...siteSettings, announcement_banner: t })}
+                      placeholder="e.g. Admissions are OPEN for 2026 batches! Register now."
+                      placeholderTextColor="#9CA3AF"
+                    />
+                  </View>
+
+                  {/* SECTION 3: PUBLIC CONTACT & HOTLINE DETAILS */}
+                  <View style={styles.settingsCardSection}>
+                    <View style={styles.settingsCardHeader}>
+                      <Icon name="call-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
+                      <Text style={styles.settingsSectionTitle}>Website Contact & Support Details</Text>
+                    </View>
+
+                    <Text style={styles.formInputLabel}>Official Support Phone Number</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={siteSettings.contact_phone}
+                      onChangeText={t => setSiteSettings({ ...siteSettings, contact_phone: t })}
+                      placeholder="+94 77 123 4567"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>Support Email Address</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={siteSettings.contact_email}
+                      onChangeText={t => setSiteSettings({ ...siteSettings, contact_email: t })}
+                      placeholder="info@twintec.edu.lk"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>WhatsApp Hotline Number</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={siteSettings.whatsapp_number}
+                      onChangeText={t => setSiteSettings({ ...siteSettings, whatsapp_number: t })}
+                      placeholder="+94771234567"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>Physical Campus Address</Text>
+                    <TextInput
+                      style={[styles.formTextInput, { height: 60, textAlignVertical: 'top' }]}
+                      multiline
+                      value={siteSettings.address}
+                      onChangeText={t => setSiteSettings({ ...siteSettings, address: t })}
+                      placeholder="Main Campus Address"
+                      placeholderTextColor="#9CA3AF"
+                    />
+                  </View>
+
+                  {/* SECTION 4: REGISTRATION & MAINTENANCE MODE */}
+                  <View style={styles.settingsCardSection}>
+                    <View style={styles.settingsCardHeader}>
+                      <Icon name="shield-outline" size={18} color="#EF4444" style={{ marginRight: 8 }} />
+                      <Text style={styles.settingsSectionTitle}>Registration & Maintenance Settings</Text>
+                    </View>
+
+                    <View style={styles.switchRow}>
+                      <View style={{ flex: 1, marginRight: 12 }}>
+                        <Text style={styles.switchLabel}>Public Student Registration</Text>
+                        <Text style={styles.switchSub}>Allow new students to submit registration applications online</Text>
+                      </View>
+                      <Switch
+                        value={siteSettings.registration_open}
+                        onValueChange={val => setSiteSettings({ ...siteSettings, registration_open: val })}
+                        trackColor={{ false: '#E2E8F0', true: '#BBF7D0' }}
+                        thumbColor={siteSettings.registration_open ? '#10B981' : '#94A3B8'}
+                      />
+                    </View>
+
+                    <View style={[styles.switchRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                      <View style={{ flex: 1, marginRight: 12 }}>
+                        <Text style={styles.switchLabel}>Enable Website Maintenance Mode</Text>
+                        <Text style={styles.switchSub}>Show maintenance alert notice to visitors</Text>
+                      </View>
+                      <Switch
+                        value={siteSettings.maintenance_mode}
+                        onValueChange={val => setSiteSettings({ ...siteSettings, maintenance_mode: val })}
+                        trackColor={{ false: '#E2E8F0', true: '#FECDD3' }}
+                        thumbColor={siteSettings.maintenance_mode ? '#EF4444' : '#94A3B8'}
+                      />
+                    </View>
+
+                    {siteSettings.maintenance_mode && (
+                      <View style={{ marginTop: 14 }}>
+                        <Text style={styles.formInputLabel}>Maintenance Notice Message</Text>
+                        <TextInput
+                          style={[styles.formTextInput, { height: 65, textAlignVertical: 'top' }]}
+                          multiline
+                          value={siteSettings.maintenance_message}
+                          onChangeText={t => setSiteSettings({ ...siteSettings, maintenance_message: t })}
+                          placeholder="Maintenance message..."
+                          placeholderTextColor="#9CA3AF"
+                        />
+                      </View>
+                    )}
+                  </View>
+
+                  {/* SAVE SETTINGS BUTTON */}
+                  <TouchableOpacity
+                    style={styles.saveSettingsBtn}
+                    onPress={handleSaveWebsiteSettings}
+                    disabled={savingSettings}
+                    activeOpacity={0.85}
+                  >
+                    {savingSettings ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Icon name="checkmark-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.saveSettingsBtnText}>Save Website Settings</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* TAB 2: UPDATE NEWS & ANNOUNCEMENTS */}
+              {activeToolsTab === 'news' && (
+                <View>
+                  <View style={styles.settingsCardSection}>
+                    <View style={styles.settingsCardHeader}>
+                      <Icon name="newspaper-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
+                      <Text style={styles.settingsSectionTitle}>Post New Website News & Article</Text>
+                    </View>
+
+                    <Text style={styles.formInputLabel}>News Title *</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={newNews.title}
+                      onChangeText={t => setNewNews({ ...newNews, title: t })}
+                      placeholder="e.g. 2026 Batch Admissions Open"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>Category</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                      {['ADMISSIONS', 'GRADUATION', 'FACILITIES', 'NEWS'].map((cat) => (
+                        <TouchableOpacity
+                          key={cat}
+                          onPress={() => setNewNews({ ...newNews, category: cat })}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            borderRadius: 8,
+                            backgroundColor: newNews.category === cat ? '#F58220' : '#E2E8F0',
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, ...FONTS.bold, color: newNews.category === cat ? '#FFFFFF' : '#475569' }}>
+                            {cat}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.formInputLabel}>News Cover Photo</Text>
+                    <View style={{ marginBottom: 12 }}>
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: '#FFF7ED',
+                          borderWidth: 1.5,
+                          borderColor: '#FFEDD5',
+                          borderStyle: 'dashed',
+                          paddingVertical: 12,
+                          paddingHorizontal: 16,
+                          borderRadius: 10,
+                          marginBottom: 8,
+                        }}
+                        onPress={handlePickNewsImage}
+                        disabled={uploadingNewsImg}
+                      >
+                        {uploadingNewsImg ? (
+                          <ActivityIndicator size="small" color="#F58220" />
+                        ) : (
+                          <>
+                            <Icon name="camera-outline" size={20} color="#F58220" style={{ marginRight: 8 }} />
+                            <Text style={{ fontSize: 13, ...FONTS.bold, color: '#F58220' }}>
+                              {newNews.image_url ? 'Change Photo from Device' : 'Upload Photo from Device'}
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+
+                      {newNews.image_url ? (
+                        <View style={{ position: 'relative', marginTop: 6, borderRadius: 10, overflow: 'hidden', height: 110, backgroundColor: '#F1F5F9' }}>
+                          <Image
+                            source={{ uri: getFullImageUrl(newNews.image_url) }}
+                            style={{ width: '100%', height: '100%' }}
+                            resizeMode="cover"
+                          />
+                          <TouchableOpacity
+                            onPress={() => setNewNews(prev => ({ ...prev, image_url: '' }))}
+                            style={{ position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 14 }}
+                          >
+                            <Icon name="close" size={16} color="#FFFFFF" />
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TextInput
+                          style={styles.formTextInput}
+                          value={newNews.image_url}
+                          onChangeText={t => setNewNews({ ...newNews, image_url: t })}
+                          placeholder="Or paste photo web link URL..."
+                          placeholderTextColor="#9CA3AF"
+                        />
+                      )}
+                    </View>
+
+                    <Text style={styles.formInputLabel}>Short Summary</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={newNews.summary}
+                      onChangeText={t => setNewNews({ ...newNews, summary: t })}
+                      placeholder="Brief 1-sentence summary"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>Detailed Message / Content *</Text>
+                    <TextInput
+                      style={[styles.formTextInput, { height: 80, textAlignVertical: 'top' }]}
+                      multiline
+                      value={newNews.message}
+                      onChangeText={t => setNewNews({ ...newNews, message: t })}
+                      placeholder="Type news details..."
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <TouchableOpacity
+                      style={[styles.saveSettingsBtn, { backgroundColor: '#F58220' }]}
+                      onPress={handleCreateNews}
+                      disabled={savingNews}
+                    >
+                      {savingNews ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Icon name="paper-plane-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                          <Text style={styles.saveSettingsBtnText}>Publish News to Website</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* CURRENT NEWS LIST */}
+                  <View style={styles.settingsCardSection}>
+                    <Text style={[styles.settingsSectionTitle, { marginBottom: 12 }]}>Live Website News ({newsList.length})</Text>
+                    {loadingNews ? (
+                      <ActivityIndicator size="small" color="#F58220" />
+                    ) : newsList.length === 0 ? (
+                      <Text style={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>No news published yet.</Text>
+                    ) : (
+                      newsList.map((item) => (
+                        <View key={item._id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
+                            {item.image_url ? (
+                              <Image
+                                source={{ uri: getFullImageUrl(item.image_url) }}
+                                style={{ width: 42, height: 42, borderRadius: 8, marginRight: 10, backgroundColor: '#F1F5F9' }}
+                                resizeMode="cover"
+                              />
+                            ) : (
+                              <View style={{ width: 42, height: 42, borderRadius: 8, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                                <Icon name="newspaper-outline" size={20} color="#F58220" />
+                              </View>
+                            )}
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 14, ...FONTS.bold, color: '#0F172A' }}>{item.title}</Text>
+                              <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }} numberOfLines={1}>{item.summary || item.content || item.message}</Text>
+                            </View>
+                          </View>
+                          <TouchableOpacity onPress={() => handleDeleteNews(item._id)} style={{ padding: 6 }}>
+                            <Icon name="trash-outline" size={18} color="#EF4444" />
+                          </TouchableOpacity>
+                        </View>
+                      ))
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* TAB 3: UPDATE GALLERY (PHOTOS & VIDEOS) */}
+              {activeToolsTab === 'gallery' && (
+                <View>
+                  <View style={styles.settingsCardSection}>
+                    <View style={styles.settingsCardHeader}>
+                      <Icon name="images-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
+                      <Text style={styles.settingsSectionTitle}>Add Gallery Item (Photo or Video)</Text>
+                    </View>
+
+                    <Text style={styles.formInputLabel}>Media Type</Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                      <TouchableOpacity
+                        onPress={() => setNewGallery({ ...newGallery, type: 'photo' })}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 10,
+                          alignItems: 'center',
+                          borderRadius: 8,
+                          backgroundColor: newGallery.type === 'photo' ? '#F58220' : '#E2E8F0',
+                          flexDirection: 'row',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Icon name="image-outline" size={16} color={newGallery.type === 'photo' ? '#FFFFFF' : '#475569'} style={{ marginRight: 6 }} />
+                        <Text style={{ fontSize: 12, ...FONTS.bold, color: newGallery.type === 'photo' ? '#FFFFFF' : '#475569' }}>
+                          Upload Photo
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setNewGallery({ ...newGallery, type: 'video' })}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 10,
+                          alignItems: 'center',
+                          borderRadius: 8,
+                          backgroundColor: newGallery.type === 'video' ? '#0F172A' : '#E2E8F0',
+                          flexDirection: 'row',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Icon name="logo-youtube" size={16} color={newGallery.type === 'video' ? '#FFFFFF' : '#475569'} style={{ marginRight: 6 }} />
+                        <Text style={{ fontSize: 12, ...FONTS.bold, color: newGallery.type === 'video' ? '#FFFFFF' : '#475569' }}>
+                          YouTube Video
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.formInputLabel}>Title *</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={newGallery.title}
+                      onChangeText={t => setNewGallery({ ...newGallery, title: t })}
+                      placeholder={newGallery.type === 'photo' ? "e.g. Micro-soldering Workshop" : "e.g. Domestic Wiring Demonstration"}
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.formInputLabel}>Category</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      value={newGallery.category}
+                      onChangeText={t => setNewGallery({ ...newGallery, category: t })}
+                      placeholder="e.g. Workshops & Labs, Practical Sessions, Certificates & Events"
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    {newGallery.type === 'photo' ? (
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={styles.formInputLabel}>Gallery Photo File *</Text>
+                        <TouchableOpacity
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#FFF7ED',
+                            borderWidth: 1.5,
+                            borderColor: '#FFEDD5',
+                            borderStyle: 'dashed',
+                            paddingVertical: 12,
+                            paddingHorizontal: 16,
+                            borderRadius: 10,
+                            marginBottom: 8,
+                          }}
+                          onPress={handlePickGalleryPhoto}
+                          disabled={uploadingGalleryImg}
+                        >
+                          {uploadingGalleryImg ? (
+                            <ActivityIndicator size="small" color="#F58220" />
+                          ) : (
+                            <>
+                              <Icon name="cloud-upload-outline" size={20} color="#F58220" style={{ marginRight: 8 }} />
+                              <Text style={{ fontSize: 13, ...FONTS.bold, color: '#F58220' }}>
+                                {newGallery.url ? 'Change Photo from Device' : 'Choose Photo from Device'}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+
+                        {newGallery.url ? (
+                          <View style={{ position: 'relative', marginTop: 4, borderRadius: 10, overflow: 'hidden', height: 110, backgroundColor: '#F1F5F9' }}>
+                            <Image
+                              source={{ uri: getFullImageUrl(newGallery.url) }}
+                              style={{ width: '100%', height: '100%' }}
+                              resizeMode="cover"
+                            />
+                            <TouchableOpacity
+                              onPress={() => setNewGallery(prev => ({ ...prev, url: '' }))}
+                              style={{ position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 14 }}
+                            >
+                              <Icon name="close" size={16} color="#FFFFFF" />
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <TextInput
+                            style={styles.formTextInput}
+                            value={newGallery.url}
+                            onChangeText={t => setNewGallery({ ...newGallery, url: t })}
+                            placeholder="Or paste photo web link URL..."
+                            placeholderTextColor="#9CA3AF"
+                          />
+                        )}
+                      </View>
+                    ) : (
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={styles.formInputLabel}>YouTube Video Link / URL *</Text>
+                        <TextInput
+                          style={styles.formTextInput}
+                          value={newGallery.url}
+                          onChangeText={t => setNewGallery({ ...newGallery, url: t })}
+                          placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                          placeholderTextColor="#9CA3AF"
+                        />
+                        {/* Auto Extract Youtube Thumbnail Preview */}
+                        {(() => {
+                          const match = newGallery.url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+                          const ytId = match ? match[1] : null;
+                          if (ytId) {
+                            return (
+                              <View style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', height: 120, backgroundColor: '#000000', marginTop: 6, alignItems: 'center', justifyContent: 'center' }}>
+                                <Image
+                                  source={{ uri: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` }}
+                                  style={{ width: '100%', height: '100%', opacity: 0.85 }}
+                                  resizeMode="cover"
+                                />
+                                <View style={{ position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: '#FF0000', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Icon name="play" size={24} color="#FFFFFF" style={{ marginLeft: 3 }} />
+                                </View>
+                              </View>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </View>
+                    )}
+
+                    <Text style={styles.formInputLabel}>Description</Text>
+                    <TextInput
+                      style={[styles.formTextInput, { height: 60, textAlignVertical: 'top' }]}
+                      multiline
+                      value={newGallery.description}
+                      onChangeText={t => setNewGallery({ ...newGallery, description: t })}
+                      placeholder="Brief description of the photo or video..."
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <TouchableOpacity
+                      style={[styles.saveSettingsBtn, { backgroundColor: '#F58220' }]}
+                      onPress={handleCreateGallery}
+                      disabled={savingGallery}
+                    >
+                      {savingGallery ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Icon name="add-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                          <Text style={styles.saveSettingsBtnText}>Add to Website Gallery</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* CURRENT GALLERY LIST */}
+                  <View style={styles.settingsCardSection}>
+                    <Text style={[styles.settingsSectionTitle, { marginBottom: 12 }]}>Live Website Gallery Items ({galleryList.length})</Text>
+                    {loadingGallery ? (
+                      <ActivityIndicator size="small" color="#F58220" />
+                    ) : galleryList.length === 0 ? (
+                      <Text style={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>No gallery items uploaded yet.</Text>
+                    ) : (
+                      galleryList.map((item) => {
+                        const match = item.url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+                        const ytId = item.youtubeId || (match ? match[1] : null);
+                        const thumbUrl = item.type === 'video' && ytId
+                          ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
+                          : getFullImageUrl(item.url);
+
+                        return (
+                          <View key={item._id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
+                              {thumbUrl ? (
+                                <Image
+                                  source={{ uri: thumbUrl }}
+                                  style={{ width: 44, height: 44, borderRadius: 8, marginRight: 10, backgroundColor: '#F1F5F9' }}
+                                  resizeMode="cover"
+                                />
+                              ) : (
+                                <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: item.type === 'video' ? '#0F172A' : '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                                  <Icon name={item.type === 'video' ? 'logo-youtube' : 'image-outline'} size={20} color={item.type === 'video' ? '#FFFFFF' : '#F58220'} />
+                                </View>
+                              )}
+                              <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                  <View style={{ backgroundColor: item.type === 'video' ? '#0F172A' : '#FFF7ED', paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 4, marginRight: 6 }}>
+                                    <Text style={{ fontSize: 8.5, ...FONTS.bold, color: item.type === 'video' ? '#FFFFFF' : '#F58220' }}>{item.type?.toUpperCase() || 'PHOTO'}</Text>
+                                  </View>
+                                  <Text style={{ fontSize: 13, ...FONTS.bold, color: '#0F172A' }} numberOfLines={1}>{item.title}</Text>
+                                </View>
+                                <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }} numberOfLines={1}>{item.category} &bull; {item.description || item.url}</Text>
+                              </View>
+                            </View>
+                            <TouchableOpacity onPress={() => handleDeleteGallery(item._id)} style={{ padding: 6 }}>
+                              <Icon name="trash-outline" size={18} color="#EF4444" />
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })
+                    )}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+          )}
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* POPUP ACKNOWLEDGEMENT MODAL OVERLAY */}
+      <Modal
+        visible={ackModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAckModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.75)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+          <View style={{
+            width: '100%',
+            maxWidth: 360,
+            backgroundColor: '#FFFFFF',
+            borderRadius: 24,
+            padding: 24,
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.25,
+            shadowRadius: 20,
+            elevation: 10,
+            borderWidth: 1,
+            borderColor: '#F1F5F9'
+          }}>
+            
+            {/* Glowing Circle Icon Badge */}
+            <View style={{
+              width: 60,
+              height: 60,
+              borderRadius: 30,
+              backgroundColor: ackModal.type === 'success' ? '#DCFCE7' : ackModal.type === 'warning' ? '#FEF3C7' : ackModal.type === 'danger' ? '#FEE2E2' : '#DBEAFE',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              borderWidth: 2,
+              borderColor: ackModal.type === 'success' ? '#86EFAC' : ackModal.type === 'warning' ? '#FDE68A' : ackModal.type === 'danger' ? '#FCA5A5' : '#BFDBFE',
+            }}>
+              <Icon
+                name={
+                  ackModal.type === 'success'
+                    ? 'checkmark-circle'
+                    : ackModal.type === 'warning'
+                    ? 'warning'
+                    : ackModal.type === 'danger'
+                    ? 'alert-circle'
+                    : 'information-circle'
+                }
+                size={34}
+                color={
+                  ackModal.type === 'success'
+                    ? '#16A34A'
+                    : ackModal.type === 'warning'
+                    ? '#D97706'
+                    : ackModal.type === 'danger'
+                    ? '#DC2626'
+                    : '#F58220'
+                }
+              />
+            </View>
+
+            {/* Title */}
+            <Text style={{ fontSize: 18, ...FONTS.bold, color: '#0F172A', textAlign: 'center', marginBottom: 8 }}>
+              {ackModal.title}
+            </Text>
+
+            {/* Message */}
+            <Text style={{ fontSize: 13.5, color: '#475569', textAlign: 'center', lineHeight: 20, marginBottom: 20 }}>
+              {ackModal.message}
+            </Text>
+
+            {/* Dismiss Button */}
+            <TouchableOpacity
+              onPress={() => setAckModal(prev => ({ ...prev, visible: false }))}
+              style={{
+                width: '100%',
+                backgroundColor: ackModal.type === 'danger' ? '#DC2626' : '#F58220',
+                paddingVertical: 12,
+                borderRadius: 14,
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#F58220',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.25,
+                shadowRadius: 6,
+                elevation: 3,
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={{ fontSize: 14, ...FONTS.bold, color: '#FFFFFF' }}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F9FAFB',
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#000',
+
+  /* Graphic Hero Header */
+  graphicHeader: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     marginBottom: 16,
-    marginTop: 4,
+    overflow: 'hidden',
+    position: 'relative',
+    ...Platform.select({
+      web: { boxShadow: '0px 10px 28px rgba(15, 23, 42, 0.28)' },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.28,
+        shadowRadius: 16,
+        elevation: 8,
+      },
+    }),
   },
-  gridContainer: {
+  glowOrbOrange: {
+    position: 'absolute',
+    top: -60,
+    right: -40,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(249, 115, 22, 0.16)',
+  },
+  glowOrbBlue: {
+    position: 'absolute',
+    bottom: -50,
+    left: -40,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+  },
+  brandHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+    paddingHorizontal: 4,
+  },
+  brandLogoGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandLogoImg: {
+    width: 32,
+    height: 32,
+    marginRight: 10,
+  },
+  brandTextColumn: {
+    justifyContent: 'center',
+    height: 32,
+  },
+  brandTitleText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    ...FONTS.extraBold,
+    letterSpacing: 0.8,
+  },
+
+  adminAIBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 146, 60, 0.45)',
+    paddingHorizontal: 12,
+    paddingVertical: 5.5,
+    borderRadius: 20,
+    backgroundColor: 'rgba(249, 115, 22, 0.14)',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(12px)',
+        boxShadow: '0 0 14px rgba(249, 115, 22, 0.25)',
+      },
+      default: {
+        shadowColor: '#F97316',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
+        elevation: 3,
+      },
+    }),
+  },
+  adminAIBadgeText: {
+    color: '#FED7AA',
+    fontSize: 10.5,
+    ...FONTS.extraBold,
+    letterSpacing: 1.2,
+  },
+
+  /* Secondary dashboard metrics */
+  statsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginTop: 2,
   },
   statCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     width: '48%',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.04)',
-    elevation: 1,
   },
-  cardTopRow: {
+  statCardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4B5563',
+    fontSize: 10,
+    ...FONTS.bold,
+    color: '#64748B',
+    letterSpacing: 0.7,
   },
-  iconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  statIconBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#FFF7ED',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   statValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#F97316',
+    fontSize: 22,
+    ...FONTS.extraBold,
+    color: '#1F2937',
+    letterSpacing: 0.3,
   },
+  overviewToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  overviewIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  overviewTitleContainer: {
+    flex: 1,
+  },
+  overviewSubtext: {
+    color: '#6B7280',
+    fontSize: 12,
+    ...FONTS.regular,
+    marginTop: 3,
+  },
+
+  /* Announcements Glassmorphic Card */
+  glassCardWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 8px 24px -4px rgba(245, 130, 32, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)',
+      },
+      default: {
+        shadowColor: '#F58220',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 3,
+      },
+    }),
+  },
+  noticeCard: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        boxShadow: 'inset 0 1px 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 1px rgba(254, 215, 170, 0.45)',
+      },
+    }),
+  },
+  glassAccentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 12,
+    bottom: 12,
+    width: 4,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+    backgroundColor: '#F58220',
+  },
+  noticeIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 130, 32, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 8px rgba(245, 130, 32, 0.12), inset 0 1px 1px rgba(255, 255, 255, 1)',
+      },
+      default: {
+        shadowColor: '#F58220',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 1,
+      },
+    }),
+  },
+  noticeContent: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 10,
+  },
+  noticeTitle: {
+    fontSize: 15,
+    ...FONTS.bold,
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  noticeSub: {
+    fontSize: 12,
+    ...FONTS.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  noticeCtaBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F58220',
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 9,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 3px 8px rgba(245, 130, 32, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.25)',
+      },
+      default: {
+        shadowColor: '#F58220',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.35,
+        shadowRadius: 4,
+        elevation: 3,
+      },
+    }),
+  },
+  noticeCtaText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    ...FONTS.bold,
+    letterSpacing: 0.2,
+  },
+
+  /* Section Cards */
   sectionCard: {
+    marginHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000000',
+    fontSize: 17,
+    ...FONTS.bold,
+    color: '#111827',
   },
   viewAllText: {
     color: '#F97316',
-    fontWeight: '600',
-    fontSize: 14,
+    ...FONTS.semiBold,
+    fontSize: 13,
   },
   emptyText: {
     color: '#9CA3AF',
     fontStyle: 'italic',
-    paddingVertical: 8,
+    ...FONTS.regular,
+    paddingVertical: 10,
+    fontSize: 13,
   },
+
+  /* Empty Approvals State (Clean, minimal) */
+  emptyApprovalsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+  },
+  simpleCheckCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  allCaughtUpText: {
+    fontSize: 14,
+    ...FONTS.semiBold,
+    color: '#4B5563',
+  },
+
+  /* Pending Approvals */
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -365,26 +1828,28 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
     fontSize: 15,
-    fontWeight: 'bold',
+    ...FONTS.bold,
     color: '#4B5563',
   },
   userInfo: {
     flex: 1,
+    marginRight: 8,
   },
   userName: {
     fontSize: 15,
-    fontWeight: 'bold',
+    ...FONTS.bold,
     color: '#1F2937',
   },
   userSubtext: {
     fontSize: 13,
+    ...FONTS.regular,
     color: '#6B7280',
     marginTop: 2,
   },
@@ -409,42 +1874,236 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
+  /* Recent Activities */
   activityList: {
-    marginTop: 14,
+    marginTop: 4,
   },
   activityItem: {
     flexDirection: 'row',
-    marginBottom: 16,
-  },
-  timelineLeft: {
-    width: 24,
     alignItems: 'center',
+    paddingVertical: 10,
   },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginTop: 4,
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: '#E5E7EB',
-    marginTop: 4,
+  activityIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   activityContent: {
     flex: 1,
-    paddingLeft: 8,
   },
   activityText: {
     fontSize: 14,
     color: '#1F2937',
+    ...FONTS.semiBold,
     lineHeight: 20,
-    fontWeight: '500',
   },
   activityTime: {
     fontSize: 12,
+    color: '#9CA3AF',
+    ...FONTS.regular,
+    marginTop: 3,
+  },
+
+  /* Modal Styles */
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  modalTitle: {
+    fontSize: 20,
+    ...FONTS.bold,
+    color: '#111827',
+  },
+  modalSub: {
+    fontSize: 13,
+    ...FONTS.regular,
     color: '#6B7280',
-    marginTop: 4,
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  emptyActivitiesText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    ...FONTS.regular,
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
+  modalActivityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+
+  /* Website Tools Modal Styles */
+  settingsCardSection: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  settingsCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  settingsSectionTitle: {
+    fontSize: 15,
+    ...FONTS.bold,
+    color: '#0F172A',
+  },
+  shortcutsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  shortcutBtn: {
+    width: '31%',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  shortcutIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  shortcutLabel: {
+    fontSize: 11,
+    ...FONTS.bold,
+    color: '#334155',
+    textAlign: 'center',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  switchLabel: {
+    fontSize: 14,
+    ...FONTS.bold,
+    color: '#1E293B',
+  },
+  switchSub: {
+    fontSize: 12,
+    ...FONTS.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  formInputLabel: {
+    fontSize: 13,
+    ...FONTS.semiBold,
+    color: '#334155',
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  formTextInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0F172A',
+    ...FONTS.regular,
+    marginBottom: 10,
+  },
+  saveSettingsBtn: {
+    backgroundColor: '#F58220',
+    borderRadius: 12,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(245, 130, 32, 0.35)' },
+      default: {
+        shadowColor: '#F58220',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
+        elevation: 4,
+      },
+    }),
+  },
+  saveSettingsBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    ...FONTS.bold,
+  },
+  themeToggleCapsule: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  glassCardWrapperDark: {
+    borderColor: 'rgba(249, 115, 22, 0.3)',
+    shadowColor: '#000',
+  },
+  noticeCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(249, 115, 22, 0.25)',
+  },
+  noticeIconBoxDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.18)',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+  },
+  sectionCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: '#000',
+  },
+  statCardDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  rowBorderDark: {
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
 });
