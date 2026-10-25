@@ -1326,8 +1326,8 @@ export default function RegisterScreen() {
                   ? 'radial-gradient(ellipse at 50% 45%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.28) 55%, rgba(255, 255, 255, 0.42) 88%), linear-gradient(to right, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.16) 48%, rgba(255, 255, 255, 0.34) 100%)'
                   : 'linear-gradient(to bottom, rgba(255, 255, 255, 0.36) 0%, rgba(255, 255, 255, 0.16) 45%, rgba(255, 255, 255, 0.40) 100%)')
                 : (isDesktop
-                  ? 'radial-gradient(circle at 86% 8%, rgba(249, 115, 22, 0.18) 0%, rgba(249, 115, 22, 0.05) 35%, transparent 60%), linear-gradient(to right, rgba(15, 23, 42, 0.94) 0%, rgba(20, 28, 44, 0.88) 46%, rgba(10, 15, 26, 0.97) 100%)'
-                  : 'linear-gradient(to bottom, rgba(15, 23, 42, 0.95) 0%, rgba(20, 28, 44, 0.90) 50%, rgba(10, 15, 26, 0.98) 100%)'),
+                  ? 'radial-gradient(circle at 86% 8%, rgba(255, 125, 0, 0.28) 0%, rgba(255, 95, 0, 0.12) 30%, transparent 60%), radial-gradient(circle at 82% 94%, rgba(255, 115, 0, 0.10) 0%, transparent 40%), linear-gradient(to right, rgba(15, 23, 42, 0.95) 0%, rgba(18, 26, 42, 0.86) 44%, rgba(15, 22, 36, 0.78) 74%, rgba(12, 17, 28, 0.90) 100%)'
+                  : 'radial-gradient(circle at 85% 6%, rgba(255, 120, 0, 0.22) 0%, rgba(255, 90, 0, 0.08) 30%, transparent 55%), linear-gradient(to bottom, rgba(15, 23, 42, 0.94) 0%, rgba(20, 28, 44, 0.90) 50%, rgba(10, 15, 26, 0.98) 100%)'),
             } as any,
           ]}
         />
@@ -1774,9 +1774,9 @@ const styles = StyleSheet.create({
       : {}),
   },
   cardDark: {
-    backgroundColor: 'rgba(20, 27, 38, 0.82)',
+    backgroundColor: 'rgba(20, 27, 38, 0.66)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.80,

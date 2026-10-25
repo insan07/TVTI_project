@@ -154,15 +154,6 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.name}>{user?.name || 'Student'}</Text>
-          <Text style={styles.regNumberText}>
-            REG NO : {user?.index_number || user?.nic || 'N/A'}
-          </Text>
-        </View>
       </LinearGradient>
 
       {/* SCROLLABLE MAIN CONTENT */}
@@ -370,7 +361,7 @@ const styles = StyleSheet.create({
   stickyHeaderCard: {
     backgroundColor: '#121214',
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: 16,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     zIndex: 10,
@@ -387,9 +378,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   brandLogoGroup: {
     flexDirection: 'row',

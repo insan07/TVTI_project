@@ -677,9 +677,9 @@ const styles = StyleSheet.create({
       : {}),
   },
   cardDark: {
-    backgroundColor: 'rgba(20, 27, 38, 0.82)',
+    backgroundColor: 'rgba(20, 27, 38, 0.62)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.50,
