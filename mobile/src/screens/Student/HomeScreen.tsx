@@ -359,18 +359,19 @@ const styles = StyleSheet.create({
 
   /* DARK HEADER BANNER CONTAINER */
   stickyHeaderCard: {
-    backgroundColor: '#121214',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: 'hidden',
+    position: 'relative',
     zIndex: 10,
     maxWidth: 1100,
     width: '100%',
     alignSelf: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.15)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5 },
+      web: { boxShadow: '0px 10px 28px rgba(15, 23, 42, 0.28)' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.28, shadowRadius: 16, elevation: 8 },
     }),
   },
 
@@ -378,6 +379,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 4,
   },
   brandLogoGroup: {
     flexDirection: 'row',
@@ -725,35 +727,31 @@ const styles = StyleSheet.create({
   /* Glow Orbs & Theme Toggle */
   glowOrbOrange: {
     position: 'absolute',
-    top: -40,
-    right: -30,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(249, 115, 22, 0.22)',
-    ...Platform.select({
-      web: { filter: 'blur(36px)' },
-    }),
+    top: -60,
+    right: -40,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(249, 115, 22, 0.16)',
   },
   glowOrbBlue: {
     position: 'absolute',
-    bottom: -20,
-    left: -20,
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    ...Platform.select({
-      web: { filter: 'blur(32px)' },
-    }),
+    bottom: -50,
+    left: -40,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
   },
   themeToggleCapsule: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
 
   /* Dark Mode Variants */

@@ -29,7 +29,9 @@ export default function ScreenBackground({ children }: ScreenBackgroundProps) {
             zIndex: -2,
             objectFit: 'cover',
             objectPosition: 'center',
-            opacity: isLight ? 0.55 : 0.45,
+            opacity: isLight ? 0.6 : 0.45,
+            filter: isLight ? 'blur(3px)' : 'none',
+            transform: isLight ? 'scale(1.03)' : 'none',
           } as any),
         ]}
         resizeMode="cover"
@@ -47,7 +49,7 @@ export default function ScreenBackground({ children }: ScreenBackgroundProps) {
               zIndex: -1,
               pointerEvents: 'none',
               background: isLight
-                ? 'linear-gradient(to bottom, rgba(248, 250, 252, 0.88) 0%, rgba(248, 250, 252, 0.88) 45%, rgba(248, 250, 252, 0.88) 100%)'
+                ? 'linear-gradient(to bottom, rgba(248, 250, 252, 0.78) 0%, rgba(248, 250, 252, 0.78) 45%, rgba(248, 250, 252, 0.78) 100%)'
                 : 'linear-gradient(to bottom, rgba(15, 23, 42, 0.88) 0%, rgba(20, 28, 44, 0.88) 50%, rgba(10, 15, 26, 0.88) 100%)',
             } as any,
           ]}
@@ -56,7 +58,7 @@ export default function ScreenBackground({ children }: ScreenBackgroundProps) {
         <LinearGradient
           colors={
             isLight
-              ? ['rgba(248, 250, 252, 0.85)', 'rgba(248, 250, 252, 0.88)', 'rgba(248, 250, 252, 0.88)']
+              ? ['rgba(248, 250, 252, 0.78)', 'rgba(248, 250, 252, 0.78)', 'rgba(248, 250, 252, 0.78)']
               : ['rgba(15, 23, 42, 0.94)', 'rgba(20, 28, 44, 0.88)', 'rgba(10, 15, 26, 0.97)']
           }
           style={[StyleSheet.absoluteFill, { zIndex: -1 }]}
