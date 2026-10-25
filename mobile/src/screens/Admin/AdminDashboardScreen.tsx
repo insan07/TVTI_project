@@ -36,6 +36,7 @@ export default function AdminDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [overviewExpanded, setOverviewExpanded] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // All activities modal state
   const [allActivitiesVisible, setAllActivitiesVisible] = useState(false);
@@ -151,6 +152,14 @@ export default function AdminDashboardScreen() {
         })),
         recentActivities: (data.recentActivities || []).slice(0, 5),
       });
+
+      try {
+        const notifRes = await api.get('/notifications/my');
+        const unread = (notifRes.data || []).filter((n: any) => !n.is_read).length;
+        setUnreadCount(unread);
+      } catch (err) {
+        // ignore notification error
+      }
     } catch (e) {
       console.log('Failed to fetch admin stats:', e);
     } finally {
@@ -476,8 +485,8 @@ export default function AdminDashboardScreen() {
               </View>
             </View>
 
-            {/* THEME TOGGLE & PROFESSIONAL ADMIN PORTAL BADGE */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {/* THEME TOGGLE & NOTIFICATION BELL ICON (MATCHING STUDENT DASHBOARD) */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <TouchableOpacity
                 onPress={toggleTheme}
                 style={styles.themeToggleCapsule}
@@ -486,19 +495,20 @@ export default function AdminDashboardScreen() {
               >
                 <Icon
                   name={isDark ? 'sunny-outline' : 'moon-outline'}
-                  size={14}
+                  size={16}
                   color="#F59E0B"
                 />
               </TouchableOpacity>
 
-              <LinearGradient
-                colors={['rgba(249, 115, 22, 0.22)', 'rgba(251, 146, 60, 0.12)', 'rgba(15, 23, 42, 0.45)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.adminAIBadge}
+              <TouchableOpacity
+                style={styles.bellBtn}
+                onPress={() => navigation.navigate('Notifications')}
+                activeOpacity={0.8}
+                accessibilityLabel="View notifications"
               >
-                <Text style={styles.adminAIBadgeText}>ADMIN PORTAL</Text>
-              </LinearGradient>
+                <Icon name="notifications-outline" size={20} color="#FFF" />
+                {unreadCount > 0 && <View style={styles.badgeDot} />}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -1546,6 +1556,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     ...FONTS.extraBold,
     letterSpacing: 0.8,
+  },
+  bellBtn: {
+    position: 'relative',
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#F58220',
   },
 
   adminAIBadge: {

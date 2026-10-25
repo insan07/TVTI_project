@@ -22,6 +22,7 @@ export default function InstructorHomeScreen() {
   const { isDark, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [stats, setStats] = useState({
     totalBatches: 0,
     totalVideos: 0,
@@ -43,6 +44,14 @@ export default function InstructorHomeScreen() {
         recentVideos: data.recentVideos || [],
         recentAnnouncements: data.recentAnnouncements || []
       });
+
+      try {
+        const notifRes = await api.get('/notifications/my');
+        const unread = (notifRes.data || []).filter((n: any) => !n.is_read).length;
+        setUnreadCount(unread);
+      } catch (e) {
+        // ignore notification error
+      }
     } catch (error) {
       console.warn('Failed to load instructor stats', error);
     } finally {
@@ -114,7 +123,7 @@ export default function InstructorHomeScreen() {
               </View>
             </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <TouchableOpacity
                 onPress={toggleTheme}
                 style={styles.themeToggleCapsule}
@@ -123,19 +132,20 @@ export default function InstructorHomeScreen() {
               >
                 <Icon
                   name={isDark ? 'sunny-outline' : 'moon-outline'}
-                  size={14}
+                  size={16}
                   color="#F59E0B"
                 />
               </TouchableOpacity>
 
-              <LinearGradient
-                colors={['rgba(249, 115, 22, 0.22)', 'rgba(251, 146, 60, 0.12)', 'rgba(15, 23, 42, 0.45)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.adminAIBadge}
+              <TouchableOpacity
+                style={styles.bellBtn}
+                onPress={() => navigation.navigate('Notifications')}
+                activeOpacity={0.8}
+                accessibilityLabel="View notifications"
               >
-                <Text style={styles.adminAIBadgeText}>INSTRUCTOR PORTAL</Text>
-              </LinearGradient>
+                <Icon name="notifications-outline" size={20} color="#FFF" />
+                {unreadCount > 0 && <View style={styles.badgeDot} />}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -560,6 +570,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     ...FONTS.extraBold,
     letterSpacing: 0.8,
+  },
+  bellBtn: {
+    position: 'relative',
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#F58220',
   },
   adminAIBadge: {
     alignItems: 'center',
