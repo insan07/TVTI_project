@@ -1306,65 +1306,60 @@ export default function AdminSlotManagementScreen() {
         ) : (
           viewMode === 'Week' ? renderWeekView() :
             viewMode === 'Month' ? renderMonthView() :
-              viewMode === 'Day' ? (
-                <ScrollView
-                  style={{ flex: 1 }}
-                  contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-                  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                  onScroll={handleScroll}
-                  scrollEventThrottle={16}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#1F2937' }}>
-                      Schedule for {selectedDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                    </Text>
-                    {isPastDate(selectedDate) && (
-                      <View style={[styles.pastDateBadge, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
-                        <Icon name="eye-outline" size={13} color={isDark ? "#94A3B8" : "#64748B"} style={{ marginRight: 5 }} />
-                        <Text style={[styles.pastDateBadgeText, isDark && { color: '#94A3B8' }]}>Past Date (View Only)</Text>
+              viewMode === 'Day' ? (() => {
+                const daySlots = slots.filter(s => getLocalDateString(getSlotActualDate(s.week_start_date, s.day_of_week)) === getLocalDateString(selectedDate));
+                return (
+                  <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                    onScroll={handleScroll}
+                    scrollEventThrottle={16}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                      <View>
+                        <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                          Schedule for {selectedDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: isDark ? '#94A3B8' : '#64748B', marginTop: 2 }}>
+                          {daySlots.length} {daySlots.length === 1 ? 'session scheduled' : 'sessions scheduled'}
+                        </Text>
                       </View>
-                    )}
-                  </View>
-                  {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).length === 0 ? (
-                    <View style={{ alignItems: 'center', marginTop: 40 }}>
-                      <Icon name="calendar-outline" size={48} color="#D1D5DB" />
-                      <Text style={{ color: '#6B7280', marginVertical: 12 }}>
-                        {isPastDate(selectedDate) ? 'No practical slots were scheduled for this day.' : 'No slots scheduled for this day.'}
-                      </Text>
-                      {!isPastDate(selectedDate) && (
-                        <TouchableOpacity style={styles.actionBtnBlue} onPress={() => {
-                          setCreateDate(selectedDate);
-                          setCreateModalVisible(true);
-                        }}>
-                          <Icon name="add" size={16} color="#2563EB" />
-                          <Text style={styles.actionBtnBlueText}>Create Slot for this Day</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ) : (
-                    <>
                       {isPastDate(selectedDate) && (
-                        <View style={[styles.pastDateBanner, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.05)', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
-                          <Icon name="information-circle-outline" size={16} color="#F58220" style={{ marginRight: 6 }} />
-                          <Text style={[styles.pastDateBannerText, isDark && { color: '#CBD5E1' }]}>
-                            Viewing past schedule. New slots cannot be created for past dates.
-                          </Text>
+                        <View style={[styles.pastDateBadge, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                          <Icon name="eye-outline" size={13} color={isDark ? "#94A3B8" : "#64748B"} style={{ marginRight: 5 }} />
+                          <Text style={[styles.pastDateBadgeText, isDark && { color: '#94A3B8' }]}>Past Date (View Only)</Text>
                         </View>
                       )}
-                      {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).map(renderListCard)}
-                      {!isPastDate(selectedDate) && (
-                        <TouchableOpacity style={[styles.actionBtnBlue, { marginTop: 16, alignSelf: 'center' }]} onPress={() => {
-                          setCreateDate(selectedDate);
-                          setCreateModalVisible(true);
-                        }}>
-                          <Icon name="add" size={16} color="#2563EB" />
-                          <Text style={styles.actionBtnBlueText}>Add Another Slot</Text>
-                        </TouchableOpacity>
-                      )}
-                    </>
-                  )}
-                </ScrollView>
-              ) :
+                    </View>
+                    {daySlots.length === 0 ? (
+                      <View style={[styles.emptyWeekCard, isDark && styles.emptyWeekCardDark]}>
+                        <Icon name="calendar-outline" size={44} color={isDark ? '#475569' : '#CBD5E1'} style={{ marginBottom: 10 }} />
+                        <Text style={[styles.emptyWeekTitle, isDark && { color: '#FFFFFF' }]}>
+                          No practical slots scheduled for this day
+                        </Text>
+                        <Text style={[styles.emptyWeekSubtitle, isDark && { color: '#94A3B8' }]}>
+                          {isPastDate(selectedDate)
+                            ? 'This date is in the past. Past dates are view-only.'
+                            : 'No practical sessions have been scheduled yet.'}
+                        </Text>
+                      </View>
+                    ) : (
+                      <>
+                        {isPastDate(selectedDate) && (
+                          <View style={[styles.pastDateBanner, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.05)', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+                            <Icon name="information-circle-outline" size={16} color="#F58220" style={{ marginRight: 6 }} />
+                            <Text style={[styles.pastDateBannerText, isDark && { color: '#CBD5E1' }]}>
+                              Viewing past schedule. New slots cannot be created for past dates.
+                            </Text>
+                          </View>
+                        )}
+                        {daySlots.map(renderListCard)}
+                      </>
+                    )}
+                  </ScrollView>
+                );
+              })() :
                 <ScrollView
                   style={{ flex: 1 }}
                   contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
@@ -1373,10 +1368,10 @@ export default function AdminSlotManagementScreen() {
                   scrollEventThrottle={16}
                 >
                   {slots.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                      <Icon name="calendar-outline" size={48} color="#D1D5DB" />
-                      <Text style={styles.emptyTitle}>No practical slots found.</Text>
-                      <Text style={styles.emptySubtitle}>Try adjusting your filters or create a new slot.</Text>
+                    <View style={[styles.emptyWeekCard, isDark && styles.emptyWeekCardDark]}>
+                      <Icon name="calendar-outline" size={44} color={isDark ? '#475569' : '#CBD5E1'} style={{ marginBottom: 10 }} />
+                      <Text style={[styles.emptyWeekTitle, isDark && { color: '#FFFFFF' }]}>No practical slots found</Text>
+                      <Text style={[styles.emptyWeekSubtitle, isDark && { color: '#94A3B8' }]}>No practical sessions have been scheduled yet.</Text>
                     </View>
                   ) : slots.map(renderListCard)}
                 </ScrollView>
