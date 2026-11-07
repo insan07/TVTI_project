@@ -95,10 +95,18 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
   let pracDay = '--';
   const rawDate = slotData?.week_start_date;
   if (rawDate) {
-    const d = new Date(rawDate);
+    const match = String(rawDate).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const d = match
+      ? new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10), 0, 0, 0, 0)
+      : new Date(rawDate);
     if (!isNaN(d.getTime())) {
-      pracMonth = d.toLocaleString('default', { month: 'short' }).toUpperCase();
-      pracDay = d.getDate().toString();
+      const daysArr = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const dayOffset = daysArr.indexOf(slotData?.day_of_week);
+      if (dayOffset !== -1) {
+        d.setDate(d.getDate() + dayOffset);
+      }
+      pracMonth = d.toLocaleString('en-GB', { month: 'short' }).toUpperCase();
+      pracDay = String(d.getDate()).padStart(2, '0');
     }
   }
 
