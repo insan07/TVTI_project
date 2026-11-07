@@ -5,6 +5,28 @@ import Enrollment from '../models/Enrollment';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { sendNotification } from '../services/notificationService';
 
+const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const isPracticeSlotExpired = (slot: any): boolean => {
+  if (!slot?.week_start_date) return false;
+  const dayIdx = DAYS_LIST.indexOf(slot.day_of_week);
+  const slotActualDate = new Date(slot.week_start_date);
+  if (dayIdx !== -1) {
+    slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
+  }
+  const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+  const slotEndDateTime = new Date(
+    slotActualDate.getUTCFullYear(),
+    slotActualDate.getUTCMonth(),
+    slotActualDate.getUTCDate(),
+    h,
+    m,
+    0,
+    0
+  );
+  return slotEndDateTime.getTime() < Date.now();
+};
+
 // GET /api/student/practice-slots?batchId=&weekStart=
 export const getOpenSlots = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -37,12 +59,14 @@ export const getOpenSlots = async (req: AuthRequest, res: Response): Promise<voi
 
     const result = slots.map(s => {
       const booked = counts.find(x => String(x._id) === String(s._id))?.count || 0;
+      const expired = isPracticeSlotExpired(s);
       return {
         ...s.toObject(),
         seats_taken: booked,
         seats_available: s.max_students - booked,
         already_booked: myBookedSlotMap.has(String(s._id)),
         booking_status: myBookedSlotMap.get(String(s._id)) || null,
+        is_expired: expired,
       };
     });
 
@@ -57,6 +81,11 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
   try {
     const slot = await PracticeSlot.findById(req.params.slotId);
     if (!slot || !slot.is_open) { res.status(404).json({ message: 'Slot not available' }); return; }
+
+    if (isPracticeSlotExpired(slot)) {
+      res.status(400).json({ message: 'This practical slot has expired and can no longer be booked.' });
+      return;
+    }
 
     const confirmed = await SlotBooking.countDocuments({ slot_id: slot._id, status: { $in: ['confirmed', 'cancellation_requested'] } });
     if (confirmed >= slot.max_students) { res.status(400).json({ message: 'This slot is full' }); return; }
@@ -99,6 +128,12 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
 // Body: { reason?: string }
 export const cancelBooking = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const slot = await PracticeSlot.findById(req.params.slotId);
+    if (slot && isPracticeSlotExpired(slot)) {
+      res.status(400).json({ message: 'Cannot cancel a booking for an expired practical slot.' });
+      return;
+    }
+
     const { reason } = req.body || {};
     const result = await SlotBooking.findOneAndUpdate(
       { slot_id: req.params.slotId, student_id: req.user?._id, $or: [{ status: 'confirmed' }, { status: { $exists: false } }] },
@@ -107,7 +142,6 @@ export const cancelBooking = async (req: AuthRequest, res: Response): Promise<vo
     );
     if (!result) { res.status(404).json({ message: 'Booking not found or already pending cancellation' }); return; }
 
-    const slot = await PracticeSlot.findById(req.params.slotId);
     if (slot && slot.instructor_id) {
       await sendNotification({
         userIds: [slot.instructor_id.toString()],

@@ -46,6 +46,16 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
   return slotDate;
 };
 
+const isSlotExpired = (slot: any) => {
+  if (!slot) return false;
+  if (slot.is_expired) return true;
+  const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
+  const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+  const slotEnd = new Date(actualDate);
+  slotEnd.setHours(h, m, 0, 0);
+  return slotEnd.getTime() < Date.now();
+};
+
 export default function PracticeSessionsScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -243,18 +253,24 @@ export default function PracticeSessionsScreen() {
               ) : slots.length > 0 ? (
                 slots.map((slot) => {
                   const isFull = slot.seats_available <= 0;
-                  const disabled = isFull || (hasBookedThisWeek && !slot.already_booked);
+                  const isExpired = isSlotExpired(slot);
+                  const disabled = isExpired || isFull || (hasBookedThisWeek && !slot.already_booked);
                   const actualSlotDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
                   const dateString = actualSlotDate.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
 
                   return (
-                    <View key={slot._id} style={[styles.sessionCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                    <View key={slot._id} style={[styles.sessionCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, isExpired && { opacity: 0.65 }]}>
                       <View style={styles.sessionCardAccentBar} />
                       <View style={styles.sessionCardContent}>
                         <View style={styles.pillTagsRow}>
                           <View style={[styles.practiceTypeTag, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.18)', borderColor: 'rgba(249, 115, 22, 0.3)' }]}>
                             <Text style={[styles.practiceTypeTagText, isDark && { color: '#FB923C' }]}>PRACTICE SLOT</Text>
                           </View>
+                          {isExpired && (
+                            <View style={{ backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '700', color: isDark ? '#94A3B8' : '#64748B' }}>EXPIRED</Text>
+                            </View>
+                          )}
                           <View style={[styles.coursePillTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
                             <Text style={[styles.coursePillText, isDark && { color: '#E2E8F0' }]}>
                               {slot.batch_id?.course_id?.title || 'Practice Session'}
@@ -274,7 +290,7 @@ export default function PracticeSessionsScreen() {
                           </Text>
                         </View>
 
-                        {slot.already_booked ? (
+                        {slot.already_booked && !isExpired ? (
                           <TouchableOpacity
                             style={[styles.cancelOutlineButton, isDark && { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
                             onPress={() => handleCancelBooking(slot._id)}
@@ -288,7 +304,7 @@ export default function PracticeSessionsScreen() {
                             onPress={() => handleBookSlot(slot._id)}
                           >
                             <Text style={[styles.bookSolidButtonText, disabled && isDark && { color: '#64748B' }]}>
-                              {isFull ? 'Full' : hasBookedThisWeek ? 'Already booked this week' : 'Book Session'}
+                              {isExpired ? 'Slot Expired' : isFull ? 'Full' : hasBookedThisWeek ? 'Already booked this week' : 'Book Session'}
                             </Text>
                           </TouchableOpacity>
                         )}
@@ -312,9 +328,7 @@ export default function PracticeSessionsScreen() {
                   const slot = booking.slot_id;
                   if (!slot) return null;
                   const actualSlotDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const isFuture = actualSlotDate >= today;
+                  const isFuture = !isSlotExpired(slot);
 
                   return (
                     <View key={booking._id} style={[styles.sessionCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, !isFuture && (isDark ? { opacity: 0.6 } : styles.pastSessionCard)]}>

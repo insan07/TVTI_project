@@ -364,6 +364,20 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
 // DELETE /api/instructors/practice-slots/:slotId/bookings/:bookingId
 export const cancelBookingByAdmin = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const slot = await PracticeSlot.findById(req.params.slotId);
+    if (slot) {
+      const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const dayIdx = DAYS_LIST.indexOf(slot.day_of_week);
+      const slotActualDate = new Date(slot.week_start_date);
+      if (dayIdx !== -1) slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
+      const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+      const slotEndDateTime = new Date(slotActualDate.getUTCFullYear(), slotActualDate.getUTCMonth(), slotActualDate.getUTCDate(), h, m, 0, 0);
+      if (slotEndDateTime.getTime() < Date.now()) {
+        res.status(400).json({ message: 'Cannot modify bookings for an expired practical slot.' });
+        return;
+      }
+    }
+
     const booking = await SlotBooking.findByIdAndDelete(req.params.bookingId);
     if (!booking) {
       res.status(404).json({ message: 'Booking not found' });
@@ -403,6 +417,17 @@ export const addStudentBookingByAdmin = async (req: AuthRequest, res: Response):
     const slot = await PracticeSlot.findById(req.params.slotId);
     if (!slot) {
       res.status(404).json({ message: 'Slot not found' });
+      return;
+    }
+
+    const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const dayIdx = DAYS_LIST.indexOf(slot.day_of_week);
+    const slotActualDate = new Date(slot.week_start_date);
+    if (dayIdx !== -1) slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
+    const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+    const slotEndDateTime = new Date(slotActualDate.getUTCFullYear(), slotActualDate.getUTCMonth(), slotActualDate.getUTCDate(), h, m, 0, 0);
+    if (slotEndDateTime.getTime() < Date.now()) {
+      res.status(400).json({ message: 'Cannot assign students to an expired practical slot.' });
       return;
     }
 
