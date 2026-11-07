@@ -97,6 +97,7 @@ export default function AdminSlotManagementScreen() {
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [weekFilterDay, setWeekFilterDay] = useState<string | null>(null);
 
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -781,56 +782,252 @@ export default function AdminSlotManagementScreen() {
   };
 
   const renderWeekView = () => {
-    const hours = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
     const weekDates = Array.from({ length: 7 }).map((_, i) => {
       const d = new Date(weekStart);
       d.setDate(d.getDate() + i);
       return d;
     });
 
-    return (
-      <View style={styles.gridContainer}>
-        <View style={styles.gridHeaderRow}>
-          <View style={styles.timeColHeader} />
-          {weekDates.map((d, i) => (
-            <TouchableOpacity key={i} style={styles.dayColHeader} onPress={() => {
-              setSelectedDate(d);
-              setWeekStart(getMonday(d));
-              setViewMode('Day');
-            }}>
-              <Text style={styles.dayColDay}>{DAYS[i].slice(0, 3)}</Text>
-              <Text style={styles.dayColDate}>{d.getDate()}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <ScrollView style={{ flex: 1 }}>
-          <View style={styles.gridBody}>
-            <View style={styles.timeAxis}>
-              {hours.map(h => <Text key={h} style={styles.timeAxisLabel}>{h}</Text>)}
-            </View>
-            <View style={styles.gridLinesContainer}>
-              {hours.map(h => <View key={h} style={styles.gridLineHorizontal} />)}
-              {weekDates.map((d, i) => <View key={i} style={styles.gridLineVertical} />)}
+    const weekStartDate = weekDates[0];
+    const weekEndDate = weekDates[6];
+    const weekRangeText = `${weekStartDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} – ${weekEndDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
 
-              {slots.map((s, idx) => {
-                const dayIdx = DAYS.indexOf(s.day_of_week);
-                if (dayIdx === -1) return null;
-                const startH = parseInt(s.start_time.split(':')[0]);
-                const endH = parseInt(s.end_time.split(':')[0]);
-                if (startH < 8 || startH > 16) return null;
-                const top = (startH - 8) * 60;
-                const height = (endH - startH) * 60;
-                return (
-                  <View key={s._id} style={[styles.slotBlock, { left: `${(dayIdx * 14.28)}%`, top, height, backgroundColor: idx % 2 === 0 ? '#93C5FD' : '#FDE047' }]}>
-                    <Text style={styles.slotBlockTitle}>{s.batch_id?.name || 'Slot'}</Text>
-                    <Text style={styles.slotBlockTime}>{s.start_time}</Text>
-                  </View>
-                );
-              })}
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startMs = new Date(weekStartDate).setHours(0, 0, 0, 0);
+    const endMs = new Date(weekEndDate).setHours(23, 59, 59, 999);
+
+    const weekSlots = slots.filter(s => {
+      const slotDate = getSlotActualDate(s.week_start_date, s.day_of_week);
+      const slotMs = slotDate.getTime();
+      return slotMs >= startMs && slotMs <= endMs;
+    });
+
+    const sortedWeekSlots = [...weekSlots].sort((a, b) => {
+      const dateA = getSlotActualDate(a.week_start_date, a.day_of_week).getTime();
+      const dateB = getSlotActualDate(b.week_start_date, b.day_of_week).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      return (a.start_time || '').localeCompare(b.start_time || '');
+    });
+
+    const displayedSlots = weekFilterDay
+      ? sortedWeekSlots.filter(s => s.day_of_week === weekFilterDay)
+      : sortedWeekSlots;
+
+    const filteredDateObj = weekFilterDay
+      ? weekDates.find((_, i) => DAYS[i] === weekFilterDay) || selectedDate
+      : null;
+
+    return (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        {/* 1. WEEK CARD (Matching Month View Card Style) */}
+        <View style={[styles.monthCardContainer, isDark && styles.monthCardContainerDark, { marginBottom: 18 }]}>
+          {/* Card Header */}
+          <View style={styles.monthCardHeader}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Text style={[styles.monthCardTitle, isDark && { color: '#FFFFFF' }]}>
+                {weekRangeText}
+              </Text>
+              <Text style={[styles.monthCardSubtitle, isDark && { color: '#94A3B8' }]}>
+                {weekFilterDay
+                  ? `Filtering by ${weekFilterDay} • Tap day again or "Show All" to view all week`
+                  : `Showing all practical slots for this week (${weekSlots.length} slots)`}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {weekFilterDay && (
+                <TouchableOpacity
+                  style={[styles.quickPresetChip, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255,255,255,0.1)' }]}
+                  onPress={() => setWeekFilterDay(null)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.quickPresetChipText, isDark && { color: '#CBD5E1' }]}>Show All</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.monthPickerQuickBtn}
+                onPress={() => {
+                  setDatePickerPurpose('navigate');
+                  setShowDatePicker(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Icon name="calendar" size={15} color="#F58220" style={{ marginRight: 6 }} />
+                <Text style={styles.monthPickerQuickBtnText}>Pick Week</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
-      </View>
+
+          {/* Weekday Labels Header Row */}
+          <View style={[styles.monthHeaderRow, isDark && { backgroundColor: '#1E293B', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((wd, i) => (
+              <Text
+                key={wd}
+                style={[
+                  styles.monthHeaderText,
+                  isDark && { color: '#94A3B8' },
+                  (i === 5 || i === 6) && { color: '#F97316' },
+                ]}
+              >
+                {wd}
+              </Text>
+            ))}
+          </View>
+
+          {/* 7 Days Strip */}
+          <View style={[styles.monthDaysWrapper, { borderBottomWidth: 0 }]}>
+            {weekDates.map((d, i) => {
+              const dayName = DAYS[i];
+              const cellDate = new Date(d);
+              cellDate.setHours(0, 0, 0, 0);
+
+              const isToday = cellDate.getTime() === today.getTime();
+              const isPast = cellDate.getTime() < today.getTime();
+              const isDaySelected = weekFilterDay === dayName;
+
+              const daySlots = weekSlots.filter(s => s.day_of_week === dayName);
+              const hasSlot = daySlots.length > 0;
+
+              return (
+                <TouchableOpacity
+                  key={`wd-${i}`}
+                  style={[
+                    styles.monthCell,
+                    isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.06)' },
+                    isToday && { borderColor: '#F58220', borderWidth: 2 },
+                    isDaySelected && {
+                      backgroundColor: isDark ? 'rgba(245, 130, 32, 0.2)' : '#FFF7ED',
+                      borderColor: '#F58220',
+                      borderWidth: 2,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (weekFilterDay === dayName) {
+                      setWeekFilterDay(null);
+                    } else {
+                      setWeekFilterDay(dayName);
+                      setSelectedDate(d);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.monthDayHeaderRow}>
+                    <View
+                      style={[
+                        styles.dayNumberBadge,
+                        isToday && styles.todayNumberBadge,
+                        isDaySelected && !isToday && styles.selectedNumberBadge,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.monthCellText,
+                          isDark && { color: '#F1F5F9' },
+                          isPast && !isToday && { color: '#94A3B8' },
+                          isToday && styles.todayNumberText,
+                          isDaySelected && !isToday && styles.selectedNumberText,
+                        ]}
+                      >
+                        {d.getDate()}
+                      </Text>
+                    </View>
+                    {isPast && (
+                      <Icon name="eye-outline" size={11} color={isDark ? '#64748B' : '#94A3B8'} />
+                    )}
+                  </View>
+
+                  {hasSlot && (
+                    <View style={[styles.monthSlotCountBadge, isDark && { backgroundColor: 'rgba(245, 130, 32, 0.25)' }]}>
+                      <View style={styles.monthSlotIndicatorDot} />
+                      <Text style={styles.monthSlotCountText}>
+                        {daySlots.length} {daySlots.length === 1 ? 'slot' : 'slots'}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Legend Row */}
+          <View style={[styles.monthLegendRow, isDark && { borderTopColor: 'rgba(255, 255, 255, 0.08)' }]}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#F58220' }]} />
+              <Text style={[styles.legendText, isDark && { color: '#94A3B8' }]}>Today</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
+              <Text style={[styles.legendText, isDark && { color: '#94A3B8' }]}>Has Slots</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <Icon name="eye-outline" size={13} color="#94A3B8" style={{ marginRight: 4 }} />
+              <Text style={[styles.legendText, isDark && { color: '#94A3B8' }]}>Past (View Only)</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 2. SLOTS LIST SECTION HEADER */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+          <View>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#FFFFFF' : '#0F172A' }}>
+              {weekFilterDay
+                ? `${weekFilterDay}'s Practical Slots`
+                : 'All Practical Slots This Week'}
+            </Text>
+            <Text style={{ fontSize: 12, color: isDark ? '#94A3B8' : '#64748B', marginTop: 2 }}>
+              {displayedSlots.length} {displayedSlots.length === 1 ? 'session scheduled' : 'sessions scheduled'}
+            </Text>
+          </View>
+
+          {weekFilterDay && (
+            <TouchableOpacity
+              style={[styles.quickPresetChip, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255,255,255,0.1)' }]}
+              onPress={() => setWeekFilterDay(null)}
+            >
+              <Icon name="close-circle-outline" size={14} color="#F58220" style={{ marginRight: 4 }} />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#F58220' }}>Clear Filter</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* 3. SLOTS LIST */}
+        {displayedSlots.length === 0 ? (
+          <View style={[styles.emptyWeekCard, isDark && styles.emptyWeekCardDark]}>
+            <Icon name="calendar-outline" size={44} color={isDark ? '#475569' : '#CBD5E1'} style={{ marginBottom: 10 }} />
+            <Text style={[styles.emptyWeekTitle, isDark && { color: '#FFFFFF' }]}>
+              {weekFilterDay
+                ? `No slots scheduled for ${weekFilterDay}`
+                : 'No practical slots scheduled for this week'}
+            </Text>
+            <Text style={[styles.emptyWeekSubtitle, isDark && { color: '#94A3B8' }]}>
+              {filteredDateObj && isPastDate(filteredDateObj)
+                ? 'This date is in the past. Past dates are view-only.'
+                : 'You can create a new practical slot for this week using the + button.'}
+            </Text>
+            {(!filteredDateObj || !isPastDate(filteredDateObj)) && (
+              <TouchableOpacity
+                style={styles.emptyWeekActionBtn}
+                onPress={() => {
+                  if (filteredDateObj) {
+                    setCreateDate(filteredDateObj);
+                  }
+                  setCreateModalVisible(true);
+                }}
+              >
+                <Icon name="add-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.emptyWeekActionBtnText}>Add Slot for {weekFilterDay || 'This Week'}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          displayedSlots.map(slot => renderListCard(slot))
+        )}
+      </ScrollView>
     );
   };
 
@@ -2304,6 +2501,61 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '500',
     color: '#64748B',
+  },
+  quickPresetChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  quickPresetChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  emptyWeekCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  emptyWeekCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  emptyWeekTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  emptyWeekSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    maxWidth: 320,
+    marginBottom: 16,
+  },
+  emptyWeekActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F58220',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  emptyWeekActionBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
 
   createScroll: { flex: 1, padding: 16 },
