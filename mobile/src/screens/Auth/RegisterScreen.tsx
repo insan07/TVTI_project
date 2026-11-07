@@ -1305,6 +1305,8 @@ export default function RegisterScreen() {
             zIndex: -2,
             objectFit: 'cover',
             objectPosition: 'center',
+            filter: isLight ? 'blur(3px)' : 'none',
+            transform: isLight ? 'scale(1.03)' : 'none',
           } as any),
         ]}
         resizeMode="cover"
@@ -1323,11 +1325,11 @@ export default function RegisterScreen() {
               pointerEvents: 'none',
               background: isLight
                 ? (isDesktop
-                  ? 'radial-gradient(ellipse at 50% 45%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.28) 55%, rgba(255, 255, 255, 0.42) 88%), linear-gradient(to right, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.16) 48%, rgba(255, 255, 255, 0.34) 100%)'
-                  : 'linear-gradient(to bottom, rgba(255, 255, 255, 0.36) 0%, rgba(255, 255, 255, 0.16) 45%, rgba(255, 255, 255, 0.40) 100%)')
+                  ? 'radial-gradient(ellipse at 50% 45%, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.58) 55%, rgba(255, 255, 255, 0.76) 88%), linear-gradient(to right, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.42) 48%, rgba(255, 255, 255, 0.60) 100%)'
+                  : 'linear-gradient(to bottom, rgba(255, 255, 255, 0.60) 0%, rgba(255, 255, 255, 0.42) 45%, rgba(255, 255, 255, 0.72) 100%)')
                 : (isDesktop
-                  ? 'radial-gradient(circle at 86% 8%, rgba(255, 115, 0, 0.22) 0%, rgba(255, 90, 0, 0.08) 35%, transparent 60%), linear-gradient(to right, rgba(14, 10, 7, 0.92) 0%, rgba(14, 10, 7, 0.64) 46%, rgba(14, 10, 7, 0.82) 100%)'
-                  : 'linear-gradient(to bottom, rgba(14, 10, 7, 0.88) 0%, rgba(14, 10, 7, 0.70) 50%, rgba(14, 10, 7, 0.92) 100%)'),
+                  ? 'radial-gradient(circle at 86% 8%, rgba(255, 125, 0, 0.28) 0%, rgba(255, 95, 0, 0.12) 30%, transparent 60%), radial-gradient(circle at 82% 94%, rgba(255, 115, 0, 0.10) 0%, transparent 40%), linear-gradient(to right, rgba(15, 23, 42, 0.95) 0%, rgba(18, 26, 42, 0.86) 44%, rgba(15, 22, 36, 0.78) 74%, rgba(12, 17, 28, 0.90) 100%)'
+                  : 'radial-gradient(circle at 85% 6%, rgba(255, 120, 0, 0.22) 0%, rgba(255, 90, 0, 0.08) 30%, transparent 55%), linear-gradient(to bottom, rgba(15, 23, 42, 0.94) 0%, rgba(20, 28, 44, 0.90) 50%, rgba(10, 15, 26, 0.98) 100%)'),
             } as any,
           ]}
         />
@@ -1335,8 +1337,8 @@ export default function RegisterScreen() {
         <LinearGradient
           colors={
             isLight
-              ? ['rgba(255, 255, 255, 0.36)', 'rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.40)']
-              : ['rgba(14, 10, 7, 0.88)', 'rgba(14, 10, 7, 0.65)', 'rgba(14, 10, 7, 0.90)']
+              ? ['rgba(255, 255, 255, 0.65)', 'rgba(255, 255, 255, 0.45)', 'rgba(255, 255, 255, 0.75)']
+              : ['rgba(15, 23, 42, 0.95)', 'rgba(20, 28, 44, 0.90)', 'rgba(10, 15, 26, 0.98)']
           }
           style={StyleSheet.absoluteFill}
         />
@@ -1565,7 +1567,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0B08',
+    backgroundColor: '#0B0F19',
   },
   containerLight: {
     backgroundColor: '#F8FAFC',
@@ -1767,23 +1769,23 @@ const styles = StyleSheet.create({
     elevation: 6,
     ...(Platform.OS === 'web'
       ? ({
-        backdropFilter: 'blur(22px)',
-        WebkitBackdropFilter: 'blur(22px)',
+        backdropFilter: 'blur(30px)',
+        WebkitBackdropFilter: 'blur(30px)',
         boxShadow: '0 16px 40px -8px rgba(15, 23, 42, 0.10), 0 0 1px 1px rgba(255, 255, 255, 0.9)',
       } as any)
       : {}),
   },
   cardDark: {
-    backgroundColor: 'rgba(28, 20, 15, 0.46)',
+    backgroundColor: 'rgba(20, 27, 38, 0.66)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.80,
     shadowRadius: 24,
     elevation: 8,
     ...(Platform.OS === 'web'
-      ? ({ backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)' } as any)
+      ? ({ backdropFilter: 'blur(26px)', WebkitBackdropFilter: 'blur(26px)' } as any)
       : {}),
   },
   textInputLight: {

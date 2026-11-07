@@ -20,12 +20,15 @@ import { AuthContext } from '../../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
 import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function PostAnnouncementScreen() {
   const navigation = useNavigation<any>();
   const authContext = useContext(AuthContext);
   const userRole = authContext?.userRole;
+  const { isDark } = useTheme();
 
   const [batches, setBatches] = useState<any[]>([]);
   const [formData, setFormData] = useState({ batch_id: 'all', title: '', message: '' });
@@ -299,7 +302,8 @@ export default function PostAnnouncementScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top', 'bottom']}>
+      <ScreenBackground />
       {/* Stable Fixed Header Card */}
       <ScreenHeader
         title="Announcements"
@@ -309,20 +313,20 @@ export default function PostAnnouncementScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F58220']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}
       >
 
         {/* Announcements List */}
         <View style={styles.listSection}>
           {loadingHistory ? (
-            <ActivityIndicator size="small" color="#F58220" style={{ marginTop: 30 }} />
+            <ActivityIndicator size="small" color="#FF5E14" style={{ marginTop: 30 }} />
           ) : announcements.length === 0 ? (
-            <View style={styles.emptyStateContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Icon name="megaphone-outline" size={32} color="#9CA3AF" />
+            <View style={[styles.emptyStateContainer, isDark && styles.emptyStateContainerDark]}>
+              <View style={[styles.emptyIconCircle, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                <Icon name="megaphone-outline" size={32} color={isDark ? '#64748B' : '#9CA3AF'} />
               </View>
-              <Text style={styles.emptyTitle}>No Announcements Yet</Text>
-              <Text style={styles.emptySub}>
+              <Text style={[styles.emptyTitle, isDark && { color: '#FFFFFF' }]}>No Announcements Yet</Text>
+              <Text style={[styles.emptySub, isDark && { color: '#94A3B8' }]}>
                 Publish updates, timetable changes, or alerts to your student batches.
               </Text>
               <TouchableOpacity
@@ -338,15 +342,15 @@ export default function PostAnnouncementScreen() {
             announcements.map(ann => {
               const isMenuOpen = activeMenuId === ann._id;
               return (
-                <View key={ann._id} style={[styles.announcementCard, isMenuOpen && { zIndex: 9999 }]}>
+                <View key={ann._id} style={[styles.announcementCard, isDark && styles.announcementCardDark, isMenuOpen && { zIndex: 9999 }]}>
                   {/* Card Top Row: Title + Timestamp + 3-Dots Menu */}
                   <View style={styles.cardHeaderRow}>
                     <View style={{ flex: 1, paddingRight: 8 }}>
-                      <Text style={styles.cardTitle}>{ann.title}</Text>
+                      <Text style={[styles.cardTitle, isDark && { color: '#FFFFFF' }]}>{ann.title}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <View style={styles.timestampBadge}>
-                        <Text style={styles.timestampText}>{formatTimestamp(ann.createdAt)}</Text>
+                      <View style={[styles.timestampBadge, isDark && styles.timestampBadgeDark]}>
+                        <Text style={[styles.timestampText, isDark && { color: '#94A3B8' }]}>{formatTimestamp(ann.createdAt)}</Text>
                       </View>
                       <WhatsAppOptionsMenu
                         options={[
@@ -368,21 +372,21 @@ export default function PostAnnouncementScreen() {
 
                   {/* Target & Author Badges */}
                   <View style={styles.metaRow}>
-                    <View style={styles.targetBadge}>
+                    <View style={[styles.targetBadge, isDark && styles.targetBadgeDark]}>
                       <Icon
                         name={ann.batch_id ? "people-outline" : "globe-outline"}
                         size={13}
-                        color="#F58220"
+                        color="#FF5E14"
                         style={{ marginRight: 4 }}
                       />
-                      <Text style={styles.targetBadgeText}>
+                      <Text style={[styles.targetBadgeText, isDark && { color: '#FB923C' }]}>
                         {ann.batch_id ? (ann.batch_id.name || ann.batch_id.course_id?.title || 'Target Batch') : 'All Batches'}
                       </Text>
                     </View>
                     {ann.posted_by && (
-                      <View style={styles.authorBadge}>
-                        <Icon name="person-circle-outline" size={13} color="#6B7280" style={{ marginRight: 4 }} />
-                        <Text style={styles.authorBadgeText}>
+                      <View style={[styles.authorBadge, isDark && styles.authorBadgeDark]}>
+                        <Icon name="person-circle-outline" size={13} color={isDark ? '#94A3B8' : '#6B7280'} style={{ marginRight: 4 }} />
+                        <Text style={[styles.authorBadgeText, isDark && { color: '#94A3B8' }]}>
                           {ann.posted_by.name || 'Staff'} {ann.posted_by.role ? `(${ann.posted_by.role})` : ''}
                         </Text>
                       </View>
@@ -390,7 +394,7 @@ export default function PostAnnouncementScreen() {
                   </View>
 
                   {/* Message Body */}
-                  <Text style={styles.cardBody}>{ann.message}</Text>
+                  <Text style={[styles.cardBody, isDark && { color: '#E2E8F0' }]}>{ann.message}</Text>
                 </View>
               );
             })
@@ -435,27 +439,27 @@ export default function PostAnnouncementScreen() {
         animationType="slide"
         onRequestClose={() => setComposeModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContentCard}>
-            <View style={styles.modalHeader}>
+        <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
+          <View style={[styles.modalContentCard, isDark && styles.modalContentCardDark]}>
+            <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.10)' }]}>
               <View>
-                <Text style={styles.modalTitle}>Post Announcement</Text>
-                <Text style={styles.modalSubtitle}>Broadcast a notice to student batches</Text>
+                <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Post Announcement</Text>
+                <Text style={[styles.modalSubtitle, isDark && { color: '#A89F93' }]}>Broadcast a notice to student batches</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setComposeModalVisible(false)}
                 style={styles.modalCloseBtn}
               >
-                <Icon name="close" size={20} color="#6B7280" />
+                <Icon name="close" size={20} color={isDark ? '#A89F93' : '#6B7280'} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {batchesLoading ? (
-                <ActivityIndicator size="small" color="#F58220" style={{ marginVertical: 12 }} />
+                <ActivityIndicator size="small" color="#FF5E14" style={{ marginVertical: 12 }} />
               ) : (
                 <>
-                  <Text style={styles.fieldLabel}>TARGET AUDIENCE</Text>
+                  <Text style={[styles.fieldLabel, isDark && { color: '#D4CAC0' }]}>TARGET AUDIENCE</Text>
                   <CustomDropdown
                     placeholder="Choose target batch..."
                     iconName="megaphone-outline"
@@ -467,20 +471,20 @@ export default function PostAnnouncementScreen() {
                 </>
               )}
 
-              <Text style={styles.fieldLabel}>ANNOUNCEMENT TITLE</Text>
+              <Text style={[styles.fieldLabel, isDark && { color: '#D4CAC0' }]}>ANNOUNCEMENT TITLE</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isDark && styles.inputDark]}
                 placeholder="e.g. Schedule Revision for Web Development"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'}
                 value={formData.title}
                 onChangeText={t => setFormData({ ...formData, title: t })}
               />
 
-              <Text style={styles.fieldLabel}>MESSAGE</Text>
+              <Text style={[styles.fieldLabel, isDark && { color: '#D4CAC0' }]}>MESSAGE</Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
+                style={[styles.input, styles.textArea, isDark && styles.inputDark]}
                 placeholder="Write the full details of your announcement here..."
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'}
                 multiline
                 numberOfLines={4}
                 value={formData.message}
@@ -488,17 +492,17 @@ export default function PostAnnouncementScreen() {
                 textAlignVertical="top"
               />
 
-              <View style={styles.modalButtonRow}>
+              <View style={[styles.modalButtonRow, isDark && { borderTopColor: 'rgba(255, 255, 255, 0.10)' }]}>
                 <TouchableOpacity
-                  style={styles.modalCancelBtn}
+                  style={[styles.modalCancelBtn, isDark && styles.modalCancelBtnDark]}
                   onPress={() => setComposeModalVisible(false)}
                   disabled={loading}
                 >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
+                  <Text style={[styles.modalCancelText, isDark && { color: '#A89F93' }]}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.modalSubmitBtn}
+                  style={[styles.modalSubmitBtn, { backgroundColor: '#FF5E14' }]}
                   onPress={handlePost}
                   disabled={loading}
                 >
@@ -524,23 +528,23 @@ export default function PostAnnouncementScreen() {
         animationType="slide"
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContentCard}>
-            <View style={styles.modalHeader}>
+        <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
+          <View style={[styles.modalContentCard, isDark && styles.modalContentCardDark]}>
+            <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.10)' }]}>
               <View>
-                <Text style={styles.modalTitle}>Edit Announcement</Text>
-                <Text style={styles.modalSubtitle}>Update content or audience for this notice</Text>
+                <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Edit Announcement</Text>
+                <Text style={[styles.modalSubtitle, isDark && { color: '#A89F93' }]}>Update content or audience for this notice</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setEditModalVisible(false)}
                 style={styles.modalCloseBtn}
               >
-                <Icon name="close" size={20} color="#6B7280" />
+                <Icon name="close" size={20} color={isDark ? '#A89F93' : '#6B7280'} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={styles.fieldLabel}>TARGET AUDIENCE</Text>
+              <Text style={[styles.fieldLabel, isDark && { color: '#D4CAC0' }]}>TARGET AUDIENCE</Text>
               <CustomDropdown
                 placeholder="Choose target batch..."
                 iconName="megaphone-outline"
@@ -550,20 +554,20 @@ export default function PostAnnouncementScreen() {
                 containerStyle={{ marginBottom: 14 }}
               />
 
-              <Text style={styles.fieldLabel}>ANNOUNCEMENT TITLE</Text>
+              <Text style={[styles.fieldLabel, isDark && { color: '#D4CAC0' }]}>ANNOUNCEMENT TITLE</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isDark && styles.inputDark]}
                 placeholder="Announcement Title"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'}
                 value={editFormData.title}
                 onChangeText={t => setEditFormData({ ...editFormData, title: t })}
               />
 
-              <Text style={styles.fieldLabel}>MESSAGE</Text>
+              <Text style={[styles.fieldLabel, isDark && { color: '#D4CAC0' }]}>MESSAGE</Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
+                style={[styles.input, styles.textArea, isDark && styles.inputDark]}
                 placeholder="Write the full details..."
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'}
                 multiline
                 numberOfLines={4}
                 value={editFormData.message}
@@ -571,17 +575,17 @@ export default function PostAnnouncementScreen() {
                 textAlignVertical="top"
               />
 
-              <View style={styles.modalButtonRow}>
+              <View style={[styles.modalButtonRow, isDark && { borderTopColor: 'rgba(255, 255, 255, 0.10)' }]}>
                 <TouchableOpacity
-                  style={styles.modalCancelBtn}
+                  style={[styles.modalCancelBtn, isDark && styles.modalCancelBtnDark]}
                   onPress={() => setEditModalVisible(false)}
                   disabled={editLoading}
                 >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
+                  <Text style={[styles.modalCancelText, isDark && { color: '#A89F93' }]}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.modalSubmitBtn}
+                  style={[styles.modalSubmitBtn, { backgroundColor: '#FF5E14' }]}
                   onPress={handleSaveEdit}
                   disabled={editLoading}
                 >
@@ -608,25 +612,25 @@ export default function PostAnnouncementScreen() {
         onRequestClose={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
       >
         <View style={styles.popupOverlay}>
-          <View style={styles.popupCard}>
-            <View style={[styles.popupIconCircle, { backgroundColor: confirmModal.type === 'danger' ? '#FEE2E2' : '#FEF3C7' }]}>
+          <View style={[styles.popupCard, isDark && styles.popupCardDark]}>
+            <View style={[styles.popupIconCircle, { backgroundColor: confirmModal.type === 'danger' ? (isDark ? 'rgba(239, 68, 68, 0.20)' : '#FEE2E2') : (isDark ? 'rgba(245, 158, 11, 0.20)' : '#FEF3C7') }]}>
               <Icon
                 name={confirmModal.type === 'danger' ? 'trash-outline' : 'alert-circle-outline'}
                 size={28}
-                color={confirmModal.type === 'danger' ? '#DC2626' : '#D97706'}
+                color={confirmModal.type === 'danger' ? '#EF4444' : '#F59E0B'}
               />
             </View>
-            <Text style={styles.popupTitle}>{confirmModal.title}</Text>
-            <Text style={styles.popupMessage}>{confirmModal.message}</Text>
+            <Text style={[styles.popupTitle, isDark && { color: '#FFFFFF' }]}>{confirmModal.title}</Text>
+            <Text style={[styles.popupMessage, isDark && { color: '#A89F93' }]}>{confirmModal.message}</Text>
             <View style={styles.popupBtnRow}>
               <TouchableOpacity
-                style={styles.popupCancelBtn}
+                style={[styles.popupCancelBtn, isDark && styles.popupCancelBtnDark]}
                 onPress={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
               >
-                <Text style={styles.popupCancelText}>{confirmModal.cancelText || 'Cancel'}</Text>
+                <Text style={[styles.popupCancelText, isDark && { color: '#A89F93' }]}>{confirmModal.cancelText || 'Cancel'}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.popupConfirmBtn, { backgroundColor: confirmModal.type === 'danger' ? '#DC2626' : '#F58220' }]}
+                style={[styles.popupConfirmBtn, { backgroundColor: confirmModal.type === 'danger' ? '#EF4444' : '#FF5E14' }]}
                 onPress={() => {
                   const action = confirmModal.onConfirm;
                   setConfirmModal(prev => ({ ...prev, visible: false }));
@@ -648,10 +652,12 @@ export default function PostAnnouncementScreen() {
         onRequestClose={() => setAlertModal(prev => ({ ...prev, visible: false }))}
       >
         <View style={styles.popupOverlay}>
-          <View style={styles.popupCard}>
+          <View style={[styles.popupCard, isDark && styles.popupCardDark]}>
             <View style={[
               styles.popupIconCircle,
-              { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
+              isDark
+                ? { backgroundColor: alertModal.type === 'success' ? 'rgba(16, 185, 129, 0.20)' : alertModal.type === 'error' ? 'rgba(239, 68, 68, 0.20)' : 'rgba(59, 130, 246, 0.20)' }
+                : { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
             ]}>
               <Icon
                 name={
@@ -664,19 +670,19 @@ export default function PostAnnouncementScreen() {
                 size={28}
                 color={
                   alertModal.type === 'success'
-                    ? '#16A34A'
+                    ? (isDark ? '#34D399' : '#16A34A')
                     : alertModal.type === 'error'
-                      ? '#DC2626'
-                      : '#2563EB'
+                      ? (isDark ? '#F87171' : '#DC2626')
+                      : (isDark ? '#60A5FA' : '#2563EB')
                 }
               />
             </View>
-            <Text style={styles.popupTitle}>{alertModal.title}</Text>
-            <Text style={styles.popupMessage}>{alertModal.message}</Text>
+            <Text style={[styles.popupTitle, isDark && { color: '#FFFFFF' }]}>{alertModal.title}</Text>
+            <Text style={[styles.popupMessage, isDark && { color: '#A89F93' }]}>{alertModal.message}</Text>
             <TouchableOpacity
               style={[
                 styles.popupSingleBtn,
-                { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#F58220' }
+                { backgroundColor: alertModal.type === 'error' ? '#EF4444' : alertModal.type === 'success' ? '#10B981' : '#FF5E14' }
               ]}
               onPress={() => {
                 const action = alertModal.onOk;
@@ -775,7 +781,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   announcementCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,
@@ -1305,5 +1311,62 @@ const styles = StyleSheet.create({
     color: '#F58220',
     ...FONTS.semiBold,
     fontSize: 12.5,
+  },
+  emptyStateContainerDark: {
+    backgroundColor: '#141B26',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  announcementCardDark: {
+    backgroundColor: '#141B26',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.5)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+        elevation: 4,
+      },
+    }),
+  },
+  timestampBadgeDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  targetBadgeDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    borderColor: '#F97316',
+    borderWidth: 1,
+  },
+  authorBadgeDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modalContentCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+  },
+  inputDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    color: '#FFFFFF',
+  },
+  modalCancelBtnDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  popupCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+  },
+  popupCancelBtnDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
 });

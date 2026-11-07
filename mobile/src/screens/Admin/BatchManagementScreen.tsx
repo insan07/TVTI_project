@@ -25,12 +25,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 export default function BatchManagementScreen() {
+  const { isDark } = useTheme();
   const [batches, setBatches] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [instructors, setInstructors] = useState<any[]>([]);
@@ -348,12 +351,12 @@ export default function BatchManagementScreen() {
 
     return (
       <TouchableOpacity
-        style={styles.card}
+        style={[styles.card, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
         onPress={() => handleOpenDetails(item._id)}
         activeOpacity={0.7}
       >
         <View style={styles.cardHeaderRow}>
-          <Text style={styles.batchTitle}>{item.name || item.course_id?.title || 'Batch'}</Text>
+          <Text style={[styles.batchTitle, isDark && { color: '#FFFFFF' }]}>{item.name || item.course_id?.title || 'Batch'}</Text>
           {isFull ? (
             <View style={styles.fullBadge}>
               <Text style={styles.fullBadgeText}>Full</Text>
@@ -365,32 +368,35 @@ export default function BatchManagementScreen() {
           )}
         </View>
 
-        <Text style={styles.courseSubtitle}>{item.course_id?.title || 'Vocational Course'}</Text>
+        <Text style={[styles.courseSubtitle, isDark && { color: '#94A3B8' }]}>{item.course_id?.title || 'Vocational Course'}</Text>
 
         <View style={styles.enrolledRow}>
-          <Icon name="people-outline" size={15} color="#6B7280" style={{ marginRight: 6 }} />
-          <Text style={styles.enrolledText}>
-            Enrolled Students: <Text style={{ fontWeight: 'bold', color: '#111827' }}>{item.enrolled_count || 0} / {item.capacity}</Text>
+          <Icon name="people-outline" size={15} color={isDark ? "#94A3B8" : "#6B7280"} style={{ marginRight: 6 }} />
+          <Text style={[styles.enrolledText, isDark && { color: '#94A3B8' }]}>
+            Enrolled Students: <Text style={[{ fontWeight: 'bold', color: '#111827' }, isDark && { color: '#FFFFFF' }]}>{item.enrolled_count || 0} / {item.capacity}</Text>
           </Text>
         </View>
 
         <View style={styles.daysRow}>
           {days.map((day: string) => (
-            <View key={day} style={styles.dayChip}>
-              <Text style={styles.dayChipText}>{day}</Text>
+            <View key={day} style={[styles.dayChip, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+              <Text style={[styles.dayChipText, isDark && { color: '#E2E8F0' }]}>{day}</Text>
             </View>
           ))}
         </View>
 
         <View style={styles.cardFooterActions}>
           <TouchableOpacity style={styles.viewDetailsTextBtn} onPress={() => handleOpenDetails(item._id)}>
-            <Icon name="eye-outline" size={14} color="#4338CA" style={{ marginRight: 4 }} />
-            <Text style={styles.viewDetailsText}>View Details & Students</Text>
+            <Icon name="eye-outline" size={14} color="#F97316" style={{ marginRight: 4 }} />
+            <Text style={[styles.viewDetailsText, isDark && { color: '#F97316' }]}>View Details & Students</Text>
           </TouchableOpacity>
           <View style={{ flexDirection: 'row', gap: 6 }}>
-            <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
-              <Icon name="pencil-outline" size={14} color="#1F2937" style={{ marginRight: 4 }} />
-              <Text style={styles.editBtnText}>Edit</Text>
+            <TouchableOpacity
+              style={[styles.editBtn, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}
+              onPress={() => openEditModal(item)}
+            >
+              <Icon name="pencil-outline" size={14} color={isDark ? "#E2E8F0" : "#1F2937"} style={{ marginRight: 4 }} />
+              <Text style={[styles.editBtnText, isDark && { color: '#E2E8F0' }]}>Edit</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteCardBtn} onPress={() => handleDeleteBatch(item._id, item.name || item.course_id?.title || 'Batch')}>
               <Icon name="trash-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
@@ -427,7 +433,8 @@ export default function BatchManagementScreen() {
     : 'All Active Courses';
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
+      <ScreenBackground />
       <ScreenHeader
         title="Batch Management"
         subtitle="Manage vocational training batches"
@@ -453,12 +460,12 @@ export default function BatchManagementScreen() {
         }}
       >
         <View style={styles.searchFilterRow}>
-          <View style={[styles.searchBox, { marginRight: 0 }]}>
-            <Icon name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+          <View style={[styles.searchBox, { marginRight: 0 }, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+            <Icon name="search-outline" size={18} color={isDark ? "#94A3B8" : "#9CA3AF"} style={{ marginRight: 8 }} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, isDark && { color: '#FFFFFF' }]}
               placeholder="Search batch by name, course, or room..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
               value={search}
               onChangeText={setSearch}
               onFocus={() => setIsSearchFocused(true)}
@@ -470,14 +477,14 @@ export default function BatchManagementScreen() {
 
       {/* Batch List */}
       {loading ? (
-        <ActivityIndicator size="large" color="#000000" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color="#F97316" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={filteredBatches}
           renderItem={renderBatchCard}
           keyExtractor={i => i._id}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-          ListEmptyComponent={<Text style={styles.emptyText}>No batches found.</Text>}
+          ListEmptyComponent={<Text style={[styles.emptyText, isDark && { color: '#64748B' }]}>No batches found.</Text>}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         />
@@ -518,24 +525,24 @@ export default function BatchManagementScreen() {
       {/* ========================================================================= */}
       <Modal visible={detailsModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { height: '88%', padding: 0, overflow: 'hidden' }]}>
+          <View style={[styles.modalCard, { height: '88%', padding: 0, overflow: 'hidden' }, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
             {loadingDetails || !batchDetails ? (
               <View style={styles.modalLoadingContainer}>
-                <ActivityIndicator size="large" color="#000000" />
-                <Text style={styles.modalLoadingText}>Loading batch details & roster...</Text>
+                <ActivityIndicator size="large" color="#F97316" />
+                <Text style={[styles.modalLoadingText, isDark && { color: '#94A3B8' }]}>Loading batch details & roster...</Text>
               </View>
             ) : (
               <View style={{ flex: 1 }}>
                 {/* Batch Top Header */}
-                <View style={styles.detailsHeader}>
+                <View style={[styles.detailsHeader, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.detailsTitle}>{batchDetails.batch.name}</Text>
-                    <Text style={styles.detailsSubtitle}>
+                    <Text style={[styles.detailsTitle, isDark && { color: '#FFFFFF' }]}>{batchDetails.batch.name}</Text>
+                    <Text style={[styles.detailsSubtitle, isDark && { color: '#94A3B8' }]}>
                       {batchDetails.batch.course_id?.title || 'Vocational Course'}
                     </Text>
                   </View>
                   <TouchableOpacity style={styles.closeModalIconBtn} onPress={() => setDetailsModalVisible(false)}>
-                    <Icon name="close" size={22} color="#4B5563" />
+                    <Icon name="close" size={22} color={isDark ? "#94A3B8" : "#4B5563"} />
                   </TouchableOpacity>
                 </View>
 
@@ -543,52 +550,52 @@ export default function BatchManagementScreen() {
                 <ScrollView style={{ flex: 1, padding: 16 }} showsVerticalScrollIndicator={false}>
                   {/* Summary Metric Cards */}
                   <View style={styles.summaryMetricRow}>
-                    <View style={styles.metricBox}>
-                      <Text style={styles.metricValue}>{batchDetails.enrolled_count} / {batchDetails.batch.capacity}</Text>
-                      <Text style={styles.metricLabel}>STUDENTS ENROLLED</Text>
+                    <View style={[styles.metricBox, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                      <Text style={[styles.metricValue, isDark && { color: '#FFFFFF' }]}>{batchDetails.enrolled_count} / {batchDetails.batch.capacity}</Text>
+                      <Text style={[styles.metricLabel, isDark && { color: '#94A3B8' }]}>STUDENTS ENROLLED</Text>
                     </View>
-                    <View style={styles.metricBox}>
-                      <Text style={styles.metricValue}>{batchDetails.videos?.length || 0}</Text>
-                      <Text style={styles.metricLabel}>VIDEO LESSONS</Text>
+                    <View style={[styles.metricBox, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                      <Text style={[styles.metricValue, isDark && { color: '#FFFFFF' }]}>{batchDetails.videos?.length || 0}</Text>
+                      <Text style={[styles.metricLabel, isDark && { color: '#94A3B8' }]}>VIDEO LESSONS</Text>
                     </View>
                   </View>
 
                   {/* Batch Details Section */}
-                  <View style={styles.detailSectionCard}>
-                    <Text style={styles.detailSectionTitle}>📅 Schedule & Details</Text>
+                  <View style={[styles.detailSectionCard, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                    <Text style={[styles.detailSectionTitle, isDark && { color: '#FFFFFF' }]}>📅 Schedule & Details</Text>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Course Fee:</Text>
-                      <Text style={styles.detailValue}>LKR {batchDetails.batch.course_id?.fee || 0}</Text>
+                      <Text style={[styles.detailLabel, isDark && { color: '#94A3B8' }]}>Course Fee:</Text>
+                      <Text style={[styles.detailValue, isDark && { color: '#FFFFFF' }]}>LKR {batchDetails.batch.course_id?.fee || 0}</Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Course Duration:</Text>
-                      <Text style={styles.detailValue}>{batchDetails.batch.course_id?.duration_weeks || 'N/A'} Weeks</Text>
+                      <Text style={[styles.detailLabel, isDark && { color: '#94A3B8' }]}>Course Duration:</Text>
+                      <Text style={[styles.detailValue, isDark && { color: '#FFFFFF' }]}>{batchDetails.batch.course_id?.duration_weeks || 'N/A'} Weeks</Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Start Date:</Text>
-                      <Text style={styles.detailValue}>
+                      <Text style={[styles.detailLabel, isDark && { color: '#94A3B8' }]}>Start Date:</Text>
+                      <Text style={[styles.detailValue, isDark && { color: '#FFFFFF' }]}>
                         {batchDetails.batch.start_date ? new Date(batchDetails.batch.start_date).toLocaleDateString() : 'N/A'}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>End Date:</Text>
-                      <Text style={styles.detailValue}>
+                      <Text style={[styles.detailLabel, isDark && { color: '#94A3B8' }]}>End Date:</Text>
+                      <Text style={[styles.detailValue, isDark && { color: '#FFFFFF' }]}>
                         {batchDetails.batch.end_date ? new Date(batchDetails.batch.end_date).toLocaleDateString() : 'N/A'}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Active Schedule:</Text>
-                      <Text style={styles.detailValue}>
+                      <Text style={[styles.detailLabel, isDark && { color: '#94A3B8' }]}>Active Schedule:</Text>
+                      <Text style={[styles.detailValue, isDark && { color: '#FFFFFF' }]}>
                         {batchDetails.batch.schedule_json?.days?.join(', ') || 'N/A'}
                       </Text>
                     </View>
                   </View>
 
                   {/* Assigned Instructors */}
-                  <View style={styles.detailSectionCard}>
-                    <Text style={styles.detailSectionTitle}>👨‍🏫 Assigned Instructors</Text>
+                  <View style={[styles.detailSectionCard, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                    <Text style={[styles.detailSectionTitle, isDark && { color: '#FFFFFF' }]}>👨‍🏫 Assigned Instructors</Text>
                     {(!batchDetails.batch.instructor_ids || batchDetails.batch.instructor_ids.length === 0) ? (
-                      <Text style={styles.emptyDetailText}>No instructors assigned to this batch yet.</Text>
+                      <Text style={[styles.emptyDetailText, isDark && { color: '#64748B' }]}>No instructors assigned to this batch yet.</Text>
                     ) : (
                       batchDetails.batch.instructor_ids.map((inst: any) => (
                         <View key={inst._id} style={styles.instructorItemRow}>
@@ -596,8 +603,8 @@ export default function BatchManagementScreen() {
                             <Text style={styles.instAvatarText}>{getInitials(inst.name)}</Text>
                           </View>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.instName}>{inst.name}</Text>
-                            <Text style={styles.instEmail}>{inst.email}</Text>
+                            <Text style={[styles.instName, isDark && { color: '#FFFFFF' }]}>{inst.name}</Text>
+                            <Text style={[styles.instEmail, isDark && { color: '#94A3B8' }]}>{inst.email}</Text>
                             {inst.phone ? <Text style={styles.instPhone}>📱 {inst.phone}</Text> : null}
                           </View>
                         </View>
@@ -606,13 +613,13 @@ export default function BatchManagementScreen() {
                   </View>
 
                   {/* Enrolled Students Roster */}
-                  <View style={styles.detailSectionCard}>
+                  <View style={[styles.detailSectionCard, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <Text style={styles.detailSectionTitle}>👥 Enrolled Students Roster ({batchDetails.enrollments?.length || 0})</Text>
+                      <Text style={[styles.detailSectionTitle, isDark && { color: '#FFFFFF' }]}>👥 Enrolled Students Roster ({batchDetails.enrollments?.length || 0})</Text>
                     </View>
 
                     {(!batchDetails.enrollments || batchDetails.enrollments.length === 0) ? (
-                      <Text style={styles.emptyDetailText}>No students currently enrolled in this batch.</Text>
+                      <Text style={[styles.emptyDetailText, isDark && { color: '#64748B' }]}>No students currently enrolled in this batch.</Text>
                     ) : (
                       batchDetails.enrollments.map((e: any, index: number) => {
                         const s = e.student_id;
@@ -628,8 +635,8 @@ export default function BatchManagementScreen() {
                               <Text style={styles.studentAvatarText}>{getInitials(s.name)}</Text>
                             </View>
                             <View style={{ flex: 1 }}>
-                              <Text style={styles.studentName}>{s.name}</Text>
-                              <Text style={styles.studentSub}>Reg No: {s.index_number || s.nic || 'N/A'}</Text>
+                              <Text style={[styles.studentName, isDark && { color: '#FFFFFF' }]}>{s.name}</Text>
+                              <Text style={[styles.studentSub, isDark && { color: '#94A3B8' }]}>Reg No: {s.index_number || s.nic || 'N/A'}</Text>
                             </View>
                           </View>
                         );
@@ -680,14 +687,15 @@ export default function BatchManagementScreen() {
       {/* Add / Edit Batch Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalTitle}>{editingId ? 'Edit Batch' : 'Create Batch'}</Text>
+              <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>{editingId ? 'Edit Batch' : 'Create Batch'}</Text>
 
-              <Text style={styles.label}>Batch Name *</Text>
+              <Text style={[styles.label, isDark && { color: '#CBD5E1' }]}>Batch Name *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)', color: '#FFFFFF' }]}
                 placeholder="e.g. Auto Diagnostics - Morning Batch A"
+                placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                 value={formData.name}
                 onChangeText={t => setFormData({ ...formData, name: t })}
               />
@@ -705,13 +713,13 @@ export default function BatchManagementScreen() {
                 onValueChange={v => setFormData({ ...formData, course_id: v })}
               />
 
-              <Text style={styles.label}>Dates</Text>
+              <Text style={[styles.label, isDark && { color: '#CBD5E1' }]}>Dates</Text>
               <View style={styles.dateRow}>
-                <TouchableOpacity style={styles.dateBtn} onPress={() => setShowPicker('start')}>
-                  <Text style={styles.dateBtnText}>Start: {formData.start_date.toLocaleDateString()}</Text>
+                <TouchableOpacity style={[styles.dateBtn, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)' }]} onPress={() => setShowPicker('start')}>
+                  <Text style={[styles.dateBtnText, isDark && { color: '#FFFFFF' }]}>Start: {formData.start_date.toLocaleDateString()}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.dateBtn} onPress={() => setShowPicker('end')}>
-                  <Text style={styles.dateBtnText}>End: {formData.end_date.toLocaleDateString()}</Text>
+                <TouchableOpacity style={[styles.dateBtn, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)' }]} onPress={() => setShowPicker('end')}>
+                  <Text style={[styles.dateBtnText, isDark && { color: '#FFFFFF' }]}>End: {formData.end_date.toLocaleDateString()}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -731,10 +739,11 @@ export default function BatchManagementScreen() {
                 />
               )}
 
-              <Text style={styles.label}>Capacity (Max Students)</Text>
+              <Text style={[styles.label, isDark && { color: '#CBD5E1' }]}>Capacity (Max Students)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)', color: '#FFFFFF' }]}
                 keyboardType="numeric"
+                placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                 value={formData.capacity}
                 onChangeText={t => setFormData({ ...formData, capacity: t })}
               />
@@ -755,17 +764,17 @@ export default function BatchManagementScreen() {
                 onValueChange={v => setFormData({ ...formData, instructor_ids: v ? [v] : [] })}
               />
 
-              <Text style={styles.label}>Schedule Days</Text>
+              <Text style={[styles.label, isDark && { color: '#CBD5E1' }]}>Schedule Days</Text>
               <View style={styles.scheduleDaysRow}>
                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => {
                   const isSelected = formData.schedule_json?.days?.includes(day);
                   return (
                     <TouchableOpacity
                       key={day}
-                      style={[styles.scheduleDayBadge, isSelected && styles.scheduleDayBadgeActive]}
+                      style={[styles.scheduleDayBadge, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)' }, isSelected && styles.scheduleDayBadgeActive]}
                       onPress={() => toggleDay(day)}
                     >
-                      <Text style={[styles.scheduleDayText, isSelected && styles.scheduleDayTextActive]}>
+                      <Text style={[styles.scheduleDayText, isDark && { color: '#94A3B8' }, isSelected && styles.scheduleDayTextActive]}>
                         {day}
                       </Text>
                     </TouchableOpacity>
@@ -773,25 +782,27 @@ export default function BatchManagementScreen() {
                 })}
               </View>
 
-              <Text style={styles.label}>Class Time</Text>
+              <Text style={[styles.label, isDark && { color: '#CBD5E1' }]}>Class Time</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)', color: '#FFFFFF' }]}
                 placeholder="e.g. 9:00 AM - 12:00 PM"
+                placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                 value={formData.schedule_json?.time || ''}
                 onChangeText={t => setFormData({ ...formData, schedule_json: { ...formData.schedule_json, time: t } })}
               />
 
-              <Text style={styles.label}>Room</Text>
+              <Text style={[styles.label, isDark && { color: '#CBD5E1' }]}>Room</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.1)', color: '#FFFFFF' }]}
                 placeholder="e.g. Lab 2"
+                placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
                 value={formData.room}
                 onChangeText={t => setFormData({ ...formData, room: t })}
               />
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.cancelModalText}>Cancel</Text>
+                  <Text style={[styles.cancelModalText, isDark && { color: '#94A3B8' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.submitModalBtn} onPress={saveBatch} disabled={saving}>
                   {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitModalText}>Save Batch</Text>}
@@ -805,18 +816,18 @@ export default function BatchManagementScreen() {
       {/* Delete Confirmation Modal */}
       <Modal visible={deleteConfirmVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
             <View style={{ alignItems: 'center', marginBottom: 16 }}>
               <Icon name="warning" size={40} color="#DC2626" />
             </View>
-            <Text style={[styles.modalTitle, { textAlign: 'center', color: '#991B1B' }]}>Permanently Delete?</Text>
-            <Text style={{ textAlign: 'center', marginTop: 12, fontSize: 14, color: '#374151', lineHeight: 20 }}>
+            <Text style={[styles.modalTitle, { textAlign: 'center', color: '#EF4444' }]}>Permanently Delete?</Text>
+            <Text style={[{ textAlign: 'center', marginTop: 12, fontSize: 14, color: '#374151', lineHeight: 20 }, isDark && { color: '#CBD5E1' }]}>
               This will <Text style={{ fontWeight: 'bold' }}>PERMANENTLY</Text> delete the batch <Text style={{ fontWeight: 'bold' }}>"{batchToDelete?.name}"</Text> and ALL related data including enrollments, results, videos, and practice slots.{'\n\n'}
               This action CANNOT be undone. Are you absolutely sure?
             </Text>
             <View style={[styles.modalActions, { marginTop: 24 }]}>
               <TouchableOpacity style={styles.cancelModalBtn} onPress={() => { setDeleteConfirmVisible(false); setBatchToDelete(null); }}>
-                <Text style={styles.cancelModalText}>Cancel</Text>
+                <Text style={[styles.cancelModalText, isDark && { color: '#94A3B8' }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.submitModalBtn, { backgroundColor: '#DC2626' }]} onPress={confirmDeleteBatch}>
                 <Text style={styles.submitModalText}>Delete Forever</Text>

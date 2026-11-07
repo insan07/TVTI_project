@@ -10,9 +10,12 @@ import { COLORS, FONTS } from '../../config/theme';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function MyStudentsScreen() {
   const navigation = useNavigation();
+  const { isDark } = useTheme();
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -122,7 +125,8 @@ export default function MyStudentsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, isDark && { backgroundColor: '#0F0B08' }]}>
+        <ScreenBackground />
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Loading students...</Text>
       </View>
@@ -130,7 +134,8 @@ export default function MyStudentsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0F0B08' }]}>
+      <ScreenBackground />
       <ScreenHeader
         title="My Students"
         subtitle="Manage & view your assigned batches"
@@ -156,20 +161,31 @@ export default function MyStudentsScreen() {
         }}
       >
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Icon name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+        <View
+          style={[
+            styles.searchContainer,
+            isDark && styles.searchContainerDark,
+            isSearchFocused && (isDark ? styles.searchContainerFocusedDark : styles.searchContainerFocusedLight),
+          ]}
+        >
+          <Icon
+            name="search"
+            size={20}
+            color={isSearchFocused ? '#FF5E14' : isDark ? '#8A7D71' : '#9CA3AF'}
+            style={styles.searchIcon}
+          />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, isDark && { color: '#FFFFFF' }]}
             placeholder="Search by name, email or batch..."
             value={search}
             onChangeText={setSearch}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'}
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch('')}>
-              <Icon name="close-circle" size={18} color="#9CA3AF" />
+              <Icon name="close-circle" size={18} color={isDark ? '#8A7D71' : '#9CA3AF'} />
             </TouchableOpacity>
           )}
         </View>
@@ -185,10 +201,20 @@ export default function MyStudentsScreen() {
               contentContainerStyle={{ paddingHorizontal: 15 }}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[styles.filterPill, selectedBatch === item && styles.filterPillActive]}
+                  style={[
+                    styles.filterPill,
+                    isDark && styles.filterPillDark,
+                    selectedBatch === item && styles.filterPillActive,
+                  ]}
                   onPress={() => setSelectedBatch(item)}
                 >
-                  <Text style={[styles.filterPillText, selectedBatch === item && styles.filterPillTextActive]}>
+                  <Text
+                    style={[
+                      styles.filterPillText,
+                      isDark && { color: '#A89F93' },
+                      selectedBatch === item && styles.filterPillTextActive,
+                    ]}
+                  >
                     {item === 'all' ? 'All Batches' : item}
                   </Text>
                 </TouchableOpacity>
@@ -200,7 +226,7 @@ export default function MyStudentsScreen() {
 
       {/* Stats Bar */}
       <View style={styles.statsBar}>
-        <Text style={styles.statsText}>
+        <Text style={[styles.statsText, isDark && { color: '#A89F93' }]}>
           {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''} found
         </Text>
       </View>
@@ -209,16 +235,16 @@ export default function MyStudentsScreen() {
         data={filteredStudents}
         keyExtractor={item => item._id}
         contentContainerStyle={{ padding: 15, paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="people-outline" size={64} color="#D1D5DB" />
-            <Text style={styles.emptyTitle}>
+            <Icon name="people-outline" size={64} color={isDark ? '#524A42' : '#D1D5DB'} />
+            <Text style={[styles.emptyTitle, isDark && { color: '#FFFFFF' }]}>
               {search || selectedBatch !== 'all' ? 'No matching students' : 'No students assigned'}
             </Text>
-            <Text style={styles.emptySubtitle}>
+            <Text style={[styles.emptySubtitle, isDark && { color: '#8A7D71' }]}>
               {search || selectedBatch !== 'all'
                 ? 'Try changing your search or filter'
                 : 'Students enrolled in your batches will appear here'}
@@ -226,43 +252,57 @@ export default function MyStudentsScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <View style={[styles.card, isDark && styles.cardDark]}>
             <View style={styles.cardHeader}>
-              <View style={[styles.avatar, { backgroundColor: stringToColor(item.student_id?.name || 'S') }]}>
-                <Text style={styles.avatarText}>
+              <View style={[styles.avatar, { backgroundColor: isDark ? 'rgba(255, 94, 20, 0.22)' : stringToColor(item.student_id?.name || 'S') }]}>
+                <Text style={[styles.avatarText, isDark && { color: '#FB923C' }]}>
                   {item.student_id?.name?.charAt(0)?.toUpperCase() || 'S'}
                 </Text>
               </View>
               <View style={styles.info}>
-                <Text style={styles.name}>{item.student_id?.name || 'Unknown Student'}</Text>
-                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#059669', marginTop: 2 }}>
+                <Text style={[styles.name, isDark && { color: '#FFFFFF' }]}>{item.student_id?.name || 'Unknown Student'}</Text>
+                <Text style={{ fontSize: 13, fontWeight: 'bold', color: isDark ? '#34D399' : '#059669', marginTop: 2 }}>
                   Reg No: {item.student_id?.index_number || item.student_id?.nic || 'N/A'}
                 </Text>
-                <Text style={styles.email}>{item.student_id?.email || 'No email'}</Text>
+                <Text style={[styles.email, isDark && { color: '#CBD5E1' }]}>{item.student_id?.email || 'No email'}</Text>
                 {item.student_id?.phone ? (
-                  <Text style={styles.phone}>📱 {item.student_id.phone}</Text>
+                  <Text style={[styles.phone, isDark && { color: '#D4CAC0' }]}>📱 {item.student_id.phone}</Text>
                 ) : null}
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: item.status === 'active' ? '#D1FAE5' : '#FEE2E2' }]}>
-                <Text style={[styles.statusText, { color: item.status === 'active' ? '#065F46' : '#991B1B' }]}>
+              <View
+                style={[
+                  styles.statusBadge,
+                  isDark
+                    ? { backgroundColor: item.status === 'active' ? 'rgba(16, 185, 129, 0.20)' : 'rgba(239, 68, 68, 0.20)' }
+                    : { backgroundColor: item.status === 'active' ? '#D1FAE5' : '#FEE2E2' },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusText,
+                    isDark
+                      ? { color: item.status === 'active' ? '#34D399' : '#F87171' }
+                      : { color: item.status === 'active' ? '#065F46' : '#991B1B' },
+                  ]}
+                >
                   {item.status || 'active'}
                 </Text>
               </View>
             </View>
-            <View style={styles.divider} />
+            <View style={[styles.divider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.12)' }]} />
             <View style={styles.batchInfo}>
-              <View style={styles.badge}>
-                <Icon name="book-outline" size={12} color="#92400E" style={{ marginRight: 4 }} />
-                <Text style={styles.badgeText}>{item.batch_id?.course_id?.title || 'Unknown Course'}</Text>
+              <View style={[styles.badge, isDark && styles.badgeDark]}>
+                <Icon name="book-outline" size={12} color={isDark ? '#FB923C' : '#92400E'} style={{ marginRight: 4 }} />
+                <Text style={[styles.badgeText, isDark && { color: '#FB923C' }]}>{item.batch_id?.course_id?.title || 'Unknown Course'}</Text>
               </View>
               <View style={styles.batchDetail}>
-                <Icon name="layers-outline" size={12} color="#6B7280" style={{ marginRight: 4 }} />
-                <Text style={styles.batchName}>{item.batch_id?.name || 'Unknown Batch'}</Text>
+                <Icon name="layers-outline" size={12} color={isDark ? '#CBD5E1' : '#6B7280'} style={{ marginRight: 4 }} />
+                <Text style={[styles.batchName, isDark && { color: '#E2E8F0' }]}>{item.batch_id?.name || 'Unknown Batch'}</Text>
               </View>
               {item.enrolledAt || item.createdAt ? (
                 <View style={styles.batchDetail}>
-                  <Icon name="calendar-outline" size={12} color="#6B7280" style={{ marginRight: 4 }} />
-                  <Text style={styles.batchName}>
+                  <Icon name="calendar-outline" size={12} color={isDark ? '#8A7D71' : '#6B7280'} style={{ marginRight: 4 }} />
+                  <Text style={[styles.batchName, isDark && { color: '#8A7D71' }]}>
                     Enrolled: {new Date(item.enrolledAt || item.createdAt).toLocaleDateString()}
                   </Text>
                 </View>
@@ -280,10 +320,12 @@ export default function MyStudentsScreen() {
         onRequestClose={() => setAlertModal(prev => ({ ...prev, visible: false }))}
       >
         <View style={styles.popupOverlay}>
-          <View style={styles.popupCard}>
+          <View style={[styles.popupCard, isDark && styles.popupCardDark]}>
             <View style={[
               styles.popupIconCircle,
-              { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
+              isDark
+                ? { backgroundColor: alertModal.type === 'success' ? 'rgba(16, 185, 129, 0.20)' : alertModal.type === 'error' ? 'rgba(239, 68, 68, 0.20)' : 'rgba(59, 130, 246, 0.20)' }
+                : { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
             ]}>
               <Icon
                 name={
@@ -303,12 +345,12 @@ export default function MyStudentsScreen() {
                 }
               />
             </View>
-            <Text style={styles.popupTitle}>{alertModal.title}</Text>
-            <Text style={styles.popupMessage}>{alertModal.message}</Text>
+            <Text style={[styles.popupTitle, isDark && { color: '#FFFFFF' }]}>{alertModal.title}</Text>
+            <Text style={[styles.popupMessage, isDark && { color: '#A89F93' }]}>{alertModal.message}</Text>
             <TouchableOpacity
               style={[
                 styles.popupSingleBtn,
-                { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#F58220' }
+                { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#FF5E14' }
               ]}
               onPress={() => {
                 const action = alertModal.onOk;
@@ -482,5 +524,45 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 15
+  },
+  searchContainerDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  searchContainerFocusedLight: {
+    borderColor: '#FF5E14',
+  },
+  searchContainerFocusedDark: {
+    borderColor: '#FF6500',
+    backgroundColor: 'rgba(20, 27, 38, 0.95)',
+  },
+  filterPillDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  cardDark: {
+    backgroundColor: '#141B26',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.08)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+        elevation: 4,
+      },
+    }),
+  },
+  badgeDark: {
+    backgroundColor: 'rgba(255, 94, 20, 0.15)',
+  },
+  popupCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
   }
 });

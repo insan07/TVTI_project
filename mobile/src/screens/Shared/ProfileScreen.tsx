@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,10 +20,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { FONTS } from '../../config/theme';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
 
 export default function ProfileScreen() {
   const context = useContext(AuthContext);
   const { isDark, toggleTheme } = useTheme();
+  const styles = useMemo(() => getStyles(isDark), [isDark]);
   if (!context) return null;
   const { logout, user } = context as any;
 
@@ -257,17 +259,17 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingScreen}>
+      <View style={[styles.loadingScreen, isDark && { backgroundColor: '#0B0F19' }]}>
         <ActivityIndicator size="large" color="#F58220" />
-        <Text style={styles.loadingText}>Loading profile...</Text>
+        <Text style={[styles.loadingText, isDark && { color: '#94A3B8' }]}>Loading profile...</Text>
       </View>
     );
   }
 
   if (!profile) {
     return (
-      <View style={styles.loadingScreen}>
-        <Text style={{ color: '#6B7280' }}>Failed to load profile details</Text>
+      <View style={[styles.loadingScreen, isDark && { backgroundColor: '#0B0F19' }]}>
+        <Text style={{ color: isDark ? '#94A3B8' : '#6B7280' }}>Failed to load profile details</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={fetchProfile}>
           <Text style={styles.retryBtnText}>Retry</Text>
         </TouchableOpacity>
@@ -310,7 +312,8 @@ export default function ProfileScreen() {
   const statusBadge = getPaymentStatusBadge(paymentInfo.payment_status);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
+      <ScreenBackground />
       <ScreenHeader
         title={
           user?.role === 'instructor' ? 'Instructor Profile' :
@@ -327,7 +330,7 @@ export default function ProfileScreen() {
         {/* ========================================================================= */}
         {/* TOP PROFILE CARD */}
         {/* ========================================================================= */}
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}>
           <View style={styles.avatarContainer}>
             {(photoAsset?.uri || profile.profile_photo) ? (
               <Image
@@ -344,10 +347,10 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.profileMetaContainer}>
-            <Text style={styles.userName} numberOfLines={1}>
+            <Text style={[styles.userName, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
               {profile.name}
             </Text>
-            <Text style={styles.userEmail} numberOfLines={1}>
+            <Text style={[styles.userEmail, isDark && { color: '#94A3B8' }]} numberOfLines={1}>
               {profile.email}
             </Text>
             <Text style={styles.regNumberText}>
@@ -358,11 +361,11 @@ export default function ProfileScreen() {
 
           {/* Quick Edit Pencil Circle Button */}
           <TouchableOpacity
-            style={styles.editCircleBtn}
+            style={[styles.editCircleBtn, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.12)' }]}
             onPress={() => setEditModalVisible(true)}
             activeOpacity={0.7}
           >
-            <Icon name="pencil-outline" size={16} color="#52525B" />
+            <Icon name="pencil-outline" size={16} color={isDark ? '#CBD5E1' : '#52525B'} />
           </TouchableOpacity>
         </View>
 
@@ -372,74 +375,78 @@ export default function ProfileScreen() {
         <View style={styles.menuListSection}>
           {/* My Details Option Card */}
           <TouchableOpacity
-            style={styles.menuCard}
+            style={[styles.menuCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}
             onPress={() => setMyDetailsModalVisible(true)}
             activeOpacity={0.7}
           >
             <View style={styles.menuLeftContent}>
-              <Icon name="person-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>My Details</Text>
+              <Icon name="person-outline" size={20} color={isDark ? '#CBD5E1' : '#3F3F46'} style={styles.menuIcon} />
+              <Text style={[styles.menuText, isDark && { color: '#FFFFFF' }]}>My Details</Text>
             </View>
-            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+            <Icon name="chevron-forward" size={18} color={isDark ? '#64748B' : '#A1A1AA'} />
           </TouchableOpacity>
 
           {/* Payment Details Option Card */}
           {user?.role === 'student' && (
             <TouchableOpacity
-              style={styles.menuCard}
+              style={[styles.menuCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}
               onPress={() => setPaymentDetailsModalVisible(true)}
               activeOpacity={0.7}
             >
               <View style={styles.menuLeftContent}>
-                <Icon name="card-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-                <Text style={styles.menuText}>Payment Details</Text>
+                <Icon name="card-outline" size={20} color={isDark ? '#CBD5E1' : '#3F3F46'} style={styles.menuIcon} />
+                <Text style={[styles.menuText, isDark && { color: '#FFFFFF' }]}>Payment Details</Text>
               </View>
-              <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+              <Icon name="chevron-forward" size={18} color={isDark ? '#64748B' : '#A1A1AA'} />
             </TouchableOpacity>
           )}
 
           {/* Change Password Option Card */}
           <TouchableOpacity
-            style={styles.menuCard}
+            style={[styles.menuCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}
             onPress={() => setPassModalVisible(true)}
             activeOpacity={0.7}
           >
             <View style={styles.menuLeftContent}>
-              <Icon name="lock-closed-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Change Password</Text>
+              <Icon name="lock-closed-outline" size={20} color={isDark ? '#CBD5E1' : '#3F3F46'} style={styles.menuIcon} />
+              <Text style={[styles.menuText, isDark && { color: '#FFFFFF' }]}>Change Password</Text>
             </View>
-            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+            <Icon name="chevron-forward" size={18} color={isDark ? '#64748B' : '#A1A1AA'} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.menuCard}
+            style={[styles.menuCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}
             onPress={toggleTheme}
             activeOpacity={0.7}
             accessibilityLabel={`Switch to ${isDark ? 'light' : 'dark'} mode`}
           >
             <View style={styles.menuLeftContent}>
-              <Icon name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>{isDark ? 'Light Mode' : 'Dark Mode'}</Text>
+              <Icon name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={isDark ? '#F97316' : '#3F3F46'} style={styles.menuIcon} />
+              <Text style={[styles.menuText, isDark && { color: '#FFFFFF' }]}>{isDark ? 'Light Mode' : 'Dark Mode'}</Text>
             </View>
-            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+            <Icon name="chevron-forward" size={18} color={isDark ? '#64748B' : '#A1A1AA'} />
           </TouchableOpacity>
 
           {/* Help & Support Option Card */}
           <TouchableOpacity
-            style={styles.menuCard}
+            style={[styles.menuCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}
             onPress={() => setHelpModalVisible(true)}
             activeOpacity={0.7}
           >
             <View style={styles.menuLeftContent}>
-              <Icon name="help-circle-outline" size={20} color="#3F3F46" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Help & Support</Text>
+              <Icon name="help-circle-outline" size={20} color={isDark ? '#CBD5E1' : '#3F3F46'} style={styles.menuIcon} />
+              <Text style={[styles.menuText, isDark && { color: '#FFFFFF' }]}>Help & Support</Text>
             </View>
-            <Icon name="chevron-forward" size={18} color="#A1A1AA" />
+            <Icon name="chevron-forward" size={18} color={isDark ? '#64748B' : '#A1A1AA'} />
           </TouchableOpacity>
 
           {/* Logout Option Card */}
           <TouchableOpacity
-            style={[styles.menuCard, styles.logoutMenuCard]}
+            style={[
+              styles.menuCard,
+              styles.logoutMenuCard,
+              isDark && { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderColor: 'rgba(239, 68, 68, 0.25)', borderWidth: 1 }
+            ]}
             onPress={() => setLogoutModalVisible(true)}
             activeOpacity={0.7}
           >
@@ -449,7 +456,7 @@ export default function ProfileScreen() {
                 Logout
               </Text>
             </View>
-            <Icon name="chevron-forward" size={18} color="#FCA5A5" />
+            <Icon name="chevron-forward" size={18} color={isDark ? '#EF4444' : '#FCA5A5'} />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -458,19 +465,19 @@ export default function ProfileScreen() {
       {/* MY DETAILS MODAL VIEW */}
       {/* ========================================================================= */}
       <Modal visible={myDetailsModalVisible} animationType="slide" transparent={false}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F4F6' }} edges={['top']}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F4F4F6' }} edges={['top']}>
           {/* Modal Header */}
-          <View style={styles.modalHeaderBar}>
+          <View style={[styles.modalHeaderBar, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
             <TouchableOpacity
-              style={styles.modalBackBtn}
+              style={[styles.modalBackBtn, isDark && { backgroundColor: '#1E293B' }]}
               onPress={() => setMyDetailsModalVisible(false)}
               activeOpacity={0.7}
             >
-              <Icon name="chevron-back" size={24} color="#18181B" />
+              <Icon name="chevron-back" size={24} color={isDark ? '#FFFFFF' : '#18181B'} />
             </TouchableOpacity>
-            <Text style={styles.modalHeaderTitle}>My Details</Text>
+            <Text style={[styles.modalHeaderTitle, isDark && { color: '#FFFFFF' }]}>My Details</Text>
             <TouchableOpacity
-              style={styles.modalEditHeaderBtn}
+              style={[styles.modalEditHeaderBtn, isDark && { backgroundColor: 'rgba(245, 130, 32, 0.15)' }]}
               onPress={() => setEditModalVisible(true)}
               activeOpacity={0.7}
             >
@@ -1127,7 +1134,9 @@ export default function ProfileScreen() {
           padding: 20
         }}>
           <View style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: isDark ? '#141B26' : '#FFFFFF',
+            borderWidth: isDark ? 1 : 0,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
             borderRadius: 20,
             padding: 24,
             width: '100%',
@@ -1143,7 +1152,7 @@ export default function ProfileScreen() {
               width: 64,
               height: 64,
               borderRadius: 32,
-              backgroundColor: '#FEE2E2',
+              backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2',
               justifyContent: 'center',
               alignItems: 'center',
               marginBottom: 16
@@ -1151,19 +1160,19 @@ export default function ProfileScreen() {
               <Icon name="shield-checkmark-outline" size={32} color="#DC2626" />
             </View>
 
-            <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#0F172A', textAlign: 'center', marginBottom: 6 }}>
+            <Text style={{ fontSize: 19, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#0F172A', textAlign: 'center', marginBottom: 6 }}>
               Confirm Logout
             </Text>
 
-            <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 18, marginBottom: 16 }}>
+            <Text style={{ fontSize: 13, color: isDark ? '#94A3B8' : '#64748B', textAlign: 'center', lineHeight: 18, marginBottom: 16 }}>
               Are you sure you want to log out of your session? You can log back in at any time.
             </Text>
 
             {/* Account Details Safety Badge */}
             <View style={{
-              backgroundColor: '#F8FAFC',
+              backgroundColor: isDark ? '#0B0F19' : '#F8FAFC',
               borderWidth: 1,
-              borderColor: '#E2E8F0',
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
               borderRadius: 12,
               paddingVertical: 10,
               paddingHorizontal: 14,
@@ -1171,8 +1180,8 @@ export default function ProfileScreen() {
               alignItems: 'center',
               marginBottom: 20
             }}>
-              <Text style={{ fontSize: 12, color: '#475569', fontWeight: '600' }}>
-                Account: <Text style={{ color: '#0F172A', fontWeight: 'bold' }}>{profile.name || profile.email}</Text> ({profile.role?.toUpperCase() || 'USER'})
+              <Text style={{ fontSize: 12, color: isDark ? '#94A3B8' : '#475569', fontWeight: '600' }}>
+                Account: <Text style={{ color: isDark ? '#FFFFFF' : '#0F172A', fontWeight: 'bold' }}>{profile.name || profile.email}</Text> ({profile.role?.toUpperCase() || 'USER'})
               </Text>
             </View>
 
@@ -1180,7 +1189,7 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  backgroundColor: '#0F172A',
+                  backgroundColor: isDark ? '#1E293B' : '#0F172A',
                   paddingVertical: 12,
                   borderRadius: 10,
                   alignItems: 'center'
@@ -1285,10 +1294,10 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F4F6',
+    backgroundColor: isDark ? '#0B0F19' : '#F4F4F6',
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -1302,16 +1311,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F4F4F6',
+    backgroundColor: isDark ? '#0B0F19' : '#F4F4F6',
   },
   loadingText: {
     marginTop: 12,
-    color: '#71717A',
+    color: isDark ? '#94A3B8' : '#71717A',
     fontSize: 14,
   },
   retryBtn: {
     marginTop: 16,
-    backgroundColor: '#18181B',
+    backgroundColor: isDark ? '#F58220' : '#18181B',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -1323,17 +1332,17 @@ const styles = StyleSheet.create({
 
   /* HEADER */
   stickyHeader: {
-    backgroundColor: '#F4F4F6',
+    backgroundColor: isDark ? '#0B0F19' : '#F4F4F6',
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 4,
     zIndex: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
   },
   mainTitle: {
     fontSize: 28,
-    color: '#18181B',
+    color: isDark ? '#FFFFFF' : '#18181B',
     ...FONTS.extraBold,
     marginBottom: 8,
   },
@@ -1345,29 +1354,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? '#141B26' : '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E4E4E7',
+    borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E4E4E7',
   },
   modalBackBtn: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: '#F4F4F6',
+    backgroundColor: isDark ? '#1E293B' : '#F4F4F6',
   },
   modalHeaderTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#18181B',
+    color: isDark ? '#FFFFFF' : '#18181B',
   },
   modalEditHeaderBtn: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: isDark ? 'rgba(245, 130, 32, 0.15)' : '#FFF7ED',
   },
 
   /* MAIN PROFILE CARD */
   profileCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? '#141B26' : '#FFFFFF',
+    borderWidth: isDark ? 1 : 0,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 20,
     padding: 16,
     flexDirection: 'row',
@@ -1377,8 +1388,8 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+      web: { boxShadow: isDark ? '0px 2px 10px rgba(0, 0, 0, 0.3)' : '0px 2px 10px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0.3 : 0.04, shadowRadius: 8, elevation: 2 },
     }),
   },
   avatarContainer: {
@@ -1414,11 +1425,11 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 17,
     ...FONTS.extraBold,
-    color: '#18181B',
+    color: isDark ? '#FFFFFF' : '#18181B',
   },
   userEmail: {
     fontSize: 13,
-    color: '#71717A',
+    color: isDark ? '#94A3B8' : '#71717A',
     marginTop: 2,
     marginBottom: 4,
   },
@@ -1433,20 +1444,22 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E4E4E7',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
   },
 
   /* SECTIONS & DETAIL CARDS */
   detailCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? '#141B26' : '#FFFFFF',
+    borderWidth: isDark ? 1 : 0,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 18,
     padding: 18,
     ...Platform.select({
-      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 },
+      web: { boxShadow: isDark ? '0px 2px 8px rgba(0, 0, 0, 0.3)' : '0px 2px 8px rgba(0, 0, 0, 0.03)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0.3 : 0.03, shadowRadius: 6, elevation: 1 },
     }),
   },
   cardHeaderRow: {
@@ -1456,12 +1469,12 @@ const styles = StyleSheet.create({
   cardHeaderTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#18181B',
+    color: isDark ? '#FFFFFF' : '#18181B',
     marginLeft: 10,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: '#F4F4F6',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F4F4F6',
     marginVertical: 12,
   },
   infoGrid: {
@@ -1474,7 +1487,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 11.5,
-    color: '#71717A',
+    color: isDark ? '#94A3B8' : '#71717A',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
@@ -1482,7 +1495,7 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#18181B',
+    color: isDark ? '#F1F5F9' : '#18181B',
     marginTop: 2,
   },
 
@@ -1490,12 +1503,12 @@ const styles = StyleSheet.create({
   courseRowItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAF9F6',
+    backgroundColor: isDark ? '#1E293B' : '#FAF9F6',
     padding: 12,
     borderRadius: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F3F4F6',
   },
   courseBadge: {
     backgroundColor: '#F58220',
@@ -1511,16 +1524,16 @@ const styles = StyleSheet.create({
   courseTitleText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#18181B',
+    color: isDark ? '#FFFFFF' : '#18181B',
   },
   courseSubFee: {
     fontSize: 12,
-    color: '#71717A',
+    color: isDark ? '#94A3B8' : '#71717A',
     marginTop: 2,
   },
   emptyText: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: isDark ? '#64748B' : '#9CA3AF',
     fontStyle: 'italic',
   },
 
@@ -1529,12 +1542,12 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F4F4F6',
+    borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F4F4F6',
   },
   slipTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#3F3F46',
+    color: isDark ? '#E2E8F0' : '#3F3F46',
     marginBottom: 8,
   },
   slipImageWrapper: {
@@ -1542,7 +1555,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#F4F4F6',
+    backgroundColor: isDark ? '#1E293B' : '#F4F4F6',
   },
   slipImagePreview: {
     width: '100%',
@@ -1572,7 +1585,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   menuCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? '#141B26' : '#FFFFFF',
+    borderWidth: isDark ? 1 : 0,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 18,
@@ -1580,14 +1595,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     ...Platform.select({
-      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 },
+      web: { boxShadow: isDark ? '0px 2px 8px rgba(0, 0, 0, 0.3)' : '0px 2px 8px rgba(0, 0, 0, 0.03)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0.3 : 0.03, shadowRadius: 6, elevation: 1 },
     }),
   },
   logoutMenuCard: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#FECACA',
   },
   menuLeftContent: {
     flexDirection: 'row',
@@ -1599,7 +1614,7 @@ const styles = StyleSheet.create({
   menuText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#18181B',
+    color: isDark ? '#FFFFFF' : '#18181B',
   },
 
   /* ZOOM MODAL */
@@ -1637,7 +1652,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? '#141B26' : '#FFFFFF',
+    borderWidth: isDark ? 1 : 0,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 20,
     padding: 20,
     width: '88%',
@@ -1653,7 +1670,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#18181B',
+    color: isDark ? '#FFFFFF' : '#18181B',
   },
   photoUploadBox: {
     alignSelf: 'center',
@@ -1684,32 +1701,32 @@ const styles = StyleSheet.create({
   photoUploadHint: {
     textAlign: 'center',
     fontSize: 12,
-    color: '#71717A',
+    color: isDark ? '#94A3B8' : '#71717A',
     marginBottom: 14,
   },
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#3F3F46',
+    color: isDark ? '#CBD5E1' : '#3F3F46',
     marginBottom: 6,
     marginTop: 10,
   },
   modalInput: {
-    backgroundColor: '#F4F4F6',
+    backgroundColor: isDark ? '#0B0F19' : '#F4F4F6',
     borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E4E4E7',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#18181B',
+    color: isDark ? '#FFFFFF' : '#18181B',
   },
   passwordRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F4F4F6',
+    backgroundColor: isDark ? '#0B0F19' : '#F4F4F6',
     borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E4E4E7',
     borderRadius: 10,
     paddingRight: 10,
   },
@@ -1718,7 +1735,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#18181B',
+    color: isDark ? '#FFFFFF' : '#18181B',
   },
   eyeBtn: {
     padding: 4,
@@ -1730,7 +1747,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cancelModalBtnText: {
-    color: '#71717A',
+    color: isDark ? '#94A3B8' : '#71717A',
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -1738,7 +1755,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 10,
-    backgroundColor: '#0F172A',
+    backgroundColor: isDark ? '#F58220' : '#0F172A',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1757,10 +1774,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 10,
-    backgroundColor: '#F4F4F6',
+    backgroundColor: isDark ? '#1E293B' : '#F4F4F6',
   },
   cancelModalText: {
-    color: '#71717A',
+    color: isDark ? '#94A3B8' : '#71717A',
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -1768,7 +1785,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 10,
-    backgroundColor: '#18181B',
+    backgroundColor: isDark ? '#F58220' : '#18181B',
   },
   submitModalText: {
     color: '#FFFFFF',
@@ -1779,21 +1796,23 @@ const styles = StyleSheet.create({
   /* POPUP OVERLAYS */
   popupOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   popupCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? '#141B26' : '#FFFFFF',
+    borderWidth: isDark ? 1 : 0,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 20,
     padding: 24,
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 10px 25px rgba(0, 0, 0, 0.2)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 8 },
+      web: { boxShadow: isDark ? '0px 10px 25px rgba(0, 0, 0, 0.5)' : '0px 10px 25px rgba(0, 0, 0, 0.2)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: isDark ? 0.5 : 0.2, shadowRadius: 16, elevation: 8 },
     }),
   },
   popupIconCircle: {
@@ -1807,13 +1826,13 @@ const styles = StyleSheet.create({
   popupTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#18181B',
+    color: isDark ? '#FFFFFF' : '#18181B',
     textAlign: 'center',
     marginBottom: 8,
   },
   popupMessage: {
     fontSize: 14,
-    color: '#71717A',
+    color: isDark ? '#94A3B8' : '#71717A',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 16,

@@ -5,9 +5,12 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 import { FONTS } from '../../config/theme';
 
 export default function NotificationsScreen() {
+  const { isDark } = useTheme();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -87,7 +90,11 @@ export default function NotificationsScreen() {
     const iconData = getIconForType(item.type);
     return (
       <TouchableOpacity
-        style={[styles.card, !item.is_read && styles.unreadCard]}
+        style={[
+          styles.card,
+          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
+          !item.is_read && (isDark ? styles.unreadCardDark : styles.unreadCard),
+        ]}
         onPress={() => markAsRead(item)}
         activeOpacity={0.7}
       >
@@ -95,9 +102,11 @@ export default function NotificationsScreen() {
           <Icon name={iconData.name as any} size={22} color={iconData.color} />
         </View>
         <View style={styles.info}>
-          <Text style={[styles.title, !item.is_read && styles.unreadText]}>{item.title}</Text>
-          <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
-          <Text style={styles.time}>{formatTime(item.createdAt)}</Text>
+          <Text style={[styles.title, isDark && { color: '#FFFFFF' }, !item.is_read && (isDark ? { color: '#FFA05C' } : styles.unreadText)]}>
+            {item.title}
+          </Text>
+          <Text style={[styles.message, isDark && { color: '#94A3B8' }]} numberOfLines={2}>{item.message}</Text>
+          <Text style={[styles.time, isDark && { color: '#64748B' }]}>{formatTime(item.createdAt)}</Text>
         </View>
         {!item.is_read && <View style={styles.unreadDot} />}
       </TouchableOpacity>
@@ -107,7 +116,8 @@ export default function NotificationsScreen() {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
+      <ScreenBackground />
       <ScreenHeader
         title="Notifications"
         subtitle={unreadCount > 0 ? `${unreadCount} unread update${unreadCount !== 1 ? 's' : ''}` : 'All caught up'}
@@ -131,8 +141,8 @@ export default function NotificationsScreen() {
           contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Icon name="notifications-outline" size={48} color="#9CA3AF" />
-              <Text style={styles.emptyText}>No notifications yet.</Text>
+              <Icon name="notifications-outline" size={48} color={isDark ? '#64748B' : '#9CA3AF'} />
+              <Text style={[styles.emptyText, isDark && { color: '#94A3B8' }]}>No notifications yet.</Text>
             </View>
           }
         />
@@ -173,6 +183,10 @@ const styles = StyleSheet.create({
   unreadCard: {
     backgroundColor: '#FFF7ED',
     borderColor: '#FED7AA',
+  },
+  unreadCardDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
   },
   iconBox: {
     width: 44,

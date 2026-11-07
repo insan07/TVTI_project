@@ -14,10 +14,13 @@ import api from '../../services/api';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function ResultsScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>('all');
   const [results, setResults] = useState<any[]>([]);
@@ -62,7 +65,8 @@ export default function ResultsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
+      <ScreenBackground />
       <View style={{ paddingTop: insets.top }}>
         <ScreenHeader
           title="My Results"
@@ -73,7 +77,7 @@ export default function ResultsScreen() {
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         <View style={styles.contentPadding}>
           {/* Select Batch Dropdown */}
-          <Text style={styles.selectBatchLabel}>SELECT BATCH</Text>
+          <Text style={[styles.selectBatchLabel, isDark && { color: '#94A3B8' }]}>SELECT BATCH</Text>
           <CustomDropdown
             placeholder="Select Batch to View Results"
             items={[
@@ -90,16 +94,16 @@ export default function ResultsScreen() {
           />
 
           {/* Overall Average Card */}
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardTitle}>Overall Average</Text>
+          <View style={[styles.summaryCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+            <Text style={[styles.summaryCardTitle, isDark && { color: '#FFFFFF' }]}>Overall Average</Text>
 
             <View style={styles.gaugeContainer}>
-              <View style={styles.gaugeCircle}>
+              <View style={[styles.gaugeCircle, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.85)' }]}>
                 <Text style={styles.gaugePercentText}>{calculateAverage()}%</Text>
               </View>
             </View>
 
-            <Text style={styles.percentileSubtitleText}>
+            <Text style={[styles.percentileSubtitleText, isDark && { color: '#94A3B8' }]}>
               {results.length > 0
                 ? `Total Assessments Recorded: ${results.length}`
                 : 'No assessment results recorded yet.'}
@@ -107,31 +111,31 @@ export default function ResultsScreen() {
           </View>
 
           {/* Assessment History Section */}
-          <Text style={styles.sectionTitle}>Assessment History</Text>
+          <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Assessment History</Text>
 
           {loading ? (
             <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 30 }} />
           ) : results.length > 0 ? (
             results.map((item, idx) => (
-              <View key={item._id || idx} style={styles.assessmentCard}>
+              <View key={item._id || idx} style={[styles.assessmentCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
                 <View style={styles.assessmentTopRow}>
-                  <Text style={styles.assessmentTitle}>{item.assessment_name}</Text>
+                  <Text style={[styles.assessmentTitle, isDark && { color: '#FFFFFF' }]}>{item.assessment_name}</Text>
                   <View style={styles.marksContainer}>
-                    <Text style={styles.marksObtained}>{Number(item.marks).toFixed(1)}</Text>
-                    <Text style={styles.marksMax}> / 100</Text>
+                    <Text style={[styles.marksObtained, isDark && { color: '#FFFFFF' }]}>{Number(item.marks).toFixed(1)}</Text>
+                    <Text style={[styles.marksMax, isDark && { color: '#94A3B8' }]}> / 100</Text>
                   </View>
                 </View>
 
                 <View style={styles.assessmentBottomRow}>
                   <View style={styles.dateRow}>
-                    <Icon name="calendar-outline" size={14} color="#777" style={{ marginRight: 4 }} />
-                    <Text style={styles.dateText}>
+                    <Icon name="calendar-outline" size={14} color={isDark ? '#94A3B8' : '#777'} style={{ marginRight: 4 }} />
+                    <Text style={[styles.dateText, isDark && { color: '#94A3B8' }]}>
                       {item.createdAt ? new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' }) : ''}
                     </Text>
                   </View>
 
                   <View style={styles.gradeBadge}>
-                    <Text style={styles.gradeBadgeText}>
+                    <Text style={[styles.gradeBadgeText, isDark && { color: '#FB923C' }]}>
                       {item.grade ? `${item.grade.startsWith('A') ? '✔ ' : ''}${item.grade}` : 'A'}
                     </Text>
                   </View>
@@ -139,7 +143,7 @@ export default function ResultsScreen() {
               </View>
             ))
           ) : (
-            <Text style={{ color: '#888888', ...FONTS.regular, textAlign: 'center', marginVertical: SPACING.lg }}>
+            <Text style={{ color: isDark ? '#94A3B8' : '#888888', ...FONTS.regular, textAlign: 'center', marginVertical: SPACING.lg }}>
               No assessment results found.
             </Text>
           )}

@@ -13,7 +13,10 @@ export interface ScreenHeaderProps {
   rightElement?: React.ReactNode;
   options?: MenuOption[];
   containerStyle?: object;
+  showThemeToggle?: boolean;
 }
+
+import { useTheme } from '../../context/ThemeContext';
 
 export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
   title,
@@ -23,8 +26,19 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
   rightElement,
   options,
   containerStyle,
+  showThemeToggle = true,
 }) => {
   const navigation = useNavigation<any>();
+  let isDark = false;
+  let toggleTheme = () => {};
+  try {
+    const theme = useTheme();
+    isDark = theme?.isDark ?? false;
+    toggleTheme = theme?.toggleTheme ?? (() => {});
+  } catch (e) {
+    isDark = false;
+  }
+
   // Show back navigation button unless explicitly disabled with showBack={false}
   const canGoBack = showBack !== undefined ? showBack : true;
 
@@ -39,7 +53,19 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
   };
 
   return (
-    <View style={[styles.headerCardContainer, containerStyle]}>
+    <View
+      style={[
+        styles.headerCardContainer,
+        isDark ? {
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          borderBottomColor: 'rgba(255, 255, 255, 0.10)',
+        } : {
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          borderBottomColor: 'rgba(226, 232, 240, 0.85)',
+        },
+        containerStyle,
+      ]}
+    >
       <View style={styles.headerLeftGroup}>
         {canGoBack ? (
           <TouchableOpacity
@@ -51,28 +77,60 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
             <Icon
               name={HEADER_THEME.backIconName}
               size={HEADER_THEME.backIconSize}
-              color={HEADER_THEME.backIconColor}
+              color={isDark ? '#FFFFFF' : HEADER_THEME.backIconColor}
             />
           </TouchableOpacity>
         ) : null}
         <View style={styles.titleWrapper}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text
+            style={[
+              styles.headerTitle,
+              isDark && { color: '#FFFFFF' },
+            ]}
+            numberOfLines={1}
+          >
             {title}
           </Text>
           {HEADER_THEME.showSubtitle && !!subtitle ? (
-            <Text style={styles.headerSubtitle} numberOfLines={1}>
+            <Text
+              style={[
+                styles.headerSubtitle,
+                isDark && { color: '#94A3B8' },
+              ]}
+              numberOfLines={1}
+            >
               {subtitle}
             </Text>
           ) : null}
         </View>
       </View>
-      {options && options.length > 0 ? (
-        <View style={styles.rightGroup}>
-          <WhatsAppOptionsMenu options={options} />
-        </View>
-      ) : rightElement ? (
-        <View style={styles.rightGroup}>{rightElement}</View>
-      ) : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        {showThemeToggle && (
+          <TouchableOpacity
+            style={[
+              styles.themeToggleBtn,
+              isDark ? styles.themeToggleBtnDark : styles.themeToggleBtnLight,
+            ]}
+            onPress={toggleTheme}
+            activeOpacity={0.75}
+            accessibilityLabel={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
+          >
+            <Icon
+              name={isDark ? 'sunny-outline' : 'moon-outline'}
+              size={18}
+              color={isDark ? '#F59E0B' : '#334155'}
+            />
+          </TouchableOpacity>
+        )}
+
+        {options && options.length > 0 ? (
+          <View style={styles.rightGroup}>
+            <WhatsAppOptionsMenu options={options} />
+          </View>
+        ) : rightElement ? (
+          <View style={styles.rightGroup}>{rightElement}</View>
+        ) : null}
+      </View>
     </View>
   );
 };
@@ -136,6 +194,33 @@ const styles = StyleSheet.create({
   rightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  themeToggleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.08)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
+      },
+    }),
+  },
+  themeToggleBtnLight: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  themeToggleBtnDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
   },
 });
 

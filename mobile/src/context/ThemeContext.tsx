@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { DarkTheme, DefaultTheme, Theme as NavigationTheme } from '@react-navigation/native';
+import { Platform } from 'react-native';
 import { storage } from '../utils/storage';
 
 export type ThemeMode = 'light' | 'dark';
@@ -12,18 +13,28 @@ type ThemeContextValue = {
   navigationTheme: NavigationTheme;
 };
 
-const THEME_STORAGE_KEY = 'tvti_theme';
+const THEME_STORAGE_KEY = 'tvti_theme_preference';
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>('dark');
+  const [mode, setMode] = useState<ThemeMode>('light');
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     void (async () => {
       try {
-        const saved = await storage.getItem(THEME_STORAGE_KEY) || await storage.getItem('tvti_login_theme');
-        if (saved === 'light' || saved === 'dark') setMode(saved);
+        if (Platform.OS === 'web') {
+          try {
+            localStorage.removeItem('tvti_login_theme');
+            localStorage.removeItem('tvti_theme');
+          } catch {}
+        }
+        const saved = await storage.getItem(THEME_STORAGE_KEY);
+        if (saved === 'light' || saved === 'dark') {
+          setMode(saved);
+        } else {
+          setMode('light');
+        }
       } finally {
         setIsReady(true);
       }
@@ -34,7 +45,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setMode(current => {
       const next = current === 'light' ? 'dark' : 'light';
       void storage.setItem(THEME_STORAGE_KEY, next);
-      void storage.setItem('tvti_login_theme', next);
       return next;
     });
   }, []);

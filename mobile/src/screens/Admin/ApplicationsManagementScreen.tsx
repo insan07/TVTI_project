@@ -20,6 +20,8 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../config/theme';
 import ScreenHeader from '../../components/shared/ScreenHeader';
+import ScreenBackground from '../../components/shared/ScreenBackground';
+import { useTheme } from '../../context/ThemeContext';
 import WhatsAppSelectionHeader from '../../components/shared/WhatsAppSelectionHeader';
 import * as Print from 'expo-print';
 
@@ -40,6 +42,7 @@ export default function ApplicationsManagementScreen({
   onBack,
   statusFilter,
 }: ApplicationsManagementScreenProps) {
+  const { isDark } = useTheme();
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -453,7 +456,8 @@ export default function ApplicationsManagementScreen({
       <TouchableOpacity
         style={[
           styles.card,
-          isRejected && { opacity: 0.6, backgroundColor: '#F8FAFC', borderColor: '#CBD5E1' },
+          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
+          isRejected && { opacity: 0.6, backgroundColor: isDark ? '#1E293B' : '#F8FAFC', borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#CBD5E1' },
           isSelectMode && isSelected && styles.whatsappSelectedCard,
         ]}
         onPress={() => {
@@ -479,8 +483,8 @@ export default function ApplicationsManagementScreen({
             {item.student_photo ? (
               <Image source={{ uri: item.student_photo }} style={[styles.cardAvatarImg, isRejected && { opacity: 0.7 }]} />
             ) : (
-              <View style={[styles.avatarCircle, isRejected && { backgroundColor: '#E2E8F0' }]}>
-                <Icon name="person" size={24} color={isRejected ? "#94A3B8" : "#475569"} />
+              <View style={[styles.avatarCircle, isRejected && { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
+                <Icon name="person" size={24} color={isRejected ? "#94A3B8" : (isDark ? "#94A3B8" : "#475569")} />
               </View>
             )}
             {isSelectMode && (
@@ -492,18 +496,18 @@ export default function ApplicationsManagementScreen({
 
           <View style={styles.cardInfoCol}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <Text style={[styles.studentName, isRejected && { color: '#64748B' }]} numberOfLines={1}>{item.full_name}</Text>
+              <Text style={[styles.studentName, isDark && { color: '#FFFFFF' }, isRejected && { color: '#64748B' }]} numberOfLines={1}>{item.full_name}</Text>
             </View>
-            <Text style={styles.studentEmailText} numberOfLines={1}>{item.email}</Text>
+            <Text style={[styles.studentEmailText, isDark && { color: '#94A3B8' }]} numberOfLines={1}>{item.email}</Text>
             {item.phone ? (
-              <Text style={styles.studentPhoneText} numberOfLines={1}>{item.phone}</Text>
+              <Text style={[styles.studentPhoneText, isDark && { color: '#64748B' }]} numberOfLines={1}>{item.phone}</Text>
             ) : item.nic ? (
-              <Text style={styles.studentPhoneText} numberOfLines={1}>{item.nic}</Text>
+              <Text style={[styles.studentPhoneText, isDark && { color: '#64748B' }]} numberOfLines={1}>{item.nic}</Text>
             ) : null}
           </View>
 
           <View style={styles.arrowContainer}>
-            <Icon name="arrow-forward" size={19} color={isRejected ? "#94A3B8" : "#475569"} />
+            <Icon name="arrow-forward" size={19} color={isRejected ? "#94A3B8" : (isDark ? "#E2E8F0" : "#475569")} />
           </View>
         </View>
       </TouchableOpacity>
@@ -1267,13 +1271,14 @@ export default function ApplicationsManagementScreen({
   };
 
   if (embedded) {
-    return <View style={styles.container}>{renderContent()}</View>;
+    return <View style={[styles.container, isDark && { backgroundColor: 'transparent' }]}>{renderContent()}</View>;
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.topHeader}>
-        <Text style={styles.topHeaderTitle}>Pending Registrations</Text>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
+      <ScreenBackground />
+      <View style={[styles.topHeader, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+        <Text style={[styles.topHeaderTitle, isDark && { color: '#FFFFFF' }]}>Pending Registrations</Text>
       </View>
       {renderContent()}
     </SafeAreaView>
