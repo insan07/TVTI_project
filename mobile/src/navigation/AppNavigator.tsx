@@ -225,7 +225,7 @@ export const AppNavigator = () => {
   }, [navigationRef]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (context?.userToken) {
       const fetchUnread = async () => {
         try {

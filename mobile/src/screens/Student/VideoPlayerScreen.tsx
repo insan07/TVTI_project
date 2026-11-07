@@ -131,11 +131,11 @@ export default function VideoPlayerScreen() {
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         {/* Video Player Frame */}
-        <View style={styles.videoContainer} onContextMenu={(e: any) => e.preventDefault()}>
+        <View style={styles.videoContainer} {...({ onContextMenu: (e: any) => e.preventDefault() } as any)}>
           {videoData?.type === 'youtube' && yTId ? (
             <YoutubeIframe height={230} videoId={yTId} />
           ) : videoData?.url ? (
-            <VideoView ref={videoViewRef} style={styles.video} player={player} allowsFullscreen allowsPictureInPicture />
+            <VideoView ref={videoViewRef} style={styles.video} player={player} {...({ allowsFullscreen: true, allowsPictureInPicture: true } as any)} />
           ) : (
             <View style={styles.videoMockContainer}>
               <View style={styles.playButtonCircle}>
