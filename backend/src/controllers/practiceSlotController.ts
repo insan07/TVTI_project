@@ -235,8 +235,31 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
     const targetEnd = end_time !== undefined ? end_time : slot.end_time;
     const targetIsOpen = is_open !== undefined ? is_open : slot.is_open;
 
-    // Validate that past slots cannot be rescheduled, modified, or reopened (view-only)
+    // Validate that expired/past slots cannot be edited or locked/unlocked (only viewed or deleted)
     const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const existingDayIdx = DAYS_LIST.indexOf(slot.day_of_week);
+    const existingActualDate = new Date(slot.week_start_date);
+    if (existingDayIdx !== -1) {
+      existingActualDate.setUTCDate(existingActualDate.getUTCDate() + existingDayIdx);
+    }
+    const [exH, exM] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+    const existingEndDateTime = new Date(
+      existingActualDate.getUTCFullYear(),
+      existingActualDate.getUTCMonth(),
+      existingActualDate.getUTCDate(),
+      exH,
+      exM,
+      0,
+      0
+    );
+
+    if (existingEndDateTime.getTime() < Date.now()) {
+      res.status(400).json({
+        message: 'Expired practical slots cannot be edited or locked. You can only view students or delete the slot.'
+      });
+      return;
+    }
+
     const dayIdx = DAYS_LIST.indexOf(targetDay);
     const slotActualDate = new Date(targetWeekStart);
     if (dayIdx !== -1) {
@@ -254,12 +277,10 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
     );
 
     if (slotEndDateTime.getTime() < Date.now()) {
-      if (is_open === true || start_time !== undefined || end_time !== undefined || day_of_week !== undefined) {
-        res.status(400).json({
-          message: 'Past practical slots are view-only and cannot be modified or reopened.'
-        });
-        return;
-      }
+      res.status(400).json({
+        message: 'Practical slots cannot be rescheduled to a past date or time.'
+      });
+      return;
     }
 
     if (targetIsOpen) {

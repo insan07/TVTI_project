@@ -13,6 +13,7 @@ import {
   Pressable
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 
 export interface MenuOption {
   id: string;
@@ -37,7 +38,7 @@ export interface WhatsAppOptionsMenuProps {
 
 export const WhatsAppOptionsMenu: React.FC<WhatsAppOptionsMenuProps> = ({
   options,
-  triggerIconColor = '#0F172A',
+  triggerIconColor,
   triggerIconSize = 22,
   triggerStyle,
   align = 'right',
@@ -47,6 +48,8 @@ export const WhatsAppOptionsMenu: React.FC<WhatsAppOptionsMenuProps> = ({
   topOffset,
   rightOffset
 }) => {
+  const { isDark } = useTheme();
+  const resolvedIconColor = triggerIconColor || (isDark ? '#FFFFFF' : '#0F172A');
   const [internalVisible, setInternalVisible] = useState(false);
   const triggerRef = useRef<View>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right?: number; left?: number } | null>(null);
@@ -73,8 +76,13 @@ export const WhatsAppOptionsMenu: React.FC<WhatsAppOptionsMenuProps> = ({
   const handleOpen = () => {
     if (triggerRef.current && typeof triggerRef.current.measureInWindow === 'function') {
       triggerRef.current.measureInWindow((x, y, width, height) => {
-        const windowWidth = Dimensions.get('window').width;
-        const calcTop = y + height + (topOffset || 4);
+        const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
+        const estimatedMenuHeight = options.length * 46 + 12;
+        const rawTop = y + height + (topOffset || 4);
+        const calcTop =
+          rawTop + estimatedMenuHeight > windowHeight - 16
+            ? Math.max(16, y - estimatedMenuHeight - 4)
+            : rawTop;
 
         if (align === 'left') {
           const calcLeft = Math.max(8, x);
@@ -141,7 +149,7 @@ export const WhatsAppOptionsMenu: React.FC<WhatsAppOptionsMenuProps> = ({
         <TouchableOpacity
           style={[
             styles.triggerBtn,
-            isVisible && styles.triggerBtnActive,
+            isVisible && (isDark ? { backgroundColor: 'rgba(255, 255, 255, 0.1)' } : styles.triggerBtnActive),
             triggerStyle
           ]}
           onPress={isVisible ? handleClose : handleOpen}
@@ -151,7 +159,7 @@ export const WhatsAppOptionsMenu: React.FC<WhatsAppOptionsMenuProps> = ({
           {customTrigger ? (
             customTrigger
           ) : (
-            <Icon name="ellipsis-vertical" size={triggerIconSize} color={triggerIconColor} />
+            <Icon name="ellipsis-vertical" size={triggerIconSize} color={resolvedIconColor} />
           )}
         </TouchableOpacity>
       )}
@@ -168,6 +176,7 @@ export const WhatsAppOptionsMenu: React.FC<WhatsAppOptionsMenuProps> = ({
               <Animated.View
                 style={[
                   styles.menuCard,
+                  isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.12)', borderWidth: 1 },
                   getPositionStyle(),
                   {
                     opacity,
@@ -180,9 +189,9 @@ export const WhatsAppOptionsMenu: React.FC<WhatsAppOptionsMenuProps> = ({
                     key={option.id}
                     style={({ pressed }) => [
                       styles.menuItem,
-                      pressed && styles.menuItemPressed,
+                      pressed && (isDark ? { backgroundColor: 'rgba(255, 255, 255, 0.08)' } : styles.menuItemPressed),
                       option.disabled && styles.menuItemDisabled,
-                      index < options.length - 1 && styles.menuItemBorder,
+                      index < options.length - 1 && [styles.menuItemBorder, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }],
                     ]}
                     disabled={option.disabled}
                     onPress={() => handleOptionPress(option)}
@@ -190,6 +199,7 @@ export const WhatsAppOptionsMenu: React.FC<WhatsAppOptionsMenuProps> = ({
                     <Text
                       style={[
                         styles.menuItemText,
+                        isDark && { color: '#F8FAFC' },
                         option.destructive && styles.menuItemTextDestructive,
                         option.disabled && styles.menuItemTextDisabled,
                       ]}

@@ -16,6 +16,7 @@ import api from '../../services/api';
 import { updatePracticeSlot, getSlotBookings } from '../../services/practiceService';
 import ScreenHeader from '../../components/shared/ScreenHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
+import WhatsAppOptionsMenu, { MenuOption } from '../../components/shared/WhatsAppOptionsMenu';
 import { useTheme } from '../../context/ThemeContext';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -195,7 +196,16 @@ export default function PracticeSessionsScreen() {
     setActionMenuVisible(true);
   };
 
+  const isSlotExpired = (slot: any) => {
+    if (!slot) return false;
+    const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
+    return isPastDate(actualDate) || isSlotDateTimeInPast(actualDate, slot.end_time);
+  };
+
   const openEditModal = (slot: any) => {
+    if (isSlotExpired(slot)) {
+      return showAlert('Expired Slot', 'Expired practical slots cannot be edited.', undefined, 'error');
+    }
     setSelectedSlot(slot);
     setEditMaxStudents(slot.max_students?.toString() || '');
     setEditEquipmentNote(slot.equipment_note || '');
@@ -368,6 +378,9 @@ export default function PracticeSessionsScreen() {
   };
 
   const toggleSlotStatus = (slot: any) => {
+    if (isSlotExpired(slot)) {
+      return showAlert('Expired Slot', 'Expired practical slots cannot be locked or reopened.', undefined, 'error');
+    }
     setConfirmModal({
       visible: true,
       title: slot.is_open ? 'Lock Practical Slot?' : 'Reopen Practical Slot?',
@@ -452,12 +465,47 @@ export default function PracticeSessionsScreen() {
     const max = slot.max_students || 1;
     const fillRatio = Math.min(1, booked / max);
     const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
-    const isPast = isPastDate(actualDate);
+    const isExpired = isSlotExpired(slot);
     const formattedDate = actualDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const dayShort = actualDate.toLocaleDateString('en-GB', { weekday: 'short' });
 
+    const menuOptions: MenuOption[] = [
+      {
+        id: 'view_students',
+        label: 'View Students',
+        onPress: () => handleViewBookings(slot),
+      },
+      ...(!isExpired
+        ? [
+            {
+              id: 'edit_slot',
+              label: 'Edit Slot',
+              onPress: () => openEditModal(slot),
+            },
+            {
+              id: 'toggle_status',
+              label: slot.is_open ? 'Lock Slot' : 'Open Slot',
+              destructive: !!slot.is_open,
+              onPress: () => toggleSlotStatus(slot),
+            },
+          ]
+        : []),
+      {
+        id: 'delete_slot',
+        label: 'Delete Slot',
+        destructive: true,
+        onPress: () => handleDeleteSlot(slot._id),
+      },
+    ];
+
     return (
-      <View key={slot._id} style={[styles.cardWrapper, isDark && styles.cardWrapperDark]}>
+      <View
+        key={slot._id}
+        style={[
+          styles.cardWrapper,
+          isDark && styles.cardWrapperDark,
+        ]}
+      >
         <View style={[styles.cardAccent, { backgroundColor: '#FF5E14' }]} />
         <View style={styles.cardInner}>
           <View style={styles.cardHeaderRow}>
@@ -465,52 +513,23 @@ export default function PracticeSessionsScreen() {
               <Text style={[styles.cardTagText, isDark && { color: '#FB923C' }]}>PRACTICAL SLOT</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {isPast && (
+              {isExpired && (
                 <View style={[styles.pastTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)' }, { marginRight: 6 }]}>
-                  <Text style={[styles.pastTagText, isDark && { color: '#94A3B8' }]}>PAST</Text>
+                  <Text style={[styles.pastTagText, isDark && { color: '#94A3B8' }]}>EXPIRED</Text>
                 </View>
               )}
-              <View style={[styles.statusPill, slot.is_open ? styles.statusOpen : styles.statusLocked]}>
+              <View style={[styles.statusPill, slot.is_open ? styles.statusOpen : styles.statusLocked, { marginRight: 6 }]}>
                 <Text style={[styles.statusPillText, slot.is_open ? styles.textOpen : styles.textLocked]}>
                   {slot.is_open ? 'OPEN' : 'LOCKED'}
                 </Text>
               </View>
-              <TouchableOpacity style={styles.dotsBtn} onPress={() => {
-                if (actionMenuVisible && actionMenuSlot?._id === slot._id) {
-                  setActionMenuVisible(false);
-                  setActionMenuSlot(null);
-                } else {
-                  setActionMenuSlot(slot);
-                  setActionMenuVisible(true);
-                }
-              }}>
-                <Icon name="ellipsis-vertical" size={20} color={isDark ? '#FFFFFF' : '#111827'} />
-              </TouchableOpacity>
+              <WhatsAppOptionsMenu
+                options={menuOptions}
+                triggerIconSize={20}
+                triggerIconColor={isDark ? '#FFFFFF' : '#111827'}
+              />
             </View>
           </View>
-
-          {/* Inline Popover Menu */}
-          {actionMenuVisible && actionMenuSlot?._id === slot._id && (
-            <View style={[styles.inlinePopoverContainer, isDark && styles.inlinePopoverContainerDark]}>
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); handleViewBookings(slot); }}>
-                <Text style={[styles.popoverMenuText, isDark && { color: '#FFFFFF' }]}>View Students</Text>
-              </TouchableOpacity>
-              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); openEditModal(slot); }}>
-                <Text style={[styles.popoverMenuText, isDark && { color: '#FFFFFF' }]}>Edit Slot</Text>
-              </TouchableOpacity>
-              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); toggleSlotStatus(slot); }}>
-                <Text style={[styles.popoverMenuText, { color: slot.is_open ? '#EF4444' : (isDark ? '#34D399' : '#374151') }]}>
-                  {slot.is_open ? 'Lock Slot' : 'Open Slot'}
-                </Text>
-              </TouchableOpacity>
-              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); handleDeleteSlot(slot._id); }}>
-                <Text style={styles.popoverMenuTextDanger}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          )}
 
           <Text style={[styles.cardCourseTitle, isDark && { color: '#FFFFFF' }]}>{slot.batch_id?.course_id?.title || slot.batch_id?.name || 'Practical Session'}</Text>
           <Text style={[styles.cardBatchText, isDark && { color: '#A89F93' }]}>Batch: {slot.batch_id?.name || 'N/A'}</Text>
@@ -1258,7 +1277,7 @@ export default function PracticeSessionsScreen() {
                           </View>
                         )}
                       </View>
-                      {b.status === 'cancellation_requested' && (
+                      {b.status === 'cancellation_requested' && !(selectedSlot && isSlotExpired(selectedSlot)) && (
                         <View style={{ flexDirection: 'row', gap: 8 }}>
                           <TouchableOpacity style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }} onPress={() => handleApproveCancellation(b._id)}>
                             <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Approve</Text>

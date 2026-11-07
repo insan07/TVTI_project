@@ -29,6 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../services/api';
 import ScreenHeader from '../../components/shared/ScreenHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
+import WhatsAppOptionsMenu, { MenuOption } from '../../components/shared/WhatsAppOptionsMenu';
 import { useTheme } from '../../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {
@@ -451,7 +452,16 @@ export default function AdminSlotManagementScreen() {
     setWeekStart(getMonday(nd));
   };
 
+  const isSlotExpired = (slot: any) => {
+    if (!slot) return false;
+    const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
+    return isPastDate(actualDate) || isSlotDateTimeInPast(actualDate, slot.end_time);
+  };
+
   const toggleSlotStatus = (slot: any) => {
+    if (isSlotExpired(slot)) {
+      return showAlert('Expired Slot', 'Expired practical slots cannot be locked or reopened.', undefined, 'error');
+    }
     setConfirmModal({
       visible: true,
       title: slot.is_open ? 'Lock Practical Slot?' : 'Reopen Practical Slot?',
@@ -557,6 +567,9 @@ export default function AdminSlotManagementScreen() {
   };
 
   const openEditModal = (slot: any) => {
+    if (isSlotExpired(slot)) {
+      return showAlert('Expired Slot', 'Expired practical slots cannot be edited.', undefined, 'error');
+    }
     setSelectedSlot(slot);
     setEditInstructorId(slot.instructor_id?._id || slot.instructor_id || '');
     setEditMaxStudents(String(slot.max_students || 10));
@@ -693,63 +706,69 @@ export default function AdminSlotManagementScreen() {
     const max = slot.max_students || 1;
     const fillRatio = Math.min(1, booked / max);
     const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
-    const isPast = isPastDate(actualDate);
+    const isExpired = isSlotExpired(slot);
     const formattedDate = actualDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const dayShort = actualDate.toLocaleDateString('en-GB', { weekday: 'short' });
 
+    const menuOptions: MenuOption[] = [
+      {
+        id: 'view_students',
+        label: 'View Students',
+        onPress: () => openBookingsModal(slot),
+      },
+      ...(!isExpired
+        ? [
+            {
+              id: 'edit_slot',
+              label: 'Edit Slot',
+              onPress: () => openEditModal(slot),
+            },
+            {
+              id: 'toggle_status',
+              label: slot.is_open ? 'Lock Slot' : 'Open Slot',
+              destructive: !!slot.is_open,
+              onPress: () => toggleSlotStatus(slot),
+            },
+          ]
+        : []),
+      {
+        id: 'delete_slot',
+        label: 'Delete Slot',
+        destructive: true,
+        onPress: () => handleDeleteSlot(slot._id),
+      },
+    ];
+
     return (
-      <View key={slot._id} style={[styles.cardWrapper, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}>
+      <View
+        key={slot._id}
+        style={[
+          styles.cardWrapper,
+          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 },
+        ]}
+      >
         <View style={styles.cardAccent} />
         <View style={styles.cardInner}>
           <View style={styles.cardHeaderRow}>
             <View style={[styles.cardTag, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}><Text style={styles.cardTagText}>PRACTICAL SLOT</Text></View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              {isPast && (
+              {isExpired && (
                 <View style={[styles.pastTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)' }, { marginRight: 6 }]}>
-                  <Text style={[styles.pastTagText, isDark && { color: '#94A3B8' }]}>PAST</Text>
+                  <Text style={[styles.pastTagText, isDark && { color: '#94A3B8' }]}>EXPIRED</Text>
                 </View>
               )}
-              <View style={[styles.statusPillBadge, slot.is_open ? styles.statusOpen : styles.statusLocked]}>
+              <View style={[styles.statusPillBadge, slot.is_open ? styles.statusOpen : styles.statusLocked, { marginRight: 6 }]}>
                 <Text style={[styles.statusPillBadgeText, slot.is_open ? styles.textOpen : styles.textLocked]}>
                   {slot.is_open ? 'OPEN' : 'LOCKED'}
                 </Text>
               </View>
-              <TouchableOpacity style={styles.dotsBtn} onPress={() => {
-                if (actionMenuVisible && actionMenuSlot?._id === slot._id) {
-                  setActionMenuVisible(false);
-                  setActionMenuSlot(null);
-                } else {
-                  setActionMenuSlot(slot);
-                  setActionMenuVisible(true);
-                }
-              }}>
-                <Icon name="ellipsis-vertical" size={20} color={isDark ? "#FFFFFF" : "#111827"} />
-              </TouchableOpacity>
+              <WhatsAppOptionsMenu
+                options={menuOptions}
+                triggerIconSize={20}
+                triggerIconColor={isDark ? '#FFFFFF' : '#111827'}
+              />
             </View>
           </View>
-          
-          {/* Inline Popover Menu */}
-          {actionMenuVisible && actionMenuSlot?._id === slot._id && (
-            <View style={[styles.inlinePopoverContainer, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); openBookingsModal(slot); }}>
-                <Text style={[styles.popoverMenuText, isDark && { color: '#FFFFFF' }]}>View Students</Text>
-              </TouchableOpacity>
-              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); openEditModal(slot); }}>
-                <Text style={[styles.popoverMenuText, isDark && { color: '#FFFFFF' }]}>Edit Slot</Text>
-              </TouchableOpacity>
-              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); toggleSlotStatus(slot); }}>
-                <Text style={[styles.popoverMenuText, {color: slot.is_open ? '#EF4444' : (isDark ? '#38BDF8' : '#374151')}]}>
-                  {slot.is_open ? 'Lock Slot' : 'Open Slot'}
-                </Text>
-              </TouchableOpacity>
-              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); handleDeleteSlot(slot._id); }}>
-                <Text style={styles.popoverMenuTextDanger}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          )}
 
           <Text style={[styles.cardCourseTitle, isDark && { color: '#FFFFFF' }]}>{slot.batch_id?.course_id?.title || slot.batch_id?.name || 'Practical Session'}</Text>
           <Text style={[styles.cardBatchText, isDark && { color: '#94A3B8' }]}>Batch: {slot.batch_id?.name || 'N/A'}</Text>
@@ -1780,22 +1799,24 @@ export default function AdminSlotManagementScreen() {
               <Text style={{ fontWeight: 'bold', color: '#1F2937', fontSize: 14 }}>
                 Booked Students ({slotBookings.length})
               </Text>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#EFF6FF',
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 8,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  borderWidth: 1,
-                  borderColor: '#BFDBFE'
-                }}
-                onPress={openAddStudentModal}
-              >
-                <Icon name="person-add" size={14} color="#2563EB" style={{ marginRight: 4 }} />
-                <Text style={{ color: '#2563EB', fontWeight: 'bold', fontSize: 12 }}>+ Assign Student</Text>
-              </TouchableOpacity>
+              {!isSlotExpired(selectedSlot) && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#EFF6FF',
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: '#BFDBFE'
+                  }}
+                  onPress={openAddStudentModal}
+                >
+                  <Icon name="person-add" size={14} color="#2563EB" style={{ marginRight: 4 }} />
+                  <Text style={{ color: '#2563EB', fontWeight: 'bold', fontSize: 12 }}>+ Assign Student</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {bookingsLoading ? (
@@ -1827,12 +1848,14 @@ export default function AdminSlotManagementScreen() {
                         Index: {item.student_id?.index_number || 'N/A'} • {item.student_id?.phone || item.student_id?.email || ''}
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      style={styles.removeBookingBtn}
-                      onPress={() => handleRemoveBooking(item._id, item.student_id?.name || 'Student')}
-                    >
-                      <Text style={styles.removeBookingText}>Remove</Text>
-                    </TouchableOpacity>
+                    {!isSlotExpired(selectedSlot) && (
+                      <TouchableOpacity
+                        style={styles.removeBookingBtn}
+                        onPress={() => handleRemoveBooking(item._id, item.student_id?.name || 'Student')}
+                      >
+                        <Text style={styles.removeBookingText}>Remove</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
               />

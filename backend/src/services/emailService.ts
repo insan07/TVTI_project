@@ -91,7 +91,10 @@ const getTransporter = () => {
   });
 };
 
-const DEFAULT_FROM_ADDRESS = process.env.MAIL_FROM || process.env.SMTP_FROM || '"Twintec Vocational Training Institute" <admissions@tvti.edu>';
+const getDefaultFromAddress = () =>
+  process.env.MAIL_FROM?.trim() ||
+  process.env.SMTP_FROM?.trim() ||
+  '"Twintec Vocational Training Institute" <admissions@tvti.edu>';
 
 const renderHeaderCard = () => `
   <div class="header">
@@ -111,7 +114,7 @@ const renderHeaderCard = () => `
  * Sends a 6-digit OTP verification email via Nodemailer.
  */
 export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ success: boolean }> => {
-  const from = DEFAULT_FROM_ADDRESS;
+  const from = getDefaultFromAddress();
   const transporter = getTransporter();
 
   if (!transporter) {
@@ -191,7 +194,7 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
  * Sends a 6-digit OTP for Password Reset via Nodemailer.
  */
 export const sendPasswordResetOtpEmail = async ({ to, otp }: SendPasswordResetOtpMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = DEFAULT_FROM_ADDRESS;
+  const from = getDefaultFromAddress();
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -270,7 +273,7 @@ export const sendPasswordResetOtpEmail = async ({ to, otp }: SendPasswordResetOt
  * Sends a confirmation email when a student registers (Status: Pending Review).
  */
 export const sendApplicationSubmissionEmail = async ({ to, studentName }: SendApplicationSubmissionEmailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = DEFAULT_FROM_ADDRESS;
+  const from = getDefaultFromAddress();
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -360,7 +363,7 @@ export const sendApprovalCredentialsEmail = async ({
   indexNumber,
   tempPassword
 }: SendApprovalCredentialsEmailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = DEFAULT_FROM_ADDRESS;
+  const from = getDefaultFromAddress();
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -463,7 +466,7 @@ export const sendApprovalCredentialsEmail = async ({
  * Sends password reset link email.
  */
 export const sendPasswordResetEmail = async ({ to, resetLink }: SendPasswordResetEmailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = DEFAULT_FROM_ADDRESS;
+  const from = getDefaultFromAddress();
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -666,7 +669,7 @@ export const sendBatchAssignmentEmail = async ({
   startDate,
   endDate,
 }: SendBatchAssignmentMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = DEFAULT_FROM_ADDRESS;
+  const from = getDefaultFromAddress();
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -875,7 +878,7 @@ export const sendDeactivationEmail = async ({
   studentName,
   registrationNumber,
 }: SendDeactivationMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = DEFAULT_FROM_ADDRESS;
+  const from = getDefaultFromAddress();
   const transporter = getTransporter();
 
   const htmlContent = `
@@ -985,7 +988,7 @@ export const sendCertificateVerificationOtpEmail = async ({
   indexNumber,
   otp,
 }: SendCertificateVerificationOtpMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
-  const from = DEFAULT_FROM_ADDRESS;
+  const from = getDefaultFromAddress();
   const transporter = getTransporter();
 
   const htmlContent = `
