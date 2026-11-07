@@ -581,6 +581,25 @@ export default function AdminSlotManagementScreen() {
   const handleSaveEdit = async () => {
     const maxN = parseInt(editMaxStudents, 10);
     if (!maxN || maxN < 1) return showAlert('Error', 'Max students must be at least 1', undefined, 'error');
+
+    if (editInstructorId && selectedSlot) {
+      const slotDateStr = getLocalDateString(getSlotActualDate(selectedSlot.week_start_date, selectedSlot.day_of_week));
+      const duplicateForInstructor = slots.some(s => {
+        if (s._id === selectedSlot._id) return false;
+        const instId = s.instructor_id?._id || s.instructor_id;
+        const sDateStr = getLocalDateString(getSlotActualDate(s.week_start_date, s.day_of_week));
+        return String(instId) === String(editInstructorId) && sDateStr === slotDateStr;
+      });
+      if (duplicateForInstructor) {
+        return showAlert(
+          'One Slot Per Day Limit',
+          'Only one practical slot per day is allowed per instructor. The selected instructor already has a slot on this date.',
+          undefined,
+          'error'
+        );
+      }
+    }
+
     setEditSaving(true);
     try {
       await api.patch(`/instructors/practice-slots/${selectedSlot._id}`, {
