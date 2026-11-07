@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Platform,
   useWindowDimensions,
   ScrollView,
+  Keyboard,
   Alert
 } from 'react-native';
 import { AuthContext } from '../../context/AuthContext';
@@ -18,13 +19,19 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
-import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { showToast } from '../../components/shared/Toast';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function LoginScreen() {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 900;
+  const { width, height } = useWindowDimensions();
+  const isDesktop = width >= 1024;
+  const isNarrow = width < 380;
+  const isShort = height < 700;
+  const isCompactDesktop = width < 1200 || isShort;
+  const pageScrollRef = useRef<ScrollView>(null);
+  const formTopRef = useRef(0);
+  const noticeTopRef = useRef(0);
 
   const route = useRoute<any>();
   const initialEmail = route.params?.registeredEmail || '';
@@ -39,7 +46,6 @@ export default function LoginScreen() {
 
   const authContext = useContext(AuthContext);
   const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
   const { mode: themeMode, isDark, toggleTheme } = useTheme();
   const isLight = !isDark;
 
@@ -88,6 +94,10 @@ export default function LoginScreen() {
   }, [themeMode]);
 
   const handleLogin = async () => {
+    Keyboard.dismiss();
+    if (errorMsg || infoMsg) {
+      pageScrollRef.current?.scrollTo({ y: Math.max(0, formTopRef.current + noticeTopRef.current - 12), animated: false });
+    }
     setErrorMsg('');
     setInfoMsg('');
 
@@ -167,6 +177,7 @@ export default function LoginScreen() {
         styles.card,
         isLight ? styles.cardLight : styles.cardDark,
         isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
+        isNarrow && styles.cardNarrow,
       ]}
     >
       <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
@@ -178,7 +189,13 @@ export default function LoginScreen() {
 
       {/* Info Banner */}
       {infoMsg ? (
-        <View style={[styles.infoBox, isLight && styles.infoBoxLight]}>
+        <View
+          style={[styles.infoBox, isLight && styles.infoBoxLight]}
+          onLayout={({ nativeEvent }) => {
+            noticeTopRef.current = nativeEvent.layout.y;
+            pageScrollRef.current?.scrollTo({ y: Math.max(0, formTopRef.current + nativeEvent.layout.y - 12), animated: false });
+          }}
+        >
           <Icon
             name="information-circle-outline"
             size={18}
@@ -191,7 +208,13 @@ export default function LoginScreen() {
 
       {/* Error Banner */}
       {errorMsg ? (
-        <View style={[styles.errorBox, isLight && styles.errorBoxLight]}>
+        <View
+          style={[styles.errorBox, isLight && styles.errorBoxLight]}
+          onLayout={({ nativeEvent }) => {
+            noticeTopRef.current = nativeEvent.layout.y;
+            pageScrollRef.current?.scrollTo({ y: Math.max(0, formTopRef.current + nativeEvent.layout.y - 12), animated: false });
+          }}
+        >
           <Icon
             name="alert-circle-outline"
             size={18}
@@ -226,6 +249,9 @@ export default function LoginScreen() {
             Platform.OS === 'web' && ({ outlineStyle: 'none', outlineWidth: 0 } as any),
           ]}
           autoCapitalize="none"
+          accessibilityLabel="Registration number or email address"
+          placeholder="Registration no. or email"
+          placeholderTextColor={isLight ? '#94A3B8' : '#8A7D71'}
           value={email}
           onFocus={() => setFocusedInput('email')}
           onBlur={() => setFocusedInput(null)}
@@ -260,6 +286,9 @@ export default function LoginScreen() {
             Platform.OS === 'web' && ({ outlineStyle: 'none', outlineWidth: 0 } as any),
           ]}
           secureTextEntry={!showPassword}
+          accessibilityLabel="Password"
+          placeholder="Enter password"
+          placeholderTextColor={isLight ? '#94A3B8' : '#8A7D71'}
           value={password}
           onFocus={() => setFocusedInput('password')}
           onBlur={() => setFocusedInput(null)}
@@ -284,7 +313,7 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.forgotPasswordContainer}>
-        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+        <TouchableOpacity style={styles.textAction} onPress={() => navigation.navigate('ForgotPassword')}>
           <Text style={[styles.forgotPasswordText, { color: isLight ? '#B45309' : '#FF6500' }]}>
             Forgot Password?
           </Text>
@@ -310,7 +339,7 @@ export default function LoginScreen() {
         <Text style={[styles.footerText, { color: isLight ? '#64748B' : '#94A3B8' }]}>
           Don't have an account?{' '}
         </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+        <TouchableOpacity style={styles.textAction} onPress={() => navigation.navigate('Register')}>
           <Text style={styles.link}>Register Here</Text>
         </TouchableOpacity>
       </View>
@@ -318,9 +347,9 @@ export default function LoginScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]} edges={['top', 'bottom']}>
-      {/* Floating Dark / Light Theme Toggle Button */}
-      <View style={[styles.topBarContainer, { paddingTop: Math.max(insets.top, 16) }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]} edges={['top', 'bottom', 'left', 'right']}>
+      {/* An in-flow toolbar keeps the theme switch clear of the scrollable form. */}
+      <View style={[styles.topBarContainer, isNarrow && styles.topBarNarrow]}>
         <TouchableOpacity
           style={[
             styles.themeToggleBtn,
@@ -351,9 +380,8 @@ export default function LoginScreen() {
         style={[
           StyleSheet.absoluteFill,
           Platform.OS === 'web' && ({
-            position: 'fixed',
-            width: '100vw',
-            height: '100vh',
+            width: '100%',
+            height: '100%',
             zIndex: -2,
             objectFit: 'cover',
             objectPosition: 'center',
@@ -370,9 +398,8 @@ export default function LoginScreen() {
           style={[
             StyleSheet.absoluteFill,
             {
-              position: 'fixed',
-              width: '100vw',
-              height: '100vh',
+              width: '100%',
+              height: '100%',
               zIndex: -1,
               pointerEvents: 'none',
               background: isLight
@@ -397,19 +424,24 @@ export default function LoginScreen() {
       )}
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.scrollArea}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent}
+          ref={pageScrollRef}
+          style={styles.scrollArea}
+          contentContainerStyle={[
+            isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent,
+            isNarrow && styles.scrollContentNarrow,
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {isDesktop ? (
             /* =================== DESKTOP 2-COLUMN VIEW (SWAPPED SIDES) =================== */
-            <View style={styles.desktopContainer}>
-              {/* Left Column: TVTI Branding, Hero Typography & 3D Clay Illustration */}
+            <View style={[styles.desktopContainer, isCompactDesktop && styles.desktopContainerCompact]}>
+              {/* Left Column: TVTI Branding, Hero Typography & Vocational Illustration */}
               <View style={styles.desktopLeftCol}>
                 <View style={styles.desktopBrandRow}>
                   <Image
@@ -417,7 +449,7 @@ export default function LoginScreen() {
                     style={styles.desktopLogo}
                     resizeMode="contain"
                   />
-                  <View style={{ marginLeft: 14 }}>
+                  <View style={styles.desktopBrandText}>
                     <Text style={[styles.desktopBrandTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
                       Twintec VTI
                     </Text>
@@ -428,13 +460,13 @@ export default function LoginScreen() {
                 </View>
 
                 <View style={styles.heroTextContainer}>
-                  <Text style={[styles.heroLearnText, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                  <Text style={[styles.heroLearnText, isCompactDesktop && styles.heroTitleCompact, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
                     Learn
                   </Text>
-                  <Text style={styles.heroHighlightText}>
+                  <Text style={[styles.heroHighlightText, isCompactDesktop && styles.heroTitleCompact]}>
                     Build Your Skills
                   </Text>
-                  <Text style={[styles.heroLearnText, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                  <Text style={[styles.heroLearnText, isCompactDesktop && styles.heroTitleCompact, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
                     Shape Your Future
                   </Text>
                   <Text style={[styles.heroSubDescription, { color: isLight ? '#334155' : '#94A3B8' }]}>
@@ -442,39 +474,42 @@ export default function LoginScreen() {
                   </Text>
                 </View>
 
-                {/* Floating 3D Artwork (Seamless radial fade into the background) */}
-                <View style={styles.heroImageWrapper}>
+                {/* Vocational training artwork with a transparent background for both themes */}
+                <View style={[styles.heroImageWrapper, isShort && styles.heroImageWrapperShort]}>
                   <Image
-                    source={require('../../../assets/login_hero_clay.png')}
+                    source={require('../../../assets/auth_hero_vocational.png')}
                     style={styles.heroImage}
                     resizeMode="contain"
+                    accessibilityLabel="Vocational training illustration with engineering tools, electronics, a laptop, and a safety helmet"
                   />
                 </View>
               </View>
 
               {/* Right Column: Glassmorphism Login Card */}
-              <View style={styles.desktopRightCol}>
+              <View style={styles.desktopRightCol} onLayout={({ nativeEvent }) => { formTopRef.current = nativeEvent.layout.y; }}>
                 {renderLoginFormCard()}
               </View>
             </View>
           ) : (
             /* =================== MOBILE 1-COLUMN VIEW =================== */
             <View style={styles.mobileContainer}>
-              <View style={[styles.mobileHeader, { paddingTop: Math.max(insets.top, 24) }]}>
+              <View style={[styles.mobileHeader, isShort && styles.mobileHeaderShort]}>
                 <Image
                   source={require('../../../assets/logo.png')}
-                  style={styles.mobileLogo}
+                  style={[styles.mobileLogo, isShort && styles.mobileLogoShort]}
                   resizeMode="contain"
                 />
-                <Text style={[styles.brandTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
-                  Twintec VTI
-                </Text>
-                <Text style={[styles.brandSubtitle, { color: isLight ? '#475569' : '#94A3B8' }]}>
-                  Learning Management System
-                </Text>
+                <View style={[styles.mobileBrandText, isShort && styles.mobileBrandTextShort]}>
+                  <Text style={[styles.brandTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                    Twintec VTI
+                  </Text>
+                  <Text style={[styles.brandSubtitle, { color: isLight ? '#475569' : '#94A3B8' }]}>
+                    Learning Management System
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.mobileCardWrapper}>
+              <View style={styles.mobileCardWrapper} onLayout={({ nativeEvent }) => { formTopRef.current = nativeEvent.layout.y; }}>
                 {renderLoginFormCard()}
               </View>
             </View>
@@ -488,20 +523,32 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+  },
+  scrollArea: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
   },
 
   /* ---------- Top Bar / Floating Theme Toggle ---------- */
   topBarContainer: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    zIndex: 100,
-    paddingHorizontal: 28,
-    paddingTop: 18,
+    minHeight: 64,
+    flexShrink: 0,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    zIndex: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+  },
+  topBarNarrow: {
+    paddingHorizontal: 16,
   },
   themeToggleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 44,
     paddingVertical: 7,
     paddingHorizontal: 14,
     borderRadius: 22,
@@ -540,22 +587,47 @@ const styles = StyleSheet.create({
   mobileScrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: 28,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 28,
+  },
+  scrollContentNarrow: {
+    paddingHorizontal: 16,
   },
   mobileContainer: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 480,
     alignSelf: 'center',
-    paddingHorizontal: 20,
   },
   mobileHeader: {
     alignItems: 'center',
-    marginBottom: 26,
+    marginBottom: 24,
+  },
+  mobileHeaderShort: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  mobileBrandText: {
+    alignItems: 'center',
+    minWidth: 0,
+  },
+  mobileBrandTextShort: {
+    alignItems: 'flex-start',
+    flexShrink: 1,
   },
   mobileLogo: {
     width: 76,
     height: 76,
     marginBottom: 12,
+    flexShrink: 0,
+  },
+  mobileLogoShort: {
+    width: 52,
+    height: 52,
+    marginBottom: 0,
   },
   brandTitle: {
     fontSize: 23,
@@ -576,8 +648,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 36,
+    paddingTop: 24,
+    paddingBottom: 32,
+    paddingHorizontal: 32,
   },
   desktopContainer: {
     flexDirection: 'row',
@@ -587,8 +660,12 @@ const styles = StyleSheet.create({
     maxWidth: 1140,
     gap: 60,
   },
+  desktopContainerCompact: {
+    gap: 32,
+  },
   desktopLeftCol: {
     flex: 1.15,
+    minWidth: 0,
     maxWidth: 540,
   },
   desktopBrandRow: {
@@ -599,6 +676,12 @@ const styles = StyleSheet.create({
   desktopLogo: {
     width: 62,
     height: 62,
+    flexShrink: 0,
+  },
+  desktopBrandText: {
+    marginLeft: 14,
+    flex: 1,
+    minWidth: 0,
   },
   desktopBrandTitle: {
     fontSize: 22,
@@ -626,6 +709,10 @@ const styles = StyleSheet.create({
     lineHeight: 46,
     letterSpacing: -0.3,
   },
+  heroTitleCompact: {
+    fontSize: 32,
+    lineHeight: 40,
+  },
   heroSubDescription: {
     fontSize: 14,
     lineHeight: 22,
@@ -634,23 +721,21 @@ const styles = StyleSheet.create({
   heroImageWrapper: {
     width: '100%',
     maxWidth: 440,
-    height: 270,
+    aspectRatio: 3 / 2,
     justifyContent: 'center',
     alignItems: 'flex-start',
     marginTop: 8,
-    ...(Platform.OS === 'web'
-      ? ({
-        WebkitMaskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
-        maskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
-      } as any)
-      : {}),
   },
   heroImage: {
     width: '100%',
     height: '100%',
   },
+  heroImageWrapperShort: {
+    maxWidth: 300,
+  },
   desktopRightCol: {
     flex: 1,
+    minWidth: 0,
     maxWidth: 470,
     width: '100%',
   },
@@ -659,7 +744,13 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 24,
     paddingVertical: 32,
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
+    width: '100%',
+    minWidth: 0,
+  },
+  cardNarrow: {
+    paddingHorizontal: 20,
+    paddingVertical: 24,
   },
   cardLight: {
     backgroundColor: 'rgba(255, 255, 255, 0.66)',
@@ -729,6 +820,7 @@ const styles = StyleSheet.create({
   },
   infoBoxText: {
     flex: 1,
+    minWidth: 0,
     color: '#2DD4BF',
     fontSize: 13,
     lineHeight: 19,
@@ -752,6 +844,7 @@ const styles = StyleSheet.create({
   },
   errorBoxText: {
     flex: 1,
+    minWidth: 0,
     color: '#F87171',
     fontSize: 13,
     lineHeight: 19,
@@ -770,7 +863,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 18,
     paddingHorizontal: 14,
-    height: 48,
+    minHeight: 48,
   },
   inputContainerLight: {
     backgroundColor: 'rgba(255, 255, 255, 0.48)',
@@ -810,12 +903,17 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: '100%',
-    fontSize: 14.5,
+    minWidth: 0,
+    minHeight: 46,
+    paddingVertical: 10,
+    fontSize: 16,
     backgroundColor: 'transparent',
   },
   eyeIcon: {
     padding: 8,
+    minWidth: 44,
+    minHeight: 44,
+    flexShrink: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -828,9 +926,14 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
   },
+  textAction: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   button: {
     backgroundColor: '#FF5E14',
-    height: 48,
+    minHeight: 48,
+    paddingVertical: 12,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -853,11 +956,17 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
+    alignItems: 'center',
+    columnGap: 4,
+    rowGap: 8,
     marginTop: 22,
   },
   footerText: {
     fontSize: 13.5,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   link: {
     color: '#FF5E14',

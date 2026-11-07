@@ -3,7 +3,7 @@ import User from '../models/User';
 import Application from '../models/Application';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { sendOtp, verifyOtp, isEmailVerified, consumeEmailVerification } from '../services/otpService';
+import { sendOtp, verifyOtp, isEmailVerified, consumeEmailVerification, isValidEmail } from '../services/otpService';
 import { sendPasswordResetOtpEmail } from '../services/emailService';
 import crypto from 'crypto';
 
@@ -216,8 +216,8 @@ export const checkEligibility = async (req: Request, res: Response): Promise<voi
 export const sendOtpHandler = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email } = req.body;
-    if (!email) {
-      res.status(400).json({ success: false, message: 'Email address is required' });
+    if (typeof email !== 'string' || !isValidEmail(email.trim())) {
+      res.status(400).json({ success: false, message: 'A valid email address is required' });
       return;
     }
 
@@ -245,7 +245,7 @@ export const sendOtpHandler = async (req: Request, res: Response): Promise<void>
 
     const result = await sendOtp(cleanEmail);
     if (!result.success) {
-      res.status(400).json(result);
+      res.status(result.code === 'EMAIL_DELIVERY_UNAVAILABLE' ? 503 : 400).json(result);
       return;
     }
 

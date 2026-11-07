@@ -18,7 +18,12 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import {
+  PickerField,
+  DatePickerModal,
+  TimePickerModal,
+  MonthPickerModal,
+} from '../../components/shared/DateTimePickerModals';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../services/api';
@@ -64,6 +69,26 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
     slotDate.setDate(slotDate.getDate() + diff);
   }
   return slotDate;
+};
+
+const isPastDate = (date: Date) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  return target.getTime() < today.getTime();
+};
+
+const isSlotDateTimeInPast = (date: Date, endTimeStr?: string) => {
+  const now = new Date();
+  const target = new Date(date);
+  if (endTimeStr) {
+    const [h, m] = endTimeStr.split(':').map((v) => parseInt(v, 10) || 0);
+    target.setHours(h, m, 0, 0);
+    return target.getTime() < now.getTime();
+  }
+  target.setHours(23, 59, 59, 999);
+  return target.getTime() < now.getTime();
 };
 
 export default function AdminSlotManagementScreen() {
@@ -187,6 +212,13 @@ export default function AdminSlotManagementScreen() {
   const [createInstructorId, setCreateInstructorId] = useState('');
   const [createDate, setCreateDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerPurpose, setDatePickerPurpose] = useState<'create' | 'navigate'>('create');
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [timePickerTarget, setTimePickerTarget] = useState<{
+    kind: 'single' | 'batch';
+    field: 'start' | 'end';
+    index?: number;
+  } | null>(null);
   const [createStartTime, setCreateStartTime] = useState('09:00');
   const [createEndTime, setCreateEndTime] = useState('12:00');
   const [createLocation, setCreateLocation] = useState('Hardware Lab 01');
@@ -196,6 +228,34 @@ export default function AdminSlotManagementScreen() {
     { day_of_week: 'Monday', start_time: '09:00', end_time: '12:00', max_students: '10', equipment_note: '', location: 'Hardware Lab 01' }
   ]);
   const [creating, setCreating] = useState(false);
+
+  const handleTimeSelect = (selectedTimeStr: string) => {
+    if (!timePickerTarget) return;
+    if (timePickerTarget.kind === 'single') {
+      if (timePickerTarget.field === 'start') {
+        setCreateStartTime(selectedTimeStr);
+      } else {
+        setCreateEndTime(selectedTimeStr);
+      }
+    } else if (timePickerTarget.kind === 'batch' && typeof timePickerTarget.index === 'number') {
+      const idx = timePickerTarget.index;
+      const fieldKey = timePickerTarget.field === 'start' ? 'start_time' : 'end_time';
+      updateNewSlot(idx, fieldKey, selectedTimeStr);
+    }
+    setTimePickerTarget(null);
+  };
+
+  const getActivePickerTime = () => {
+    if (!timePickerTarget) return '09:00';
+    if (timePickerTarget.kind === 'single') {
+      return timePickerTarget.field === 'start' ? createStartTime : createEndTime;
+    }
+    if (timePickerTarget.kind === 'batch' && typeof timePickerTarget.index === 'number') {
+      const s = newSlots[timePickerTarget.index];
+      return timePickerTarget.field === 'start' ? (s?.start_time || '09:00') : (s?.end_time || '12:00');
+    }
+    return '09:00';
+  };
 
   // Liquid FAB Animation State
   const wave1Anim = React.useRef(new Animated.Value(0)).current;
@@ -521,6 +581,14 @@ export default function AdminSlotManagementScreen() {
     if (!createInstructorId) return showAlert('Error', 'Please select an assigned instructor', undefined, 'error');
     if (!createStartTime.trim() || !createEndTime.trim()) return showAlert('Error', 'Please enter start and end time', undefined, 'error');
 
+    if (isPastDate(createDate)) {
+      return showAlert('Past Date', 'Cannot create a practical slot for a past date. Past dates are view-only.', undefined, 'error');
+    }
+
+    if (isSlotDateTimeInPast(createDate, createEndTime.trim())) {
+      return showAlert('Past Time', 'The specified session end time has already passed. Please select a future time.', undefined, 'error');
+    }
+
     const capN = parseInt(createCapacity, 10);
     if (isNaN(capN) || capN < 1) return showAlert('Error', 'Capacity must be at least 1 student', undefined, 'error');
 
@@ -565,6 +633,14 @@ export default function AdminSlotManagementScreen() {
       }
       const maxN = parseInt(s.max_students, 10);
       if (!maxN || maxN < 1) return showAlert('Error', 'Max capacity must be at least 1', undefined, 'error');
+
+      const slotActualDate = getSlotActualDate(getLocalDateString(weekStart), s.day_of_week);
+      if (isPastDate(slotActualDate)) {
+        return showAlert('Past Date', `Cannot create slot on ${s.day_of_week} because this date is in the past. Slots can only be created for current or future dates.`, undefined, 'error');
+      }
+      if (isSlotDateTimeInPast(slotActualDate, s.end_time)) {
+        return showAlert('Past Time', `Cannot create slot on ${s.day_of_week} (${s.start_time} - ${s.end_time}) because this time has already passed.`, undefined, 'error');
+      }
     }
 
     setCreating(true);
@@ -766,33 +842,161 @@ export default function AdminSlotManagementScreen() {
 
     const startOffset = firstDay === 0 ? 6 : firstDay - 1;
 
-    const blanks = Array.from({ length: startOffset }).map((_, i) => <View key={`blank-${i}`} style={styles.monthCell} />);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const prevMonthDays = new Date(year, month, 0).getDate();
+    const blanks = Array.from({ length: startOffset }).map((_, i) => {
+      const prevD = prevMonthDays - startOffset + 1 + i;
+      return (
+        <View key={`blank-${i}`} style={[styles.monthCell, { opacity: 0.35 }]}>
+          <Text style={[styles.monthCellText, { color: '#94A3B8' }]}>{prevD}</Text>
+        </View>
+      );
+    });
+
     const days = Array.from({ length: daysInMonth }).map((_, i) => {
       const d = i + 1;
-      const hasSlot = slots.some(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === d);
+      const cellDate = new Date(year, month, d);
+      cellDate.setHours(0, 0, 0, 0);
+
+      const isToday = cellDate.getTime() === today.getTime();
+      const isPast = cellDate.getTime() < today.getTime();
+      const isSelected =
+        selectedDate.getDate() === d &&
+        selectedDate.getMonth() === month &&
+        selectedDate.getFullYear() === year;
+
+      const daySlots = slots.filter(s => {
+        const slotDate = getSlotActualDate(s.week_start_date, s.day_of_week);
+        return (
+          slotDate.getDate() === d &&
+          slotDate.getMonth() === month &&
+          slotDate.getFullYear() === year
+        );
+      });
+      const hasSlot = daySlots.length > 0;
+
       return (
-        <TouchableOpacity key={`day-${d}`} style={styles.monthCell} onPress={() => {
-          const newDate = new Date(year, month, d);
-          setSelectedDate(newDate);
-          setWeekStart(getMonday(newDate));
-          setViewMode('Day');
-        }}>
-          <Text style={styles.monthCellText}>{d}</Text>
-          {hasSlot && <View style={styles.monthSlotIndicator} />}
+        <TouchableOpacity
+          key={`day-${d}`}
+          style={[
+            styles.monthCell,
+            isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.06)' },
+            isToday && { borderColor: '#F58220', borderWidth: 2 },
+            isSelected && { backgroundColor: isDark ? 'rgba(245, 130, 32, 0.2)' : '#FFF7ED', borderColor: '#F58220' },
+          ]}
+          onPress={() => {
+            const newDate = new Date(year, month, d);
+            setSelectedDate(newDate);
+            setWeekStart(getMonday(newDate));
+            setViewMode('Day');
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={styles.monthDayHeaderRow}>
+            <View
+              style={[
+                styles.dayNumberBadge,
+                isToday && styles.todayNumberBadge,
+                isSelected && !isToday && styles.selectedNumberBadge,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.monthCellText,
+                  isDark && { color: '#F1F5F9' },
+                  isPast && !isToday && { color: '#94A3B8' },
+                  isToday && styles.todayNumberText,
+                  isSelected && !isToday && styles.selectedNumberText,
+                ]}
+              >
+                {d}
+              </Text>
+            </View>
+            {isPast && (
+              <Icon name="eye-outline" size={11} color={isDark ? '#64748B' : '#94A3B8'} />
+            )}
+          </View>
+
+          {hasSlot && (
+            <View style={[styles.monthSlotCountBadge, isDark && { backgroundColor: 'rgba(245, 130, 32, 0.25)' }]}>
+              <View style={styles.monthSlotIndicatorDot} />
+              <Text style={styles.monthSlotCountText}>
+                {daySlots.length} {daySlots.length === 1 ? 'slot' : 'slots'}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       );
     });
 
     return (
-      <View style={styles.monthGridContainer}>
-        <View style={styles.monthHeaderRow}>
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => <Text key={d} style={styles.monthHeaderText}>{d}</Text>)}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <View style={[styles.monthCardContainer, isDark && styles.monthCardContainerDark]}>
+          {/* Card Header with Month Picker Button */}
+          <View style={styles.monthCardHeader}>
+            <View>
+              <Text style={[styles.monthCardTitle, isDark && { color: '#FFFFFF' }]}>
+                {selectedDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+              </Text>
+              <Text style={[styles.monthCardSubtitle, isDark && { color: '#94A3B8' }]}>
+                Select any date to view practical sessions
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.monthPickerQuickBtn}
+              onPress={() => setShowMonthPicker(true)}
+              activeOpacity={0.7}
+            >
+              <Icon name="calendar" size={15} color="#F58220" style={{ marginRight: 6 }} />
+              <Text style={styles.monthPickerQuickBtnText}>Pick Month</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Weekday Labels */}
+          <View style={[styles.monthHeaderRow, isDark && { backgroundColor: '#1E293B', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((wd, i) => (
+              <Text
+                key={wd}
+                style={[
+                  styles.monthHeaderText,
+                  isDark && { color: '#94A3B8' },
+                  (i === 5 || i === 6) && { color: '#F97316' },
+                ]}
+              >
+                {wd}
+              </Text>
+            ))}
+          </View>
+
+          {/* Days Grid */}
+          <View style={styles.monthDaysWrapper}>
+            {blanks}
+            {days}
+          </View>
+
+          {/* Legend */}
+          <View style={[styles.monthLegendRow, isDark && { borderTopColor: 'rgba(255, 255, 255, 0.08)' }]}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#F58220' }]} />
+              <Text style={[styles.legendText, isDark && { color: '#94A3B8' }]}>Today</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
+              <Text style={[styles.legendText, isDark && { color: '#94A3B8' }]}>Has Practical Slots</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <Icon name="eye-outline" size={13} color="#94A3B8" style={{ marginRight: 4 }} />
+              <Text style={[styles.legendText, isDark && { color: '#94A3B8' }]}>Past (View Only)</Text>
+            </View>
+          </View>
         </View>
-        <View style={styles.monthDaysWrapper}>
-          {blanks}
-          {days}
-        </View>
-      </View>
+      </ScrollView>
     );
   };
 
@@ -822,7 +1026,18 @@ export default function AdminSlotManagementScreen() {
         <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(-1) : viewMode === 'Day' ? changeDay(-1) : changeWeek(-1)}>
           <Icon name="chevron-back" size={20} color="#F58220" />
         </TouchableOpacity>
-        <View style={[styles.dateBadge, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => {
+            if (viewMode === 'Day') {
+              setDatePickerPurpose('navigate');
+              setShowDatePicker(true);
+            } else {
+              setShowMonthPicker(true);
+            }
+          }}
+          style={[styles.dateBadge, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}
+        >
           <Icon name="calendar-outline" size={14} color="#F58220" style={{ marginRight: 6 }} />
           <Text style={styles.dateBadgeText}>
             {viewMode === 'Month'
@@ -831,7 +1046,8 @@ export default function AdminSlotManagementScreen() {
                 ? selectedDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
                 : `Week of ${getLocalDateString(weekStart)}`}
           </Text>
-        </View>
+          <Icon name="chevron-down" size={12} color="#F58220" style={{ marginLeft: 4 }} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(1) : viewMode === 'Day' ? changeDay(1) : changeWeek(1)}>
           <Icon name="chevron-forward" size={20} color="#F58220" />
         </TouchableOpacity>
@@ -898,31 +1114,53 @@ export default function AdminSlotManagementScreen() {
                   onScroll={handleScroll}
                   scrollEventThrottle={16}
                 >
-                  <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 16, color: '#1F2937' }}>
-                    Schedule for {selectedDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#1F2937' }}>
+                      Schedule for {selectedDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    </Text>
+                    {isPastDate(selectedDate) && (
+                      <View style={[styles.pastDateBadge, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                        <Icon name="eye-outline" size={13} color={isDark ? "#94A3B8" : "#64748B"} style={{ marginRight: 5 }} />
+                        <Text style={[styles.pastDateBadgeText, isDark && { color: '#94A3B8' }]}>Past Date (View Only)</Text>
+                      </View>
+                    )}
+                  </View>
                   {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).length === 0 ? (
                     <View style={{ alignItems: 'center', marginTop: 40 }}>
                       <Icon name="calendar-outline" size={48} color="#D1D5DB" />
-                      <Text style={{ color: '#6B7280', marginVertical: 12 }}>No slots scheduled for this day.</Text>
-                      <TouchableOpacity style={styles.actionBtnBlue} onPress={() => {
-                        setCreateDate(selectedDate);
-                        setCreateModalVisible(true);
-                      }}>
-                        <Icon name="add" size={16} color="#2563EB" />
-                        <Text style={styles.actionBtnBlueText}>Create Slot for this Day</Text>
-                      </TouchableOpacity>
+                      <Text style={{ color: '#6B7280', marginVertical: 12 }}>
+                        {isPastDate(selectedDate) ? 'No practical slots were scheduled for this day.' : 'No slots scheduled for this day.'}
+                      </Text>
+                      {!isPastDate(selectedDate) && (
+                        <TouchableOpacity style={styles.actionBtnBlue} onPress={() => {
+                          setCreateDate(selectedDate);
+                          setCreateModalVisible(true);
+                        }}>
+                          <Icon name="add" size={16} color="#2563EB" />
+                          <Text style={styles.actionBtnBlueText}>Create Slot for this Day</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   ) : (
                     <>
+                      {isPastDate(selectedDate) && (
+                        <View style={[styles.pastDateBanner, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.05)', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+                          <Icon name="information-circle-outline" size={16} color="#F58220" style={{ marginRight: 6 }} />
+                          <Text style={[styles.pastDateBannerText, isDark && { color: '#CBD5E1' }]}>
+                            Viewing past schedule. New slots cannot be created for past dates.
+                          </Text>
+                        </View>
+                      )}
                       {slots.filter(s => getSlotActualDate(s.week_start_date, s.day_of_week).getDate() === selectedDate.getDate()).map(renderListCard)}
-                      <TouchableOpacity style={[styles.actionBtnBlue, { marginTop: 16, alignSelf: 'center' }]} onPress={() => {
-                        setCreateDate(selectedDate);
-                        setCreateModalVisible(true);
-                      }}>
-                        <Icon name="add" size={16} color="#2563EB" />
-                        <Text style={styles.actionBtnBlueText}>Add Another Slot</Text>
-                      </TouchableOpacity>
+                      {!isPastDate(selectedDate) && (
+                        <TouchableOpacity style={[styles.actionBtnBlue, { marginTop: 16, alignSelf: 'center' }]} onPress={() => {
+                          setCreateDate(selectedDate);
+                          setCreateModalVisible(true);
+                        }}>
+                          <Icon name="add" size={16} color="#2563EB" />
+                          <Text style={styles.actionBtnBlueText}>Add Another Slot</Text>
+                        </TouchableOpacity>
+                      )}
                     </>
                   )}
                 </ScrollView>
@@ -1016,39 +1254,33 @@ export default function AdminSlotManagementScreen() {
                   <Text style={styles.formSectionTitle}>2. Date & Session Details</Text>
 
                   <Text style={styles.fieldLabel}>PRACTICAL DATE *</Text>
-                  <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
-                    <Icon name="calendar" size={18} color="#F58220" style={{ marginRight: 8 }} />
-                    <Text style={styles.datePickerBtnText}>{createDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</Text>
-                  </TouchableOpacity>
-                  {showDatePicker && (
-                    <DateTimePicker
-                      value={createDate}
-                      mode="date"
-                      display="default"
-                      onChange={(e, d) => {
-                        setShowDatePicker(false);
-                        if (d) setCreateDate(d);
-                      }}
-                    />
-                  )}
+                  <PickerField
+                    icon="calendar"
+                    isDark={isDark}
+                    label={createDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                    onPress={() => {
+                      setDatePickerPurpose('create');
+                      setShowDatePicker(true);
+                    }}
+                  />
 
                   <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.fieldLabel}>START TIME *</Text>
-                      <TextInput
-                        style={styles.textInputBox}
-                        placeholder="09:00"
-                        value={createStartTime}
-                        onChangeText={setCreateStartTime}
+                      <PickerField
+                        icon="time-outline"
+                        isDark={isDark}
+                        label={createStartTime || 'Select'}
+                        onPress={() => setTimePickerTarget({ kind: 'single', field: 'start' })}
                       />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.fieldLabel}>END TIME *</Text>
-                      <TextInput
-                        style={styles.textInputBox}
-                        placeholder="12:00"
-                        value={createEndTime}
-                        onChangeText={setCreateEndTime}
+                      <PickerField
+                        icon="time-outline"
+                        isDark={isDark}
+                        label={createEndTime || 'Select'}
+                        onPress={() => setTimePickerTarget({ kind: 'single', field: 'end' })}
                       />
                     </View>
                   </View>
@@ -1105,6 +1337,21 @@ export default function AdminSlotManagementScreen() {
                 <View style={{ marginTop: 16 }}>
                   <Text style={styles.formSectionTitle}>2. Slot Details & Schedule</Text>
 
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                    <View>
+                      <Text style={{ fontSize: 11, color: '#64748B', fontWeight: 'bold' }}>SCHEDULE WEEK</Text>
+                      <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#0F172A' }}>Week of {getLocalDateString(weekStart)}</Text>
+                    </View>
+                    {isPastDate(new Date(new Date(weekStart).getTime() + 6 * 86400000)) && (
+                      <TouchableOpacity
+                        style={{ backgroundColor: '#F58220', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 }}
+                        onPress={() => setWeekStart(getMonday(new Date()))}
+                      >
+                        <Text style={{ color: '#FFF', fontSize: 11.5, fontWeight: 'bold' }}>Switch to Current Week</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
                   {newSlots.map((slot, idx) => (
                     <View key={idx} style={styles.newSlotCard}>
                       <View style={styles.newSlotHeader}>
@@ -1118,36 +1365,50 @@ export default function AdminSlotManagementScreen() {
 
                       <Text style={styles.fieldLabel}>DAY OF WEEK *</Text>
                       <View style={styles.daysWrap}>
-                        {DAYS.map(d => (
-                          <TouchableOpacity
-                            key={d}
-                            style={[styles.dayPill, slot.day_of_week === d && styles.dayPillActive]}
-                            onPress={() => updateNewSlot(idx, 'day_of_week', d)}
-                          >
-                            <Text style={slot.day_of_week === d ? styles.dayPillTextActive : styles.dayPillText}>
-                              {d.slice(0, 3)}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
+                        {DAYS.map(d => {
+                          const slotDate = getSlotActualDate(getLocalDateString(weekStart), d);
+                          const isDayPassed = isPastDate(slotDate);
+                          return (
+                            <TouchableOpacity
+                              key={d}
+                              style={[
+                                styles.dayPill,
+                                slot.day_of_week === d && styles.dayPillActive,
+                                isDayPassed && { opacity: 0.45, backgroundColor: '#E2E8F0', borderColor: '#CBD5E1' }
+                              ]}
+                              onPress={() => {
+                                if (isDayPassed) {
+                                  showAlert('Past Day', `${d} of this week has already passed. Past days are view-only.`, undefined, 'error');
+                                  return;
+                                }
+                                updateNewSlot(idx, 'day_of_week', d);
+                              }}
+                            >
+                              <Text style={slot.day_of_week === d ? styles.dayPillTextActive : [styles.dayPillText, isDayPassed && { color: '#94A3B8' }]}>
+                                {d.slice(0, 3)}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
                       </View>
 
                       <View style={{ flexDirection: 'row', gap: 12, marginTop: 10 }}>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.fieldLabel}>START TIME *</Text>
-                          <TextInput
-                            style={styles.textInputBox}
-                            placeholder="09:00"
-                            value={slot.start_time}
-                            onChangeText={t => updateNewSlot(idx, 'start_time', t)}
+                          <PickerField
+                            icon="time-outline"
+                            isDark={isDark}
+                            label={slot.start_time || 'Select'}
+                            onPress={() => setTimePickerTarget({ kind: 'batch', field: 'start', index: idx })}
                           />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.fieldLabel}>END TIME *</Text>
-                          <TextInput
-                            style={styles.textInputBox}
-                            placeholder="12:00"
-                            value={slot.end_time}
-                            onChangeText={t => updateNewSlot(idx, 'end_time', t)}
+                          <PickerField
+                            icon="time-outline"
+                            isDark={isDark}
+                            label={slot.end_time || 'Select'}
+                            onPress={() => setTimePickerTarget({ kind: 'batch', field: 'end', index: idx })}
                           />
                         </View>
                       </View>
@@ -1607,7 +1868,17 @@ export default function AdminSlotManagementScreen() {
         <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
           <TouchableOpacity
             style={styles.liquidFabButton}
-            onPress={() => setCreateModalVisible(true)}
+            onPress={() => {
+              const today = new Date();
+              if (isPastDate(createDate)) {
+                setCreateDate(today);
+              }
+              const currentMonday = getMonday(today);
+              if (weekStart < currentMonday) {
+                setWeekStart(currentMonday);
+              }
+              setCreateModalVisible(true);
+            }}
             onPressIn={handleFabPressIn}
             onPressOut={handleFabPressOut}
             activeOpacity={0.9}
@@ -1619,6 +1890,57 @@ export default function AdminSlotManagementScreen() {
           </TouchableOpacity>
         </Animated.View>
       </View>
+
+      {/* Practical Date Picker Modal */}
+      <DatePickerModal
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        selectedDate={datePickerPurpose === 'create' ? createDate : selectedDate}
+        minDate={datePickerPurpose === 'create' ? new Date() : undefined}
+        isDark={isDark}
+        title={datePickerPurpose === 'create' ? 'Select Practical Date' : 'Navigate to Date'}
+        onSelectDate={(newDate) => {
+          if (datePickerPurpose === 'create') {
+            if (isPastDate(newDate)) {
+              showAlert('Past Date', 'Cannot create a slot for a past date. Past dates are view-only.', undefined, 'error');
+              return;
+            }
+            setCreateDate(newDate);
+          } else {
+            setSelectedDate(newDate);
+            setWeekStart(getMonday(newDate));
+          }
+        }}
+      />
+
+      {/* Month Picker Modal */}
+      <MonthPickerModal
+        visible={showMonthPicker}
+        onClose={() => setShowMonthPicker(false)}
+        selectedYear={selectedDate.getFullYear()}
+        selectedMonth={selectedDate.getMonth()}
+        isDark={isDark}
+        title="Jump to Month & Year"
+        onSelectMonth={(year, month) => {
+          const newD = new Date(year, month, 1);
+          setSelectedDate(newD);
+          setWeekStart(getMonday(newD));
+        }}
+      />
+
+      {/* Time Picker Modal */}
+      <TimePickerModal
+        visible={!!timePickerTarget}
+        onClose={() => setTimePickerTarget(null)}
+        selectedTime={getActivePickerTime()}
+        isDark={isDark}
+        title={
+          timePickerTarget?.field === 'start'
+            ? 'Select Start Time'
+            : 'Select End Time'
+        }
+        onSelectTime={handleTimeSelect}
+      />
     </SafeAreaView>
   );
 }
@@ -1830,13 +2152,159 @@ const styles = StyleSheet.create({
   slotBlockTitle: { fontSize: 10, fontWeight: 'bold', color: '#1E3A8A' },
   slotBlockTime: { fontSize: 9, color: '#1E3A8A' },
 
-  monthGridContainer: { flex: 1, padding: 16 },
-  monthHeaderRow: { flexDirection: 'row', marginBottom: 8 },
-  monthHeaderText: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 'bold', color: '#6B7280' },
-  monthDaysWrapper: { flexDirection: 'row', flexWrap: 'wrap' },
-  monthCell: { width: '14.28%', height: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: '#E5E7EB' },
-  monthCellText: { fontSize: 14, color: '#1F2937' },
-  monthSlotIndicator: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#F97316', marginTop: 4 },
+  monthCardContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '0 4px 20px rgba(15, 23, 42, 0.08)' },
+      default: { elevation: 3 }
+    }),
+  },
+  monthCardContainerDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  monthCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  monthCardTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  monthCardSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  monthPickerQuickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  monthPickerQuickBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
+  monthHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingVertical: 10,
+  },
+  monthHeaderText: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  monthDaysWrapper: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  monthCell: {
+    width: '14.28%',
+    height: 72,
+    padding: 6,
+    borderWidth: 0.5,
+    borderColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-between',
+  },
+  monthDayHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dayNumberBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  todayNumberBadge: {
+    backgroundColor: '#F58220',
+  },
+  selectedNumberBadge: {
+    backgroundColor: '#0F172A',
+  },
+  monthCellText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  todayNumberText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  selectedNumberText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  monthSlotCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  monthSlotIndicatorDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#F58220',
+    marginRight: 3,
+  },
+  monthSlotCountText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
+  monthLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F8FAFC',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  legendText: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: '#64748B',
+  },
 
   createScroll: { flex: 1, padding: 16 },
   modeToggleRow: { flexDirection: 'row', backgroundColor: '#F1F5F9', padding: 4, borderRadius: 26, marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0' },
@@ -1862,6 +2330,51 @@ const styles = StyleSheet.create({
   dayPillActive: { backgroundColor: '#F58220', borderColor: '#F58220' },
   dayPillText: { fontSize: 12, color: '#475569', fontWeight: '500' },
   dayPillTextActive: { fontSize: 12, color: '#FFFFFF', fontWeight: 'bold' },
+  pastDateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  pastDateBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  pastDateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  pastDateBannerText: {
+    fontSize: 13,
+    color: '#9A3412',
+    fontWeight: '500',
+    flex: 1,
+  },
+  quickDateBtn: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  quickDateBtnText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
   addMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: '#F58220', borderRadius: 10, marginBottom: 16 },
   addMoreText: { color: '#F58220', fontWeight: 'bold', fontSize: 14 },
   submitCreateBtn: {

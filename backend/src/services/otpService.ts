@@ -6,13 +6,14 @@ import { sendOtpEmail } from './emailService';
 const OTP_EXPIRY_MINUTES = 10;
 const RESEND_COOLDOWN_SECONDS = 60;
 const MAX_VERIFICATION_ATTEMPTS = 5;
+const VERIFICATION_VALIDITY_MS = 2 * 60 * 60 * 1000;
 
 export interface OtpResult {
   success: boolean;
   message: string;
   verified?: boolean;
   cooldownRemaining?: number;
-  devOtp?: string;
+  code?: 'EMAIL_DELIVERY_UNAVAILABLE';
 }
 
 /**
@@ -34,7 +35,7 @@ export const generate6DigitOtp = (): string => {
  * Sends a 6-digit OTP to the given email address.
  * Enforces a 60-second resend cooldown and 10-minute expiry.
  */
-export const sendOtp = async (rawEmail: string): Promise<OtpResult> => {
+export const sendOtp = async (rawEmail: unknown): Promise<OtpResult> => {
   if (!rawEmail || typeof rawEmail !== 'string') {
     return { success: false, message: 'A valid email address is required' };
   }
@@ -62,51 +63,56 @@ export const sendOtp = async (rawEmail: string): Promise<OtpResult> => {
   const otp = generate6DigitOtp();
   const salt = await bcrypt.genSalt(10);
   const otp_hash = await bcrypt.hash(otp, salt);
-  const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-  // Upsert OTP record
+  // Leave the previous challenge and its cooldown untouched if delivery fails.
+  // A user can immediately retry, and an earlier delivered code still works.
+  try {
+    await sendOtpEmail({ to: email, otp });
+  } catch (mailError: any) {
+    console.error('Failed to send registration OTP email:', {
+      code: mailError?.code,
+      command: mailError?.command,
+      responseCode: mailError?.responseCode,
+    });
+    return {
+      success: false,
+      code: 'EMAIL_DELIVERY_UNAVAILABLE',
+      message: 'Unable to deliver the verification email. Please try again shortly or contact the institute.',
+    };
+  }
+
+  const sentAt = new Date();
   await OtpVerification.findOneAndUpdate(
     { email },
     {
       email,
       otp_hash,
-      expires_at,
+      expires_at: new Date(sentAt.getTime() + OTP_EXPIRY_MINUTES * 60 * 1000),
       attempts: 0,
       verified: false,
       verified_at: null,
-      last_sent_at: new Date(),
+      last_sent_at: sentAt,
     },
     { upsert: true, new: true }
   );
 
-  // Send email via Nodemailer
-  try {
-    const mailResult = await sendOtpEmail({ to: email, otp });
-    if (mailResult.simulated) {
-      return {
-        success: true,
-        message: `OTP Code is [ ${otp} ]. (Note: Configure SMTP in backend/.env to deliver real emails to inbox)`,
-        devOtp: otp,
-      };
-    }
-  } catch (mailError: any) {
-    console.error('Failed to send OTP email:', mailError);
-    return { success: false, message: 'Unable to send OTP email. Please check your SMTP configuration.' };
-  }
-
-  return { success: true, message: 'OTP sent successfully to your email.' };
+  return { success: true, message: 'Verification code sent to your email.', cooldownRemaining: RESEND_COOLDOWN_SECONDS };
 };
 
 /**
  * Verifies the OTP provided by the user.
  */
-export const verifyOtp = async (rawEmail: string, rawOtp: string): Promise<OtpResult> => {
-  if (!rawEmail || !rawOtp) {
+export const verifyOtp = async (rawEmail: unknown, rawOtp: unknown): Promise<OtpResult> => {
+  if (typeof rawEmail !== 'string' || !rawEmail.trim() || typeof rawOtp !== 'string' || !rawOtp.trim()) {
     return { success: false, message: 'Email and OTP are required' };
   }
 
   const email = rawEmail.toLowerCase().trim();
-  const otp = String(rawOtp).trim();
+  const otp = rawOtp.trim();
+
+  if (!isValidEmail(email)) {
+    return { success: false, message: 'Please provide a valid email format' };
+  }
 
   if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
     return { success: false, message: 'Invalid OTP. Please enter a 6-digit code.' };
@@ -120,7 +126,10 @@ export const verifyOtp = async (rawEmail: string, rawOtp: string): Promise<OtpRe
 
   // Already verified?
   if (record.verified) {
-    return { success: true, verified: true, message: 'Email already verified' };
+    if (record.verified_at && new Date(record.verified_at).getTime() > Date.now() - VERIFICATION_VALIDITY_MS) {
+      return { success: true, verified: true, message: 'Email already verified' };
+    }
+    return { success: false, message: 'Email verification has expired. Please request a new OTP.' };
   }
 
   // Exceeded maximum attempts?
@@ -163,14 +172,14 @@ export const verifyOtp = async (rawEmail: string, rawOtp: string): Promise<OtpRe
  * Verifies whether the email address has an active, valid verification record.
  * Must be verified within the last 2 hours.
  */
-export const isEmailVerified = async (rawEmail: string): Promise<boolean> => {
-  if (!rawEmail) return false;
+export const isEmailVerified = async (rawEmail: unknown): Promise<boolean> => {
+  if (typeof rawEmail !== 'string' || !rawEmail.trim()) return false;
   const email = rawEmail.toLowerCase().trim();
   const record = await OtpVerification.findOne({ email, verified: true });
   if (!record || !record.verified_at) return false;
 
   // Ensure verification occurred within 2 hours
-  const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+  const twoHoursAgo = Date.now() - VERIFICATION_VALIDITY_MS;
   return new Date(record.verified_at).getTime() > twoHoursAgo;
 };
 

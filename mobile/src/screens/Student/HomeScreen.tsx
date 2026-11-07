@@ -24,7 +24,7 @@ import ScreenBackground from '../../components/shared/ScreenBackground';
 export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadCount?: number }) {
   const { user } = useContext(AuthContext) as any;
   const navigation = useNavigation<any>();
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark } = useTheme();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [bookmarkedLessons, setBookmarkedLessons] = useState<{ [key: string]: boolean }>({});
@@ -132,19 +132,6 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <TouchableOpacity
-              onPress={toggleTheme}
-              style={styles.themeToggleCapsule}
-              activeOpacity={0.8}
-              accessibilityLabel={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
-            >
-              <Icon
-                name={isDark ? 'sunny-outline' : 'moon-outline'}
-                size={16}
-                color="#F59E0B"
-              />
-            </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.bellBtn}
               onPress={() => navigation.navigate('Notifications')}
@@ -742,16 +729,6 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 100,
     backgroundColor: 'rgba(14, 165, 233, 0.12)',
-  },
-  themeToggleCapsule: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
 
   /* Dark Mode Variants */

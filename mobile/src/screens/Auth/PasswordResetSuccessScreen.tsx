@@ -22,7 +22,7 @@ export default function PasswordResetSuccessScreen() {
   const insets = useSafeAreaInsets();
 
   // Theme mode: 'light' | 'dark'
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark } = useTheme();
   const isLight = !isDark;
 
   const handleGoToLogin = () => {
@@ -65,28 +65,6 @@ export default function PasswordResetSuccessScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]} edges={['top', 'bottom']}>
-      {/* Floating Dark / Light Theme Toggle Button */}
-      <View style={[styles.topBarContainer, { paddingTop: Math.max(insets.top, 16) }]}>
-        <TouchableOpacity
-          style={[
-            styles.themeToggleBtn,
-            isLight ? styles.themeToggleBtnLight : styles.themeToggleBtnDark,
-          ]}
-          onPress={toggleTheme}
-          activeOpacity={0.82}
-          accessibilityLabel={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
-        >
-          <Icon
-            name={isLight ? 'moon-outline' : 'sunny-outline'}
-            size={17}
-            color={isLight ? '#334155' : '#F59E0B'}
-          />
-          <Text style={[styles.themeToggleText, { color: isLight ? '#1E293B' : '#F1F5F9' }]}>
-            {isLight ? 'Dark Mode' : 'Light Mode'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Background Image */}
       <Image
         source={
@@ -226,52 +204,6 @@ export default function PasswordResetSuccessScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-
-  /* ---------- Top Bar / Floating Theme Toggle ---------- */
-  topBarContainer: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    zIndex: 100,
-    paddingHorizontal: 28,
-    paddingTop: 18,
-  },
-  themeToggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 22,
-    borderWidth: 1,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
-    ...(Platform.OS === 'web'
-      ? ({
-        cursor: 'pointer',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        userSelect: 'none',
-        transition: 'all 0.25s ease',
-      } as any)
-      : {}),
-  },
-  themeToggleBtnLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.36)',
-    borderColor: 'rgba(226, 232, 240, 0.95)',
-  },
-  themeToggleBtnDark: {
-    backgroundColor: 'rgba(20, 27, 38, 0.85)',
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-  },
-  themeToggleText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    letterSpacing: 0.1,
   },
 
   /* ---------- Mobile Layout Styles ---------- */
