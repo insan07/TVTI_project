@@ -260,9 +260,30 @@ export default function PracticeSessionsScreen() {
     try {
       await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}/reject-cancellation`);
       showAlert('Success', 'Cancellation rejected', () => handleViewBookings(selectedSlot), 'success');
+      fetchSlots();
     } catch (e: any) {
       showAlert('Error', e.response?.data?.message || 'Failed to reject cancellation', undefined, 'error');
     }
+  };
+
+  const handleRemoveBooking = (bookingId: string, studentName: string) => {
+    setConfirmModal({
+      visible: true,
+      title: 'Cancel Booking',
+      message: `Remove ${studentName} from this practical slot?`,
+      type: 'danger',
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}`);
+          showAlert('Success', 'Student removed from slot', () => handleViewBookings(selectedSlot), 'success');
+          fetchSlots();
+        } catch (e: any) {
+          showAlert('Error', e.response?.data?.message || 'Failed to remove booking', undefined, 'error');
+        }
+      }
+    });
   };
 
   // Create Form State
@@ -526,6 +547,13 @@ export default function PracticeSessionsScreen() {
               <Text style={[styles.cardTagText, isDark && { color: '#FB923C' }]}>PRACTICAL SLOT</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {slot.pending_cancellation_count > 0 && !isExpired && (
+                <View style={{ backgroundColor: '#FEF3C7', borderColor: '#FDE68A', borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 6 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#D97706' }}>
+                    {slot.pending_cancellation_count} CANCEL REQ
+                  </Text>
+                </View>
+              )}
               {isExpired && (
                 <View style={[styles.pastTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)' }, { marginRight: 6 }]}>
                   <Text style={[styles.pastTagText, isDark && { color: '#94A3B8' }]}>EXPIRED</Text>
@@ -1290,15 +1318,24 @@ export default function PracticeSessionsScreen() {
                           </View>
                         )}
                       </View>
-                      {b.status === 'cancellation_requested' && !(selectedSlot && isSlotExpired(selectedSlot)) && (
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                          <TouchableOpacity style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }} onPress={() => handleApproveCancellation(b._id)}>
-                            <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Approve</Text>
+                      {!(selectedSlot && isSlotExpired(selectedSlot)) && (
+                        b.status === 'cancellation_requested' ? (
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <TouchableOpacity style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }} onPress={() => handleApproveCancellation(b._id)}>
+                              <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Approve</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={{ backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }} onPress={() => handleRejectCancellation(b._id)}>
+                              <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Reject</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#FEF2F2', borderColor: '#FECACA', borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 }}
+                            onPress={() => handleRemoveBooking(b._id, b.student_id?.name || 'Student')}
+                          >
+                            <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '700' }}>Remove</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity style={{ backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }} onPress={() => handleRejectCancellation(b._id)}>
-                            <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Reject</Text>
-                          </TouchableOpacity>
-                        </View>
+                        )
                       )}
                     </View>
                   ))

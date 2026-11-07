@@ -403,6 +403,10 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                         <View style={[styles.cancelBookingButton, { borderColor: '#F59E0B' }, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
                           <Text style={[styles.cancelBookingButtonText, { color: '#F59E0B' }]}>Pending Cancellation</Text>
                         </View>
+                      ) : !slot.is_open ? (
+                        <View style={[styles.fullStatusContainer, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                          <Text style={[styles.fullText, isDark && { color: '#94A3B8' }]}>BOOKED (SLOT LOCKED)</Text>
+                        </View>
                       ) : (
                         <TouchableOpacity
                           style={[styles.cancelBookingButton, isDark && { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderColor: '#EF4444' }]}

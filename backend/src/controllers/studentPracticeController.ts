@@ -35,27 +35,30 @@ export const getOpenSlots = async (req: AuthRequest, res: Response): Promise<voi
     const enrolled = await Enrollment.findOne({ student_id: req.user?._id, batch_id: batchId, status: 'active' });
     if (!enrolled) { res.status(403).json({ message: 'Not enrolled in this batch' }); return; }
 
-    const query: any = { batch_id: batchId, is_open: true };
+    const query: any = { batch_id: batchId };
     if (weekStart) {
       const normalized = new Date(weekStart as string);
       normalized.setUTCHours(0, 0, 0, 0);
       query.week_start_date = normalized;
     }
 
-    const slots = await PracticeSlot.find(query)
+    const allBatchSlots = await PracticeSlot.find(query)
       .populate('instructor_id', 'name')
       .sort({ day_of_week: 1, start_time: 1 });
 
-    const slotIds = slots.map(s => s._id);
+    const allSlotIds = allBatchSlots.map(s => s._id);
     const [counts, myBookings] = await Promise.all([
       SlotBooking.aggregate([
-        { $match: { slot_id: { $in: slotIds }, status: { $in: ['confirmed', 'cancellation_requested'] } } },
+        { $match: { slot_id: { $in: allSlotIds }, status: { $in: ['confirmed', 'cancellation_requested'] } } },
         { $group: { _id: '$slot_id', count: { $sum: 1 } } }
       ]),
-      SlotBooking.find({ slot_id: { $in: slotIds }, student_id: req.user?._id, status: { $in: ['confirmed', 'cancellation_requested'] } }).select('slot_id status')
+      SlotBooking.find({ slot_id: { $in: allSlotIds }, student_id: req.user?._id, status: { $in: ['confirmed', 'cancellation_requested'] } }).select('slot_id status')
     ]);
 
     const myBookedSlotMap = new Map(myBookings.map(b => [String(b.slot_id), b.status]));
+
+    // Include open slots AND any locked slot that this student has already booked
+    const slots = allBatchSlots.filter(s => s.is_open || myBookedSlotMap.has(String(s._id)));
 
     const result = slots.map(s => {
       const booked = counts.find(x => String(x._id) === String(s._id))?.count || 0;
@@ -103,6 +106,9 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
+    // Clean up any old cancelled record for this student+slot before creating a new booking
+    await SlotBooking.deleteMany({ slot_id: slot._id, student_id: req.user?._id, status: 'cancelled' });
+
     const booking = await SlotBooking.create({ slot_id: slot._id, student_id: req.user?._id });
 
     // Notify instructor
@@ -143,6 +149,10 @@ export const cancelBooking = async (req: AuthRequest, res: Response): Promise<vo
     const slot = await PracticeSlot.findById(req.params.slotId);
     if (slot && isPracticeSlotExpired(slot)) {
       res.status(400).json({ message: 'Cannot cancel a booking for an expired practical slot.' });
+      return;
+    }
+    if (slot && !slot.is_open) {
+      res.status(400).json({ message: 'Cannot cancel a booking for a locked practical slot. Please contact your instructor.' });
       return;
     }
 

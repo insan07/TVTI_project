@@ -66,12 +66,19 @@ export default function UserManagementScreen() {
   let initialMode: ModeType = 'applications';
   let initialView: 'hub' | 'detail' = 'hub';
 
-  if (route?.params?.initialTab) {
+  if (route?.params?.initialActivity) {
+    initialView = 'detail';
+    const act = route.params.initialActivity;
+    if (act === 'applications' || act === 'students' || act === 'payments' || act === 'instructors') {
+      initialMode = act;
+    }
+  } else if (route?.params?.initialTab) {
     initialView = 'detail';
     const tab = route.params.initialTab;
     if (tab === 'pending') initialMode = 'applications';
     else if (tab === 'approved') initialMode = 'students';
     else if (tab === 'instructors') initialMode = 'instructors';
+    else if (tab === 'payments') initialMode = 'payments';
   }
 
   const [currentView, setCurrentView] = useState<'hub' | 'detail'>(initialView);
@@ -80,6 +87,21 @@ export default function UserManagementScreen() {
   const [studentsSubFilter, setStudentsSubFilter] = useState<StudentsSubFilter>('all');
   const [paymentsSubFilter, setPaymentsSubFilter] = useState<PaymentsSubFilter>('pending');
   const [instructorsSubFilter, setInstructorsSubFilter] = useState<InstructorsSubFilter>('active');
+
+  useEffect(() => {
+    const act = route?.params?.initialActivity;
+    const tab = route?.params?.initialTab;
+    if (act && (act === 'applications' || act === 'students' || act === 'payments' || act === 'instructors')) {
+      setActiveMode(act);
+      setCurrentView('detail');
+    } else if (tab) {
+      if (tab === 'pending') setActiveMode('applications');
+      else if (tab === 'approved') setActiveMode('students');
+      else if (tab === 'instructors') setActiveMode('instructors');
+      else if (tab === 'payments') setActiveMode('payments');
+      setCurrentView('detail');
+    }
+  }, [route?.params?.initialActivity, route?.params?.initialTab]);
 
   const [applicationsList, setApplicationsList] = useState<any[]>([]);
   const [studentsList, setStudentsList] = useState<any[]>([]);

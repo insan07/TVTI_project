@@ -291,12 +291,18 @@ export default function PracticeSessionsScreen() {
                         </View>
 
                         {slot.already_booked && !isExpired ? (
-                          <TouchableOpacity
-                            style={[styles.cancelOutlineButton, isDark && { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
-                            onPress={() => handleCancelBooking(slot._id)}
-                          >
-                            <Text style={[styles.cancelOutlineButtonText, isDark && { color: '#EF4444' }]}>Cancel</Text>
-                          </TouchableOpacity>
+                          slot.booking_status === 'cancellation_requested' ? (
+                            <View style={[styles.cancelOutlineButton, { borderColor: '#F59E0B', backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : '#FFFBEB' }]}>
+                              <Text style={[styles.cancelOutlineButtonText, { color: '#D97706' }]}>Pending Cancellation</Text>
+                            </View>
+                          ) : (
+                            <TouchableOpacity
+                              style={[styles.cancelOutlineButton, isDark && { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
+                              onPress={() => handleCancelBooking(slot._id)}
+                            >
+                              <Text style={[styles.cancelOutlineButtonText, isDark && { color: '#EF4444' }]}>Cancel</Text>
+                            </TouchableOpacity>
+                          )
                         ) : (
                           <TouchableOpacity
                             style={[styles.bookSolidButton, disabled && (isDark ? { backgroundColor: 'rgba(255, 255, 255, 0.08)' } : styles.disabledButton)]}
@@ -364,12 +370,18 @@ export default function PracticeSessionsScreen() {
                         </View>
 
                         {isFuture && (
-                          <TouchableOpacity
-                            style={[styles.cancelOutlineButton, isDark && { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
-                            onPress={() => handleCancelBooking(slot._id)}
-                          >
-                            <Text style={[styles.cancelOutlineButtonText, isDark && { color: '#EF4444' }]}>Cancel</Text>
-                          </TouchableOpacity>
+                          booking.status === 'cancellation_requested' ? (
+                            <View style={[styles.cancelOutlineButton, { borderColor: '#F59E0B', backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : '#FFFBEB' }]}>
+                              <Text style={[styles.cancelOutlineButtonText, { color: '#D97706' }]}>Pending Cancellation</Text>
+                            </View>
+                          ) : (
+                            <TouchableOpacity
+                              style={[styles.cancelOutlineButton, isDark && { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
+                              onPress={() => handleCancelBooking(slot._id)}
+                            >
+                              <Text style={[styles.cancelOutlineButtonText, isDark && { color: '#EF4444' }]}>Cancel</Text>
+                            </TouchableOpacity>
+                          )
                         )}
                       </View>
                     </View>

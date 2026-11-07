@@ -536,6 +536,26 @@ export default function AdminSlotManagementScreen() {
     });
   };
 
+  const handleApproveCancellation = async (bookingId: string) => {
+    try {
+      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}/approve-cancellation`);
+      showAlert('Success', 'Cancellation request approved', () => openBookingsModal(selectedSlot), 'success');
+      fetchSlots();
+    } catch (e: any) {
+      showAlert('Error', e.response?.data?.message || 'Failed to approve cancellation', undefined, 'error');
+    }
+  };
+
+  const handleRejectCancellation = async (bookingId: string) => {
+    try {
+      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}/reject-cancellation`);
+      showAlert('Success', 'Cancellation request declined', () => openBookingsModal(selectedSlot), 'success');
+      fetchSlots();
+    } catch (e: any) {
+      showAlert('Error', e.response?.data?.message || 'Failed to reject cancellation', undefined, 'error');
+    }
+  };
+
   const openAddStudentModal = async () => {
     if (!selectedSlot?.batch_id?._id) return;
     setAddStudentModalVisible(true);
@@ -802,6 +822,13 @@ export default function AdminSlotManagementScreen() {
           <View style={styles.cardHeaderRow}>
             <View style={[styles.cardTag, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}><Text style={styles.cardTagText}>PRACTICAL SLOT</Text></View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              {slot.pending_cancellation_count > 0 && !isExpired && (
+                <View style={{ backgroundColor: '#FEF3C7', borderColor: '#FDE68A', borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 6 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#D97706' }}>
+                    {slot.pending_cancellation_count} CANCEL REQ
+                  </Text>
+                </View>
+              )}
               {isExpired && (
                 <View style={[styles.pastTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)' }, { marginRight: 6 }]}>
                   <Text style={[styles.pastTagText, isDark && { color: '#94A3B8' }]}>EXPIRED</Text>
@@ -1897,14 +1924,43 @@ export default function AdminSlotManagementScreen() {
                       <Text style={styles.studentMeta}>
                         Index: {item.student_id?.index_number || 'N/A'} • {item.student_id?.phone || item.student_id?.email || ''}
                       </Text>
+                      {item.status === 'cancellation_requested' && (
+                        <View style={{ marginTop: 3 }}>
+                          <Text style={{ fontSize: 12, color: '#D97706', fontWeight: '700' }}>
+                            Cancellation Requested
+                          </Text>
+                          {item.cancellation_reason ? (
+                            <Text style={{ fontSize: 11.5, color: '#64748B', fontStyle: 'italic', marginTop: 1 }}>
+                              Reason: {item.cancellation_reason}
+                            </Text>
+                          ) : null}
+                        </View>
+                      )}
                     </View>
                     {!isSlotExpired(selectedSlot) && (
-                      <TouchableOpacity
-                        style={styles.removeBookingBtn}
-                        onPress={() => handleRemoveBooking(item._id, item.student_id?.name || 'Student')}
-                      >
-                        <Text style={styles.removeBookingText}>Remove</Text>
-                      </TouchableOpacity>
+                      item.status === 'cancellation_requested' ? (
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
+                            onPress={() => handleApproveCancellation(item._id)}
+                          >
+                            <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '700' }}>Approve</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
+                            onPress={() => handleRejectCancellation(item._id)}
+                          >
+                            <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '700' }}>Reject</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.removeBookingBtn}
+                          onPress={() => handleRemoveBooking(item._id, item.student_id?.name || 'Student')}
+                        >
+                          <Text style={styles.removeBookingText}>Remove</Text>
+                        </TouchableOpacity>
+                      )
                     )}
                   </View>
                 )}

@@ -232,14 +232,21 @@ export const getMySlots = async (req: AuthRequest, res: Response): Promise<void>
       .sort({ week_start_date: 1, day_of_week: 1, start_time: 1 });
 
     const slotIds = slots.map(s => s._id);
-    const counts = await SlotBooking.aggregate([
-      { $match: { slot_id: { $in: slotIds }, status: 'confirmed' } },
-      { $group: { _id: '$slot_id', count: { $sum: 1 } } }
+    const [counts, pendingCancelCounts] = await Promise.all([
+      SlotBooking.aggregate([
+        { $match: { slot_id: { $in: slotIds }, status: { $in: ['confirmed', 'cancellation_requested'] } } },
+        { $group: { _id: '$slot_id', count: { $sum: 1 } } }
+      ]),
+      SlotBooking.aggregate([
+        { $match: { slot_id: { $in: slotIds }, status: 'cancellation_requested' } },
+        { $group: { _id: '$slot_id', count: { $sum: 1 } } }
+      ])
     ]);
 
     const result = slots.map(s => {
       const c = counts.find(x => String(x._id) === String(s._id))?.count || 0;
-      return { ...s.toObject(), booked_count: c };
+      const pendingC = pendingCancelCounts.find(x => String(x._id) === String(s._id))?.count || 0;
+      return { ...s.toObject(), booked_count: c, pending_cancellation_count: pendingC };
     });
 
     res.json(result);
@@ -526,11 +533,18 @@ export const addStudentBookingByAdmin = async (req: AuthRequest, res: Response):
       return;
     }
 
-    const existing = await SlotBooking.findOne({ slot_id: slot._id, student_id, status: 'confirmed' });
+    const existing = await SlotBooking.findOne({
+      slot_id: slot._id,
+      student_id,
+      status: { $in: ['confirmed', 'cancellation_requested'] }
+    });
     if (existing) {
       res.status(400).json({ message: 'Student is already booked in this slot' });
       return;
     }
+
+    // Remove any previous cancelled record for this student+slot to avoid legacy unique index conflicts
+    await SlotBooking.deleteMany({ slot_id: slot._id, student_id, status: 'cancelled' });
 
     const booking = await SlotBooking.create({
       slot_id: slot._id,
@@ -556,11 +570,10 @@ export const addStudentBookingByAdmin = async (req: AuthRequest, res: Response):
 // POST /api/instructors/practice-slots/:slotId/bookings/:bookingId/approve-cancellation
 export const approveCancellation = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const booking = await SlotBooking.findOneAndUpdate(
-      { _id: req.params.bookingId, status: 'cancellation_requested' },
-      { status: 'cancelled' },
-      { new: true }
-    );
+    const booking = await SlotBooking.findOneAndDelete({
+      _id: req.params.bookingId,
+      status: 'cancellation_requested'
+    });
     if (!booking) { res.status(404).json({ message: 'Pending cancellation not found' }); return; }
 
     const slot = await PracticeSlot.findById(booking.slot_id);
