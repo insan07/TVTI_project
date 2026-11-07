@@ -45,10 +45,11 @@ export interface SendCertificateVerificationOtpMailOptions {
  * Creates and returns a Nodemailer Transporter based on environment variables.
  */
 const getTransporter = () => {
-  const host = process.env.SMTP_HOST;
+  const host = process.env.SMTP_HOST?.trim();
   const port = Number(process.env.SMTP_PORT) || 587;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+  const user = process.env.SMTP_USER?.trim();
+  const rawPass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+  const pass = rawPass ? rawPass.replace(/\s+/g, '') : undefined;
 
   if (!user || !pass) {
     return null;
