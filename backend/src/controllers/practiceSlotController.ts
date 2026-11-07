@@ -106,6 +106,8 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
     }
 
     // Group proposed slots by day_of_week to validate day-by-day
+    const targetInstructorId = (req.user?.role === 'admin' && req.body.instructor_id) ? req.body.instructor_id : req.user?._id;
+
     const slotsByDay: { [key: string]: any[] } = {};
     for (const s of slots) {
       if (!slotsByDay[s.day_of_week]) slotsByDay[s.day_of_week] = [];
@@ -116,7 +118,7 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
       const proposed = slotsByDay[day].map(s => ({
         start_time: s.start_time,
         end_time: s.end_time,
-        instructor_id: String(req.user?._id)
+        instructor_id: String(s.instructor_id || targetInstructorId)
       }));
       const ok = await checkSlotInstructorLimit(normalizedWeekStart, day, proposed);
       if (!ok) {
@@ -126,8 +128,6 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
         return;
       }
     }
-
-    const targetInstructorId = (req.user?.role === 'admin' && req.body.instructor_id) ? req.body.instructor_id : req.user?._id;
 
     const created = await PracticeSlot.insertMany(
       slots.map((s: any) => ({
@@ -139,18 +139,23 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
       }))
     );
 
-    // Send instant notification to enrolled batch students
-    await sendNotification({
-      batchId: batch_id,
-      title: 'New Practice Slots Open',
-      message: 'New practical session slots have been posted for your batch. Book your slot now!',
-      type: 'practice_slots',
-      link: '/schedule'
-    });
+    // Send instant notification to enrolled batch students (non-blocking)
+    try {
+      await sendNotification({
+        batchId: batch_id,
+        title: 'New Practice Slots Open',
+        message: 'New practical session slots have been posted for your batch. Book your slot now!',
+        type: 'practice_slots',
+        link: '/schedule'
+      });
+    } catch (notifErr) {
+      console.warn('[PracticeSlot Notification Warning]:', notifErr);
+    }
 
     res.status(201).json(created);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (error: any) {
+    console.error('[createSlots Error]:', error);
+    res.status(500).json({ message: error?.message || 'Server error' });
   }
 };
 

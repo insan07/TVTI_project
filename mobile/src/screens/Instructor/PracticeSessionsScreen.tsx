@@ -421,7 +421,7 @@ export default function PracticeSessionsScreen() {
   };
 
   const handleCreateSlot = async () => {
-    if (createBatchId === 'all') return showAlert('Validation Error', 'Please select a batch', undefined, 'error');
+    if (!createBatchId || createBatchId === 'all') return showAlert('Validation Error', 'Please select a batch', undefined, 'error');
     if (!createStartTime || !createEndTime) return showAlert('Validation Error', 'Please complete time', undefined, 'error');
 
     if (isPastDate(createDate)) {
