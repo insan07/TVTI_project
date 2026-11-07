@@ -75,6 +75,36 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
     const normalizedWeekStart = new Date(week_start_date);
     normalizedWeekStart.setUTCHours(0, 0, 0, 0);
 
+    // Validate that slots are not created for dates/times in the past
+    const now = new Date();
+    const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    for (const s of slots) {
+      const dayIdx = DAYS_LIST.indexOf(s.day_of_week);
+      const slotDate = new Date(normalizedWeekStart);
+      if (dayIdx !== -1) {
+        slotDate.setUTCDate(slotDate.getUTCDate() + dayIdx);
+      }
+      const timeToCheck = s.end_time || s.start_time || '23:59';
+      const [h, m] = timeToCheck.split(':').map((v: string) => parseInt(v, 10) || 0);
+
+      const slotEndDateTime = new Date(
+        slotDate.getUTCFullYear(),
+        slotDate.getUTCMonth(),
+        slotDate.getUTCDate(),
+        h,
+        m,
+        0,
+        0
+      );
+
+      if (slotEndDateTime.getTime() < now.getTime()) {
+        res.status(400).json({
+          message: `Cannot create slots in the past (${s.day_of_week} ${s.start_time || ''}). Past dates are view-only.`
+        });
+        return;
+      }
+    }
+
     // Group proposed slots by day_of_week to validate day-by-day
     const slotsByDay: { [key: string]: any[] } = {};
     for (const s of slots) {
@@ -204,6 +234,33 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
     const targetStart = start_time !== undefined ? start_time : slot.start_time;
     const targetEnd = end_time !== undefined ? end_time : slot.end_time;
     const targetIsOpen = is_open !== undefined ? is_open : slot.is_open;
+
+    // Validate that past slots cannot be rescheduled, modified, or reopened (view-only)
+    const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const dayIdx = DAYS_LIST.indexOf(targetDay);
+    const slotActualDate = new Date(targetWeekStart);
+    if (dayIdx !== -1) {
+      slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
+    }
+    const [h, m] = (targetEnd || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+    const slotEndDateTime = new Date(
+      slotActualDate.getUTCFullYear(),
+      slotActualDate.getUTCMonth(),
+      slotActualDate.getUTCDate(),
+      h,
+      m,
+      0,
+      0
+    );
+
+    if (slotEndDateTime.getTime() < Date.now()) {
+      if (is_open === true || start_time !== undefined || end_time !== undefined || day_of_week !== undefined) {
+        res.status(400).json({
+          message: 'Past practical slots are view-only and cannot be modified or reopened.'
+        });
+        return;
+      }
+    }
 
     if (targetIsOpen) {
       const proposed = [{
