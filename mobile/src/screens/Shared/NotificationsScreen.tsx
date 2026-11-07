@@ -169,7 +169,13 @@ export default function NotificationsScreen() {
       return;
     }
     if (type === 'announcement') {
-      navigation.navigate('StudentApp', { screen: 'Home' });
+      navigation.navigate('StudentApp', {
+        screen: 'Home',
+        params: {
+          openAnnouncements: true,
+          openAnnouncementId: notification?.related_id ? String(notification.related_id) : undefined,
+        },
+      });
       return;
     }
     if (type === 'payment' || type === 'application_update' || type === 'account_status') {

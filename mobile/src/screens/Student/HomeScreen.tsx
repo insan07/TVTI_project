@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,12 +24,16 @@ import ScreenBackground from '../../components/shared/ScreenBackground';
 export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadCount?: number }) {
   const { user } = useContext(AuthContext) as any;
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { isDark } = useTheme();
   const [data, setData] = useState<any>(null);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [localUnreadCount, setLocalUnreadCount] = useState<number | null>(null);
   const [bookmarkedLessons, setBookmarkedLessons] = useState<{ [key: string]: boolean }>({});
   const [instructorModalVisible, setInstructorModalVisible] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<any | null>(null);
+  const [allAnnouncementsModalVisible, setAllAnnouncementsModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
 
   useFocusEffect(
@@ -40,11 +44,14 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
 
   const fetchDashboard = async () => {
     try {
-      const [res, notifRes] = await Promise.all([
+      const [res, notifRes, annRes] = await Promise.all([
         api.get('/students/home'),
         api.get('/notifications/unread-count').catch(() => null),
+        api.get('/students/announcements').catch(() => null),
       ]);
       setData(res.data);
+      const fetchedAnnouncements = annRes?.data || res.data?.announcements || [];
+      setAnnouncements(fetchedAnnouncements);
       if (notifRes?.data && typeof notifRes.data.unread_count === 'number') {
         setLocalUnreadCount(notifRes.data.unread_count);
       }
@@ -53,6 +60,27 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (route?.params?.openAnnouncements && announcements.length > 0) {
+      const targetId = route?.params?.openAnnouncementId;
+      if (targetId) {
+        const matched = announcements.find((a: any) => String(a._id) === String(targetId));
+        if (matched) {
+          setSelectedAnnouncement(matched);
+          return;
+        }
+      }
+      setAllAnnouncementsModalVisible(true);
+    }
+  }, [route?.params?.openAnnouncements, route?.params?.openAnnouncementId, announcements]);
+
+  const formatAnnouncementDate = (dateStr?: string) => {
+    if (!dateStr) return 'Recently';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   const toggleBookmark = (lessonId: string) => {
@@ -305,8 +333,217 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
             );
           })}
         </View>
+
+        {/* ========================================================================= */}
+        {/* SECTION 3: RECENT ANNOUNCEMENTS */}
+        {/* ========================================================================= */}
+        <View style={[styles.sectionHeaderRow, { marginTop: 28 }]}>
+          <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Announcements</Text>
+          {announcements.length > 0 && (
+            <TouchableOpacity onPress={() => setAllAnnouncementsModalVisible(true)} activeOpacity={0.7}>
+              <Text style={styles.watchHistoryText}>View All ({announcements.length})</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {announcements.length === 0 ? (
+          <View style={[styles.emptyAnnouncementCard, isDark && styles.lessonCardDark]}>
+            <Icon name="megaphone-outline" size={30} color={isDark ? '#64748B' : '#9CA3AF'} />
+            <Text style={[styles.emptyAnnouncementText, isDark && { color: '#94A3B8' }]}>
+              No announcements posted for your batch yet.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.announcementsList}>
+            {announcements.slice(0, 3).map((ann: any) => (
+              <TouchableOpacity
+                key={ann._id}
+                style={[styles.announcementCard, isDark && styles.lessonCardDark]}
+                activeOpacity={0.85}
+                onPress={() => setSelectedAnnouncement(ann)}
+              >
+                <View style={[styles.announcementIconBox, isDark && { backgroundColor: 'rgba(245, 130, 32, 0.16)' }]}>
+                  <Icon name="megaphone-outline" size={20} color="#F58220" />
+                </View>
+                <View style={styles.announcementContentCol}>
+                  <View style={styles.announcementTopMetaRow}>
+                    <View
+                      style={[
+                        styles.announcementBatchBadge,
+                        isDark && { backgroundColor: 'rgba(255,255,255,0.08)' },
+                      ]}
+                    >
+                      <Text style={[styles.announcementBatchBadgeText, isDark && { color: '#FED7AA' }]}>
+                        {ann.batch_id?.name || 'All Students'}
+                      </Text>
+                    </View>
+                    <Text style={[styles.announcementDateText, isDark && { color: '#64748B' }]}>
+                      {formatAnnouncementDate(ann.createdAt)}
+                    </Text>
+                  </View>
+                  <Text style={[styles.announcementTitleText, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
+                    {ann.title}
+                  </Text>
+                  <Text style={[styles.announcementMsgPreview, isDark && { color: '#94A3B8' }]} numberOfLines={2}>
+                    {ann.message}
+                  </Text>
+                  {ann.posted_by?.name && (
+                    <Text style={[styles.announcementAuthorText, isDark && { color: '#64748B' }]}>
+                      Posted by {ann.posted_by.name} ({ann.posted_by.role === 'admin' ? 'Admin' : 'Instructor'})
+                    </Text>
+                  )}
+                </View>
+                <Icon name="chevron-forward" size={18} color={isDark ? '#64748B' : '#9CA3AF'} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
         </View>
       </ScrollView>
+
+      {/* Single Announcement Detail Modal */}
+      <Modal
+        visible={!!selectedAnnouncement}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedAnnouncement(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 460 }, isDark && styles.modalContentDark]}>
+            <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View style={[styles.announcementIconBox, { width: 36, height: 36, marginRight: 0 }]}>
+                  <Icon name="megaphone" size={18} color="#F58220" />
+                </View>
+                <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
+                  Announcement Details
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedAnnouncement(null)}>
+                <Icon name="close" size={24} color={isDark ? '#94A3B8' : '#4B5563'} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedAnnouncement && (
+              <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ padding: 20 }}>
+                <View style={[styles.announcementTopMetaRow, { marginBottom: 10 }]}>
+                  <View
+                    style={[
+                      styles.announcementBatchBadge,
+                      isDark && { backgroundColor: 'rgba(245, 130, 32, 0.18)' },
+                    ]}
+                  >
+                    <Text style={[styles.announcementBatchBadgeText, isDark && { color: '#FED7AA' }]}>
+                      {selectedAnnouncement.batch_id?.name || 'All Students'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.announcementDateText, isDark && { color: '#94A3B8' }]}>
+                    {formatAnnouncementDate(selectedAnnouncement.createdAt)}
+                  </Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.announcementTitleText,
+                    { fontSize: 18, marginBottom: 10 },
+                    isDark && { color: '#FFFFFF' },
+                  ]}
+                >
+                  {selectedAnnouncement.title}
+                </Text>
+
+                <View
+                  style={[
+                    styles.modalInfoBox,
+                    { marginBottom: 14 },
+                    isDark && styles.modalInfoBoxDark,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.announcementFullMessage,
+                      isDark && { color: '#E2E8F0' },
+                    ]}
+                  >
+                    {selectedAnnouncement.message}
+                  </Text>
+                </View>
+
+                {selectedAnnouncement.posted_by?.name && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Icon name="person-circle-outline" size={18} color="#F58220" />
+                    <Text style={[styles.announcementAuthorText, { marginTop: 0 }, isDark && { color: '#94A3B8' }]}>
+                      Posted by {selectedAnnouncement.posted_by.name} (
+                      {selectedAnnouncement.posted_by.role === 'admin' ? 'Admin' : 'Instructor'})
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* All Announcements Modal */}
+      <Modal
+        visible={allAnnouncementsModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setAllAnnouncementsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 500, maxHeight: '82%' }, isDark && styles.modalContentDark]}>
+            <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+              <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>
+                All Announcements ({announcements.length})
+              </Text>
+              <TouchableOpacity onPress={() => setAllAnnouncementsModalVisible(false)}>
+                <Icon name="close" size={24} color={isDark ? '#94A3B8' : '#4B5563'} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 10 }}>
+              {announcements.map((ann: any) => (
+                <TouchableOpacity
+                  key={ann._id}
+                  style={[styles.announcementCard, isDark && styles.lessonCardDark]}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    setAllAnnouncementsModalVisible(false);
+                    setSelectedAnnouncement(ann);
+                  }}
+                >
+                  <View style={[styles.announcementIconBox, isDark && { backgroundColor: 'rgba(245, 130, 32, 0.16)' }]}>
+                    <Icon name="megaphone-outline" size={20} color="#F58220" />
+                  </View>
+                  <View style={styles.announcementContentCol}>
+                    <View style={styles.announcementTopMetaRow}>
+                      <View
+                        style={[
+                          styles.announcementBatchBadge,
+                          isDark && { backgroundColor: 'rgba(255,255,255,0.08)' },
+                        ]}
+                      >
+                        <Text style={[styles.announcementBatchBadgeText, isDark && { color: '#FED7AA' }]}>
+                          {ann.batch_id?.name || 'All Students'}
+                        </Text>
+                      </View>
+                      <Text style={[styles.announcementDateText, isDark && { color: '#64748B' }]}>
+                        {formatAnnouncementDate(ann.createdAt)}
+                      </Text>
+                    </View>
+                    <Text style={[styles.announcementTitleText, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
+                      {ann.title}
+                    </Text>
+                    <Text style={[styles.announcementMsgPreview, isDark && { color: '#94A3B8' }]} numberOfLines={2}>
+                      {ann.message}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Instructor Profile Modal */}
       <Modal visible={instructorModalVisible} transparent={true} animationType="fade">
@@ -656,6 +893,98 @@ const styles = StyleSheet.create({
   bookmarkTouch: {
     padding: 8,
     marginLeft: 8,
+  },
+  announcementsList: {
+    gap: 12,
+  },
+  announcementCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+    }),
+  },
+  announcementIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#FFF7ED',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  announcementContentCol: {
+    flex: 1,
+    marginRight: 8,
+  },
+  announcementTopMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  announcementBatchBadge: {
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  announcementBatchBadgeText: {
+    fontSize: 10.5,
+    ...FONTS.bold,
+    color: '#EA580C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  announcementDateText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    ...FONTS.medium,
+  },
+  announcementTitleText: {
+    fontSize: 15,
+    ...FONTS.extraBold,
+    color: '#18181B',
+  },
+  announcementMsgPreview: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 3,
+    lineHeight: 18,
+    ...FONTS.regular,
+  },
+  announcementFullMessage: {
+    fontSize: 14.5,
+    color: '#374151',
+    lineHeight: 22,
+    ...FONTS.regular,
+  },
+  announcementAuthorText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 5,
+    ...FONTS.medium,
+  },
+  emptyAnnouncementCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  emptyAnnouncementText: {
+    marginTop: 8,
+    fontSize: 13.5,
+    color: '#9CA3AF',
+    ...FONTS.medium,
   },
   modalOverlay: {
     flex: 1,

@@ -5,6 +5,7 @@ import Notification from '../models/Notification';
 import SlotBooking from '../models/SlotBooking';
 import PracticeSlot from '../models/PracticeSlot';
 import Video from '../models/Video';
+import Announcement from '../models/Announcement';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 export const getMySchedule = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -112,8 +113,21 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
       .limit(3)
       .lean();
 
+    const announcements = await Announcement.find({
+      $or: [
+        { batch_id: { $in: batchIds } },
+        { batch_id: null },
+      ],
+    })
+      .populate('batch_id', 'name')
+      .populate('posted_by', 'name role')
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
     res.json({
       notifications,
+      announcements,
       next_class: nextBatch,
       next_practice: nextPracticeBooking,
       next_available_practice: nextAvailablePractice,
