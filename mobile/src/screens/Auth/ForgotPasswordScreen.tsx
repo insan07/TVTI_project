@@ -125,22 +125,6 @@ export default function ForgotPasswordScreen() {
         isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
       ]}
     >
-      {/* Back to login header action */}
-      <TouchableOpacity
-        onPress={() => {
-          if (navigation?.canGoBack && navigation.canGoBack()) {
-            navigation.goBack();
-          } else {
-            navigation.navigate('Login');
-          }
-        }}
-        style={styles.backButtonRow}
-        activeOpacity={0.7}
-      >
-        <Icon name="arrow-back" size={18} color="#FF6500" style={{ marginRight: 6 }} />
-        <Text style={styles.backButtonText}>Back to Sign In</Text>
-      </TouchableOpacity>
-
       <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
         Forgot Password
       </Text>
@@ -539,22 +523,13 @@ const styles = StyleSheet.create({
     paddingVertical: 36,
     paddingHorizontal: 34,
   },
-  backButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    alignSelf: 'flex-start',
-  },
-  backButtonText: {
-    color: '#FF6500',
-    fontSize: 13,
-    fontWeight: '600',
-  },
   welcomeTitle: {
     fontSize: 25,
     fontWeight: '700',
     marginBottom: 24,
     letterSpacing: -0.2,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   errorBox: {
     flexDirection: 'row',

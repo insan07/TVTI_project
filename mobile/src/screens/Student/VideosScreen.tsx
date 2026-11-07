@@ -25,6 +25,10 @@ import { API_URL } from '../../config/constants';
 import ScreenHeader from '../../components/shared/ScreenHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
+import {
+  enableNativeScreenCaptureProtection,
+  disableNativeScreenCaptureProtection,
+} from '../../utils/screenCaptureProtection';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -67,6 +71,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
 
   useFocusEffect(
     useCallback(() => {
+      enableNativeScreenCaptureProtection();
       api.get('/students/batches').then(res => {
         setBatches(res.data || []);
         if (res.data && res.data.length > 0) {
@@ -75,6 +80,9 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
           fetchContent(targetId);
         }
       }).catch(e => console.warn('Failed to load batches:', e));
+      return () => {
+        disableNativeScreenCaptureProtection();
+      };
     }, [activeBatchId])
   );
 
@@ -140,13 +148,32 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
   const currentBatch = batches.find((b) => b._id === activeBatchId);
   const courseTitle = currentBatch?.course_id?.title || 'Select Course';
 
-  // Group videos by topic/module
-  const groupedVideos = videos.reduce((acc: any, v: any) => {
-    const topic = v.topic || 'General Module';
-    if (!acc[topic]) acc[topic] = [];
-    acc[topic].push(v);
-    return acc;
-  }, {});
+  // Extract all unique modules/topics across both videos and materials in order
+  const allModuleTopics: string[] = [];
+  videos.forEach((v: any) => {
+    const t = v.topic || 'General Module';
+    if (!allModuleTopics.some((existing) => existing.toLowerCase().trim() === t.toLowerCase().trim())) {
+      allModuleTopics.push(t);
+    }
+  });
+  materials.forEach((m: any) => {
+    const t = m.topic || 'General Module';
+    if (!allModuleTopics.some((existing) => existing.toLowerCase().trim() === t.toLowerCase().trim())) {
+      allModuleTopics.push(t);
+    }
+  });
+
+  const getVideosForTopic = (topic: string) => {
+    return videos.filter(
+      (v: any) => (v.topic || 'General Module').toLowerCase().trim() === topic.toLowerCase().trim()
+    );
+  };
+
+  const getMaterialsForTopic = (topic: string) => {
+    return materials.filter(
+      (m: any) => (m.topic || 'General Module').toLowerCase().trim() === topic.toLowerCase().trim()
+    );
+  };
 
   const showVideos = activeFilter === 'all' || activeFilter === 'videos';
   const showPdfs = activeFilter === 'all' || activeFilter === 'pdf';
@@ -231,40 +258,71 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.contentPadding}>
+          {loadingVideos || loadingMaterials ? (
+            <ActivityIndicator size="large" color="#F58220" style={{ marginVertical: 36 }} />
+          ) : allModuleTopics.length > 0 ? (
+            allModuleTopics.map((topic, idx) => {
+              const moduleVideos = getVideosForTopic(topic);
+              const moduleMaterials = getMaterialsForTopic(topic);
 
-          {/* SECTION 1: VIDEO LECTURES (YOUTUBE WIDESCREEN THUMBNAILS) */}
-          {showVideos && (
-            <View style={styles.contentSectionGroup}>
-              {activeFilter === 'all' && (
-                <Text style={[styles.sectionHeadingTitle, isDark && { color: '#FFFFFF' }]}>Video Lectures</Text>
-              )}
+              const hasVideos = moduleVideos.length > 0;
+              const hasMaterials = moduleMaterials.length > 0;
 
-              {loadingVideos ? (
-                <ActivityIndicator size="large" color="#F58220" style={{ marginVertical: 30 }} />
-              ) : Object.keys(groupedVideos).length > 0 ? (
-                Object.keys(groupedVideos).map((topic, idx) => {
-                  const isExpanded = !!expandedModules[topic];
-                  return (
-                    <View key={topic} style={styles.moduleSectionBox}>
-                      <TouchableOpacity
-                        style={[styles.moduleHeader, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, { marginBottom: isExpanded ? 12 : 0 }]}
-                        activeOpacity={0.8}
-                        onPress={() => toggleModule(topic)}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.moduleTag, isDark && { color: '#FB923C' }]}>MODULE {idx + 1}</Text>
-                          <Text style={[styles.moduleTitle, isDark && { color: '#FFFFFF' }]}>{topic}</Text>
-                        </View>
-                        <Icon
-                          name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
-                          size={20}
-                          color={isDark ? '#94A3B8' : '#1A1A1A'}
-                        />
-                      </TouchableOpacity>
+              // Filter check
+              if (activeFilter === 'videos' && !hasVideos) return null;
+              if (activeFilter === 'pdf' && !hasMaterials) return null;
+              if (!hasVideos && !hasMaterials) return null;
 
-                      {isExpanded && (
-                        <View style={styles.moduleVideosContainer}>
-                          {groupedVideos[topic].map((v: any, vIdx: number) => {
+              const isExpanded = !!expandedModules[topic];
+
+              return (
+                <View key={topic} style={styles.moduleSectionBox}>
+                  {/* Module Accordion Header */}
+                  <TouchableOpacity
+                    style={[
+                      styles.moduleHeader,
+                      isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
+                      { marginBottom: isExpanded ? 12 : 0 },
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => toggleModule(topic)}
+                  >
+                    <View style={{ flex: 1, marginRight: 10 }}>
+                      <Text style={[styles.moduleTag, isDark && { color: '#FB923C' }]}>MODULE {idx + 1}</Text>
+                      <Text style={[styles.moduleTitle, isDark && { color: '#FFFFFF' }]}>{topic}</Text>
+                      <View style={styles.moduleMetaBadgeRow}>
+                        {hasVideos && showVideos ? (
+                          <View style={styles.moduleMetaPill}>
+                            <Icon name="play-circle" size={12} color="#F58220" style={{ marginRight: 3 }} />
+                            <Text style={styles.moduleMetaPillText}>
+                              {moduleVideos.length} {moduleVideos.length === 1 ? 'Video' : 'Videos'}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {hasMaterials && showPdfs ? (
+                          <View style={[styles.moduleMetaPill, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.18)' : '#FEF3C7' }]}>
+                            <Icon name="document-text" size={12} color={isDark ? '#FBBF24' : '#B45309'} style={{ marginRight: 3 }} />
+                            <Text style={[styles.moduleMetaPillText, { color: isDark ? '#FBBF24' : '#B45309' }]}>
+                              {moduleMaterials.length} {moduleMaterials.length === 1 ? 'PDF' : 'PDFs'}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                    <Icon
+                      name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+                      size={20}
+                      color={isDark ? '#94A3B8' : '#1A1A1A'}
+                    />
+                  </TouchableOpacity>
+
+                  {/* Expanded Module Content: Videos AND PDFs */}
+                  {isExpanded && (
+                    <View style={styles.moduleVideosContainer}>
+                      {/* 1. Module Video Lectures */}
+                      {hasVideos && showVideos && (
+                        <View style={{ marginBottom: hasMaterials && showPdfs ? 16 : 0 }}>
+                          {moduleVideos.map((v: any, vIdx: number) => {
                             let thumbUrl: string | null = null;
                             let isLocalVideo = false;
                             let localVideoUrl = '';
@@ -286,13 +344,16 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                             }
 
                             if (!thumbUrl && !isLocalVideo) {
-                              thumbUrl = null; // Will fall through to placeholder icon
+                              thumbUrl = null;
                             }
 
                             return (
                               <TouchableOpacity
                                 key={v._id || vIdx}
-                                style={[styles.youtubeVideoCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
+                                style={[
+                                  styles.youtubeVideoCard,
+                                  isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
+                                ]}
                                 activeOpacity={0.88}
                                 onPress={() =>
                                   navigation.navigate('VideoPlayer', {
@@ -321,6 +382,9 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                                             objectFit: 'cover',
                                           }}
                                           preload="metadata"
+                                          controlsList="nodownload noplaybackrate noremoteplayback"
+                                          disablePictureInPicture
+                                          onContextMenu={(e: any) => e.preventDefault()}
                                           muted
                                         />
                                       );
@@ -355,16 +419,24 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                                       </Text>
                                     </View>
 
+                                    {/* Direct One-Tap PDF Notes Action */}
                                     {v.notes_url ? (
-                                      <View style={[styles.pdfBadgePill, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.18)' }]}>
+                                      <TouchableOpacity
+                                        style={[styles.pdfBadgePill, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.22)' }]}
+                                        activeOpacity={0.7}
+                                        onPress={(e: any) => {
+                                          e?.stopPropagation?.();
+                                          openPdfDocument(v.notes_url, `${v.title} (Notes)`);
+                                        }}
+                                      >
                                         <Icon
                                           name="document-text"
                                           size={12}
                                           color={isDark ? '#FBBF24' : '#B45309'}
                                           style={{ marginRight: 4 }}
                                         />
-                                        <Text style={[styles.pdfBadgeText, isDark && { color: '#FBBF24' }]}>PDF Notes</Text>
-                                      </View>
+                                        <Text style={[styles.pdfBadgeText, isDark && { color: '#FBBF24' }]}>Open PDF</Text>
+                                      </TouchableOpacity>
                                     ) : null}
                                   </View>
 
@@ -389,82 +461,93 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                           })}
                         </View>
                       )}
+
+                      {/* 2. Module PDF Study Materials */}
+                      {hasMaterials && showPdfs && (
+                        <View style={styles.modulePdfsContainer}>
+                          {hasVideos && showVideos && (
+                            <View style={styles.moduleSubHeaderRow}>
+                              <Icon name="document-text" size={15} color="#F58220" style={{ marginRight: 6 }} />
+                              <Text style={[styles.moduleSubHeaderTitle, isDark && { color: '#CBD5E1' }]}>
+                                Module PDF Study Notes ({moduleMaterials.length})
+                              </Text>
+                            </View>
+                          )}
+                          <View style={styles.materialsListContainer}>
+                            {moduleMaterials.map((mat: any) => {
+                              let thumbUrl = null;
+                              if (mat.cloudinary_url && mat.cloudinary_url.includes('cloudinary.com')) {
+                                thumbUrl = mat.cloudinary_url.replace(/\.[^/.]+$/, '.jpg');
+                              }
+                              return (
+                                <View
+                                  key={mat._id}
+                                  style={[
+                                    styles.materialCard,
+                                    isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
+                                  ]}
+                                >
+                                  <View
+                                    style={[
+                                      styles.materialIconCircle,
+                                      isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' },
+                                      thumbUrl ? { backgroundColor: 'transparent' } : {},
+                                    ]}
+                                  >
+                                    {thumbUrl ? (
+                                      <Image
+                                        source={{ uri: thumbUrl }}
+                                        style={{ width: '100%', height: '100%', borderRadius: 12 }}
+                                        resizeMode="cover"
+                                      />
+                                    ) : (
+                                      <Icon name="document-text" size={26} color="#F58220" />
+                                    )}
+                                  </View>
+                                  <View style={styles.materialInfo}>
+                                    <Text style={[styles.materialTitle, isDark && { color: '#FFFFFF' }]}>
+                                      {mat.title}
+                                    </Text>
+                                    <Text style={[styles.materialTopic, isDark && { color: '#94A3B8' }]}>
+                                      Topic: {mat.topic || 'General'}
+                                    </Text>
+                                    <Text style={[styles.materialDate, isDark && { color: '#64748B' }]}>
+                                      Posted: {new Date(mat.createdAt).toLocaleDateString()}
+                                    </Text>
+                                  </View>
+
+                                  <TouchableOpacity
+                                    style={styles.openPdfBtnWrapper}
+                                    activeOpacity={0.8}
+                                    onPress={() => openPdfDocument(mat.cloudinary_url, mat.title)}
+                                  >
+                                    <LinearGradient
+                                      colors={['#F58220', '#D97706']}
+                                      start={{ x: 0, y: 0 }}
+                                      end={{ x: 1, y: 0 }}
+                                      style={styles.openPdfBtn}
+                                    >
+                                      <Icon name="arrow-down-circle" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
+                                      <Text style={styles.openPdfBtnText}>Open PDF</Text>
+                                    </LinearGradient>
+                                  </TouchableOpacity>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
                     </View>
-                  );
-                })
-              ) : (
-                <View style={[styles.emptyMaterialsBox, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
-                  <Icon name="play-circle-outline" size={44} color={isDark ? '#475569' : '#CBD5E1'} />
-                  <Text style={[styles.emptyStateText, isDark && { color: '#94A3B8' }]}>
-                    No video lectures available for this course.
-                  </Text>
+                  )}
                 </View>
-              )}
-            </View>
-          )}
-
-          {/* SECTION 2: PDF STUDY MATERIALS */}
-          {showPdfs && (
-            <View style={styles.contentSectionGroup}>
-              {activeFilter === 'all' && (
-                <Text style={[styles.sectionHeadingTitle, isDark && { color: '#FFFFFF' }, { marginTop: showVideos ? 24 : 0 }]}>
-                  PDF Study Notes
-                </Text>
-              )}
-
-              {loadingMaterials ? (
-                <ActivityIndicator size="large" color="#F58220" style={{ marginVertical: 30 }} />
-              ) : materials.length > 0 ? (
-                <View style={styles.materialsListContainer}>
-                  {materials.map((mat) => {
-                    let thumbUrl = null;
-                    if (mat.cloudinary_url && mat.cloudinary_url.includes('cloudinary.com')) {
-                      thumbUrl = mat.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
-                    }
-                    return (
-                    <View key={mat._id} style={[styles.materialCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
-                      <View style={[styles.materialIconCircle, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }, thumbUrl ? { backgroundColor: 'transparent' } : {}]}>
-                        {thumbUrl ? (
-                          <Image source={{ uri: thumbUrl }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
-                        ) : (
-                          <Icon name="document-text" size={26} color="#F58220" />
-                        )}
-                      </View>
-                      <View style={styles.materialInfo}>
-                        <Text style={[styles.materialTitle, isDark && { color: '#FFFFFF' }]}>{mat.title}</Text>
-                        <Text style={[styles.materialTopic, isDark && { color: '#94A3B8' }]}>Topic: {mat.topic || 'General'}</Text>
-                        <Text style={[styles.materialDate, isDark && { color: '#64748B' }]}>
-                          Posted: {new Date(mat.createdAt).toLocaleDateString()}
-                        </Text>
-                      </View>
-
-                      <TouchableOpacity
-                        style={styles.openPdfBtnWrapper}
-                        activeOpacity={0.8}
-                        onPress={() => openPdfDocument(mat.cloudinary_url, mat.title)}
-                      >
-                        <LinearGradient
-                          colors={['#F58220', '#D97706']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.openPdfBtn}
-                        >
-                          <Icon name="arrow-down-circle" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
-                          <Text style={styles.openPdfBtnText}>Open PDF</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    </View>
-                    );
-                  })}
-                </View>
-              ) : (
-                <View style={[styles.emptyMaterialsBox, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
-                  <Icon name="document-text-outline" size={44} color={isDark ? '#475569' : '#CBD5E1'} />
-                  <Text style={[styles.emptyStateText, isDark && { color: '#94A3B8' }]}>
-                    No PDF study materials posted yet for this course.
-                  </Text>
-                </View>
-              )}
+              );
+            })
+          ) : (
+            <View style={[styles.emptyMaterialsBox, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+              <Icon name="folder-open-outline" size={44} color={isDark ? '#475569' : '#CBD5E1'} />
+              <Text style={[styles.emptyStateText, isDark && { color: '#94A3B8' }]}>
+                No video lectures or study materials available for this course yet.
+              </Text>
             </View>
           )}
         </View>
@@ -794,8 +877,42 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     ...FONTS.extraBold,
   },
+  moduleMetaBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  moduleMetaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  moduleMetaPillText: {
+    fontSize: 10.5,
+    ...FONTS.bold,
+    color: '#EA580C',
+  },
   moduleVideosContainer: {
     paddingTop: 4,
+  },
+  modulePdfsContainer: {
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  moduleSubHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  moduleSubHeaderTitle: {
+    fontSize: 13,
+    ...FONTS.bold,
+    color: '#475569',
   },
 
   /* YOUTUBE STYLE FULL THUMBNAIL VIDEO CARDS */

@@ -1,4 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+
+const WATERMARK_POSITIONS = [
+  'top-4 left-4',
+  'top-4 right-4',
+  'bottom-14 right-4',
+  'bottom-14 left-4',
+  'top-1/2 left-1/3',
+];
 
 export default function Videos() {
   const [batches, setBatches] = useState([]);
@@ -10,9 +18,121 @@ export default function Videos() {
   const [loading, setLoading] = useState(true);
   const [streamLoading, setStreamLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('videos'); // 'videos' | 'materials'
+  const [securityLockReason, setSecurityLockReason] = useState(null);
+  const [watermarkIdx, setWatermarkIdx] = useState(0);
+  const videoRef = useRef(null);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const getAuthToken = () => localStorage.getItem('token') || sessionStorage.getItem('token');
+
+  const getStudentWatermark = () => {
+    try {
+      const rawUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+      if (rawUser) {
+        const parsed = JSON.parse(rawUser);
+        return `${parsed.name || 'Student'} • ${parsed.index_number || parsed.email || 'TVTI'}`;
+      }
+    } catch {
+      // ignore parse errors
+    }
+    return 'TVTI Protected Student Stream';
+  };
+
+  const lockPlaybackForSecurity = useCallback((reason) => {
+    if (videoRef.current && typeof videoRef.current.pause === 'function') {
+      try {
+        videoRef.current.pause();
+      } catch {
+        // ignore pause errors
+      }
+    }
+    setSecurityLockReason(reason);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setWatermarkIdx((prev) => (prev + 1) % WATERMARK_POSITIONS.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        lockPlaybackForSecurity('Playback paused because the video tab lost visibility.');
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (document.activeElement && document.activeElement.tagName === 'IFRAME') return;
+      lockPlaybackForSecurity('Playback paused while window is out of focus to prevent 3rd-party screen recording.');
+    };
+
+    const handleKeyDown = (e) => {
+      const key = (e.key || '').toLowerCase();
+      const isPrintScreen = e.key === 'PrintScreen' || e.keyCode === 44;
+      const isCaptureOrDevTools =
+        e.key === 'F12' ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c', 's', 'r', '3', '4', '5'].includes(key)) ||
+        ((e.ctrlKey || e.metaKey) && ['u', 's', 'p'].includes(key));
+
+      if (isPrintScreen || isCaptureOrDevTools) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText('Screen capture of TVTI student videos is strictly prohibited.').catch(() => {});
+        }
+        lockPlaybackForSecurity('Screen capture or recording shortcut detected. Video playback has been locked.');
+      }
+    };
+
+    const handleKeyUp = (e) => {
+      if (e.key === 'PrintScreen' || e.keyCode === 44) {
+        e.preventDefault();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText('Screen capture of TVTI student videos is strictly prohibited.').catch(() => {});
+        }
+        lockPlaybackForSecurity('Screenshot attempt blocked. Video playback has been locked.');
+      }
+    };
+
+    let originalGetDisplayMedia = null;
+    if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+      originalGetDisplayMedia = navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getDisplayMedia = async () => {
+        lockPlaybackForSecurity('3rd-party browser screen recording attempt blocked.');
+        throw new DOMException('Screen recording of protected course videos is not permitted.', 'NotAllowedError');
+      };
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keyup', handleKeyUp, true);
+
+    // Continuous document.hasFocus() polling to catch OS overlays (Win+G Game Bar, Snipping Tool, macOS Cmd+Shift+5, ShareX)
+    const focusInterval = setInterval(() => {
+      if (document.visibilityState !== 'visible') {
+        lockPlaybackForSecurity('Playback paused because the video tab is hidden.');
+        return;
+      }
+      if (typeof document.hasFocus === 'function' && !document.hasFocus()) {
+        if (document.activeElement && document.activeElement.tagName === 'IFRAME') return;
+        lockPlaybackForSecurity('System screen-capture overlay or external recorder detected. Playback locked.');
+      }
+    }, 400);
+
+    return () => {
+      clearInterval(focusInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keyup', handleKeyUp, true);
+      if (originalGetDisplayMedia && navigator.mediaDevices) {
+        navigator.mediaDevices.getDisplayMedia = originalGetDisplayMedia;
+      }
+    };
+  }, [lockPlaybackForSecurity]);
 
   useEffect(() => {
     fetchBatches();
@@ -205,29 +325,72 @@ export default function Videos() {
               {activeTab === 'videos' ? (
                 <>
                   {/* Video Player Display Container */}
-                  <div className="bg-black rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl relative min-h-[320px] flex items-center justify-center">
+                  <div
+                    className="bg-black rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl relative min-h-[320px] flex items-center justify-center select-none"
+                    onContextMenu={(e) => e.preventDefault()}
+                  >
                     {streamLoading ? (
                       <div className="flex flex-col items-center">
                         <div className="w-10 h-10 border-4 border-brand-orange border-t-transparent rounded-full animate-spin mb-3"></div>
                         <p className="text-xs text-zinc-400">Loading video stream...</p>
                       </div>
                     ) : streamData?.url ? (
-                      streamData.type === 'youtube' ? (
-                        <iframe
-                          src={streamData.url}
-                          title={selectedVideo?.title || 'Video Player'}
-                          className="w-full aspect-video border-0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        ></iframe>
-                      ) : (
-                        <video
-                          src={streamData.url}
-                          controls
-                          controlsList="nodownload"
-                          className="w-full aspect-video bg-black"
-                        ></video>
-                      )
+                      <>
+                        {streamData.type === 'youtube' ? (
+                          !securityLockReason && (
+                            <iframe
+                              src={streamData.url}
+                              title={selectedVideo?.title || 'Video Player'}
+                              className="w-full aspect-video border-0"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+                              allowFullScreen
+                            ></iframe>
+                          )
+                        ) : (
+                          <video
+                            ref={videoRef}
+                            src={streamData.url}
+                            controls
+                            controlsList="nodownload noplaybackrate noremoteplayback"
+                            disablePictureInPicture
+                            disableRemotePlayback
+                            onContextMenu={(e) => e.preventDefault()}
+                            onDragStart={(e) => e.preventDefault()}
+                            className="w-full aspect-video bg-black"
+                          ></video>
+                        )}
+
+                        {/* Dynamic Anti-Piracy Student Watermark Overlay */}
+                        <div
+                          className={`pointer-events-none absolute z-20 bg-slate-950/45 border border-white/15 px-2.5 py-1 rounded-md text-[11px] font-bold text-white/65 tracking-wide transition-all duration-500 ${WATERMARK_POSITIONS[watermarkIdx]}`}
+                        >
+                          {getStudentWatermark()}
+                        </div>
+
+                        {/* Security Blackout Shield when Screen Recording / Capture / Blur is Detected */}
+                        {securityLockReason && (
+                          <div className="absolute inset-0 z-30 bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
+                            <div className="w-14 h-14 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center mb-3 text-brand-orange">
+                              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                              </svg>
+                            </div>
+                            <h4 className="font-heading font-bold text-base text-white mb-1">
+                              Screen Recording & Capture Restricted
+                            </h4>
+                            <p className="text-xs text-zinc-400 max-w-md mb-4">
+                              {securityLockReason}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setSecurityLockReason(null)}
+                              className="bg-brand-orange hover:bg-orange-600 text-white text-xs font-bold px-5 py-2.5 rounded-full transition-colors cursor-pointer"
+                            >
+                              Resume Protected Video
+                            </button>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="text-center p-8">
                         <svg className="w-16 h-16 mx-auto text-zinc-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
