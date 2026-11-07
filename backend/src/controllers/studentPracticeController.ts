@@ -117,6 +117,18 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
       });
     }
 
+    // Notify student of booking confirmation
+    if (req.user?._id) {
+      await sendNotification({
+        userIds: [req.user._id.toString()],
+        title: 'Practical Slot Booked ✅',
+        message: `Your practical session for ${slot.day_of_week} (${slot.start_time} - ${slot.end_time})${slot.location ? ` at ${slot.location}` : ''} is confirmed.`,
+        type: 'booking_confirmed',
+        relatedId: slot._id,
+        link: '/schedule'
+      });
+    }
+
     res.status(201).json(booking);
   } catch (error: any) {
     if (error.code === 11000) { res.status(400).json({ message: 'Already booked this slot' }); return; }

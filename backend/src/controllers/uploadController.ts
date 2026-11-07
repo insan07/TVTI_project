@@ -140,6 +140,7 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
         batchId: batch_id,
         type: 'material',
         relatedId: material._id,
+        link: '/videos',
       });
     } catch (notifErr) {
       console.warn('Failed to send material notification:', notifErr);

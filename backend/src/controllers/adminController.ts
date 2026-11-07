@@ -13,6 +13,7 @@ import PaymentSlip from '../models/PaymentSlip';
 import bcrypt from 'bcryptjs';
 import { generateUniqueIndexNumber } from './applicationController';
 import { sendApprovalCredentialsEmail, sendDeactivationEmail } from '../services/emailService';
+import { sendNotification } from '../services/notificationService';
 
 const formatTimeAgo = (date: any): string => {
   if (!date) return 'Recently';
@@ -369,6 +370,15 @@ export const approveUser = async (req: Request, res: Response): Promise<void> =>
       console.warn('Warning: Failed to send approval credentials email:', emailErr);
     }
 
+    await sendNotification({
+      userIds: [String(user._id)],
+      title: 'Account Approved 🎉',
+      message: `Welcome to TVTI! Your account (${user.index_number}) is now active.`,
+      type: 'application_update',
+      relatedId: user._id,
+      link: '/profile'
+    });
+
     res.json({
       message: 'User approved successfully',
       user,
@@ -428,6 +438,17 @@ export const deactivateUser = async (req: Request, res: Response): Promise<void>
       await user.save();
     }
 
+    await sendNotification({
+      userIds: [String(user._id)],
+      title: user.is_active ? 'Account Activated ✅' : 'Account Deactivated ⚠️',
+      message: user.is_active
+        ? 'Your TVTI account has been re-activated by the administrator.'
+        : 'Your TVTI account has been temporarily deactivated. Please contact the administration office if you have questions.',
+      type: 'account_status',
+      relatedId: user._id,
+      link: '/profile'
+    });
+
     res.json({ message: `User ${user.is_active ? 'activated' : 'deactivated'} successfully` });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -445,6 +466,15 @@ export const markUserCompleted = async (req: Request, res: Response): Promise<vo
     user.status = 'completed';
     user.is_graduated = true;
     await user.save();
+
+    await sendNotification({
+      userIds: [String(user._id)],
+      title: 'Course Completed & Graduated 🎓',
+      message: 'Congratulations! You have been marked as graduated. View your academic results and certificate status.',
+      type: 'certificate',
+      relatedId: user._id,
+      link: '/results'
+    });
 
     res.json({ message: 'Student status updated to completed & graduated successfully', user });
   } catch (error) {
@@ -614,6 +644,15 @@ export const createInstructor = async (req: Request, res: Response): Promise<voi
       is_active: true, // Instructors created by admin are automatically active
       must_change_password: true,
       temp_password_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days expiration
+    });
+
+    await sendNotification({
+      userIds: [String(user._id)],
+      title: 'Welcome to TVTI Instructor Portal 👋',
+      message: `Your instructor account (${user.index_number}) has been created.`,
+      type: 'general',
+      relatedId: user._id,
+      link: '/profile'
     });
 
     res.status(201).json({

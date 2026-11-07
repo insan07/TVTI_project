@@ -27,6 +27,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
   const { isDark } = useTheme();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [localUnreadCount, setLocalUnreadCount] = useState<number | null>(null);
   const [bookmarkedLessons, setBookmarkedLessons] = useState<{ [key: string]: boolean }>({});
   const [instructorModalVisible, setInstructorModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
@@ -39,8 +40,14 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
 
   const fetchDashboard = async () => {
     try {
-      const res = await api.get('/students/home');
+      const [res, notifRes] = await Promise.all([
+        api.get('/students/home'),
+        api.get('/notifications/unread-count').catch(() => null),
+      ]);
       setData(res.data);
+      if (notifRes?.data && typeof notifRes.data.unread_count === 'number') {
+        setLocalUnreadCount(notifRes.data.unread_count);
+      }
     } catch (e) {
       console.warn(e);
     } finally {
@@ -62,9 +69,11 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
   }
 
   const unreadCount =
-    passedUnreadCount !== undefined
-      ? passedUnreadCount
-      : data?.notifications?.filter((n: any) => !n.is_read).length || 0;
+    localUnreadCount !== null
+      ? localUnreadCount
+      : passedUnreadCount !== undefined
+        ? passedUnreadCount
+        : data?.notifications?.filter((n: any) => !n.is_read).length || 0;
 
   // Upcoming Practical Details
   const nextPractice = data?.next_practice || data?.next_available_practice;

@@ -306,6 +306,7 @@ export const AppNavigator = () => {
                 </Stack.Screen>
                 <Stack.Screen name="EnrollStudent" component={EnrollStudentScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PostAnnouncement" component={PostAnnouncementScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>
             ) : (

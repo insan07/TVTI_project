@@ -246,6 +246,16 @@ export const submitApplication = async (req: Request, res: Response): Promise<vo
       console.warn('Warning: Failed to send submission confirmation email:', emailErr);
     });
 
+    // Notify Admins about the new student application
+    await sendNotification({
+      role: 'admin',
+      title: 'New Course Application 📄',
+      message: `${application.full_name} submitted a new course application.`,
+      type: 'new_application',
+      relatedId: application._id,
+      link: '/admin/users'
+    });
+
     res.status(201).json({
       message: 'Application submitted successfully. Awaiting TVTI admin review.',
       application

@@ -46,6 +46,31 @@ export const markAllAsRead = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
+export const deleteNotification = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const deleted = await Notification.findOneAndDelete({
+      _id: req.params.id,
+      user_id: req.user._id,
+    });
+    if (!deleted) {
+      res.status(404).json({ message: 'Notification not found' });
+      return;
+    }
+    res.json({ message: 'Notification deleted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const clearAllNotifications = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    await Notification.deleteMany({ user_id: req.user._id });
+    res.json({ message: 'All notifications cleared' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 export const sendCustomNotification = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!['admin', 'instructor'].includes(req.user.role)) {
