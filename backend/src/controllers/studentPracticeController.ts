@@ -5,6 +5,28 @@ import Enrollment from '../models/Enrollment';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { sendNotification } from '../services/notificationService';
 
+const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const isPracticeSlotExpired = (slot: any): boolean => {
+  if (!slot?.week_start_date) return false;
+  const dayIdx = DAYS_LIST.indexOf(slot.day_of_week);
+  const slotActualDate = new Date(slot.week_start_date);
+  if (dayIdx !== -1) {
+    slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
+  }
+  const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+  const slotEndDateTime = new Date(
+    slotActualDate.getUTCFullYear(),
+    slotActualDate.getUTCMonth(),
+    slotActualDate.getUTCDate(),
+    h,
+    m,
+    0,
+    0
+  );
+  return slotEndDateTime.getTime() < Date.now();
+};
+
 // GET /api/student/practice-slots?batchId=&weekStart=
 export const getOpenSlots = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -13,36 +35,41 @@ export const getOpenSlots = async (req: AuthRequest, res: Response): Promise<voi
     const enrolled = await Enrollment.findOne({ student_id: req.user?._id, batch_id: batchId, status: 'active' });
     if (!enrolled) { res.status(403).json({ message: 'Not enrolled in this batch' }); return; }
 
-    const query: any = { batch_id: batchId, is_open: true };
+    const query: any = { batch_id: batchId };
     if (weekStart) {
       const normalized = new Date(weekStart as string);
       normalized.setUTCHours(0, 0, 0, 0);
       query.week_start_date = normalized;
     }
 
-    const slots = await PracticeSlot.find(query)
+    const allBatchSlots = await PracticeSlot.find(query)
       .populate('instructor_id', 'name')
       .sort({ day_of_week: 1, start_time: 1 });
 
-    const slotIds = slots.map(s => s._id);
+    const allSlotIds = allBatchSlots.map(s => s._id);
     const [counts, myBookings] = await Promise.all([
       SlotBooking.aggregate([
-        { $match: { slot_id: { $in: slotIds }, status: { $in: ['confirmed', 'cancellation_requested'] } } },
+        { $match: { slot_id: { $in: allSlotIds }, status: { $in: ['confirmed', 'cancellation_requested'] } } },
         { $group: { _id: '$slot_id', count: { $sum: 1 } } }
       ]),
-      SlotBooking.find({ slot_id: { $in: slotIds }, student_id: req.user?._id, status: { $in: ['confirmed', 'cancellation_requested'] } }).select('slot_id status')
+      SlotBooking.find({ slot_id: { $in: allSlotIds }, student_id: req.user?._id, status: { $in: ['confirmed', 'cancellation_requested'] } }).select('slot_id status')
     ]);
 
     const myBookedSlotMap = new Map(myBookings.map(b => [String(b.slot_id), b.status]));
 
+    // Include open slots AND any locked slot that this student has already booked
+    const slots = allBatchSlots.filter(s => s.is_open || myBookedSlotMap.has(String(s._id)));
+
     const result = slots.map(s => {
       const booked = counts.find(x => String(x._id) === String(s._id))?.count || 0;
+      const expired = isPracticeSlotExpired(s);
       return {
         ...s.toObject(),
         seats_taken: booked,
         seats_available: s.max_students - booked,
         already_booked: myBookedSlotMap.has(String(s._id)),
         booking_status: myBookedSlotMap.get(String(s._id)) || null,
+        is_expired: expired,
       };
     });
 
@@ -57,6 +84,11 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
   try {
     const slot = await PracticeSlot.findById(req.params.slotId);
     if (!slot || !slot.is_open) { res.status(404).json({ message: 'Slot not available' }); return; }
+
+    if (isPracticeSlotExpired(slot)) {
+      res.status(400).json({ message: 'This practical slot has expired and can no longer be booked.' });
+      return;
+    }
 
     const confirmed = await SlotBooking.countDocuments({ slot_id: slot._id, status: { $in: ['confirmed', 'cancellation_requested'] } });
     if (confirmed >= slot.max_students) { res.status(400).json({ message: 'This slot is full' }); return; }
@@ -74,6 +106,9 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
+    // Clean up any old cancelled record for this student+slot before creating a new booking
+    await SlotBooking.deleteMany({ slot_id: slot._id, student_id: req.user?._id, status: 'cancelled' });
+
     const booking = await SlotBooking.create({ slot_id: slot._id, student_id: req.user?._id });
 
     // Notify instructor
@@ -88,6 +123,18 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
       });
     }
 
+    // Notify student of booking confirmation
+    if (req.user?._id) {
+      await sendNotification({
+        userIds: [req.user._id.toString()],
+        title: 'Practical Slot Booked ✅',
+        message: `Your practical session for ${slot.day_of_week} (${slot.start_time} - ${slot.end_time})${slot.location ? ` at ${slot.location}` : ''} is confirmed.`,
+        type: 'booking_confirmed',
+        relatedId: slot._id,
+        link: '/schedule'
+      });
+    }
+
     res.status(201).json(booking);
   } catch (error: any) {
     if (error.code === 11000) { res.status(400).json({ message: 'Already booked this slot' }); return; }
@@ -99,6 +146,16 @@ export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> =
 // Body: { reason?: string }
 export const cancelBooking = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const slot = await PracticeSlot.findById(req.params.slotId);
+    if (slot && isPracticeSlotExpired(slot)) {
+      res.status(400).json({ message: 'Cannot cancel a booking for an expired practical slot.' });
+      return;
+    }
+    if (slot && !slot.is_open) {
+      res.status(400).json({ message: 'Cannot cancel a booking for a locked practical slot. Please contact your instructor.' });
+      return;
+    }
+
     const { reason } = req.body || {};
     const result = await SlotBooking.findOneAndUpdate(
       { slot_id: req.params.slotId, student_id: req.user?._id, $or: [{ status: 'confirmed' }, { status: { $exists: false } }] },
@@ -107,7 +164,6 @@ export const cancelBooking = async (req: AuthRequest, res: Response): Promise<vo
     );
     if (!result) { res.status(404).json({ message: 'Booking not found or already pending cancellation' }); return; }
 
-    const slot = await PracticeSlot.findById(req.params.slotId);
     if (slot && slot.instructor_id) {
       await sendNotification({
         userIds: [slot.instructor_id.toString()],

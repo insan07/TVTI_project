@@ -7,6 +7,7 @@ import PracticeSlot from '../models/PracticeSlot';
 import SlotBooking from '../models/SlotBooking';
 import User from '../models/User';
 import { sendBatchAssignmentEmail } from '../services/emailService';
+import { sendNotification } from '../services/notificationService';
 export const getAdminBatches = async (req: Request, res: Response): Promise<void> => {
   try {
     const batches = await Batch.find()
@@ -70,6 +71,18 @@ export const getBatchDetails = async (req: Request, res: Response): Promise<void
 export const createBatch = async (req: Request, res: Response): Promise<void> => {
   try {
     const batch = await Batch.create(req.body);
+
+    if (Array.isArray(batch.instructor_ids) && batch.instructor_ids.length > 0) {
+      await sendNotification({
+        userIds: batch.instructor_ids.map(id => String(id)),
+        title: 'Assigned to New Batch',
+        message: `You have been assigned as an instructor for batch "${batch.name}".`,
+        type: 'batch_assigned',
+        relatedId: batch._id,
+        link: '/instructor/home'
+      });
+    }
+
     res.status(201).json(batch);
   } catch (error: any) {
     res.status(400).json({ message: error.message || 'Server error' });
@@ -83,6 +96,16 @@ export const updateBatch = async (req: Request, res: Response): Promise<void> =>
       res.status(404).json({ message: 'Batch not found' });
       return;
     }
+
+    await sendNotification({
+      batchId: batch._id,
+      title: 'Batch Schedule Updated',
+      message: `The schedule or details for batch "${batch.name}" have been updated.`,
+      type: 'schedule_change',
+      relatedId: batch._id,
+      link: '/schedule'
+    });
+
     res.json(batch);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -196,6 +219,27 @@ export const enrollStudents = async (req: Request, res: Response): Promise<void>
           });
         }
       }
+    }
+
+    // Send in-app notifications to newly enrolled students and batch instructors
+    await sendNotification({
+      userIds: newStudentIds.map((id: string) => String(id)),
+      title: 'Enrolled in Batch 🎉',
+      message: `You have been enrolled in batch "${batch.name}"${course ? ` for ${(course as any).title}` : ''}.`,
+      type: 'batch_assigned',
+      relatedId: batch._id,
+      link: '/schedule'
+    });
+
+    if (Array.isArray(batch.instructor_ids) && batch.instructor_ids.length > 0) {
+      await sendNotification({
+        userIds: batch.instructor_ids.map(id => String(id)),
+        title: 'New Students Enrolled',
+        message: `${newStudentIds.length} new student(s) have been enrolled in your batch "${batch.name}".`,
+        type: 'student_enrolled',
+        relatedId: batch._id,
+        link: '/instructor/students'
+      });
     }
 
     res.json({ message: 'Students enrolled successfully' });

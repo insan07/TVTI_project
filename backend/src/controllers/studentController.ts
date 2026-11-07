@@ -5,6 +5,7 @@ import Notification from '../models/Notification';
 import SlotBooking from '../models/SlotBooking';
 import PracticeSlot from '../models/PracticeSlot';
 import Video from '../models/Video';
+import Announcement from '../models/Announcement';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 export const getMySchedule = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -23,6 +24,46 @@ export const getMySchedule = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
+const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const getSlotEndTimestamp = (slot: any): number => {
+  if (!slot?.week_start_date) return 0;
+  const dayIdx = DAYS_LIST.indexOf(slot.day_of_week);
+  const slotActualDate = new Date(slot.week_start_date);
+  if (dayIdx !== -1) {
+    slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
+  }
+  const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+  return new Date(
+    slotActualDate.getUTCFullYear(),
+    slotActualDate.getUTCMonth(),
+    slotActualDate.getUTCDate(),
+    h,
+    m,
+    0,
+    0
+  ).getTime();
+};
+
+const getSlotStartTimestamp = (slot: any): number => {
+  if (!slot?.week_start_date) return Number.MAX_SAFE_INTEGER;
+  const dayIdx = DAYS_LIST.indexOf(slot.day_of_week);
+  const slotActualDate = new Date(slot.week_start_date);
+  if (dayIdx !== -1) {
+    slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
+  }
+  const [h, m] = (slot.start_time || '00:00').split(':').map((v: string) => parseInt(v, 10) || 0);
+  return new Date(
+    slotActualDate.getUTCFullYear(),
+    slotActualDate.getUTCMonth(),
+    slotActualDate.getUTCDate(),
+    h,
+    m,
+    0,
+    0
+  ).getTime();
+};
+
 export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const notifications = await Notification.find({ user_id: req.user._id }).sort({ createdAt: -1 }).limit(3);
@@ -35,7 +76,9 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
       .populate('instructor_ids', 'name email phone profile_photo')
       .lean();
 
-    const nextPracticeBooking = await SlotBooking.findOne({ student_id: req.user._id, status: 'confirmed' })
+    const nowMs = Date.now();
+
+    const confirmedBookings = await SlotBooking.find({ student_id: req.user._id, status: 'confirmed' })
       .populate({
         path: 'slot_id',
         populate: [
@@ -43,16 +86,26 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
           { path: 'instructor_id', select: 'name email phone profile_photo' }
         ]
       })
-      .sort({ createdAt: -1 })
       .lean();
+
+    const upcomingBookings = confirmedBookings
+      .filter((b: any) => b.slot_id && getSlotEndTimestamp(b.slot_id) >= nowMs)
+      .sort((a: any, b: any) => getSlotStartTimestamp(a.slot_id) - getSlotStartTimestamp(b.slot_id));
+
+    const nextPracticeBooking = upcomingBookings[0] || null;
 
     let nextAvailablePractice = null;
     if (!nextPracticeBooking) {
-      nextAvailablePractice = await PracticeSlot.findOne({ batch_id: { $in: batchIds }, is_open: true })
+      const openSlots = await PracticeSlot.find({ batch_id: { $in: batchIds }, is_open: true })
         .populate({ path: 'batch_id', populate: { path: 'course_id', select: 'title' } })
         .populate('instructor_id', 'name email phone profile_photo')
-        .sort({ week_start_date: 1 })
         .lean();
+
+      const upcomingOpenSlots = openSlots
+        .filter((s: any) => getSlotEndTimestamp(s) >= nowMs)
+        .sort((a: any, b: any) => getSlotStartTimestamp(a) - getSlotStartTimestamp(b));
+
+      nextAvailablePractice = upcomingOpenSlots[0] || null;
     }
 
     const theory_lessons = await Video.find({ batch_id: { $in: batchIds } })
@@ -60,8 +113,21 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
       .limit(3)
       .lean();
 
+    const announcements = await Announcement.find({
+      $or: [
+        { batch_id: { $in: batchIds } },
+        { batch_id: null },
+      ],
+    })
+      .populate('batch_id', 'name')
+      .populate('posted_by', 'name role')
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
     res.json({
       notifications,
+      announcements,
       next_class: nextBatch,
       next_practice: nextPracticeBooking,
       next_available_practice: nextAvailablePractice,

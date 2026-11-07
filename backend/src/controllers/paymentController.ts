@@ -61,6 +61,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       message: `Student "${student.name}" uploaded a new payment slip of LKR ${Number(amount).toLocaleString()} for review.`,
       type: 'payment',
       relatedId: newSlip._id,
+      link: '/admin/users',
     });
 
     res.status(201).json({
@@ -259,6 +260,7 @@ export const verifyPaymentSlip = async (req: Request, res: Response): Promise<vo
         message: `Your payment slip of LKR ${slip.amount.toLocaleString()} has been verified. Total amount settled: LKR ${newAmountPaid.toLocaleString()}/${totalFee.toLocaleString()}.`,
         type: 'payment',
         relatedId: slip._id,
+        link: '/profile',
       });
 
       if (student.email) {
@@ -299,6 +301,7 @@ export const rejectPaymentSlip = async (req: Request, res: Response): Promise<vo
         message: `Your payment slip of LKR ${slip.amount.toLocaleString()} was rejected: ${slip.rejection_reason}`,
         type: 'payment',
         relatedId: slip._id,
+        link: '/profile',
       });
 
       if (student.email) {
@@ -362,6 +365,7 @@ export const recordManualPayment = async (req: Request, res: Response): Promise<
       message: `A cash/counter payment of LKR ${Number(amount).toLocaleString()} was recorded for your account. Total settled: LKR ${newAmountPaid.toLocaleString()}/${totalFee.toLocaleString()}.`,
       type: 'payment',
       relatedId: slip._id,
+      link: '/profile',
     });
 
     res.status(201).json({ message: 'Payment recorded successfully', slip });

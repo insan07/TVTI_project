@@ -105,13 +105,26 @@ export const setupNotificationListeners = async (navigationRef: any) => {
 
 function handleNotificationNavigation(data: any, navigationRef: any) {
   if (!data) return;
-  if (data.type === 'session_booked' || data.type === 'booking_confirmed') {
-    navigationRef.navigate('Schedule');
-  } else if (data.type === 'new_video') {
-    navigationRef.navigate('Videos');
-  } else if (data.type === 'announcement') {
+  const type = data.type || '';
+  if (
+    type === 'session_booked' ||
+    type === 'booking_confirmed' ||
+    type === 'booking_rejected' ||
+    type === 'booking_cancelled' ||
+    type === 'cancellation_approved' ||
+    type === 'cancellation_rejected' ||
+    type === 'practice_slots' ||
+    type === 'schedule_change' ||
+    type === 'batch_assigned'
+  ) {
     navigationRef.navigate('Notifications');
-  } else if (data.type === 'new_result') {
+  } else if (type === 'new_video' || type === 'material') {
+    navigationRef.navigate('Videos');
+  } else if (type === 'announcement') {
+    navigationRef.navigate('Notifications');
+  } else if (type === 'new_result' || type === 'certificate') {
     navigationRef.navigate('Results');
+  } else {
+    navigationRef.navigate('Notifications');
   }
 }

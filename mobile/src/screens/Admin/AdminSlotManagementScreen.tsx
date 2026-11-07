@@ -29,6 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../services/api';
 import ScreenHeader from '../../components/shared/ScreenHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
+import WhatsAppOptionsMenu, { MenuOption } from '../../components/shared/WhatsAppOptionsMenu';
 import { useTheme } from '../../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {
@@ -451,7 +452,16 @@ export default function AdminSlotManagementScreen() {
     setWeekStart(getMonday(nd));
   };
 
+  const isSlotExpired = (slot: any) => {
+    if (!slot) return false;
+    const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
+    return isPastDate(actualDate) || isSlotDateTimeInPast(actualDate, slot.end_time);
+  };
+
   const toggleSlotStatus = (slot: any) => {
+    if (isSlotExpired(slot)) {
+      return showAlert('Expired Slot', 'Expired practical slots cannot be locked or reopened.', undefined, 'error');
+    }
     setConfirmModal({
       visible: true,
       title: slot.is_open ? 'Lock Practical Slot?' : 'Reopen Practical Slot?',
@@ -526,6 +536,26 @@ export default function AdminSlotManagementScreen() {
     });
   };
 
+  const handleApproveCancellation = async (bookingId: string) => {
+    try {
+      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}/approve-cancellation`);
+      showAlert('Success', 'Cancellation request approved', () => openBookingsModal(selectedSlot), 'success');
+      fetchSlots();
+    } catch (e: any) {
+      showAlert('Error', e.response?.data?.message || 'Failed to approve cancellation', undefined, 'error');
+    }
+  };
+
+  const handleRejectCancellation = async (bookingId: string) => {
+    try {
+      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}/reject-cancellation`);
+      showAlert('Success', 'Cancellation request declined', () => openBookingsModal(selectedSlot), 'success');
+      fetchSlots();
+    } catch (e: any) {
+      showAlert('Error', e.response?.data?.message || 'Failed to reject cancellation', undefined, 'error');
+    }
+  };
+
   const openAddStudentModal = async () => {
     if (!selectedSlot?.batch_id?._id) return;
     setAddStudentModalVisible(true);
@@ -557,6 +587,9 @@ export default function AdminSlotManagementScreen() {
   };
 
   const openEditModal = (slot: any) => {
+    if (isSlotExpired(slot)) {
+      return showAlert('Expired Slot', 'Expired practical slots cannot be edited.', undefined, 'error');
+    }
     setSelectedSlot(slot);
     setEditInstructorId(slot.instructor_id?._id || slot.instructor_id || '');
     setEditMaxStudents(String(slot.max_students || 10));
@@ -568,6 +601,25 @@ export default function AdminSlotManagementScreen() {
   const handleSaveEdit = async () => {
     const maxN = parseInt(editMaxStudents, 10);
     if (!maxN || maxN < 1) return showAlert('Error', 'Max students must be at least 1', undefined, 'error');
+
+    if (editInstructorId && selectedSlot) {
+      const slotDateStr = getLocalDateString(getSlotActualDate(selectedSlot.week_start_date, selectedSlot.day_of_week));
+      const duplicateForInstructor = slots.some(s => {
+        if (s._id === selectedSlot._id) return false;
+        const instId = s.instructor_id?._id || s.instructor_id;
+        const sDateStr = getLocalDateString(getSlotActualDate(s.week_start_date, s.day_of_week));
+        return String(instId) === String(editInstructorId) && sDateStr === slotDateStr;
+      });
+      if (duplicateForInstructor) {
+        return showAlert(
+          'One Slot Per Day Limit',
+          'Only one practical slot per day is allowed per instructor. The selected instructor already has a slot on this date.',
+          undefined,
+          'error'
+        );
+      }
+    }
+
     setEditSaving(true);
     try {
       await api.patch(`/instructors/practice-slots/${selectedSlot._id}`, {
@@ -604,6 +656,21 @@ export default function AdminSlotManagementScreen() {
 
     const weekStart = getMonday(createDate);
     const dayName = DAYS[createDate.getDay() === 0 ? 6 : createDate.getDay() - 1];
+    const targetDateStr = getLocalDateString(createDate);
+
+    const instructorAlreadyHasSlot = slots.some(s => {
+      const instId = s.instructor_id?._id || s.instructor_id;
+      const sDateStr = getLocalDateString(getSlotActualDate(s.week_start_date, s.day_of_week));
+      return String(instId) === String(createInstructorId) && sDateStr === targetDateStr;
+    });
+    if (instructorAlreadyHasSlot) {
+      return showAlert(
+        'One Slot Per Day Limit',
+        'An instructor can only have one practical slot per day. This instructor already has a slot scheduled on the selected date.',
+        undefined,
+        'error'
+      );
+    }
 
     setCreating(true);
     try {
@@ -637,10 +704,16 @@ export default function AdminSlotManagementScreen() {
     if (!createBatchId) return showAlert('Error', 'Please select a target batch', undefined, 'error');
     if (!createInstructorId) return showAlert('Error', 'Please select an assigned instructor', undefined, 'error');
 
+    const seenDays = new Set<string>();
     for (const s of newSlots) {
       if (!s.day_of_week || !s.start_time || !s.end_time) {
         return showAlert('Error', 'Please complete day and time for all slots', undefined, 'error');
       }
+      if (seenDays.has(s.day_of_week)) {
+        return showAlert('One Slot Per Day Limit', `An instructor can only have one practical slot per day. Duplicate entries found for ${s.day_of_week}.`, undefined, 'error');
+      }
+      seenDays.add(s.day_of_week);
+
       const maxN = parseInt(s.max_students, 10);
       if (!maxN || maxN < 1) return showAlert('Error', 'Max capacity must be at least 1', undefined, 'error');
 
@@ -650,6 +723,16 @@ export default function AdminSlotManagementScreen() {
       }
       if (isSlotDateTimeInPast(slotActualDate, s.end_time)) {
         return showAlert('Past Time', `Cannot create slot on ${s.day_of_week} (${s.start_time} - ${s.end_time}) because this time has already passed.`, undefined, 'error');
+      }
+
+      const targetDateStr = getLocalDateString(slotActualDate);
+      const instructorAlreadyHasSlot = slots.some(ex => {
+        const instId = ex.instructor_id?._id || ex.instructor_id;
+        const exDateStr = getLocalDateString(getSlotActualDate(ex.week_start_date, ex.day_of_week));
+        return String(instId) === String(createInstructorId) && exDateStr === targetDateStr;
+      });
+      if (instructorAlreadyHasSlot) {
+        return showAlert('One Slot Per Day Limit', `This instructor already has a practical slot scheduled on ${s.day_of_week}. Only one slot per day is allowed.`, undefined, 'error');
       }
     }
 
@@ -693,63 +776,76 @@ export default function AdminSlotManagementScreen() {
     const max = slot.max_students || 1;
     const fillRatio = Math.min(1, booked / max);
     const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
-    const isPast = isPastDate(actualDate);
+    const isExpired = isSlotExpired(slot);
     const formattedDate = actualDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const dayShort = actualDate.toLocaleDateString('en-GB', { weekday: 'short' });
 
+    const menuOptions: MenuOption[] = [
+      {
+        id: 'view_students',
+        label: 'View Students',
+        onPress: () => openBookingsModal(slot),
+      },
+      ...(!isExpired
+        ? [
+            {
+              id: 'edit_slot',
+              label: 'Edit Slot',
+              onPress: () => openEditModal(slot),
+            },
+            {
+              id: 'toggle_status',
+              label: slot.is_open ? 'Lock Slot' : 'Open Slot',
+              destructive: !!slot.is_open,
+              onPress: () => toggleSlotStatus(slot),
+            },
+          ]
+        : []),
+      {
+        id: 'delete_slot',
+        label: 'Delete Slot',
+        destructive: true,
+        onPress: () => handleDeleteSlot(slot._id),
+      },
+    ];
+
     return (
-      <View key={slot._id} style={[styles.cardWrapper, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}>
+      <View
+        key={slot._id}
+        style={[
+          styles.cardWrapper,
+          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 },
+        ]}
+      >
         <View style={styles.cardAccent} />
         <View style={styles.cardInner}>
           <View style={styles.cardHeaderRow}>
             <View style={[styles.cardTag, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}><Text style={styles.cardTagText}>PRACTICAL SLOT</Text></View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              {isPast && (
-                <View style={[styles.pastTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)' }, { marginRight: 6 }]}>
-                  <Text style={[styles.pastTagText, isDark && { color: '#94A3B8' }]}>PAST</Text>
+              {slot.pending_cancellation_count > 0 && !isExpired && (
+                <View style={{ backgroundColor: '#FEF3C7', borderColor: '#FDE68A', borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 6 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#D97706' }}>
+                    {slot.pending_cancellation_count} CANCEL REQ
+                  </Text>
                 </View>
               )}
-              <View style={[styles.statusPillBadge, slot.is_open ? styles.statusOpen : styles.statusLocked]}>
+              {isExpired && (
+                <View style={[styles.pastTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)' }, { marginRight: 6 }]}>
+                  <Text style={[styles.pastTagText, isDark && { color: '#94A3B8' }]}>EXPIRED</Text>
+                </View>
+              )}
+              <View style={[styles.statusPillBadge, slot.is_open ? styles.statusOpen : styles.statusLocked, { marginRight: 6 }]}>
                 <Text style={[styles.statusPillBadgeText, slot.is_open ? styles.textOpen : styles.textLocked]}>
                   {slot.is_open ? 'OPEN' : 'LOCKED'}
                 </Text>
               </View>
-              <TouchableOpacity style={styles.dotsBtn} onPress={() => {
-                if (actionMenuVisible && actionMenuSlot?._id === slot._id) {
-                  setActionMenuVisible(false);
-                  setActionMenuSlot(null);
-                } else {
-                  setActionMenuSlot(slot);
-                  setActionMenuVisible(true);
-                }
-              }}>
-                <Icon name="ellipsis-vertical" size={20} color={isDark ? "#FFFFFF" : "#111827"} />
-              </TouchableOpacity>
+              <WhatsAppOptionsMenu
+                options={menuOptions}
+                triggerIconSize={20}
+                triggerIconColor={isDark ? '#FFFFFF' : '#111827'}
+              />
             </View>
           </View>
-          
-          {/* Inline Popover Menu */}
-          {actionMenuVisible && actionMenuSlot?._id === slot._id && (
-            <View style={[styles.inlinePopoverContainer, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); openBookingsModal(slot); }}>
-                <Text style={[styles.popoverMenuText, isDark && { color: '#FFFFFF' }]}>View Students</Text>
-              </TouchableOpacity>
-              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); openEditModal(slot); }}>
-                <Text style={[styles.popoverMenuText, isDark && { color: '#FFFFFF' }]}>Edit Slot</Text>
-              </TouchableOpacity>
-              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); toggleSlotStatus(slot); }}>
-                <Text style={[styles.popoverMenuText, {color: slot.is_open ? '#EF4444' : (isDark ? '#38BDF8' : '#374151')}]}>
-                  {slot.is_open ? 'Lock Slot' : 'Open Slot'}
-                </Text>
-              </TouchableOpacity>
-              <View style={[styles.popoverMenuDivider, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
-              <TouchableOpacity style={styles.popoverMenuItem} onPress={() => { setActionMenuVisible(false); handleDeleteSlot(slot._id); }}>
-                <Text style={styles.popoverMenuTextDanger}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          )}
 
           <Text style={[styles.cardCourseTitle, isDark && { color: '#FFFFFF' }]}>{slot.batch_id?.course_id?.title || slot.batch_id?.name || 'Practical Session'}</Text>
           <Text style={[styles.cardBatchText, isDark && { color: '#94A3B8' }]}>Batch: {slot.batch_id?.name || 'N/A'}</Text>
@@ -1780,22 +1876,24 @@ export default function AdminSlotManagementScreen() {
               <Text style={{ fontWeight: 'bold', color: '#1F2937', fontSize: 14 }}>
                 Booked Students ({slotBookings.length})
               </Text>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#EFF6FF',
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 8,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  borderWidth: 1,
-                  borderColor: '#BFDBFE'
-                }}
-                onPress={openAddStudentModal}
-              >
-                <Icon name="person-add" size={14} color="#2563EB" style={{ marginRight: 4 }} />
-                <Text style={{ color: '#2563EB', fontWeight: 'bold', fontSize: 12 }}>+ Assign Student</Text>
-              </TouchableOpacity>
+              {!isSlotExpired(selectedSlot) && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#EFF6FF',
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: '#BFDBFE'
+                  }}
+                  onPress={openAddStudentModal}
+                >
+                  <Icon name="person-add" size={14} color="#2563EB" style={{ marginRight: 4 }} />
+                  <Text style={{ color: '#2563EB', fontWeight: 'bold', fontSize: 12 }}>+ Assign Student</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {bookingsLoading ? (
@@ -1826,13 +1924,44 @@ export default function AdminSlotManagementScreen() {
                       <Text style={styles.studentMeta}>
                         Index: {item.student_id?.index_number || 'N/A'} • {item.student_id?.phone || item.student_id?.email || ''}
                       </Text>
+                      {item.status === 'cancellation_requested' && (
+                        <View style={{ marginTop: 3 }}>
+                          <Text style={{ fontSize: 12, color: '#D97706', fontWeight: '700' }}>
+                            Cancellation Requested
+                          </Text>
+                          {item.cancellation_reason ? (
+                            <Text style={{ fontSize: 11.5, color: '#64748B', fontStyle: 'italic', marginTop: 1 }}>
+                              Reason: {item.cancellation_reason}
+                            </Text>
+                          ) : null}
+                        </View>
+                      )}
                     </View>
-                    <TouchableOpacity
-                      style={styles.removeBookingBtn}
-                      onPress={() => handleRemoveBooking(item._id, item.student_id?.name || 'Student')}
-                    >
-                      <Text style={styles.removeBookingText}>Remove</Text>
-                    </TouchableOpacity>
+                    {!isSlotExpired(selectedSlot) && (
+                      item.status === 'cancellation_requested' ? (
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
+                            onPress={() => handleApproveCancellation(item._id)}
+                          >
+                            <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '700' }}>Approve</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
+                            onPress={() => handleRejectCancellation(item._id)}
+                          >
+                            <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '700' }}>Reject</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.removeBookingBtn}
+                          onPress={() => handleRemoveBooking(item._id, item.student_id?.name || 'Student')}
+                        >
+                          <Text style={styles.removeBookingText}>Remove</Text>
+                        </TouchableOpacity>
+                      )
+                    )}
                   </View>
                 )}
               />

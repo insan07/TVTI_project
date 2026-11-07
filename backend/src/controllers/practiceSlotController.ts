@@ -106,6 +106,34 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
     }
 
     // Group proposed slots by day_of_week to validate day-by-day
+    const targetInstructorId = (req.user?.role === 'admin' && req.body.instructor_id) ? req.body.instructor_id : req.user?._id;
+
+    // Enforce rule: An instructor can only have 1 practical slot per day
+    const seenInstructorDays = new Set<string>();
+    for (const s of slots) {
+      const slotInstId = String(s.instructor_id || targetInstructorId);
+      const dayKey = `${slotInstId}:${s.day_of_week}`;
+      if (seenInstructorDays.has(dayKey)) {
+        res.status(400).json({
+          message: `An instructor can only create one practical slot per day (${s.day_of_week}).`
+        });
+        return;
+      }
+      seenInstructorDays.add(dayKey);
+
+      const existingForInstructorOnDay = await PracticeSlot.findOne({
+        instructor_id: slotInstId,
+        week_start_date: normalizedWeekStart,
+        day_of_week: s.day_of_week
+      });
+      if (existingForInstructorOnDay) {
+        res.status(400).json({
+          message: `Only one practical slot per day is allowed per instructor. A slot is already scheduled on ${s.day_of_week}.`
+        });
+        return;
+      }
+    }
+
     const slotsByDay: { [key: string]: any[] } = {};
     for (const s of slots) {
       if (!slotsByDay[s.day_of_week]) slotsByDay[s.day_of_week] = [];
@@ -116,7 +144,7 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
       const proposed = slotsByDay[day].map(s => ({
         start_time: s.start_time,
         end_time: s.end_time,
-        instructor_id: String(req.user?._id)
+        instructor_id: String(s.instructor_id || targetInstructorId)
       }));
       const ok = await checkSlotInstructorLimit(normalizedWeekStart, day, proposed);
       if (!ok) {
@@ -126,8 +154,6 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
         return;
       }
     }
-
-    const targetInstructorId = (req.user?.role === 'admin' && req.body.instructor_id) ? req.body.instructor_id : req.user?._id;
 
     const created = await PracticeSlot.insertMany(
       slots.map((s: any) => ({
@@ -139,18 +165,44 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
       }))
     );
 
-    // Send instant notification to enrolled batch students
-    await sendNotification({
-      batchId: batch_id,
-      title: 'New Practice Slots Open',
-      message: 'New practical session slots have been posted for your batch. Book your slot now!',
-      type: 'practice_slots',
-      link: '/schedule'
-    });
+    // Send instant notification to enrolled batch students (non-blocking)
+    try {
+      await sendNotification({
+        batchId: batch_id,
+        title: 'New Practice Slots Open',
+        message: 'New practical session slots have been posted for your batch. Book your slot now!',
+        type: 'practice_slots',
+        link: '/schedule'
+      });
+
+      // If an admin created practical slots on behalf of an instructor, notify that instructor
+      if (req.user?.role === 'admin') {
+        const distinctInstructorIds: string[] = Array.from(
+          new Set<string>(
+            slots
+              .map((s: any) => String(s.instructor_id || targetInstructorId || ''))
+              .filter((id: string) => id && id !== String(req.user?._id))
+          )
+        );
+        if (distinctInstructorIds.length > 0) {
+          await sendNotification({
+            userIds: distinctInstructorIds,
+            title: 'New Practical Slots Assigned',
+            message: `Admin scheduled ${created.length} practical session slot(s) for you (${slots.map((s: any) => `${s.day_of_week} ${s.start_time}-${s.end_time}`).join(', ')}).`,
+            type: 'practice_slots',
+            relatedId: created[0]?._id,
+            link: '/instructor/practice'
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.warn('[PracticeSlot Notification Warning]:', notifErr);
+    }
 
     res.status(201).json(created);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (error: any) {
+    console.error('[createSlots Error]:', error);
+    res.status(500).json({ message: error?.message || 'Server error' });
   }
 };
 
@@ -180,14 +232,21 @@ export const getMySlots = async (req: AuthRequest, res: Response): Promise<void>
       .sort({ week_start_date: 1, day_of_week: 1, start_time: 1 });
 
     const slotIds = slots.map(s => s._id);
-    const counts = await SlotBooking.aggregate([
-      { $match: { slot_id: { $in: slotIds }, status: 'confirmed' } },
-      { $group: { _id: '$slot_id', count: { $sum: 1 } } }
+    const [counts, pendingCancelCounts] = await Promise.all([
+      SlotBooking.aggregate([
+        { $match: { slot_id: { $in: slotIds }, status: { $in: ['confirmed', 'cancellation_requested'] } } },
+        { $group: { _id: '$slot_id', count: { $sum: 1 } } }
+      ]),
+      SlotBooking.aggregate([
+        { $match: { slot_id: { $in: slotIds }, status: 'cancellation_requested' } },
+        { $group: { _id: '$slot_id', count: { $sum: 1 } } }
+      ])
     ]);
 
     const result = slots.map(s => {
       const c = counts.find(x => String(x._id) === String(s._id))?.count || 0;
-      return { ...s.toObject(), booked_count: c };
+      const pendingC = pendingCancelCounts.find(x => String(x._id) === String(s._id))?.count || 0;
+      return { ...s.toObject(), booked_count: c, pending_cancellation_count: pendingC };
     });
 
     res.json(result);
@@ -235,8 +294,31 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
     const targetEnd = end_time !== undefined ? end_time : slot.end_time;
     const targetIsOpen = is_open !== undefined ? is_open : slot.is_open;
 
-    // Validate that past slots cannot be rescheduled, modified, or reopened (view-only)
+    // Validate that expired/past slots cannot be edited or locked/unlocked (only viewed or deleted)
     const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const existingDayIdx = DAYS_LIST.indexOf(slot.day_of_week);
+    const existingActualDate = new Date(slot.week_start_date);
+    if (existingDayIdx !== -1) {
+      existingActualDate.setUTCDate(existingActualDate.getUTCDate() + existingDayIdx);
+    }
+    const [exH, exM] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+    const existingEndDateTime = new Date(
+      existingActualDate.getUTCFullYear(),
+      existingActualDate.getUTCMonth(),
+      existingActualDate.getUTCDate(),
+      exH,
+      exM,
+      0,
+      0
+    );
+
+    if (existingEndDateTime.getTime() < Date.now()) {
+      res.status(400).json({
+        message: 'Expired practical slots cannot be edited or locked. You can only view students or delete the slot.'
+      });
+      return;
+    }
+
     const dayIdx = DAYS_LIST.indexOf(targetDay);
     const slotActualDate = new Date(targetWeekStart);
     if (dayIdx !== -1) {
@@ -254,12 +336,24 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
     );
 
     if (slotEndDateTime.getTime() < Date.now()) {
-      if (is_open === true || start_time !== undefined || end_time !== undefined || day_of_week !== undefined) {
-        res.status(400).json({
-          message: 'Past practical slots are view-only and cannot be modified or reopened.'
-        });
-        return;
-      }
+      res.status(400).json({
+        message: 'Practical slots cannot be rescheduled to a past date or time.'
+      });
+      return;
+    }
+
+    const targetInstructorForUpdate = String(instructor_id || slot.instructor_id);
+    const duplicateOnSameDay = await PracticeSlot.findOne({
+      _id: { $ne: slot._id },
+      instructor_id: targetInstructorForUpdate,
+      week_start_date: targetWeekStart,
+      day_of_week: targetDay
+    });
+    if (duplicateOnSameDay) {
+      res.status(400).json({
+        message: `Only one practical slot per day is allowed per instructor. A slot already exists on ${targetDay}.`
+      });
+      return;
     }
 
     if (targetIsOpen) {
@@ -278,17 +372,60 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
       }
     }
 
+    const prevInstructorId = String(slot.instructor_id);
+    const scheduleOrStatusChanged =
+      (day_of_week !== undefined && day_of_week !== slot.day_of_week) ||
+      (start_time !== undefined && start_time !== slot.start_time) ||
+      (end_time !== undefined && end_time !== slot.end_time) ||
+      (location !== undefined && location !== slot.location) ||
+      (is_open !== undefined && is_open !== slot.is_open);
+
     if (max_students !== undefined) slot.max_students = max_students;
     if (equipment_note !== undefined) slot.equipment_note = equipment_note;
     if (is_open !== undefined) slot.is_open = is_open;
     if (start_time !== undefined) slot.start_time = start_time;
-    if (end_time !== undefined) slot.end_time = end_time;
+    if (end_time !== undefined) end_time && (slot.end_time = end_time);
     if (day_of_week !== undefined) slot.day_of_week = day_of_week;
     if (instructor_id !== undefined && req.user?.role === 'admin') slot.instructor_id = instructor_id;
     if (location !== undefined) slot.location = location;
     if (booking_deadline !== undefined) slot.booking_deadline = booking_deadline;
 
     await slot.save();
+
+    // Notify booked students if the slot's schedule, location, or open status changed
+    try {
+      if (scheduleOrStatusChanged) {
+        const activeBookings = await SlotBooking.find({
+          slot_id: slot._id,
+          status: { $in: ['confirmed', 'cancellation_requested'] }
+        }).select('student_id');
+        const bookedStudentIds = activeBookings.map(b => String(b.student_id));
+        if (bookedStudentIds.length > 0) {
+          await sendNotification({
+            userIds: bookedStudentIds,
+            title: is_open === false ? 'Practical Slot Locked' : 'Practical Slot Updated',
+            message: `Your practical session is now scheduled for ${slot.day_of_week} (${slot.start_time} - ${slot.end_time})${slot.location ? ` at ${slot.location}` : ''}.`,
+            type: 'schedule_change',
+            relatedId: slot._id,
+            link: '/schedule'
+          });
+        }
+      }
+
+      if (instructor_id && String(instructor_id) !== prevInstructorId) {
+        await sendNotification({
+          userIds: [String(instructor_id)],
+          title: 'Practical Slot Assigned',
+          message: `You have been assigned to conduct the practical session on ${slot.day_of_week} (${slot.start_time} - ${slot.end_time}).`,
+          type: 'practice_slots',
+          relatedId: slot._id,
+          link: '/instructor/practice'
+        });
+      }
+    } catch (notifErr) {
+      console.warn('[updateSlot Notification Warning]:', notifErr);
+    }
+
     res.json(slot);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -298,11 +435,39 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
 // DELETE /api/instructors/practice-slots/:slotId/bookings/:bookingId
 export const cancelBookingByAdmin = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const slot = await PracticeSlot.findById(req.params.slotId);
+    if (slot) {
+      const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const dayIdx = DAYS_LIST.indexOf(slot.day_of_week);
+      const slotActualDate = new Date(slot.week_start_date);
+      if (dayIdx !== -1) slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
+      const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+      const slotEndDateTime = new Date(slotActualDate.getUTCFullYear(), slotActualDate.getUTCMonth(), slotActualDate.getUTCDate(), h, m, 0, 0);
+      if (slotEndDateTime.getTime() < Date.now()) {
+        res.status(400).json({ message: 'Cannot modify bookings for an expired practical slot.' });
+        return;
+      }
+    }
+
     const booking = await SlotBooking.findByIdAndDelete(req.params.bookingId);
     if (!booking) {
       res.status(404).json({ message: 'Booking not found' });
       return;
     }
+
+    if (booking.student_id) {
+      await sendNotification({
+        userIds: [String(booking.student_id)],
+        title: 'Practical Booking Removed',
+        message: slot
+          ? `Your booking for the ${slot.day_of_week} (${slot.start_time} - ${slot.end_time}) practical session has been removed by the ${req.user?.role || 'instructor'}.`
+          : 'Your practical slot booking has been removed.',
+        type: 'booking_rejected',
+        relatedId: slot?._id || booking.slot_id,
+        link: '/schedule'
+      });
+    }
+
     res.json({ message: 'Booking removed successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -321,8 +486,25 @@ export const deleteSlot = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    const existingBookings = await SlotBooking.find({
+      slot_id: slot._id,
+      status: { $in: ['confirmed', 'cancellation_requested'] }
+    }).select('student_id');
+    const bookedStudentIds = existingBookings.map(b => String(b.student_id));
+
     await SlotBooking.deleteMany({ slot_id: slot._id });
     await PracticeSlot.findByIdAndDelete(slot._id);
+
+    if (bookedStudentIds.length > 0) {
+      await sendNotification({
+        userIds: bookedStudentIds,
+        title: 'Practical Session Cancelled',
+        message: `The practical session scheduled on ${slot.day_of_week} (${slot.start_time} - ${slot.end_time}) has been cancelled.`,
+        type: 'schedule_change',
+        relatedId: slot._id,
+        link: '/schedule'
+      });
+    }
 
     res.json({ message: 'Slot deleted successfully' });
   } catch (error) {
@@ -340,16 +522,43 @@ export const addStudentBookingByAdmin = async (req: AuthRequest, res: Response):
       return;
     }
 
-    const existing = await SlotBooking.findOne({ slot_id: slot._id, student_id, status: 'confirmed' });
+    const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const dayIdx = DAYS_LIST.indexOf(slot.day_of_week);
+    const slotActualDate = new Date(slot.week_start_date);
+    if (dayIdx !== -1) slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
+    const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+    const slotEndDateTime = new Date(slotActualDate.getUTCFullYear(), slotActualDate.getUTCMonth(), slotActualDate.getUTCDate(), h, m, 0, 0);
+    if (slotEndDateTime.getTime() < Date.now()) {
+      res.status(400).json({ message: 'Cannot assign students to an expired practical slot.' });
+      return;
+    }
+
+    const existing = await SlotBooking.findOne({
+      slot_id: slot._id,
+      student_id,
+      status: { $in: ['confirmed', 'cancellation_requested'] }
+    });
     if (existing) {
       res.status(400).json({ message: 'Student is already booked in this slot' });
       return;
     }
 
+    // Remove any previous cancelled record for this student+slot to avoid legacy unique index conflicts
+    await SlotBooking.deleteMany({ slot_id: slot._id, student_id, status: 'cancelled' });
+
     const booking = await SlotBooking.create({
       slot_id: slot._id,
       student_id,
       status: 'confirmed'
+    });
+
+    await sendNotification({
+      userIds: [String(student_id)],
+      title: 'Practical Slot Assigned ✅',
+      message: `You have been assigned to the practical session on ${slot.day_of_week} (${slot.start_time} - ${slot.end_time})${slot.location ? ` at ${slot.location}` : ''}.`,
+      type: 'booking_confirmed',
+      relatedId: slot._id,
+      link: '/schedule'
     });
 
     res.status(201).json(booking);
@@ -361,12 +570,26 @@ export const addStudentBookingByAdmin = async (req: AuthRequest, res: Response):
 // POST /api/instructors/practice-slots/:slotId/bookings/:bookingId/approve-cancellation
 export const approveCancellation = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const booking = await SlotBooking.findOneAndUpdate(
-      { _id: req.params.bookingId, status: 'cancellation_requested' },
-      { status: 'cancelled' },
-      { new: true }
-    );
+    const booking = await SlotBooking.findOneAndDelete({
+      _id: req.params.bookingId,
+      status: 'cancellation_requested'
+    });
     if (!booking) { res.status(404).json({ message: 'Pending cancellation not found' }); return; }
+
+    const slot = await PracticeSlot.findById(booking.slot_id);
+    if (booking.student_id) {
+      await sendNotification({
+        userIds: [String(booking.student_id)],
+        title: 'Cancellation Request Approved ✅',
+        message: slot
+          ? `Your request to cancel the practical session on ${slot.day_of_week} (${slot.start_time} - ${slot.end_time}) has been approved.`
+          : 'Your request to cancel the practical session booking has been approved.',
+        type: 'cancellation_approved',
+        relatedId: booking.slot_id,
+        link: '/schedule'
+      });
+    }
+
     res.json({ message: 'Cancellation approved' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -382,6 +605,21 @@ export const rejectCancellation = async (req: AuthRequest, res: Response): Promi
       { new: true }
     );
     if (!booking) { res.status(404).json({ message: 'Pending cancellation not found' }); return; }
+
+    const slot = await PracticeSlot.findById(booking.slot_id);
+    if (booking.student_id) {
+      await sendNotification({
+        userIds: [String(booking.student_id)],
+        title: 'Cancellation Request Declined ❌',
+        message: slot
+          ? `Your request to cancel the practical session on ${slot.day_of_week} (${slot.start_time} - ${slot.end_time}) was declined. Your booking remains confirmed.`
+          : 'Your cancellation request was declined. Your practical slot booking remains confirmed.',
+        type: 'cancellation_rejected',
+        relatedId: booking.slot_id,
+        link: '/schedule'
+      });
+    }
+
     res.json({ message: 'Cancellation rejected (re-confirmed)' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

@@ -46,6 +46,16 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
   return slotDate;
 };
 
+const isSlotExpired = (slot: any) => {
+  if (!slot) return false;
+  if (slot.is_expired) return true;
+  const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
+  const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
+  const slotEnd = new Date(actualDate);
+  slotEnd.setHours(h, m, 0, 0);
+  return slotEnd.getTime() < Date.now();
+};
+
 export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: number }) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -282,8 +292,9 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
             {slots.length > 0 ? (
               slots.map((slot) => {
                 const isFull = slot.seats_available <= 0;
+                const isExpired = isSlotExpired(slot);
                 const bookedThisWeek = hasBookedInWeek(slot.week_start_date);
-                const disabled = isFull || (bookedThisWeek && !slot.already_booked);
+                const disabled = isExpired || isFull || (bookedThisWeek && !slot.already_booked);
                 const seatsLeft = slot.seats_available;
                 const maxSeats = slot.max_students || 10;
                 const fillRatio = Math.max(0, Math.min(1, (maxSeats - seatsLeft) / maxSeats));
@@ -293,16 +304,25 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                 return (
                   <View
                     key={slot._id}
-                    style={[styles.practiceCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, isFull && (isDark ? { opacity: 0.6 } : styles.practiceCardFull)]}
+                    style={[
+                      styles.practiceCard,
+                      isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
+                      (isFull || isExpired) && (isDark ? { opacity: 0.65 } : styles.practiceCardFull),
+                    ]}
                   >
                     <View style={styles.practiceCardTopRow}>
                       <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 6 }}>
                           <View style={[styles.practiceBadge, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.18)' }]}>
                             <Text style={[styles.practiceBadgeText, isDark && { color: '#FB923C' }]}>PRACTICE SLOT</Text>
                           </View>
+                          {isExpired && (
+                            <View style={{ backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#E2E8F0' }}>
+                              <Text style={{ fontSize: 10, fontWeight: '700', color: isDark ? '#94A3B8' : '#64748B' }}>EXPIRED</Text>
+                            </View>
+                          )}
                         </View>
-                        <Text style={[styles.practiceTitle, isDark && { color: '#FFFFFF' }, isFull && styles.dimmedText]}>
+                        <Text style={[styles.practiceTitle, isDark && { color: '#FFFFFF' }, (isFull || isExpired) && styles.dimmedText]}>
                           {slot.batch_id?.course_id?.title || 'Practice Session'}
                         </Text>
                       </View>
@@ -337,10 +357,10 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                       <Icon
                         name="calendar-outline"
                         size={15}
-                        color={isFull ? '#B0B0B0' : '#D97706'}
+                        color={(isFull || isExpired) ? '#B0B0B0' : '#D97706'}
                         style={{ marginRight: 4 }}
                       />
-                      <Text style={[styles.practiceDateText, isDark && { color: '#CBD5E1' }, isFull && styles.dimmedText]}>
+                      <Text style={[styles.practiceDateText, isDark && { color: '#CBD5E1' }, (isFull || isExpired) && styles.dimmedText]}>
                         {dateString}
                       </Text>
                     </View>
@@ -349,26 +369,32 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                       <Icon
                         name="time-outline"
                         size={15}
-                        color={isFull ? '#B0B0B0' : (isDark ? '#94A3B8' : '#666')}
+                        color={(isFull || isExpired) ? '#B0B0B0' : (isDark ? '#94A3B8' : '#666')}
                         style={{ marginRight: 4 }}
                       />
-                      <Text style={[styles.practiceInfoText, isDark && { color: '#94A3B8' }, isFull && styles.dimmedText]}>
+                      <Text style={[styles.practiceInfoText, isDark && { color: '#94A3B8' }, (isFull || isExpired) && styles.dimmedText]}>
                         {slot.start_time} - {slot.end_time}
                       </Text>
                       <Text style={[styles.dotSeparator, isDark && { color: '#64748B' }]}>•</Text>
                       <Icon
                         name="person-outline"
                         size={15}
-                        color={isFull ? '#B0B0B0' : (isDark ? '#94A3B8' : '#666')}
+                        color={(isFull || isExpired) ? '#B0B0B0' : (isDark ? '#94A3B8' : '#666')}
                         style={{ marginRight: 4 }}
                       />
-                      <Text style={[styles.practiceInfoText, isDark && { color: '#94A3B8' }, isFull && styles.dimmedText]}>
+                      <Text style={[styles.practiceInfoText, isDark && { color: '#94A3B8' }, (isFull || isExpired) && styles.dimmedText]}>
                         {slot.instructor_id?.name || 'Instructor TBD'}
                       </Text>
                     </View>
 
                     {/* Action Buttons */}
-                    {isFull ? (
+                    {isExpired ? (
+                      <View style={[styles.fullStatusContainer, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                        <Text style={[styles.fullText, isDark && { color: '#94A3B8' }]}>
+                          {slot.already_booked ? 'SESSION COMPLETED / EXPIRED' : 'SLOT EXPIRED'}
+                        </Text>
+                      </View>
+                    ) : isFull && !slot.already_booked ? (
                       <View style={[styles.fullStatusContainer, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
                         <Text style={[styles.fullText, isDark && { color: '#94A3B8' }]}>FULL</Text>
                       </View>
@@ -376,6 +402,10 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
                       slot.booking_status === 'cancellation_requested' ? (
                         <View style={[styles.cancelBookingButton, { borderColor: '#F59E0B' }, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
                           <Text style={[styles.cancelBookingButtonText, { color: '#F59E0B' }]}>Pending Cancellation</Text>
+                        </View>
+                      ) : !slot.is_open ? (
+                        <View style={[styles.fullStatusContainer, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                          <Text style={[styles.fullText, isDark && { color: '#94A3B8' }]}>BOOKED (SLOT LOCKED)</Text>
                         </View>
                       ) : (
                         <TouchableOpacity
