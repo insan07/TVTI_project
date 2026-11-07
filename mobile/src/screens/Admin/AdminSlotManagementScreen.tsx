@@ -617,6 +617,21 @@ export default function AdminSlotManagementScreen() {
 
     const weekStart = getMonday(createDate);
     const dayName = DAYS[createDate.getDay() === 0 ? 6 : createDate.getDay() - 1];
+    const targetDateStr = getLocalDateString(createDate);
+
+    const instructorAlreadyHasSlot = slots.some(s => {
+      const instId = s.instructor_id?._id || s.instructor_id;
+      const sDateStr = getLocalDateString(getSlotActualDate(s.week_start_date, s.day_of_week));
+      return String(instId) === String(createInstructorId) && sDateStr === targetDateStr;
+    });
+    if (instructorAlreadyHasSlot) {
+      return showAlert(
+        'One Slot Per Day Limit',
+        'An instructor can only have one practical slot per day. This instructor already has a slot scheduled on the selected date.',
+        undefined,
+        'error'
+      );
+    }
 
     setCreating(true);
     try {
@@ -650,10 +665,16 @@ export default function AdminSlotManagementScreen() {
     if (!createBatchId) return showAlert('Error', 'Please select a target batch', undefined, 'error');
     if (!createInstructorId) return showAlert('Error', 'Please select an assigned instructor', undefined, 'error');
 
+    const seenDays = new Set<string>();
     for (const s of newSlots) {
       if (!s.day_of_week || !s.start_time || !s.end_time) {
         return showAlert('Error', 'Please complete day and time for all slots', undefined, 'error');
       }
+      if (seenDays.has(s.day_of_week)) {
+        return showAlert('One Slot Per Day Limit', `An instructor can only have one practical slot per day. Duplicate entries found for ${s.day_of_week}.`, undefined, 'error');
+      }
+      seenDays.add(s.day_of_week);
+
       const maxN = parseInt(s.max_students, 10);
       if (!maxN || maxN < 1) return showAlert('Error', 'Max capacity must be at least 1', undefined, 'error');
 
@@ -663,6 +684,16 @@ export default function AdminSlotManagementScreen() {
       }
       if (isSlotDateTimeInPast(slotActualDate, s.end_time)) {
         return showAlert('Past Time', `Cannot create slot on ${s.day_of_week} (${s.start_time} - ${s.end_time}) because this time has already passed.`, undefined, 'error');
+      }
+
+      const targetDateStr = getLocalDateString(slotActualDate);
+      const instructorAlreadyHasSlot = slots.some(ex => {
+        const instId = ex.instructor_id?._id || ex.instructor_id;
+        const exDateStr = getLocalDateString(getSlotActualDate(ex.week_start_date, ex.day_of_week));
+        return String(instId) === String(createInstructorId) && exDateStr === targetDateStr;
+      });
+      if (instructorAlreadyHasSlot) {
+        return showAlert('One Slot Per Day Limit', `This instructor already has a practical slot scheduled on ${s.day_of_week}. Only one slot per day is allowed.`, undefined, 'error');
       }
     }
 

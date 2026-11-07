@@ -108,6 +108,32 @@ export const createSlots = async (req: AuthRequest, res: Response): Promise<void
     // Group proposed slots by day_of_week to validate day-by-day
     const targetInstructorId = (req.user?.role === 'admin' && req.body.instructor_id) ? req.body.instructor_id : req.user?._id;
 
+    // Enforce rule: An instructor can only have 1 practical slot per day
+    const seenInstructorDays = new Set<string>();
+    for (const s of slots) {
+      const slotInstId = String(s.instructor_id || targetInstructorId);
+      const dayKey = `${slotInstId}:${s.day_of_week}`;
+      if (seenInstructorDays.has(dayKey)) {
+        res.status(400).json({
+          message: `An instructor can only create one practical slot per day (${s.day_of_week}).`
+        });
+        return;
+      }
+      seenInstructorDays.add(dayKey);
+
+      const existingForInstructorOnDay = await PracticeSlot.findOne({
+        instructor_id: slotInstId,
+        week_start_date: normalizedWeekStart,
+        day_of_week: s.day_of_week
+      });
+      if (existingForInstructorOnDay) {
+        res.status(400).json({
+          message: `Only one practical slot per day is allowed per instructor. A slot is already scheduled on ${s.day_of_week}.`
+        });
+        return;
+      }
+    }
+
     const slotsByDay: { [key: string]: any[] } = {};
     for (const s of slots) {
       if (!slotsByDay[s.day_of_week]) slotsByDay[s.day_of_week] = [];
@@ -284,6 +310,20 @@ export const updateSlot = async (req: AuthRequest, res: Response): Promise<void>
     if (slotEndDateTime.getTime() < Date.now()) {
       res.status(400).json({
         message: 'Practical slots cannot be rescheduled to a past date or time.'
+      });
+      return;
+    }
+
+    const targetInstructorForUpdate = String(instructor_id || slot.instructor_id);
+    const duplicateOnSameDay = await PracticeSlot.findOne({
+      _id: { $ne: slot._id },
+      instructor_id: targetInstructorForUpdate,
+      week_start_date: targetWeekStart,
+      day_of_week: targetDay
+    });
+    if (duplicateOnSameDay) {
+      res.status(400).json({
+        message: `Only one practical slot per day is allowed per instructor. A slot already exists on ${targetDay}.`
       });
       return;
     }

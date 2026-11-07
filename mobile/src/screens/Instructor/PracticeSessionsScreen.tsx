@@ -432,6 +432,19 @@ export default function PracticeSessionsScreen() {
       return showAlert('Past Time', 'The session end time has already passed. Please select a future time.', undefined, 'error');
     }
 
+    const targetDateStr = getLocalDateString(createDate);
+    const alreadyHasSlotOnDate = slots.some(
+      s => getLocalDateString(getSlotActualDate(s.week_start_date, s.day_of_week)) === targetDateStr
+    );
+    if (alreadyHasSlotOnDate) {
+      return showAlert(
+        'One Slot Per Day Limit',
+        'You can only create one practical slot per day. A practical slot is already scheduled for this date.',
+        undefined,
+        'error'
+      );
+    }
+
     setCreating(true);
     try {
       const dayOfWeek = DAYS[createDate.getDay() === 0 ? 6 : createDate.getDay() - 1];
