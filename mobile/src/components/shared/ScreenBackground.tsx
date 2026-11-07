@@ -72,7 +72,7 @@ export default function ScreenBackground({ children }: ScreenBackgroundProps) {
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFillObject as any),
     zIndex: -1,
   },
 });

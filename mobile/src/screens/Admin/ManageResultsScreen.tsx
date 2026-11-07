@@ -12,6 +12,7 @@ import {
   ScrollView,
   Platform
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import api from '../../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
