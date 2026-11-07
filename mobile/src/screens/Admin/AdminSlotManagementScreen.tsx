@@ -31,7 +31,7 @@ import ScreenHeader from '../../components/shared/ScreenHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -381,9 +381,10 @@ export default function AdminSlotManagementScreen() {
         const end = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 7);
         params.startDate = getLocalDateString(start);
         params.endDate = getLocalDateString(end);
-      } else {
+      } else if (viewMode === 'Week' || viewMode === 'Day') {
         params.weekStart = getLocalDateString(weekStart);
       }
+      // When viewMode === 'List', omit weekStart & date range so all practical slots are retrieved
 
       const res = await api.get('/instructors/practice-slots', { params });
       let data = res.data || [];
@@ -408,6 +409,14 @@ export default function AdminSlotManagementScreen() {
           (s.location || '').toLowerCase().includes(q)
         );
       }
+
+      // Chronological sort by actual calendar date and start time
+      data.sort((a: any, b: any) => {
+        const dateA = getSlotActualDate(a.week_start_date, a.day_of_week).getTime();
+        const dateB = getSlotActualDate(b.week_start_date, b.day_of_week).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        return (a.start_time || '').localeCompare(b.start_time || '');
+      });
 
       setSlots(data);
     } catch (e) {
@@ -684,6 +693,7 @@ export default function AdminSlotManagementScreen() {
     const max = slot.max_students || 1;
     const fillRatio = Math.min(1, booked / max);
     const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
+    const isPast = isPastDate(actualDate);
     const formattedDate = actualDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const dayShort = actualDate.toLocaleDateString('en-GB', { weekday: 'short' });
 
@@ -694,6 +704,11 @@ export default function AdminSlotManagementScreen() {
           <View style={styles.cardHeaderRow}>
             <View style={[styles.cardTag, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}><Text style={styles.cardTagText}>PRACTICAL SLOT</Text></View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              {isPast && (
+                <View style={[styles.pastTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)' }, { marginRight: 6 }]}>
+                  <Text style={[styles.pastTagText, isDark && { color: '#94A3B8' }]}>PAST</Text>
+                </View>
+              )}
               <View style={[styles.statusPillBadge, slot.is_open ? styles.statusOpen : styles.statusLocked]}>
                 <Text style={[styles.statusPillBadgeText, slot.is_open ? styles.textOpen : styles.textLocked]}>
                   {slot.is_open ? 'OPEN' : 'LOCKED'}
@@ -1219,36 +1234,38 @@ export default function AdminSlotManagementScreen() {
       </View>
 
       {/* Date Navigator Bar */}
-      <View style={[styles.dateNavigator, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
-        <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(-1) : viewMode === 'Day' ? changeDay(-1) : changeWeek(-1)}>
-          <Icon name="chevron-back" size={20} color="#F58220" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => {
-            if (viewMode === 'Day') {
-              setDatePickerPurpose('navigate');
-              setShowDatePicker(true);
-            } else {
-              setShowMonthPicker(true);
-            }
-          }}
-          style={[styles.dateBadge, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}
-        >
-          <Icon name="calendar-outline" size={14} color="#F58220" style={{ marginRight: 6 }} />
-          <Text style={styles.dateBadgeText}>
-            {viewMode === 'Month'
-              ? selectedDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-              : viewMode === 'Day'
-                ? selectedDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
-                : `Week of ${getLocalDateString(weekStart)}`}
-          </Text>
-          <Icon name="chevron-down" size={12} color="#F58220" style={{ marginLeft: 4 }} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(1) : viewMode === 'Day' ? changeDay(1) : changeWeek(1)}>
-          <Icon name="chevron-forward" size={20} color="#F58220" />
-        </TouchableOpacity>
-      </View>
+      {viewMode !== 'List' && (
+        <View style={[styles.dateNavigator, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
+          <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(-1) : viewMode === 'Day' ? changeDay(-1) : changeWeek(-1)}>
+            <Icon name="chevron-back" size={20} color="#F58220" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              if (viewMode === 'Day') {
+                setDatePickerPurpose('navigate');
+                setShowDatePicker(true);
+              } else {
+                setShowMonthPicker(true);
+              }
+            }}
+            style={[styles.dateBadge, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}
+          >
+            <Icon name="calendar-outline" size={14} color="#F58220" style={{ marginRight: 6 }} />
+            <Text style={styles.dateBadgeText}>
+              {viewMode === 'Month'
+                ? selectedDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+                : viewMode === 'Day'
+                  ? selectedDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+                  : `Week of ${getLocalDateString(weekStart)}`}
+            </Text>
+            <Icon name="chevron-down" size={12} color="#F58220" style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(1) : viewMode === 'Day' ? changeDay(1) : changeWeek(1)}>
+            <Icon name="chevron-forward" size={20} color="#F58220" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={{ flex: 1 }}>
         {viewMode === 'List' && (
@@ -2596,6 +2613,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#64748B',
+  },
+  pastTag: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  pastTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
   },
   pastDateBanner: {
     flexDirection: 'row',

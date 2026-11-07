@@ -318,12 +318,23 @@ export default function PracticeSessionsScreen() {
         const end = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 7);
         params.startDate = getLocalDateString(start);
         params.endDate = getLocalDateString(end);
-      } else {
+      } else if (viewMode === 'Week' || viewMode === 'Day') {
         params.weekStart = getLocalDateString(weekStart);
       }
+      // When viewMode === 'List', omit weekStart & date range so all practical slots are retrieved
 
       const res = await api.get('/instructors/practice-slots', { params });
-      setSlots(res.data || []);
+      let data = res.data || [];
+
+      // Chronological sort by actual calendar date and start time
+      data.sort((a: any, b: any) => {
+        const dateA = getSlotActualDate(a.week_start_date, a.day_of_week).getTime();
+        const dateB = getSlotActualDate(b.week_start_date, b.day_of_week).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        return (a.start_time || '').localeCompare(b.start_time || '');
+      });
+
+      setSlots(data);
     } catch (e) {
       console.log('Error fetching practice slots', e);
     } finally {
@@ -441,6 +452,7 @@ export default function PracticeSessionsScreen() {
     const max = slot.max_students || 1;
     const fillRatio = Math.min(1, booked / max);
     const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
+    const isPast = isPastDate(actualDate);
     const formattedDate = actualDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const dayShort = actualDate.toLocaleDateString('en-GB', { weekday: 'short' });
 
@@ -453,6 +465,11 @@ export default function PracticeSessionsScreen() {
               <Text style={[styles.cardTagText, isDark && { color: '#FB923C' }]}>PRACTICAL SLOT</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {isPast && (
+                <View style={[styles.pastTag, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)' }, { marginRight: 6 }]}>
+                  <Text style={[styles.pastTagText, isDark && { color: '#94A3B8' }]}>PAST</Text>
+                </View>
+              )}
               <View style={[styles.statusPill, slot.is_open ? styles.statusOpen : styles.statusLocked]}>
                 <Text style={[styles.statusPillText, slot.is_open ? styles.textOpen : styles.textLocked]}>
                   {slot.is_open ? 'OPEN' : 'LOCKED'}
@@ -972,36 +989,38 @@ export default function PracticeSessionsScreen() {
         </View>
       </View>
 
-      <View style={[styles.dateNavigator, isDark && styles.dateNavigatorDark]}>
-        <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(-1) : viewMode === 'Day' ? changeDay(-1) : changeWeek(-1)}>
-          <Icon name="chevron-back" size={20} color="#FF5E14" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => {
-            if (viewMode === 'Day') {
-              setDatePickerPurpose('navigate');
-              setShowDatePicker(true);
-            } else {
-              setShowMonthPicker(true);
-            }
-          }}
-          style={[styles.dateBadge, isDark && styles.dateBadgeDark]}
-        >
-          <Icon name="calendar-outline" size={14} color="#FF5E14" style={{ marginRight: 6 }} />
-          <Text style={[styles.dateBadgeText, isDark && { color: '#FB923C' }]}>
-            {viewMode === 'Month'
-              ? selectedDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-              : viewMode === 'Day'
-                ? selectedDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
-                : `Week of ${getLocalDateString(weekStart)}`}
-          </Text>
-          <Icon name="chevron-down" size={12} color="#FF5E14" style={{ marginLeft: 4 }} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(1) : viewMode === 'Day' ? changeDay(1) : changeWeek(1)}>
-          <Icon name="chevron-forward" size={20} color="#FF5E14" />
-        </TouchableOpacity>
-      </View>
+      {viewMode !== 'List' && (
+        <View style={[styles.dateNavigator, isDark && styles.dateNavigatorDark]}>
+          <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(-1) : viewMode === 'Day' ? changeDay(-1) : changeWeek(-1)}>
+            <Icon name="chevron-back" size={20} color="#FF5E14" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              if (viewMode === 'Day') {
+                setDatePickerPurpose('navigate');
+                setShowDatePicker(true);
+              } else {
+                setShowMonthPicker(true);
+              }
+            }}
+            style={[styles.dateBadge, isDark && styles.dateBadgeDark]}
+          >
+            <Icon name="calendar-outline" size={14} color="#FF5E14" style={{ marginRight: 6 }} />
+            <Text style={[styles.dateBadgeText, isDark && { color: '#FB923C' }]}>
+              {viewMode === 'Month'
+                ? selectedDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+                : viewMode === 'Day'
+                  ? selectedDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+                  : `Week of ${getLocalDateString(weekStart)}`}
+            </Text>
+            <Icon name="chevron-down" size={12} color="#FF5E14" style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => viewMode === 'Month' ? changeMonth(1) : viewMode === 'Day' ? changeDay(1) : changeWeek(1)}>
+            <Icon name="chevron-forward" size={20} color="#FF5E14" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={{ flex: 1 }}>
         {loading ? (
@@ -1458,6 +1477,20 @@ const styles = StyleSheet.create({
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   cardTag: { backgroundColor: '#FFF7ED', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
   cardTagText: { color: '#F97316', fontSize: 10, fontWeight: '700' },
+  pastTag: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  pastTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
   statusPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
   statusOpen: { backgroundColor: '#ECFDF5' },
   statusLocked: { backgroundColor: '#FEF2F2' },
