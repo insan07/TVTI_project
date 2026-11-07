@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,12 +23,31 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
+const FIELD_SURFACE = {
+  backgroundColor: 'transparent',
+  borderWidth: 1.1,
+  borderColor: 'rgba(255, 255, 255, 0.13)',
+  borderRadius: 10,
+};
+const FIELD_SURFACE_LIGHT = {
+  ...FIELD_SURFACE,
+  borderColor: '#E2E8F0',
+};
+
 export default function RegisterScreen() {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 900;
+  const { width, height } = useWindowDimensions();
+  const isDesktop = width >= 1024;
+  const isNarrow = width < 480;
+  const isCompact = width < 380;
+  const isShort = height < 700;
+  const pagePadding = isCompact ? 16 : isDesktop ? 32 : 24;
+  const pageScrollRef = useRef<ScrollView>(null);
+  const cardTopRef = useRef(0);
+  const errorTopRef = useRef(0);
 
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const modalMaxHeight = Math.max(0, height - insets.top - insets.bottom - 32);
 
   // Theme mode: 'light' | 'dark'. Defaults to 'light' to match design screenshot
   const { mode: themeMode, isDark, toggleTheme } = useTheme();
@@ -80,6 +99,10 @@ export default function RegisterScreen() {
   // Wizard Step State (1 to 5)
   const [currentStep, setCurrentStep] = useState(1);
 
+  useEffect(() => {
+    pageScrollRef.current?.scrollTo({ y: currentStep === 1 ? 0 : cardTopRef.current, animated: false });
+  }, [currentStep]);
+
   // Form Data States
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -122,6 +145,11 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [fetchingCourses, setFetchingCourses] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  useEffect(() => {
+    if (errorMsg) {
+      pageScrollRef.current?.scrollTo({ y: Math.max(0, cardTopRef.current + errorTopRef.current - 16), animated: false });
+    }
+  }, [errorMsg]);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // Email OTP States
@@ -133,6 +161,10 @@ export default function RegisterScreen() {
   const [otpError, setOtpError] = useState('');
   const [otpSuccessMsg, setOtpSuccessMsg] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    pageScrollRef.current?.scrollTo({ y: emailVerified ? cardTopRef.current : 0, animated: false });
+  }, [emailVerified]);
 
   // Modals
   const [termsModalVisible, setTermsModalVisible] = useState(false);
@@ -245,12 +277,13 @@ export default function RegisterScreen() {
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errorMsg) setErrorMsg('');
-    if (field === 'email' && emailVerified) {
+    if (field === 'email' && value !== formData.email) {
       handleResetEmail();
     }
   };
 
   const handleSendOtp = async () => {
+    if (sendingOtp || verifyingOtp || emailVerified || resendCooldown > 0) return;
     setOtpError('');
     setOtpSuccessMsg('');
     setOtpCode('');
@@ -266,17 +299,18 @@ export default function RegisterScreen() {
       if (res.data?.success) {
         setOtpSent(true);
         setOtpSuccessMsg(res.data?.message || 'A 6-digit OTP code has been sent to your email address.');
-        if (res.data?.devOtp) {
-          setOtpCode(res.data.devOtp);
-        } else {
-          setOtpCode('');
-        }
+        setOtpCode('');
         setResendCooldown(60);
       } else {
         setOtpError(res.data?.message || 'Failed to send OTP.');
       }
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Unable to send OTP. Please check your network connection.';
+      const cooldown = Number(err.response?.data?.cooldownRemaining);
+      if (Number.isFinite(cooldown) && cooldown > 0) {
+        setResendCooldown(Math.ceil(cooldown));
+        setOtpSent(true);
+      }
       setOtpError(msg);
     } finally {
       setSendingOtp(false);
@@ -284,6 +318,7 @@ export default function RegisterScreen() {
   };
 
   const handleVerifyOtp = async () => {
+    if (sendingOtp || verifyingOtp || emailVerified) return;
     setOtpError('');
     setOtpSuccessMsg('');
     if (!otpCode.trim() || otpCode.trim().length !== 6) {
@@ -297,8 +332,10 @@ export default function RegisterScreen() {
         email: formData.email.trim().toLowerCase(),
         otp: otpCode.trim()
       });
-      if (res.data?.verified || res.data?.success) {
+      if (res.data?.verified === true) {
         setEmailVerified(true);
+        setCurrentStep(1);
+        setErrorMsg('');
         setOtpSent(false);
         setOtpCode('');
         setOtpSuccessMsg('Email verified successfully.');
@@ -314,11 +351,15 @@ export default function RegisterScreen() {
   };
 
   const handleResetEmail = () => {
+    if (loading) return;
     setEmailVerified(false);
+    setCurrentStep(1);
+    setErrorMsg('');
     setOtpSent(false);
     setOtpCode('');
     setOtpError('');
     setOtpSuccessMsg('');
+    setResendCooldown(0);
   };
 
   const compressBase64Image = (dataUrl: string, maxWidth = 1000, quality = 0.5): Promise<string> => {
@@ -447,6 +488,14 @@ export default function RegisterScreen() {
 
   // STEP VALIDATION & NAVIGATION
   const handleNextStep = async () => {
+    if (loading) return;
+    if (!emailVerified) {
+      setOtpError('Please verify your email before continuing.');
+      return;
+    }
+    if (errorMsg) {
+      pageScrollRef.current?.scrollTo({ y: Math.max(0, cardTopRef.current + errorTopRef.current - 16), animated: false });
+    }
     setErrorMsg('');
 
     if (currentStep === 1) {
@@ -553,6 +602,12 @@ export default function RegisterScreen() {
   };
 
   const handleRegisterApplication = async () => {
+    if (loading) return;
+    if (!emailVerified) {
+      setCurrentStep(1);
+      setOtpError('Please verify your email before continuing.');
+      return;
+    }
     setErrorMsg('');
 
     if (formData.desired_courses.length === 0) {
@@ -711,7 +766,100 @@ export default function RegisterScreen() {
     }
   };
 
+  const renderEmailVerification = () => {
+    const inputStyle = [styles.textInputStyle, isLight && styles.textInputLight];
+    const otpBusy = sendingOtp || verifyingOtp;
+
+    return (
+      <View style={styles.stepSectionBox} testID="registration-email-gate">
+        <Text style={[styles.fieldLabel, { color: isLight ? '#334155' : '#D4CAC0' }]}>
+          Email Address
+        </Text>
+        <View style={[styles.emailOtpWrapper, isNarrow && styles.stackedRow]}>
+          <TextInput
+            testID="registration-email"
+            accessibilityLabel="Email address"
+            style={[inputStyle, styles.emailInput, isNarrow && styles.stackedControl]}
+            placeholder="name@example.com"
+            placeholderTextColor={isLight ? '#94A3B8' : '#9CA3AF'}
+            keyboardType="email-address"
+            autoComplete="email"
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={formData.email}
+            onChangeText={(value) => handleChange('email', value)}
+            onSubmitEditing={handleSendOtp}
+            editable={!otpBusy}
+          />
+          {!otpSent && (
+            <TouchableOpacity
+              testID="registration-send-code"
+              accessibilityRole="button"
+              accessibilityLabel="Verify email"
+              style={[styles.sendOtpBtn, isNarrow && styles.stackedControl, otpBusy && styles.disabledBtn]}
+              onPress={handleSendOtp}
+              disabled={otpBusy}
+            >
+              {sendingOtp ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.sendOtpBtnText}>Verify</Text>}
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {otpSuccessMsg ? (
+          <Text style={styles.otpSuccessText} accessibilityLiveRegion="polite">{otpSuccessMsg}</Text>
+        ) : null}
+
+        {otpSent && (
+          <View style={[styles.otpCardBox, isLight && { backgroundColor: '#F8FAFC', borderColor: 'rgba(255, 101, 0, 0.4)' }]}>
+            <Text style={styles.otpInstructionText}>Enter the 6-digit code from your email</Text>
+            <View style={[styles.otpRow, isNarrow && styles.stackedRow]}>
+              <TextInput
+                testID="registration-otp"
+                accessibilityLabel="Verification code"
+                style={[inputStyle, styles.otpInputStyle, isNarrow && styles.stackedControl]}
+                placeholder="123456"
+                placeholderTextColor={isLight ? '#94A3B8' : '#9CA3AF'}
+                keyboardType="number-pad"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={otpCode}
+                onChangeText={(value) => setOtpCode(value.replace(/\D/g, ''))}
+                onSubmitEditing={handleVerifyOtp}
+                editable={!otpBusy}
+              />
+              <TouchableOpacity
+                testID="registration-verify-email"
+                accessibilityRole="button"
+                style={[styles.verifyOtpBtn, isNarrow && styles.stackedControl, (otpBusy || otpCode.length !== 6) && styles.disabledBtn]}
+                onPress={handleVerifyOtp}
+                disabled={otpBusy || otpCode.length !== 6}
+              >
+                {verifyingOtp ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.verifyOtpBtnText}>Verify & continue</Text>}
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              testID="registration-resend-code"
+              accessibilityRole="button"
+              style={[styles.resendCodeButton, (otpBusy || resendCooldown > 0) && styles.disabledBtn]}
+              disabled={otpBusy || resendCooldown > 0}
+              onPress={handleSendOtp}
+            >
+              <Text style={styles.resendCodeText}>
+                {sendingOtp ? 'Sending code...' : resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend code'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {otpError ? (
+          <Text style={styles.otpErrorText} accessibilityRole="alert" accessibilityLiveRegion="polite">{otpError}</Text>
+        ) : null}
+      </View>
+    );
+  };
+
   const renderRegisterCard = () => {
+    const nextDisabled = loading || !emailVerified;
     const inputStyle = [styles.textInputStyle, isLight && styles.textInputLight];
     const labelStyle = [styles.fieldLabel, { color: isLight ? '#334155' : '#D4CAC0' }];
     const placeholderColor = isLight ? '#94A3B8' : '#9CA3AF';
@@ -722,6 +870,7 @@ export default function RegisterScreen() {
           styles.card,
           isLight ? styles.cardLight : styles.cardDark,
           isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
+          isCompact && styles.compactCard,
         ]}
       >
         {/* Back to Sign In Action */}
@@ -734,463 +883,298 @@ export default function RegisterScreen() {
           <Text style={styles.backButtonText}>Back to Sign In</Text>
         </TouchableOpacity>
 
-        <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
-          Student Registration
+        <Text style={[styles.welcomeTitle, isCompact && styles.compactWelcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+          {emailVerified ? 'Student Registration' : 'Verify your email'}
         </Text>
         <Text style={[styles.welcomeSubtitle, { color: isLight ? '#475569' : '#A89F93' }]}>
-          Step {currentStep} of 5: {getStepTitle()}
+          {emailVerified
+            ? `Step ${currentStep} of 5: ${getStepTitle()}`
+            : 'Enter your email address to start your student registration.'}
         </Text>
 
-        {/* STEPPER INDICATOR HEADER */}
-        {renderStepIndicator()}
-
-        {/* ERROR BOX */}
-        {errorMsg ? (
-          <View style={styles.errorBox}>
-            <Icon name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 8, marginTop: 2 }} />
-            <Text style={styles.errorBoxText}>{errorMsg}</Text>
-          </View>
-        ) : null}
-
-        {/* FORM CONTENT SCROLLVIEW */}
-        <View style={styles.scrollForm}>
-          <View style={styles.scrollFormContent}>
-
-            {/* ========================================================================= */}
-            {/* STEP 1: YOUR PERSONAL DETAILS */}
-            {/* ========================================================================= */}
-            {currentStep === 1 && (
-              <View style={styles.stepSectionBox}>
-                <Text style={labelStyle}>First Name *</Text>
-                <TextInput
-                  style={inputStyle}
-                  placeholder="Enter your first name"
-                  placeholderTextColor={placeholderColor}
-                  value={firstName}
-                  onChangeText={setFirstName}
-                />
-
-                <Text style={labelStyle}>Last Name *</Text>
-                <TextInput
-                  style={inputStyle}
-                  placeholder="Enter your last name"
-                  placeholderTextColor={placeholderColor}
-                  value={lastName}
-                  onChangeText={setLastName}
-                />
-
-                <Text style={labelStyle}>Date Of Birth *</Text>
-                <View style={styles.dobThreeRow}>
-                  <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
-                    <TextInput
-                      style={[styles.dobInput, isLight && { color: '#0F172A' }]}
-                      placeholder="DD"
-                      placeholderTextColor={placeholderColor}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                      value={dobDD}
-                      onChangeText={handleDobDDChange}
-                    />
-                  </View>
-                  <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
-                    <TextInput
-                      style={[styles.dobInput, isLight && { color: '#0F172A' }]}
-                      placeholder="MM"
-                      placeholderTextColor={placeholderColor}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                      value={dobMM}
-                      onChangeText={handleDobMMChange}
-                    />
-                  </View>
-                  <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
-                    <TextInput
-                      style={[styles.dobInput, isLight && { color: '#0F172A' }]}
-                      placeholder="YYYY"
-                      placeholderTextColor={placeholderColor}
-                      keyboardType="number-pad"
-                      maxLength={4}
-                      value={dobYYYY}
-                      onChangeText={handleDobYYYYChange}
-                    />
-                  </View>
-                </View>
-
-                {/* Email & OTP Row */}
-                <Text style={labelStyle}>Email Address *</Text>
-                <View style={styles.emailOtpWrapper}>
-                  <TextInput
-                    style={[styles.textInputStyle, isLight && styles.textInputLight, { flex: 1, marginBottom: 0 }]}
-                    placeholder="name@example.com"
-                    placeholderTextColor={placeholderColor}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    value={formData.email}
-                    onChangeText={(val) => handleChange('email', val)}
-                    editable={!emailVerified}
-                  />
-
-                  {emailVerified ? (
-                    <View style={styles.verifiedBadgeBox}>
-                      <Icon name="checkmark-circle" size={18} color="#10B981" />
-                      <Text style={styles.verifiedText}>Verified</Text>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={[
-                        styles.sendOtpBtn,
-                        (sendingOtp || resendCooldown > 0) && styles.disabledBtn
-                      ]}
-                      onPress={handleSendOtp}
-                      disabled={sendingOtp || resendCooldown > 0}
-                    >
-                      {sendingOtp ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <Text style={styles.sendOtpBtnText}>
-                          {resendCooldown > 0 ? `${resendCooldown}s` : 'Send OTP'}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* OTP Input Form */}
-                {otpSent && !emailVerified && (
-                  <View style={[styles.otpCardBox, isLight && { backgroundColor: '#F8FAFC', borderColor: 'rgba(255, 101, 0, 0.4)' }]}>
-                    <Text style={styles.otpInstructionText}>
-                      Enter the 6-digit OTP verification code sent to your email:
-                    </Text>
-                    <View style={styles.otpRow}>
-                      <TextInput
-                        style={[styles.otpInputStyle, isLight && { backgroundColor: '#FFFFFF', color: '#0F172A' }]}
-                        placeholder="123456"
-                        placeholderTextColor={placeholderColor}
-                        keyboardType="number-pad"
-                        maxLength={6}
-                        value={otpCode}
-                        onChangeText={setOtpCode}
-                      />
-                      <TouchableOpacity
-                        style={styles.verifyOtpBtn}
-                        onPress={handleVerifyOtp}
-                        disabled={verifyingOtp}
-                      >
-                        {verifyingOtp ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <Text style={styles.verifyOtpBtnText}>Verify OTP</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                    {otpError ? <Text style={styles.otpErrorText}>{otpError}</Text> : null}
-                    {otpSuccessMsg ? <Text style={styles.otpSuccessText}>{otpSuccessMsg}</Text> : null}
-                  </View>
-                )}
-
-                <Text style={labelStyle}>Mobile Number *</Text>
-                <TextInput
-                  style={inputStyle}
-                  placeholder="0771234567 or +94771234567"
-                  placeholderTextColor={placeholderColor}
-                  keyboardType="phone-pad"
-                  value={formData.phone}
-                  onChangeText={(val) => handleChange('phone', val)}
-                />
-
-                <Text style={labelStyle}>Gender *</Text>
-                <TouchableOpacity
-                  style={[styles.dropdownSelectTrigger, isLight && styles.dropdownSelectTriggerLight]}
-                  onPress={() => setGenderModalVisible(true)}
-                  activeOpacity={0.8}
+        {emailVerified ? (
+          <>
+            <View style={styles.verifiedEmailSummary} testID="registration-verified-email">
+              <Icon name="checkmark-circle" size={20} color="#10B981" />
+              <View style={styles.verifiedEmailContent}>
+                <Text style={styles.verifiedEmailLabel}>Email verified</Text>
+                <Text
+                  style={[styles.verifiedEmailAddress, { color: isLight ? '#334155' : '#D4CAC0' }]}
+                  numberOfLines={2}
+                  ellipsizeMode="middle"
                 >
-                  <View style={styles.dropdownLeftRow}>
-                    <Icon name="male-female-outline" size={18} color="#F58220" style={{ marginRight: 10 }} />
-                    <Text style={[styles.dropdownSelectText, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
-                      {formData.gender || 'Select Gender'}
-                    </Text>
-                  </View>
-                  <Icon name="chevron-down-outline" size={18} color="#6B7280" />
-                </TouchableOpacity>
-
-                <Text style={labelStyle}>National ID Number (NIC) - Optional</Text>
-                <TextInput
-                  style={inputStyle}
-                  placeholder="e.g. 199812345678 or 987654321V"
-                  placeholderTextColor={placeholderColor}
-                  value={formData.nic}
-                  onChangeText={(val) => handleChange('nic', val)}
-                />
-
-                <Text style={labelStyle}>Residential Address *</Text>
-                <TextInput
-                  style={[styles.textInputStyle, isLight && styles.textInputLight, { height: 74, textAlignVertical: 'top', paddingTop: 10 }]}
-                  placeholder="e.g. No. 12, Main Street, Colombo 03"
-                  placeholderTextColor={placeholderColor}
-                  multiline
-                  value={formData.address}
-                  onChangeText={(val) => handleChange('address', val)}
-                />
+                  {formData.email.trim()}
+                </Text>
               </View>
-            )}
+              <TouchableOpacity
+                testID="registration-change-email"
+                accessibilityRole="button"
+                accessibilityLabel="Change verified email"
+                style={[styles.changeEmailButton, loading && styles.disabledBtn]}
+                onPress={handleResetEmail}
+                disabled={loading}
+              >
+                <Text style={styles.link}>Change</Text>
+              </TouchableOpacity>
+            </View>
+            {/* STEPPER INDICATOR HEADER */}
+            {renderStepIndicator()}
 
-            {/* ========================================================================= */}
-            {/* STEP 2: PARENT & GUARDIAN INFO */}
-            {/* ========================================================================= */}
-            {currentStep === 2 && (
-              <View style={styles.stepSectionBox}>
-                <Text style={labelStyle}>Parent / Guardian Full Name *</Text>
-                <TextInput
-                  style={inputStyle}
-                  placeholder="Enter parent or guardian's name"
-                  placeholderTextColor={placeholderColor}
-                  value={formData.guardian_name}
-                  onChangeText={(val) => handleChange('guardian_name', val)}
-                />
-
-                <Text style={labelStyle}>Relationship to Student *</Text>
-                <TouchableOpacity
-                  style={[styles.dropdownSelectTrigger, isLight && styles.dropdownSelectTriggerLight]}
-                  onPress={() => setRelationshipModalVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.dropdownLeftRow}>
-                    <Icon name="people-outline" size={18} color="#F58220" style={{ marginRight: 10 }} />
-                    <Text style={[styles.dropdownSelectText, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
-                      {formData.guardian_relationship || 'Select Relationship'}
-                    </Text>
-                  </View>
-                  <Icon name="chevron-down-outline" size={18} color="#6B7280" />
-                </TouchableOpacity>
-
-                <Text style={labelStyle}>Guardian Mobile Number *</Text>
-                <TextInput
-                  style={inputStyle}
-                  placeholder="e.g. 0771234567"
-                  placeholderTextColor={placeholderColor}
-                  keyboardType="phone-pad"
-                  value={formData.guardian_phone}
-                  onChangeText={(val) => handleChange('guardian_phone', val)}
-                />
-
-                <Text style={labelStyle}>Guardian Occupation (Optional)</Text>
-                <TextInput
-                  style={inputStyle}
-                  placeholder="e.g. Civil Engineer, Teacher, Merchant"
-                  placeholderTextColor={placeholderColor}
-                  value={formData.guardian_occupation}
-                  onChangeText={(val) => handleChange('guardian_occupation', val)}
-                />
+            {/* ERROR BOX */}
+            {errorMsg ? (
+              <View
+                style={styles.errorBox}
+                onLayout={({ nativeEvent }) => {
+                  errorTopRef.current = nativeEvent.layout.y;
+                  pageScrollRef.current?.scrollTo({ y: Math.max(0, cardTopRef.current + nativeEvent.layout.y - 16), animated: false });
+                }}
+              >
+                <Icon name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 8, marginTop: 2 }} />
+                <Text style={styles.errorBoxText}>{errorMsg}</Text>
               </View>
-            )}
+            ) : null}
 
-            {/* ========================================================================= */}
-            {/* STEP 3: EDUCATIONAL QUALIFICATIONS */}
-            {/* ========================================================================= */}
-            {currentStep === 3 && (
-              <View style={styles.stepSectionBox}>
-                <Text style={labelStyle}>Highest Education Level Attained *</Text>
-                <View style={{ gap: 8, marginBottom: 12 }}>
-                  {['Below O/L', 'O/L Completed', 'A/L Completed', 'Diploma / Higher Ed', 'NVQ Certified', 'Other Qualification'].map(lvl => (
-                    <TouchableOpacity
-                      key={lvl}
-                      style={[styles.eduOptionBox, isLight && styles.eduOptionBoxLight, formData.education_level === lvl && styles.eduOptionBoxActive]}
-                      onPress={() => handleChange('education_level', lvl)}
-                    >
-                      <Icon
-                        name={formData.education_level === lvl ? "radio-button-on" : "radio-button-off"}
-                        size={18}
-                        color={formData.education_level === lvl ? "#F58220" : "#9CA3AF"}
-                      />
-                      <Text style={[styles.eduOptionText, isLight && { color: '#334155' }, formData.education_level === lvl && styles.eduOptionTextActive]}>
-                        {lvl}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+            {/* FORM CONTENT SCROLLVIEW */}
+            <View style={styles.scrollForm} testID="registration-details">
+              <View style={styles.scrollFormContent}>
 
-                {formData.education_level === 'Below O/L' && (
-                  <View style={{ marginTop: 2 }}>
-                    <Text style={labelStyle}>Current Grade Level *</Text>
+                {/* ========================================================================= */}
+                {/* STEP 1: YOUR PERSONAL DETAILS */}
+                {/* ========================================================================= */}
+                {currentStep === 1 && (
+                  <View style={styles.stepSectionBox}>
+                    <Text style={labelStyle}>First Name *</Text>
                     <TextInput
                       style={inputStyle}
-                      placeholder="e.g. Grade 8, Grade 9, Grade 10"
+                      placeholder="Enter your first name"
                       placeholderTextColor={placeholderColor}
-                      value={formData.grade_level}
-                      onChangeText={(val) => handleChange('grade_level', val)}
+                      value={firstName}
+                      onChangeText={setFirstName}
+                    />
+
+                    <Text style={labelStyle}>Last Name *</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="Enter your last name"
+                      placeholderTextColor={placeholderColor}
+                      value={lastName}
+                      onChangeText={setLastName}
+                    />
+
+                    <Text style={labelStyle}>Date Of Birth *</Text>
+                    <View style={styles.dobThreeRow}>
+                      <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
+                        <TextInput
+                          style={[styles.dobInput, isLight && { color: '#0F172A' }]}
+                          placeholder="DD"
+                          placeholderTextColor={placeholderColor}
+                          keyboardType="number-pad"
+                          maxLength={2}
+                          value={dobDD}
+                          onChangeText={handleDobDDChange}
+                        />
+                      </View>
+                      <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
+                        <TextInput
+                          style={[styles.dobInput, isLight && { color: '#0F172A' }]}
+                          placeholder="MM"
+                          placeholderTextColor={placeholderColor}
+                          keyboardType="number-pad"
+                          maxLength={2}
+                          value={dobMM}
+                          onChangeText={handleDobMMChange}
+                        />
+                      </View>
+                      <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
+                        <TextInput
+                          style={[styles.dobInput, isLight && { color: '#0F172A' }]}
+                          placeholder="YYYY"
+                          placeholderTextColor={placeholderColor}
+                          keyboardType="number-pad"
+                          maxLength={4}
+                          value={dobYYYY}
+                          onChangeText={handleDobYYYYChange}
+                        />
+                      </View>
+                    </View>
+
+                    <Text style={labelStyle}>Mobile Number *</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="0771234567 or +94771234567"
+                      placeholderTextColor={placeholderColor}
+                      keyboardType="phone-pad"
+                      value={formData.phone}
+                      onChangeText={(val) => handleChange('phone', val)}
+                    />
+
+                    <Text style={labelStyle}>Gender *</Text>
+                    <TouchableOpacity
+                      style={[styles.dropdownSelectTrigger, isLight && styles.dropdownSelectTriggerLight]}
+                      onPress={() => setGenderModalVisible(true)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.dropdownLeftRow}>
+                        <Icon name="male-female-outline" size={18} color="#F58220" style={{ marginRight: 10 }} />
+                        <Text style={[styles.dropdownSelectText, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                          {formData.gender || 'Select Gender'}
+                        </Text>
+                      </View>
+                      <Icon name="chevron-down-outline" size={18} color="#6B7280" />
+                    </TouchableOpacity>
+
+                    <Text style={labelStyle}>National ID Number (NIC) - Optional</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="e.g. 199812345678 or 987654321V"
+                      placeholderTextColor={placeholderColor}
+                      value={formData.nic}
+                      onChangeText={(val) => handleChange('nic', val)}
+                    />
+
+                    <Text style={labelStyle}>Residential Address *</Text>
+                    <TextInput
+                      style={[inputStyle, { height: 74, textAlignVertical: 'top', paddingTop: 10 }]}
+                      placeholder="e.g. No. 12, Main Street, Colombo 03"
+                      placeholderTextColor={placeholderColor}
+                      multiline
+                      value={formData.address}
+                      onChangeText={(val) => handleChange('address', val)}
                     />
                   </View>
                 )}
 
-                <Text style={labelStyle}>School or Institute Name *</Text>
-                <TextInput
-                  style={inputStyle}
-                  placeholder="e.g. Royal College, Colombo"
-                  placeholderTextColor={placeholderColor}
-                  value={formData.school_name}
-                  onChangeText={(val) => handleChange('school_name', val)}
-                />
-              </View>
-            )}
+                {/* ========================================================================= */}
+                {/* STEP 2: PARENT & GUARDIAN INFO */}
+                {/* ========================================================================= */}
+                {currentStep === 2 && (
+                  <View style={styles.stepSectionBox}>
+                    <Text style={labelStyle}>Parent / Guardian Full Name *</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="Enter parent or guardian's name"
+                      placeholderTextColor={placeholderColor}
+                      value={formData.guardian_name}
+                      onChangeText={(val) => handleChange('guardian_name', val)}
+                    />
 
-            {/* ========================================================================= */}
-            {/* STEP 4: STUDENT PHOTO UPLOAD */}
-            {/* ========================================================================= */}
-            {currentStep === 4 && (
-              <View style={styles.stepSectionBox}>
-                <Text style={[styles.photoInstructionsText, { color: isLight ? '#475569' : '#A89F93' }]}>
-                  Please upload a clear passport-style headshot photo for your official TVTI student ID card & profile records.
-                </Text>
-
-                <TouchableOpacity
-                  style={[styles.photoUploadCard, isLight && styles.photoUploadCardLight]}
-                  onPress={pickStudentPhoto}
-                  activeOpacity={0.8}
-                >
-                  {formData.student_photo ? (
-                    <View style={styles.photoPreviewContainer}>
-                      <Image source={{ uri: formData.student_photo }} style={styles.photoPreviewImg} />
-                      <View style={styles.photoChangeBadge}>
-                        <Icon name="camera" size={16} color="#FFFFFF" />
-                        <Text style={styles.photoChangeText}>Change Photo</Text>
+                    <Text style={labelStyle}>Relationship to Student *</Text>
+                    <TouchableOpacity
+                      style={[styles.dropdownSelectTrigger, isLight && styles.dropdownSelectTriggerLight]}
+                      onPress={() => setRelationshipModalVisible(true)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.dropdownLeftRow}>
+                        <Icon name="people-outline" size={18} color="#F58220" style={{ marginRight: 10 }} />
+                        <Text style={[styles.dropdownSelectText, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                          {formData.guardian_relationship || 'Select Relationship'}
+                        </Text>
                       </View>
-                    </View>
-                  ) : (
-                    <View style={styles.photoPlaceholderBox}>
-                      <View style={styles.cameraIconCircle}>
-                        <Icon name="camera-outline" size={32} color="#F58220" />
-                      </View>
-                      <Text style={[styles.uploadPromptTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
-                        Tap to Upload Photo
-                      </Text>
-                      <Text style={[styles.uploadPromptSub, { color: isLight ? '#64748B' : '#A89F93' }]}>
-                        Supports PNG, JPG, JPEG up to 5MB
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
+                      <Icon name="chevron-down-outline" size={18} color="#6B7280" />
+                    </TouchableOpacity>
 
-            {/* ========================================================================= */}
-            {/* STEP 5: COURSE & PAYMENT SELECTION */}
-            {/* ========================================================================= */}
-            {currentStep === 5 && (
-              <View style={styles.stepSectionBox}>
-                <View style={styles.coursesHeaderRow}>
-                  <Text style={labelStyle}>Select Desired Courses *</Text>
-                  <TouchableOpacity onPress={openCourseWebsiteLink} style={styles.syllabusLinkBtn}>
-                    <Icon name="open-outline" size={14} color="#F58220" style={{ marginRight: 4 }} />
-                    <Text style={styles.syllabusLinkText}>View Website Syllabus</Text>
-                  </TouchableOpacity>
-                </View>
+                    <Text style={labelStyle}>Guardian Mobile Number *</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="e.g. 0771234567"
+                      placeholderTextColor={placeholderColor}
+                      keyboardType="phone-pad"
+                      value={formData.guardian_phone}
+                      onChangeText={(val) => handleChange('guardian_phone', val)}
+                    />
 
-                {fetchingCourses ? (
-                  <ActivityIndicator size="small" color="#F58220" style={{ marginVertical: 12 }} />
-                ) : courses.length > 0 ? (
-                  <View style={{ gap: 8, marginBottom: 16 }}>
-                    {courses.map(course => {
-                      const selected = formData.desired_courses.includes(course._id);
-                      return (
+                    <Text style={labelStyle}>Guardian Occupation (Optional)</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="e.g. Civil Engineer, Teacher, Merchant"
+                      placeholderTextColor={placeholderColor}
+                      value={formData.guardian_occupation}
+                      onChangeText={(val) => handleChange('guardian_occupation', val)}
+                    />
+                  </View>
+                )}
+
+                {/* ========================================================================= */}
+                {/* STEP 3: EDUCATIONAL QUALIFICATIONS */}
+                {/* ========================================================================= */}
+                {currentStep === 3 && (
+                  <View style={styles.stepSectionBox}>
+                    <Text style={labelStyle}>Highest Education Level Attained *</Text>
+                    <View style={{ gap: 8, marginBottom: 12 }}>
+                      {['Below O/L', 'O/L Completed', 'A/L Completed', 'Diploma / Higher Ed', 'NVQ Certified', 'Other Qualification'].map(lvl => (
                         <TouchableOpacity
-                          key={course._id}
-                          style={[styles.courseCheckCard, isLight && styles.courseCheckCardLight, selected && styles.courseCheckCardActive]}
-                          onPress={() => toggleCourse(course._id)}
+                          key={lvl}
+                          style={[styles.eduOptionBox, isLight && styles.eduOptionBoxLight, formData.education_level === lvl && styles.eduOptionBoxActive]}
+                          onPress={() => handleChange('education_level', lvl)}
                         >
                           <Icon
-                            name={selected ? "checkbox" : "square-outline"}
-                            size={20}
-                            color={selected ? "#F58220" : "#9CA3AF"}
+                            name={formData.education_level === lvl ? "radio-button-on" : "radio-button-off"}
+                            size={18}
+                            color={formData.education_level === lvl ? "#F58220" : "#9CA3AF"}
                           />
-                          <View style={{ flex: 1, marginLeft: 10 }}>
-                            <Text style={[styles.courseCheckTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
-                              {course.title}
-                            </Text>
-                            {course.code ? (
-                              <Text style={[styles.courseCheckCode, { color: isLight ? '#64748B' : '#A89F93' }]}>
-                                Code: {course.code}
-                              </Text>
-                            ) : null}
-                          </View>
+                          <Text style={[styles.eduOptionText, isLight && { color: '#334155' }, formData.education_level === lvl && styles.eduOptionTextActive]}>
+                            {lvl}
+                          </Text>
                         </TouchableOpacity>
-                      );
-                    })}
+                      ))}
+                    </View>
+
+                    {formData.education_level === 'Below O/L' && (
+                      <View style={{ marginTop: 2 }}>
+                        <Text style={labelStyle}>Current Grade Level *</Text>
+                        <TextInput
+                          style={inputStyle}
+                          placeholder="e.g. Grade 8, Grade 9, Grade 10"
+                          placeholderTextColor={placeholderColor}
+                          value={formData.grade_level}
+                          onChangeText={(val) => handleChange('grade_level', val)}
+                        />
+                      </View>
+                    )}
+
+                    <Text style={labelStyle}>School or Institute Name *</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="e.g. Royal College, Colombo"
+                      placeholderTextColor={placeholderColor}
+                      value={formData.school_name}
+                      onChangeText={(val) => handleChange('school_name', val)}
+                    />
                   </View>
-                ) : (
-                  <Text style={{ fontSize: 13, color: '#6B7280', fontStyle: 'italic', marginBottom: 16 }}>
-                    Default Technical Training Diploma Course (TVTI General)
-                  </Text>
                 )}
 
-                <Text style={labelStyle}>Payment Method *</Text>
-                <View style={styles.paymentMethodRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.paymentMethodChip,
-                      isLight && styles.paymentMethodChipLight,
-                      formData.payment_method === 'bank_transfer' && styles.paymentMethodChipActive
-                    ]}
-                    onPress={() => handleChange('payment_method', 'bank_transfer')}
-                  >
-                    <Icon
-                      name="card-outline"
-                      size={18}
-                      color={formData.payment_method === 'bank_transfer' ? '#F58220' : '#71717A'}
-                    />
-                    <Text
-                      style={[
-                        styles.paymentMethodText,
-                        isLight && { color: '#475569' },
-                        formData.payment_method === 'bank_transfer' && styles.paymentMethodTextActive
-                      ]}
-                    >
-                      Bank Slip Upload
+                {/* ========================================================================= */}
+                {/* STEP 4: STUDENT PHOTO UPLOAD */}
+                {/* ========================================================================= */}
+                {currentStep === 4 && (
+                  <View style={styles.stepSectionBox}>
+                    <Text style={[styles.photoInstructionsText, { color: isLight ? '#475569' : '#A89F93' }]}>
+                      Please upload a clear passport-style headshot photo for your official TVTI student ID card & profile records.
                     </Text>
-                  </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.paymentMethodChip,
-                      isLight && styles.paymentMethodChipLight,
-                      formData.payment_method === 'physical_pay' && styles.paymentMethodChipActive
-                    ]}
-                    onPress={() => handleChange('payment_method', 'physical_pay')}
-                  >
-                    <Icon
-                      name="cash-outline"
-                      size={18}
-                      color={formData.payment_method === 'physical_pay' ? '#F58220' : '#71717A'}
-                    />
-                    <Text
-                      style={[
-                        styles.paymentMethodText,
-                        isLight && { color: '#475569' },
-                        formData.payment_method === 'physical_pay' && styles.paymentMethodTextActive
-                      ]}
+                    <TouchableOpacity
+                      style={[styles.photoUploadCard, isLight && styles.photoUploadCardLight]}
+                      onPress={pickStudentPhoto}
+                      activeOpacity={0.8}
                     >
-                      Physical Cash Payment
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Bank Slip Upload Box */}
-                {formData.payment_method === 'bank_transfer' && (
-                  <View style={styles.slipUploadSection}>
-                    <Text style={labelStyle}>Upload Bank Deposit Receipt Photo *</Text>
-                    <TouchableOpacity style={[styles.slipUploadBox, isLight && styles.slipUploadBoxLight]} onPress={pickPaymentSlip}>
-                      {formData.payment_slip ? (
-                        <View style={styles.slipPreviewBox}>
-                          <Image source={{ uri: formData.payment_slip }} style={styles.slipPreviewImg} />
-                          <View style={styles.slipChangeBadge}>
-                            <Icon name="camera" size={14} color="#FFF" />
-                            <Text style={styles.slipChangeText}>Change Receipt</Text>
+                      {formData.student_photo ? (
+                        <View style={styles.photoPreviewContainer}>
+                          <Image source={{ uri: formData.student_photo }} style={styles.photoPreviewImg} />
+                          <View style={styles.photoChangeBadge}>
+                            <Icon name="camera" size={16} color="#FFFFFF" />
+                            <Text style={styles.photoChangeText}>Change Photo</Text>
                           </View>
                         </View>
                       ) : (
-                        <View style={styles.slipPlaceholderBox}>
-                          <Icon name="cloud-upload-outline" size={26} color="#F58220" />
-                          <Text style={[styles.slipPlaceholderTitle, { color: isLight ? '#64748B' : '#A89F93' }]}>
-                            Tap to Upload Bank Receipt
+                        <View style={styles.photoPlaceholderBox}>
+                          <View style={styles.cameraIconCircle}>
+                            <Icon name="camera-outline" size={32} color="#F58220" />
+                          </View>
+                          <Text style={[styles.uploadPromptTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                            Tap to Upload Photo
+                          </Text>
+                          <Text style={[styles.uploadPromptSub, { color: isLight ? '#64748B' : '#A89F93' }]}>
+                            Supports PNG, JPG, JPEG up to 5MB
                           </Text>
                         </View>
                       )}
@@ -1198,70 +1182,202 @@ export default function RegisterScreen() {
                   </View>
                 )}
 
-                {/* Terms Agreement Checkbox */}
+                {/* ========================================================================= */}
+                {/* STEP 5: COURSE & PAYMENT SELECTION */}
+                {/* ========================================================================= */}
+                {currentStep === 5 && (
+                  <View style={styles.stepSectionBox}>
+                    <View style={styles.coursesHeaderRow}>
+                      <Text style={labelStyle}>Select Desired Courses *</Text>
+                      <TouchableOpacity onPress={openCourseWebsiteLink} style={styles.syllabusLinkBtn}>
+                        <Icon name="open-outline" size={14} color="#F58220" style={{ marginRight: 4 }} />
+                        <Text style={styles.syllabusLinkText}>View Website Syllabus</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {fetchingCourses ? (
+                      <ActivityIndicator size="small" color="#F58220" style={{ marginVertical: 12 }} />
+                    ) : courses.length > 0 ? (
+                      <View style={{ gap: 8, marginBottom: 16 }}>
+                        {courses.map(course => {
+                          const selected = formData.desired_courses.includes(course._id);
+                          return (
+                            <TouchableOpacity
+                              key={course._id}
+                              style={[styles.courseCheckCard, isLight && styles.courseCheckCardLight, selected && styles.courseCheckCardActive]}
+                              onPress={() => toggleCourse(course._id)}
+                            >
+                              <Icon
+                                name={selected ? "checkbox" : "square-outline"}
+                                size={20}
+                                color={selected ? "#F58220" : "#9CA3AF"}
+                              />
+                              <View style={{ flex: 1, minWidth: 0, marginLeft: 10 }}>
+                                <Text style={[styles.courseCheckTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
+                                  {course.title}
+                                </Text>
+                                {course.code ? (
+                                  <Text style={[styles.courseCheckCode, { color: isLight ? '#64748B' : '#A89F93' }]}>
+                                    Code: {course.code}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      <Text style={{ fontSize: 13, color: '#6B7280', fontStyle: 'italic', marginBottom: 16 }}>
+                        Default Technical Training Diploma Course (TVTI General)
+                      </Text>
+                    )}
+
+                    <Text style={labelStyle}>Payment Method *</Text>
+                    <View style={[styles.paymentMethodRow, isNarrow && styles.stackedRow]}>
+                      <TouchableOpacity
+                        style={[
+                          styles.paymentMethodChip,
+                          isNarrow && styles.stackedControl,
+                          isLight && styles.paymentMethodChipLight,
+                          formData.payment_method === 'bank_transfer' && styles.paymentMethodChipActive
+                        ]}
+                        onPress={() => handleChange('payment_method', 'bank_transfer')}
+                      >
+                        <Icon
+                          name="card-outline"
+                          size={18}
+                          color={formData.payment_method === 'bank_transfer' ? '#F58220' : '#71717A'}
+                        />
+                        <Text
+                          style={[
+                            styles.paymentMethodText,
+                            isLight && { color: '#475569' },
+                            formData.payment_method === 'bank_transfer' && styles.paymentMethodTextActive
+                          ]}
+                        >
+                          Bank Slip Upload
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.paymentMethodChip,
+                          isNarrow && styles.stackedControl,
+                          isLight && styles.paymentMethodChipLight,
+                          formData.payment_method === 'physical_pay' && styles.paymentMethodChipActive
+                        ]}
+                        onPress={() => handleChange('payment_method', 'physical_pay')}
+                      >
+                        <Icon
+                          name="cash-outline"
+                          size={18}
+                          color={formData.payment_method === 'physical_pay' ? '#F58220' : '#71717A'}
+                        />
+                        <Text
+                          style={[
+                            styles.paymentMethodText,
+                            isLight && { color: '#475569' },
+                            formData.payment_method === 'physical_pay' && styles.paymentMethodTextActive
+                          ]}
+                        >
+                          Physical Cash Payment
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Bank Slip Upload Box */}
+                    {formData.payment_method === 'bank_transfer' && (
+                      <View style={styles.slipUploadSection}>
+                        <Text style={labelStyle}>Upload Bank Deposit Receipt Photo *</Text>
+                        <TouchableOpacity style={[styles.slipUploadBox, isLight && styles.slipUploadBoxLight]} onPress={pickPaymentSlip}>
+                          {formData.payment_slip ? (
+                            <View style={styles.slipPreviewBox}>
+                              <Image source={{ uri: formData.payment_slip }} style={styles.slipPreviewImg} />
+                              <View style={styles.slipChangeBadge}>
+                                <Icon name="camera" size={14} color="#FFF" />
+                                <Text style={styles.slipChangeText}>Change Receipt</Text>
+                              </View>
+                            </View>
+                          ) : (
+                            <View style={styles.slipPlaceholderBox}>
+                              <Icon name="cloud-upload-outline" size={26} color="#F58220" />
+                              <Text style={[styles.slipPlaceholderTitle, { color: isLight ? '#64748B' : '#A89F93' }]}>
+                                Tap to Upload Bank Receipt
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {/* Terms Agreement Checkbox */}
+                    <TouchableOpacity
+                      style={styles.termsAgreementRow}
+                      onPress={() => setAgreedToTerms(v => !v)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.customCheckbox, agreedToTerms && styles.customCheckboxChecked]}>
+                        {agreedToTerms ? <Icon name="checkmark" size={14} color="#FFFFFF" /> : null}
+                      </View>
+                      <Text style={[styles.termsAgreementText, { color: isLight ? '#475569' : '#C5BCB3' }]}>
+                        I agree to the{' '}
+                        <Text style={styles.termsLinkBold} onPress={() => setTermsModalVisible(true)}>
+                          Terms & Conditions
+                        </Text>{' '}
+                        and confirm all provided information is accurate.
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* ========================================================================= */}
+            {/* BOTTOM STEP NAVIGATION BUTTONS (EXACT MATCH TO DESIGN SCREENSHOT) */}
+            {/* ========================================================================= */}
+            <View style={[styles.bottomBarContainer, isNarrow && styles.stackedRow, isLight && { borderTopColor: '#E2E8F0' }]}>
+              {/* PREV BUTTON */}
+              {currentStep > 1 ? (
                 <TouchableOpacity
-                  style={styles.termsAgreementRow}
-                  onPress={() => setAgreedToTerms(v => !v)}
+                  style={[styles.prevBtnOutline, isNarrow && styles.stackedControl, isLight && { backgroundColor: '#FFFFFF', borderColor: '#F58220' }]}
+                  onPress={handlePrevStep}
                   activeOpacity={0.8}
                 >
-                  <View style={[styles.customCheckbox, agreedToTerms && styles.customCheckboxChecked]}>
-                    {agreedToTerms ? <Icon name="checkmark" size={14} color="#FFFFFF" /> : null}
-                  </View>
-                  <Text style={[styles.termsAgreementText, { color: isLight ? '#475569' : '#C5BCB3' }]}>
-                    I agree to the{' '}
-                    <Text style={styles.termsLinkBold} onPress={() => setTermsModalVisible(true)}>
-                      Terms & Conditions
-                    </Text>{' '}
-                    and confirm all provided information is accurate.
-                  </Text>
+                  <Icon name="chevron-back" size={18} color="#F58220" style={{ marginRight: 4 }} />
+                  <Text style={styles.prevBtnText}>Prev</Text>
                 </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
+              ) : null}
 
-        {/* ========================================================================= */}
-        {/* BOTTOM STEP NAVIGATION BUTTONS (EXACT MATCH TO DESIGN SCREENSHOT) */}
-        {/* ========================================================================= */}
-        <View style={[styles.bottomBarContainer, isLight && { borderTopColor: '#E2E8F0' }]}>
-          {/* PREV BUTTON */}
-          {currentStep > 1 ? (
-            <TouchableOpacity
-              style={[styles.prevBtnOutline, isLight && { backgroundColor: '#FFFFFF', borderColor: '#F58220' }]}
-              onPress={handlePrevStep}
-              activeOpacity={0.8}
-            >
-              <Icon name="chevron-back" size={18} color="#F58220" style={{ marginRight: 4 }} />
-              <Text style={styles.prevBtnText}>Prev</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={{ flex: 1 }} />
-          )}
+              {/* NEXT / SUBMIT BUTTON */}
+              <TouchableOpacity
+                style={[styles.nextBtnSolid, isNarrow && styles.stackedControl, nextDisabled && styles.disabledBtn]}
+                onPress={handleNextStep}
+                disabled={nextDisabled}
+                accessibilityRole="button"
+                testID="registration-next"
+                activeOpacity={0.85}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.nextBtnText}>
+                      {currentStep === 5 ? 'Submit Application' : 'Next'}
+                    </Text>
+                    <Icon name="chevron-forward" size={18} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
 
-          {/* NEXT / SUBMIT BUTTON */}
-          <TouchableOpacity
-            style={[styles.nextBtnSolid, loading && styles.disabledBtn]}
-            onPress={handleNextStep}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <>
-                <Text style={styles.nextBtnText}>
-                  {currentStep === 5 ? 'Submit Application' : 'Next'}
-                </Text>
-                <Icon name="chevron-forward" size={18} color="#FFFFFF" style={{ marginLeft: 4 }} />
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+
+          </>
+        ) : renderEmailVerification()}
 
         {/* FOOTER */}
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: isLight ? '#64748B' : '#8E8276' }]}>Already have an account? </Text>
-          <TouchableOpacity onPress={handleBackToLogin}>
+          <TouchableOpacity style={styles.footerLink} onPress={handleBackToLogin}>
             <Text style={styles.link}>Sign In</Text>
           </TouchableOpacity>
         </View>
@@ -1270,13 +1386,15 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isLight && styles.containerLight]} edges={['top', 'bottom']}>
-      {/* Top Bar Floating Theme Toggle */}
-      <View style={[styles.topBarContainer, { paddingTop: Math.max(insets.top + 8, 16) }]}>
+    <SafeAreaView style={[styles.container, isLight && styles.containerLight]} edges={['top', 'bottom', 'left', 'right']}>
+      {/* Keep the toolbar in flow so it cannot overlap branding or form controls. */}
+      <View style={[styles.topBarContainer, { paddingHorizontal: pagePadding, minHeight: isShort || !isDesktop ? 56 : 64 }]}>
         <TouchableOpacity
           onPress={toggleTheme}
           style={[styles.themeToggleButton, isLight && styles.themeToggleButtonLight]}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
         >
           <Icon
             name={isLight ? 'moon-outline' : 'sunny-outline'}
@@ -1299,9 +1417,8 @@ export default function RegisterScreen() {
         style={[
           StyleSheet.absoluteFill,
           Platform.OS === 'web' && ({
-            position: 'fixed',
-            width: '100vw',
-            height: '100vh',
+            width: '100%',
+            height: '100%',
             zIndex: -2,
             objectFit: 'cover',
             objectPosition: 'center',
@@ -1318,9 +1435,8 @@ export default function RegisterScreen() {
           style={[
             StyleSheet.absoluteFill,
             {
-              position: 'fixed',
-              width: '100vw',
-              height: '100vh',
+              width: '100%',
+              height: '100%',
               zIndex: -1,
               pointerEvents: 'none',
               background: isLight
@@ -1345,18 +1461,24 @@ export default function RegisterScreen() {
       )}
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent}
+          ref={pageScrollRef}
+          style={styles.pageScroll}
+          contentContainerStyle={[
+            isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent,
+            { paddingHorizontal: pagePadding },
+            isShort && styles.shortScrollContent,
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {isDesktop ? (
             /* =================== DESKTOP 2-COLUMN VIEW =================== */
-            <View style={styles.desktopContainer}>
+            <View style={[styles.desktopContainer, { gap: width < 1200 ? 32 : 60 }]}>
               {/* Left Column: TVTI Branding, Hero Typography & 3D Clay Illustration */}
               <View style={styles.desktopLeftCol}>
                 <View style={styles.desktopBrandRow}>
@@ -1365,7 +1487,7 @@ export default function RegisterScreen() {
                     style={styles.desktopLogo}
                     resizeMode="contain"
                   />
-                  <View style={{ marginLeft: 14 }}>
+                  <View style={{ flex: 1, minWidth: 0, marginLeft: 14 }}>
                     <Text style={[styles.desktopBrandTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
                       Twintec VTI
                     </Text>
@@ -1379,35 +1501,36 @@ export default function RegisterScreen() {
                   <Text style={[styles.heroLearnText, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
                     Learn
                   </Text>
-                  <Text style={styles.heroHighlightText}>Build Your Skills</Text>
-                  <Text style={styles.heroHighlightText}>Shape Your Future</Text>
+                  <Text style={[styles.heroHighlightText, width < 1200 && styles.compactHeroText]}>Build Your Skills</Text>
+                  <Text style={[styles.heroHighlightText, width < 1200 && styles.compactHeroText]}>Shape Your Future</Text>
                   <Text style={[styles.heroSubDescription, { color: isLight ? '#475569' : '#C5BCB3' }]}>
                     Twintec VTI Learning Management System{'\n'}Your journey towards a brighter future starts here.
                   </Text>
                 </View>
 
-                {/* Floating 3D Artwork */}
+                {/* Vocational training artwork with a transparent background for both themes */}
                 <View style={styles.heroImageWrapper}>
                   <Image
-                    source={require('../../../assets/login_hero_clay.png')}
+                    source={require('../../../assets/auth_hero_vocational.png')}
                     style={styles.heroImage}
                     resizeMode="contain"
+                    accessibilityLabel="Vocational training illustration with engineering tools, electronics, a laptop, and a safety helmet"
                   />
                 </View>
               </View>
 
               {/* Right Column: Glassmorphism Register Card */}
-              <View style={styles.desktopRightCol}>
+              <View style={styles.desktopRightCol} onLayout={() => { cardTopRef.current = 0; }}>
                 {renderRegisterCard()}
               </View>
             </View>
           ) : (
             /* =================== MOBILE 1-COLUMN VIEW =================== */
             <View style={styles.mobileContainer}>
-              <View style={[styles.mobileHeader, { paddingTop: Math.max(insets.top, 24) }]}>
+              <View style={styles.mobileHeader}>
                 <Image
                   source={require('../../../assets/logo.png')}
-                  style={styles.mobileLogo}
+                  style={[styles.mobileLogo, isShort && styles.shortMobileLogo]}
                   resizeMode="contain"
                 />
                 <Text style={[styles.brandTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
@@ -1418,7 +1541,7 @@ export default function RegisterScreen() {
                 </Text>
               </View>
 
-              <View style={styles.mobileCardWrapper}>
+              <View style={styles.mobileCardWrapper} onLayout={({ nativeEvent }) => { cardTopRef.current = nativeEvent.layout.y; }}>
                 {renderRegisterCard()}
               </View>
             </View>
@@ -1429,16 +1552,16 @@ export default function RegisterScreen() {
       {/* ========================================================================= */}
       {/* TERMS & CONDITIONS MODAL */}
       {/* ========================================================================= */}
-      <Modal visible={termsModalVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlayDark}>
-          <View style={[styles.termsModalCard, isLight && styles.termsModalCardLight]}>
+      <Modal visible={termsModalVisible} animationType="slide" transparent={true} onRequestClose={() => setTermsModalVisible(false)}>
+        <SafeAreaView style={styles.modalOverlayDark}>
+          <View style={[styles.termsModalCard, { maxHeight: modalMaxHeight }, isLight && styles.termsModalCardLight]}>
             <View style={styles.termsModalHeader}>
               <Text style={[styles.termsModalTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>Terms & Conditions</Text>
-              <TouchableOpacity onPress={() => setTermsModalVisible(false)}>
+              <TouchableOpacity style={styles.modalCloseButton} accessibilityLabel="Close terms and conditions" onPress={() => setTermsModalVisible(false)}>
                 <Icon name="close" size={22} color={isLight ? '#0F172A' : '#FFFFFF'} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{ maxHeight: 350, marginVertical: 10 }}>
+            <ScrollView style={[styles.modalBodyScroll, { marginVertical: 10 }]}>
               <Text style={[styles.termsModalBodyText, { color: isLight ? '#334155' : '#C5BCB3' }]}>
                 1. Acceptance of Terms: By submitting an application to TVTI, you agree to abide by all rules, regulations, and institutional policies.{'\n\n'}
                 2. Application Review: All student applications are reviewed by TVTI Administrators. Registration details and credentials will be issued upon official approval.{'\n\n'}
@@ -1456,15 +1579,16 @@ export default function RegisterScreen() {
               <Text style={styles.termsCloseBtnText}>I Agree & Accept</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
 
       {/* ========================================================================= */}
       {/* SUCCESS CONFIRMATION MODAL */}
       {/* ========================================================================= */}
-      <Modal visible={successModalVisible} animationType="fade" transparent={true}>
-        <View style={styles.modalOverlayDark}>
-          <View style={[styles.successModalCard, isLight && styles.successModalCardLight]}>
+      <Modal visible={successModalVisible} animationType="fade" transparent={true} onRequestClose={handleGoToLogin}>
+        <SafeAreaView style={styles.modalOverlayDark}>
+          <View style={[styles.successModalCard, { maxHeight: modalMaxHeight }, isLight && styles.successModalCardLight]}>
+            <ScrollView style={styles.successModalScroll} contentContainerStyle={styles.successModalContent}>
             <View style={styles.successIconCircle}>
               <Icon name="checkmark-circle" size={48} color="#16A34A" />
             </View>
@@ -1477,27 +1601,29 @@ export default function RegisterScreen() {
             <TouchableOpacity style={styles.successBtn} onPress={handleGoToLogin}>
               <Text style={styles.successBtnText}>Go to Login Screen</Text>
             </TouchableOpacity>
+            </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
 
       {/* ========================================================================= */}
       {/* GENDER SELECTION DROPDOWN MODAL */}
       {/* ========================================================================= */}
-      <Modal visible={genderModalVisible} animationType="fade" transparent={true}>
+      <Modal visible={genderModalVisible} animationType="fade" transparent={true} onRequestClose={() => setGenderModalVisible(false)}>
+        <SafeAreaView style={styles.modalOverlayDark}>
         <TouchableOpacity
-          style={styles.modalOverlayDark}
+          style={styles.modalDismissArea}
           activeOpacity={1}
           onPress={() => setGenderModalVisible(false)}
         >
-          <View style={[styles.dropdownModalCard, isLight && styles.dropdownModalCardLight]}>
+          <View style={[styles.dropdownModalCard, { maxHeight: modalMaxHeight }, isLight && styles.dropdownModalCardLight]}>
             <View style={styles.dropdownModalHeader}>
               <Text style={[styles.dropdownModalTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>Select Gender</Text>
-              <TouchableOpacity onPress={() => setGenderModalVisible(false)}>
+              <TouchableOpacity style={styles.modalCloseButton} accessibilityLabel="Close gender selection" onPress={() => setGenderModalVisible(false)}>
                 <Icon name="close" size={22} color={isLight ? '#0F172A' : '#FFFFFF'} />
               </TouchableOpacity>
             </View>
-            <View style={styles.dropdownOptionList}>
+            <ScrollView style={styles.modalBodyScroll} contentContainerStyle={styles.dropdownOptionList}>
               {['Male', 'Female', 'Other'].map(opt => {
                 const selected = formData.gender === opt;
                 return (
@@ -1516,28 +1642,30 @@ export default function RegisterScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
           </View>
         </TouchableOpacity>
+        </SafeAreaView>
       </Modal>
 
       {/* ========================================================================= */}
       {/* RELATIONSHIP SELECTION DROPDOWN MODAL */}
       {/* ========================================================================= */}
-      <Modal visible={relationshipModalVisible} animationType="fade" transparent={true}>
+      <Modal visible={relationshipModalVisible} animationType="fade" transparent={true} onRequestClose={() => setRelationshipModalVisible(false)}>
+        <SafeAreaView style={styles.modalOverlayDark}>
         <TouchableOpacity
-          style={styles.modalOverlayDark}
+          style={styles.modalDismissArea}
           activeOpacity={1}
           onPress={() => setRelationshipModalVisible(false)}
         >
-          <View style={[styles.dropdownModalCard, isLight && styles.dropdownModalCardLight]}>
+          <View style={[styles.dropdownModalCard, { maxHeight: modalMaxHeight }, isLight && styles.dropdownModalCardLight]}>
             <View style={styles.dropdownModalHeader}>
               <Text style={[styles.dropdownModalTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>Select Relationship to Student</Text>
-              <TouchableOpacity onPress={() => setRelationshipModalVisible(false)}>
+              <TouchableOpacity style={styles.modalCloseButton} accessibilityLabel="Close relationship selection" onPress={() => setRelationshipModalVisible(false)}>
                 <Icon name="close" size={22} color={isLight ? '#0F172A' : '#FFFFFF'} />
               </TouchableOpacity>
             </View>
-            <View style={styles.dropdownOptionList}>
+            <ScrollView style={styles.modalBodyScroll} contentContainerStyle={styles.dropdownOptionList}>
               {['Father', 'Mother', 'Legal Guardian', 'Other'].map(opt => {
                 const selected = formData.guardian_relationship === opt;
                 return (
@@ -1556,9 +1684,10 @@ export default function RegisterScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
           </View>
         </TouchableOpacity>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
@@ -1567,26 +1696,28 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
+    minWidth: 0,
     backgroundColor: '#0B0F19',
   },
   containerLight: {
     backgroundColor: '#F8FAFC',
   },
 
-  /* ---------- Top Bar / Floating Theme Toggle ---------- */
+  /* ---------- Toolbar ---------- */
   topBarContainer: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    zIndex: 100,
-    paddingHorizontal: 28,
-    paddingVertical: 18,
+    zIndex: 1,
+    flexShrink: 0,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingVertical: 8,
   },
   themeToggleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
+    minHeight: 40,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
@@ -1615,16 +1746,27 @@ const styles = StyleSheet.create({
   },
 
   /* ---------- Mobile Layout Styles ---------- */
+  keyboardContainer: {
+    flex: 1,
+    minHeight: 0,
+    minWidth: 0,
+  },
+  pageScroll: {
+    flex: 1,
+    minHeight: 0,
+    minWidth: 0,
+  },
   mobileScrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: 28,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
   mobileContainer: {
     width: '100%',
-    maxWidth: 480,
+    minWidth: 0,
+    maxWidth: 560,
     alignSelf: 'center',
-    paddingHorizontal: 16,
   },
   mobileHeader: {
     alignItems: 'center',
@@ -1634,6 +1776,11 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     marginBottom: 10,
+  },
+  shortMobileLogo: {
+    width: 56,
+    height: 56,
+    marginBottom: 6,
   },
   brandTitle: {
     fontSize: 23,
@@ -1656,8 +1803,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 36,
-    paddingHorizontal: 32,
+    paddingVertical: 24,
+  },
+  shortScrollContent: {
+    paddingTop: 8,
+    paddingBottom: 20,
   },
   desktopContainer: {
     flexDirection: 'row',
@@ -1665,10 +1815,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: '100%',
     maxWidth: 1200,
-    gap: 48,
   },
   desktopLeftCol: {
     flex: 1,
+    minWidth: 0,
     maxWidth: 500,
   },
   desktopBrandRow: {
@@ -1679,6 +1829,7 @@ const styles = StyleSheet.create({
   desktopLogo: {
     width: 60,
     height: 60,
+    flexShrink: 0,
   },
   desktopBrandTitle: {
     fontSize: 22,
@@ -1709,6 +1860,10 @@ const styles = StyleSheet.create({
     lineHeight: 44,
     letterSpacing: -0.3,
   },
+  compactHeroText: {
+    fontSize: 30,
+    lineHeight: 38,
+  },
   heroSubDescription: {
     fontSize: 14,
     color: '#C5BCB3',
@@ -1718,16 +1873,10 @@ const styles = StyleSheet.create({
   heroImageWrapper: {
     width: '100%',
     maxWidth: 420,
-    height: 260,
+    aspectRatio: 3 / 2,
     justifyContent: 'center',
     alignItems: 'flex-start',
     marginTop: 8,
-    ...(Platform.OS === 'web'
-      ? ({
-        WebkitMaskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
-        maskImage: 'radial-gradient(ellipse 75% 72% at 50% 50%, black 50%, transparent 88%)',
-      } as any)
-      : {}),
   },
   heroImage: {
     width: '100%',
@@ -1735,8 +1884,8 @@ const styles = StyleSheet.create({
   },
   desktopRightCol: {
     flex: 1.25,
+    minWidth: 0,
     maxWidth: 620,
-    width: '100%',
   },
   desktopCard: {
     paddingVertical: 32,
@@ -1753,10 +1902,20 @@ const styles = StyleSheet.create({
 
   /* ---------- Card Component Styles ---------- */
   card: {
+    width: '100%',
+    minWidth: 0,
     borderRadius: 22,
     paddingVertical: 24,
     paddingHorizontal: 20,
     elevation: 8,
+  },
+  compactCard: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  compactWelcomeTitle: {
+    fontSize: 22,
+    lineHeight: 28,
   },
   cardLight: {
     backgroundColor: 'rgba(255, 255, 255, 0.66)',
@@ -1789,17 +1948,14 @@ const styles = StyleSheet.create({
       : {}),
   },
   textInputLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
+    ...FIELD_SURFACE_LIGHT,
     color: '#0F172A',
   },
   dobBoxLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
+    ...FIELD_SURFACE_LIGHT,
   },
   dropdownSelectTriggerLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
+    ...FIELD_SURFACE_LIGHT,
   },
   genderOptionChipLight: {
     backgroundColor: '#FFFFFF',
@@ -1846,6 +2002,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
     alignSelf: 'flex-start',
+    minHeight: 40,
   },
   backButtonText: {
     color: '#FF6500',
@@ -1955,13 +2112,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   textInputStyle: {
-    backgroundColor: 'rgba(16, 11, 7, 0.45)',
-    borderWidth: 1.1,
-    borderColor: 'rgba(255, 255, 255, 0.13)',
-    borderRadius: 10,
+    ...FIELD_SURFACE,
+    minWidth: 0,
+    minHeight: 48,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 14.5,
+    fontSize: 16,
     color: '#FFFFFF',
   },
 
@@ -1971,19 +2127,20 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dobBox: {
+    ...FIELD_SURFACE,
     flex: 1,
-    backgroundColor: 'rgba(16, 11, 7, 0.45)',
-    borderWidth: 1.1,
-    borderColor: 'rgba(255, 255, 255, 0.13)',
-    borderRadius: 10,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dobInput: {
+    backgroundColor: 'transparent',
     width: '100%',
+    minWidth: 0,
+    minHeight: 48,
     paddingVertical: 12,
     textAlign: 'center',
-    fontSize: 14.5,
+    fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -1994,7 +2151,67 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  emailInput: {
+    flex: 1,
+    minWidth: 0,
+  },
+  resendCodeButton: {
+    alignSelf: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    marginTop: 8,
+  },
+  resendCodeText: {
+    color: '#FF6500',
+    fontSize: 12.5,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  verifiedEmailSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    marginBottom: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+  },
+  verifiedEmailContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  verifiedEmailLabel: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 3,
+  },
+  verifiedEmailAddress: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  changeEmailButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    flexShrink: 0,
+  },
+  stackedRow: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  stackedControl: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
+    width: '100%',
+  },
   sendOtpBtn: {
+    minHeight: 48,
+    flexShrink: 0,
     backgroundColor: '#FF5E14',
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -2010,6 +2227,8 @@ const styles = StyleSheet.create({
   verifiedBadgeBox: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -2047,24 +2266,19 @@ const styles = StyleSheet.create({
     // Allows the input to shrink on narrow mobile screens so the button stays
     // inside the centered OTP card instead of overflowing to the right.
     minWidth: 0,
-    backgroundColor: 'rgba(16, 11, 7, 0.7)',
-    borderWidth: 1,
-    borderColor: '#FF6500',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 48,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
     letterSpacing: 4,
-    color: '#FFFFFF',
   },
   verifyOtpBtn: {
     backgroundColor: '#FF5E14',
     paddingHorizontal: 14,
-    minHeight: 42,
+    minHeight: 48,
     borderRadius: 8,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   verifyOtpBtnText: {
     color: '#FFFFFF',
@@ -2125,6 +2339,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 101, 0, 0.15)',
   },
   eduOptionText: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 13.5,
     color: '#D4CAC0',
     marginLeft: 10,
@@ -2155,6 +2371,7 @@ const styles = StyleSheet.create({
   },
   photoPlaceholderBox: {
     alignItems: 'center',
+    paddingHorizontal: 12,
   },
   cameraIconCircle: {
     width: 56,
@@ -2166,11 +2383,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   uploadPromptTitle: {
+    textAlign: 'center',
     fontSize: 14.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   uploadPromptSub: {
+    textAlign: 'center',
     fontSize: 12,
     color: '#A89F93',
     marginTop: 2,
@@ -2210,6 +2429,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    columnGap: 12,
+    rowGap: 8,
   },
   syllabusLinkBtn: {
     flexDirection: 'row',
@@ -2252,6 +2474,8 @@ const styles = StyleSheet.create({
   },
   paymentMethodChip: {
     flex: 1,
+    minWidth: 0,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2259,6 +2483,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.13)',
     paddingVertical: 12,
+    paddingHorizontal: 10,
     borderRadius: 10,
   },
   paymentMethodChipActive: {
@@ -2266,6 +2491,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 101, 0, 0.15)',
   },
   paymentMethodText: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontSize: 12.5,
     fontWeight: '600',
     color: '#D4CAC0',
@@ -2294,8 +2521,10 @@ const styles = StyleSheet.create({
   },
   slipPlaceholderBox: {
     alignItems: 'center',
+    paddingHorizontal: 12,
   },
   slipPlaceholderTitle: {
+    textAlign: 'center',
     fontSize: 13,
     fontWeight: '600',
     color: '#A89F93',
@@ -2377,26 +2606,34 @@ const styles = StyleSheet.create({
   },
   prevBtnOutline: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 46,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1.2,
     borderColor: '#FF6500',
     backgroundColor: 'rgba(16, 11, 7, 0.45)',
   },
   prevBtnText: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontSize: 14,
     fontWeight: '700',
     color: '#FF6500',
   },
   nextBtnSolid: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 46,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     borderRadius: 12,
     backgroundColor: '#FF5E14',
     shadowColor: '#FF5E14',
@@ -2405,6 +2642,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   nextBtnText: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
@@ -2414,12 +2653,21 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
     justifyContent: 'center',
+    rowGap: 6,
     marginTop: 18,
   },
   footerText: {
+    textAlign: 'center',
     color: '#8E8276',
     fontSize: 13.5,
+  },
+  footerLink: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   link: {
     color: '#FF6500',
@@ -2433,9 +2681,31 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
+    minHeight: 0,
+  },
+  modalDismissArea: {
+    flex: 1,
+    width: '100%',
+    minHeight: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBodyScroll: {
+    minHeight: 0,
+    flexShrink: 1,
+  },
+  modalCloseButton: {
+    width: 44,
+    height: 44,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   termsModalCard: {
+    minWidth: 0,
+    minHeight: 0,
+    flexShrink: 1,
     backgroundColor: '#1E1712',
     borderRadius: 20,
     padding: 20,
@@ -2449,8 +2719,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
+    flexShrink: 0,
+    gap: 8,
   },
   termsModalTitle: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
@@ -2461,6 +2735,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   termsCloseBtn: {
+    flexShrink: 0,
+    minHeight: 48,
     backgroundColor: '#FF5E14',
     paddingVertical: 12,
     borderRadius: 12,
@@ -2474,6 +2750,9 @@ const styles = StyleSheet.create({
   },
 
   successModalCard: {
+    minWidth: 0,
+    minHeight: 0,
+    flexShrink: 1,
     backgroundColor: '#1E1712',
     borderRadius: 24,
     padding: 24,
@@ -2482,6 +2761,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  successModalScroll: {
+    width: '100%',
+    minHeight: 0,
+    flexShrink: 1,
+  },
+  successModalContent: {
+    alignItems: 'center',
   },
   successIconCircle: {
     marginBottom: 12,
@@ -2494,6 +2781,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   successMessage: {
+    maxWidth: '100%',
     fontSize: 13.5,
     color: '#C5BCB3',
     textAlign: 'center',
@@ -2515,21 +2803,23 @@ const styles = StyleSheet.create({
 
   /* DROPDOWN SELECT TRIGGER */
   dropdownSelectTrigger: {
+    ...FIELD_SURFACE,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(16, 11, 7, 0.45)',
-    borderWidth: 1.1,
-    borderColor: 'rgba(255, 255, 255, 0.13)',
-    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   dropdownLeftRow: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
   dropdownSelectText: {
+    flexShrink: 1,
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
@@ -2537,6 +2827,9 @@ const styles = StyleSheet.create({
 
   /* DROPDOWN MODAL */
   dropdownModalCard: {
+    minWidth: 0,
+    minHeight: 0,
+    flexShrink: 1,
     backgroundColor: '#1E1712',
     borderRadius: 20,
     padding: 20,
@@ -2553,8 +2846,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     paddingBottom: 12,
+    flexShrink: 0,
+    gap: 8,
   },
   dropdownModalTitle: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 17,
     fontWeight: '800',
     color: '#FFFFFF',
@@ -2578,6 +2875,9 @@ const styles = StyleSheet.create({
     borderColor: '#FF6500',
   },
   dropdownOptionLabel: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',

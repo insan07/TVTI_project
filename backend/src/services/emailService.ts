@@ -54,7 +54,9 @@ const getTransporter = () => {
     return null;
   }
 
-  if (process.env.SMTP_SERVICE === 'gmail' || (host && host.includes('gmail'))) {
+  // An explicit host/port takes priority over a service preset. Nodemailer
+  // otherwise replaces SMTP_PORT (for example Gmail's configured STARTTLS 587).
+  if (!host && process.env.SMTP_SERVICE === 'gmail') {
     return nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -107,9 +109,15 @@ const renderHeaderCard = () => `
 /**
  * Sends a 6-digit OTP verification email via Nodemailer.
  */
-export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ success: boolean; simulated?: boolean }> => {
+export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ success: boolean }> => {
   const from = DEFAULT_FROM_ADDRESS;
   const transporter = getTransporter();
+
+  if (!transporter) {
+    throw Object.assign(new Error('Registration email delivery is not configured.'), {
+      code: 'SMTP_NOT_CONFIGURED',
+    });
+  }
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -159,28 +167,23 @@ export const sendOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ s
     </html>
   `;
 
-  if (transporter) {
-    try {
-      await transporter.sendMail({
-        from,
-        to,
-        subject: `Twintec Verification Code: ${otp}`,
-        text: `Your Twintec Verification Code is: ${otp}. It expires in 10 minutes.`,
-        html: htmlContent,
-      });
-      return { success: true };
-    } catch (err: any) {
-      console.warn(`[OTP EMAIL SMTP WARNING] (${err?.message || err}). Falling back to dev logger.`);
-    }
+  const delivery = await transporter.sendMail({
+    from,
+    to,
+    subject: `Twintec Verification Code: ${otp}`,
+    text: `Your Twintec Verification Code is: ${otp}. It expires in 10 minutes.`,
+    html: htmlContent,
+  });
+
+  // SMTP can resolve after rejecting a recipient. Only acknowledge an accepted
+  // registration email, and never expose the code through an API fallback.
+  if (!delivery.accepted?.length) {
+    throw Object.assign(new Error('The email provider did not accept the verification email.'), {
+      code: 'SMTP_RECIPIENT_REJECTED',
+    });
   }
 
-  console.log(`\n======================================================`);
-  console.log(`[DEV OTP EMAIL NOTICE]`);
-  console.log(`To: ${to}`);
-  console.log(`OTP Code: [REDACTED]`);
-  console.log(`Valid for 10 minutes`);
-  console.log(`======================================================\n`);
-  return { success: true, simulated: true };
+  return { success: true };
 };
 
 /**

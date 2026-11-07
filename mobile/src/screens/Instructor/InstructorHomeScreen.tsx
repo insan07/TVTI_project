@@ -19,7 +19,7 @@ export default function InstructorHomeScreen() {
   const { user } = context;
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -124,19 +124,6 @@ export default function InstructorHomeScreen() {
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <TouchableOpacity
-                onPress={toggleTheme}
-                style={styles.themeToggleCapsule}
-                activeOpacity={0.8}
-                accessibilityLabel={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
-              >
-                <Icon
-                  name={isDark ? 'sunny-outline' : 'moon-outline'}
-                  size={16}
-                  color="#F59E0B"
-                />
-              </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.bellBtn}
                 onPress={() => navigation.navigate('Notifications')}
@@ -863,22 +850,6 @@ const styles = StyleSheet.create({
   announcementContent: { flex: 1, marginLeft: 12 },
   announcementTitle: { fontSize: 13, fontWeight: 'bold', color: '#1F2937' },
   announcementMeta: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  themeToggleCapsule: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  themeToggleCapsuleLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderColor: 'rgba(255, 255, 255, 0.22)',
-  },
-  themeToggleCapsuleDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
   statCardDark: {
     backgroundColor: 'rgba(20, 27, 38, 0.85)',
     borderWidth: 1,

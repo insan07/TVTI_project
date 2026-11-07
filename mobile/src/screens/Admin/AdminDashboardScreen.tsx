@@ -32,7 +32,7 @@ export default function AdminDashboardScreen() {
   if (!context) return null;
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [overviewExpanded, setOverviewExpanded] = useState(false);
@@ -485,21 +485,8 @@ export default function AdminDashboardScreen() {
               </View>
             </View>
 
-            {/* THEME TOGGLE & NOTIFICATION BELL ICON (MATCHING STUDENT DASHBOARD) */}
+            {/* Notification bell */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <TouchableOpacity
-                onPress={toggleTheme}
-                style={styles.themeToggleCapsule}
-                activeOpacity={0.8}
-                accessibilityLabel={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
-              >
-                <Icon
-                  name={isDark ? 'sunny-outline' : 'moon-outline'}
-                  size={16}
-                  color="#F59E0B"
-                />
-              </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.bellBtn}
                 onPress={() => navigation.navigate('Notifications')}
@@ -2096,16 +2083,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     ...FONTS.bold,
-  },
-  themeToggleCapsule: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   glassCardWrapperDark: {
     borderColor: 'rgba(249, 115, 22, 0.3)',

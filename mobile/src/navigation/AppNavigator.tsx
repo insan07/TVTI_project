@@ -201,9 +201,16 @@ const linking: LinkingOptions<any> = {
 export const AppNavigator = () => {
   const { navigationTheme } = useTheme();
   const context = useContext(AuthContext);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
   const navigationRef = useNavigationContainerRef();
   const [unreadCount, setUnreadCount] = useState(0);
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    if (context && !context.isLoading) {
+      setIsRestoringSession(false);
+    }
+  }, [context?.isLoading]);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -238,7 +245,8 @@ export const AppNavigator = () => {
 
   const { isLoading, userToken, userRole } = context;
 
-  if (isLoading) {
+  // Keep the form mounted during sign-in so pending state, input, and errors survive.
+  if (isLoading && isRestoringSession) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" />
