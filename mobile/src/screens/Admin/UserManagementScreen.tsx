@@ -32,7 +32,7 @@ import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
 import WhatsAppSelectionHeader from '../../components/shared/WhatsAppSelectionHeader';
 import * as Print from 'expo-print';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 

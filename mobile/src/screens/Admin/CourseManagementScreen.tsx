@@ -27,7 +27,7 @@ import ScreenHeader from '../../components/shared/ScreenHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(global as any).nativeFabricUIManager) {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
