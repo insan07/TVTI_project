@@ -1022,22 +1022,8 @@ export default function AdminSlotManagementScreen() {
             <Text style={[styles.emptyWeekSubtitle, isDark && { color: '#94A3B8' }]}>
               {filteredDateObj && isPastDate(filteredDateObj)
                 ? 'This date is in the past. Past dates are view-only.'
-                : 'You can create a new practical slot for this week using the + button.'}
+                : 'No practical sessions have been scheduled yet.'}
             </Text>
-            {(!filteredDateObj || !isPastDate(filteredDateObj)) && (
-              <TouchableOpacity
-                style={styles.emptyWeekActionBtn}
-                onPress={() => {
-                  if (filteredDateObj) {
-                    setCreateDate(filteredDateObj);
-                  }
-                  setCreateModalVisible(true);
-                }}
-              >
-                <Icon name="add-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.emptyWeekActionBtnText}>Add Slot for {weekFilterDay || 'This Week'}</Text>
-              </TouchableOpacity>
-            )}
           </View>
         ) : (
           displayedSlots.map(slot => renderListCard(slot))
