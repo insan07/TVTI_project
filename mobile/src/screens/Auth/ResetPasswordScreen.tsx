@@ -135,22 +135,6 @@ export default function ResetPasswordScreen() {
         isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
       ]}
     >
-      {/* Back button */}
-      <TouchableOpacity
-        onPress={() => {
-          if (navigation?.canGoBack && navigation.canGoBack()) {
-            navigation.goBack();
-          } else {
-            navigation.navigate('Login');
-          }
-        }}
-        style={styles.backButtonRow}
-        activeOpacity={0.7}
-      >
-        <Icon name="arrow-back" size={18} color="#FF6500" style={{ marginRight: 6 }} />
-        <Text style={styles.backButtonText}>Back to Sign In</Text>
-      </TouchableOpacity>
-
       <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
         Reset Password
       </Text>
@@ -599,27 +583,20 @@ const styles = StyleSheet.create({
     paddingVertical: 36,
     paddingHorizontal: 34,
   },
-  backButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    alignSelf: 'flex-start',
-  },
-  backButtonText: {
-    color: '#FF6500',
-    fontSize: 13,
-    fontWeight: '600',
-  },
   welcomeTitle: {
     fontSize: 25,
     fontWeight: '700',
     marginBottom: 6,
     letterSpacing: -0.2,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   welcomeSubtitle: {
     fontSize: 13.5,
     lineHeight: 20,
     marginBottom: 24,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   errorBox: {
     flexDirection: 'row',
