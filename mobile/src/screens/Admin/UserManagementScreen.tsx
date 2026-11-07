@@ -1565,12 +1565,22 @@ export default function UserManagementScreen() {
             subtitle="Choose a category to manage"
             showBack={true}
           />
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 100 }}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 20,
+              paddingBottom: 100,
+              maxWidth: 960,
+              width: '100%',
+              alignSelf: 'center',
+            }}
+          >
             <Text style={[styles.hubSectionHeaderTitle, isDark && { color: '#FFFFFF' }]}>Choose Activity</Text>
 
             {/* 1. Applications Card */}
             <TouchableOpacity
-              style={[styles.hubVerticalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
+              style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
               onPress={() => {
                 setActiveMode('applications');
                 setApplicationsSubFilter('pending');
@@ -1578,19 +1588,19 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={[styles.hubVerticalIconBox, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                <Icon name="document-text-outline" size={24} color="#F59E0B" />
+              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.18)' : '#FEF3C7' }]}>
+                <Icon name="document-text-outline" size={24} color="#D97706" />
               </View>
               <View style={styles.hubVerticalTextCol}>
                 <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Applications</Text>
                 <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{appMetrics.pending} Pending Applications</Text>
               </View>
-              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#D4D4D8"} />
+              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#94A3B8"} />
             </TouchableOpacity>
 
             {/* 2. Students Card */}
             <TouchableOpacity
-              style={[styles.hubVerticalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
+              style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
               onPress={() => {
                 setActiveMode('students');
                 setStudentsSubFilter('all');
@@ -1598,19 +1608,19 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={[styles.hubVerticalIconBox, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                <Icon name="people-outline" size={24} color="#F59E0B" />
+              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.18)' : '#EFF6FF' }]}>
+                <Icon name="people-outline" size={24} color="#2563EB" />
               </View>
               <View style={styles.hubVerticalTextCol}>
                 <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Students</Text>
                 <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{studentsMetrics.all} Enrolled Students</Text>
               </View>
-              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#D4D4D8"} />
+              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#94A3B8"} />
             </TouchableOpacity>
 
             {/* 3. Payments Card */}
             <TouchableOpacity
-              style={[styles.hubVerticalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
+              style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
               onPress={() => {
                 setActiveMode('payments');
                 setPaymentsSubFilter('pending');
@@ -1618,19 +1628,19 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={[styles.hubVerticalIconBox, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                <Icon name="wallet-outline" size={24} color="#F59E0B" />
+              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.18)' : '#ECFDF5' }]}>
+                <Icon name="wallet-outline" size={24} color="#059669" />
               </View>
               <View style={styles.hubVerticalTextCol}>
                 <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Payments</Text>
                 <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{paymentsMetrics.pending} Pending Slips</Text>
               </View>
-              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#D4D4D8"} />
+              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#94A3B8"} />
             </TouchableOpacity>
 
             {/* 4. Instructors Card */}
             <TouchableOpacity
-              style={[styles.hubVerticalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
+              style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
               onPress={() => {
                 setActiveMode('instructors');
                 setInstructorsSubFilter('active');
@@ -1638,14 +1648,14 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={[styles.hubVerticalIconBox, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                <Icon name="school-outline" size={24} color="#F59E0B" />
+              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? 'rgba(249, 115, 22, 0.18)' : '#FFF7ED' }]}>
+                <Icon name="school-outline" size={24} color="#EA580C" />
               </View>
               <View style={styles.hubVerticalTextCol}>
                 <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Instructors</Text>
                 <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{instructorsMetrics.active} Active Staff</Text>
               </View>
-              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#D4D4D8"} />
+              <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#94A3B8"} />
             </TouchableOpacity>
           </ScrollView>
         </>
@@ -4433,19 +4443,24 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   hubVerticalCard: {
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderRadius: 20,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.03)',
+    borderColor: '#E2E8F0',
     ...Platform.select({
-      web: { boxShadow: '0 4px 14px rgba(15, 23, 42, 0.04)' },
-      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 }
+      web: { boxShadow: '0 4px 20px rgba(15, 23, 42, 0.07)' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 }
     }),
+  },
+  hubVerticalCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   hubVerticalIconBox: {
     width: 50,
