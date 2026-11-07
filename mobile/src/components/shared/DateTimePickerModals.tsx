@@ -453,40 +453,39 @@ export function TimePickerModal({
               </View>
 
               {/* Hour & Minute Selectors */}
-              <View style={styles.timeSpinnersRow}>
-                {/* Hours column */}
-                <View style={{ flex: 1, marginRight: 8 }}>
+              <View style={styles.timeSpinnersContainer}>
+                {/* Hours section */}
+                <View style={styles.timeSpinnerBlock}>
                   <Text style={[styles.sectionHeading, isDark && { color: '#94A3B8' }]}>HOUR</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 6 }}>
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
-                      {HOURS.map(h => (
-                        <TouchableOpacity
-                          key={h}
-                          style={[
-                            styles.timeUnitChip,
-                            isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255,255,255,0.08)' },
-                            hour === h && styles.timeUnitChipActive,
-                          ]}
-                          onPress={() => setHour(h)}
-                        >
-                          <Text style={[styles.timeUnitChipText, isDark && { color: '#FFFFFF' }, hour === h && styles.timeUnitChipTextActive]}>
-                            {h}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </ScrollView>
+                  <View style={styles.hourChipsWrap}>
+                    {HOURS.map(h => (
+                      <TouchableOpacity
+                        key={h}
+                        style={[
+                          styles.timeUnitChip,
+                          isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255,255,255,0.08)' },
+                          hour === h && styles.timeUnitChipActive,
+                        ]}
+                        onPress={() => setHour(h)}
+                      >
+                        <Text style={[styles.timeUnitChipText, isDark && { color: '#FFFFFF' }, hour === h && styles.timeUnitChipTextActive]}>
+                          {h}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
 
-                {/* Minutes column */}
-                <View style={{ width: 140 }}>
+                {/* Minutes section */}
+                <View style={styles.timeSpinnerBlock}>
                   <Text style={[styles.sectionHeading, isDark && { color: '#94A3B8' }]}>MINUTES</Text>
-                  <View style={{ flexDirection: 'row', gap: 6, marginVertical: 6 }}>
+                  <View style={styles.minuteChipsRow}>
                     {MINUTES.map(m => (
                       <TouchableOpacity
                         key={m}
                         style={[
                           styles.timeUnitChip,
+                          styles.minuteUnitChip,
                           isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255,255,255,0.08)' },
                           minute === m && styles.timeUnitChipActive,
                         ]}
@@ -874,10 +873,29 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     marginTop: 10,
   },
-  timeSpinnersRow: {
+  timeSpinnersContainer: {
+    flexDirection: 'column',
+    gap: 10,
+    marginBottom: 6,
+  },
+  timeSpinnerBlock: {
+    width: '100%',
+  },
+  hourChipsWrap: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
+  minuteChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  minuteUnitChip: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionHeading: {
     fontSize: 10.5,
