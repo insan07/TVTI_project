@@ -1453,7 +1453,8 @@ export default function AdminDashboardScreen() {
               style={{
                 width: '100%',
                 backgroundColor: ackModal.type === 'danger' ? '#DC2626' : '#F58220',
-                paddingVertical: 12,
+                minHeight: 48,
+                paddingVertical: 14,
                 borderRadius: 14,
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1465,7 +1466,7 @@ export default function AdminDashboardScreen() {
               }}
               activeOpacity={0.85}
             >
-              <Text style={{ fontSize: 14, ...FONTS.bold, color: '#FFFFFF' }}>Got it</Text>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Got it</Text>
             </TouchableOpacity>
           </View>
         </View>

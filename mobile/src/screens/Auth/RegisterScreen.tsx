@@ -12,6 +12,7 @@ import {
   Platform,
   Image,
   Linking,
+  Keyboard,
   useWindowDimensions
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -152,6 +153,22 @@ export default function RegisterScreen() {
     }
   }, [errorMsg]);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Email OTP States
   const [emailVerified, setEmailVerified] = useState(false);
@@ -1400,28 +1417,8 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isLight && styles.containerLight]} edges={['top', 'bottom', 'left', 'right']}>
-      {/* Keep the toolbar in flow so it cannot overlap branding or form controls. */}
-      <View style={[styles.topBarContainer, { paddingHorizontal: pagePadding, minHeight: isShort || !isDesktop ? 56 : 64 }]}>
-        <TouchableOpacity
-          onPress={toggleTheme}
-          style={[styles.themeToggleButton, isLight && styles.themeToggleButtonLight]}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
-        >
-          <Icon
-            name={isLight ? 'moon-outline' : 'sunny-outline'}
-            size={17}
-            color={isLight ? '#334155' : '#F59E0B'}
-          />
-          <Text style={[styles.themeToggleText, { color: isLight ? '#1E293B' : '#F1F5F9' }]}>
-            {isLight ? 'Dark Mode' : 'Light Mode'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* TVTI Campus Building Background Image */}
+    <View style={[styles.container, isLight && styles.containerLight]}>
+      {/* TVTI Campus Building Background Image — Fills Entire Physical Screen */}
       <Image
         source={
           isLight
@@ -1431,6 +1428,7 @@ export default function RegisterScreen() {
         style={[
           styles.backgroundImage,
           Platform.OS === 'web' && ({
+            position: 'fixed',
             zIndex: -2,
             objectFit: 'cover',
             objectPosition: 'center',
@@ -1449,6 +1447,7 @@ export default function RegisterScreen() {
             {
               width: '100%',
               height: '100%',
+              position: 'fixed',
               zIndex: -1,
               pointerEvents: 'none',
               background: isLight
@@ -1472,15 +1471,40 @@ export default function RegisterScreen() {
         />
       )}
 
-      <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      {/* Floating Theme Toggle Icon (Moon/Sun only, NO header bar) */}
+      <TouchableOpacity
+        style={[
+          styles.themeIconOnlyBtn,
+          {
+            top: Math.max(insets.top + 8, 16),
+            right: 18,
+            backgroundColor: isLight ? 'rgba(255, 255, 255, 0.88)' : 'rgba(30, 41, 59, 0.85)',
+            borderColor: isLight ? 'rgba(226, 232, 240, 0.9)' : 'rgba(255, 255, 255, 0.15)',
+          },
+        ]}
+        onPress={toggleTheme}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
       >
+        <Icon
+          name={isLight ? 'moon-outline' : 'sunny-outline'}
+          size={20}
+          color={isLight ? '#334155' : '#F59E0B'}
+        />
+      </TouchableOpacity>
+
+      <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={styles.keyboardContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <ScrollView
           ref={pageScrollRef}
           style={styles.pageScroll}
           contentContainerStyle={[
             isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent,
+            !isDesktop && isKeyboardVisible && styles.mobileScrollContentKeyboard,
             { paddingHorizontal: pagePadding },
             isShort && styles.shortScrollContent,
           ]}
@@ -1701,7 +1725,8 @@ export default function RegisterScreen() {
         </TouchableOpacity>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -1714,6 +1739,26 @@ const styles = StyleSheet.create({
   },
   containerLight: {
     backgroundColor: '#F8FAFC',
+  },
+  themeIconOnlyBtn: {
+    position: 'absolute',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+    borderWidth: 1,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.15)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 4,
+      },
+    }),
   },
 
   /* ---------- Toolbar ---------- */
@@ -1772,7 +1817,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 40,
+  },
+  mobileScrollContentKeyboard: {
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    paddingBottom: 160,
   },
   mobileContainer: {
     width: '100%',

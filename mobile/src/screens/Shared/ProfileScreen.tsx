@@ -1190,9 +1190,11 @@ export default function ProfileScreen() {
                 style={{
                   flex: 1,
                   backgroundColor: isDark ? '#1E293B' : '#0F172A',
+                  minHeight: 48,
                   paddingVertical: 12,
                   borderRadius: 10,
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
                 onPress={() => setLogoutModalVisible(false)}
                 activeOpacity={0.8}
@@ -1206,9 +1208,11 @@ export default function ProfileScreen() {
                   backgroundColor: '#FEF2F2',
                   borderWidth: 1,
                   borderColor: '#FCA5A5',
+                  minHeight: 48,
                   paddingVertical: 12,
                   borderRadius: 10,
                   alignItems: 'center',
+                  justifyContent: 'center',
                 }}
                 onPress={() => {
                   setLogoutModalVisible(false);
@@ -1302,7 +1306,7 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 100,
+    paddingBottom: 120,
     maxWidth: 900,
     width: '100%',
     alignSelf: 'center',
@@ -1839,13 +1843,15 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
   },
   popupOkBtn: {
     width: '100%',
-    paddingVertical: 12,
+    minHeight: 48,
+    paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   popupOkBtnText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 15,
   },
 });

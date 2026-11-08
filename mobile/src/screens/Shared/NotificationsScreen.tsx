@@ -431,7 +431,7 @@ export default function NotificationsScreen() {
           renderItem={renderItem}
           keyExtractor={i => i._id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F58220']} />}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 40 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 80 }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Icon name="notifications-outline" size={48} color={isDark ? '#64748B' : '#9CA3AF'} />

@@ -375,7 +375,7 @@ export default function UploadVideoScreen() {
       />
 
       {activeTab === 'upload' ? (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 125 }} keyboardShouldPersistTaps="handled">
           <View style={[styles.card, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -1106,9 +1106,11 @@ const styles = StyleSheet.create({
   },
   popupSingleBtn: {
     width: '100%',
+    minHeight: 48,
     paddingVertical: 12,
     borderRadius: 10,
-    alignItems: 'center'
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   popupSingleBtnText: {
     color: '#FFFFFF',

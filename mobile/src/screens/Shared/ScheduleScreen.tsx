@@ -85,7 +85,7 @@ export default function ScheduleScreen() {
           data={daySessions}
           keyExtractor={i => i._id}
           renderItem={renderSession}
-          contentContainerStyle={{paddingBottom: 20}}
+          contentContainerStyle={{paddingBottom: 110}}
           ListEmptyComponent={
             <Text style={[{textAlign: 'center', marginTop: 40, color: '#6B7280'}, isDark && { color: '#94A3B8' }]}>
               No classes scheduled for {selectedDay}.

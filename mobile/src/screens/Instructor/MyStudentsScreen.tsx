@@ -234,7 +234,7 @@ export default function MyStudentsScreen() {
       <FlatList
         data={filteredStudents}
         keyExtractor={item => item._id}
-        contentContainerStyle={{ padding: 15, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 15, paddingBottom: 90 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}
         onScroll={handleScroll}
         scrollEventThrottle={16}

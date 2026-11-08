@@ -1492,16 +1492,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginRight: 8,
     borderRadius: 24,
+    minHeight: 46,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cancelModalText: {
     color: '#6B7280',
     fontWeight: '600',
+    fontSize: 14,
   },
   submitModalBtn: {
     backgroundColor: '#F58220',
     borderRadius: 24,
     paddingVertical: 12,
     paddingHorizontal: 22,
+    minHeight: 46,
+    justifyContent: 'center',
+    alignItems: 'center',
     ...Platform.select({
       web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
       default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 4 }
@@ -1510,5 +1517,6 @@ const styles = StyleSheet.create({
   submitModalText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+    fontSize: 14,
   },
 });

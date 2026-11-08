@@ -113,13 +113,22 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
 
 export const updatePushToken = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { push_token, token } = req.body;
-    const finalToken = token || push_token;
-    if (finalToken) {
-      await User.findByIdAndUpdate(req.user._id, {
-        expo_push_token: finalToken,
-        fcm_token: finalToken,
-      });
+    const { push_token, token, expo_push_token, fcm_token } = req.body;
+    const updateData: any = {};
+    if (expo_push_token) {
+      updateData.expo_push_token = expo_push_token;
+    } else if (token?.startsWith('ExponentPushToken[') || push_token?.startsWith('ExponentPushToken[')) {
+      updateData.expo_push_token = token || push_token;
+    }
+    if (fcm_token) {
+      updateData.fcm_token = fcm_token;
+    } else if (token && !token.startsWith('ExponentPushToken[')) {
+      updateData.fcm_token = token;
+    } else if (push_token && !push_token.startsWith('ExponentPushToken[')) {
+      updateData.fcm_token = push_token;
+    }
+    if (Object.keys(updateData).length > 0) {
+      await User.findByIdAndUpdate(req.user._id, updateData);
     }
     res.json({ message: 'Push token updated successfully' });
   } catch (error) {

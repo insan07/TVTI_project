@@ -96,6 +96,7 @@ export default function InstructorHomeScreen() {
       <ScreenBackground />
       <ScrollView
         style={[styles.container, { backgroundColor: 'transparent' }]}
+        contentContainerStyle={{ paddingBottom: 110 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}
         showsVerticalScrollIndicator={false}
       >

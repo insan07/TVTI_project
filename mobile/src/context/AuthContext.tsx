@@ -47,6 +47,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Attach token to axios and api global headers
           axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
           api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+          // Ensure push notification token is up-to-date
+          registerForPushNotificationsAsync().catch(err => {
+            console.warn('Failed to register push token on restore', err);
+          });
         }
       } catch (e) {
         console.warn('Failed to restore token', e);

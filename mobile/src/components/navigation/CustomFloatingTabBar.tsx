@@ -9,7 +9,8 @@ import {
   UIManager,
   ScrollView,
   Animated,
-  LayoutRectangle
+  LayoutRectangle,
+  Keyboard
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -30,6 +31,20 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
   const [tabLayouts, setTabLayouts] = useState<{ [key: number]: LayoutRectangle }>({});
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Filter visible routes (ignore hidden screens like MyStudents)
   const visibleRoutes = state.routes.filter((route) => {
@@ -139,6 +154,10 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
       return { ...prev, [index]: layout };
     });
   };
+
+  if (isKeyboardVisible) {
+    return null;
+  }
 
   return (
     <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom + 10, 16) }]}>
@@ -252,7 +271,11 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
               });
             };
 
-            return (
+            if (isKeyboardVisible) {
+    return null;
+  }
+
+  return (
               <TouchableOpacity
                 key={route.key}
                 onLayout={(e) => handleLayout(idx, e.nativeEvent.layout)}

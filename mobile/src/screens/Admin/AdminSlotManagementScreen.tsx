@@ -2061,7 +2061,7 @@ export default function AdminSlotManagementScreen() {
               onChangeText={setEditEquipmentNote}
             />
 
-            <TouchableOpacity style={styles.submitCreateBtn} onPress={handleSaveEdit} disabled={editSaving}>
+            <TouchableOpacity style={[styles.submitCreateBtn, { flex: 0, width: '100%', minHeight: 48, marginTop: 12 }]} onPress={handleSaveEdit} disabled={editSaving}>
               {editSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitCreateBtnText}>Save Changes</Text>}
             </TouchableOpacity>
           </View>
@@ -2772,6 +2772,7 @@ const styles = StyleSheet.create({
   addMoreText: { color: '#F58220', fontWeight: 'bold', fontSize: 14 },
   submitCreateBtn: {
     backgroundColor: '#0F172A',
+    minHeight: 48,
     paddingVertical: 14,
     borderRadius: 26,
     flexDirection: 'row',
@@ -2941,11 +2942,11 @@ const styles = StyleSheet.create({
   popupTitle: { fontSize: 18, fontWeight: 'bold', color: '#0F172A', textAlign: 'center', marginBottom: 8 },
   popupMessage: { fontSize: 14, color: '#475569', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
   popupBtnRow: { flexDirection: 'row', gap: 10, width: '100%' },
-  popupCancelBtn: { flex: 1, backgroundColor: '#F1F5F9', paddingVertical: 12, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#CBD5E1' },
+  popupCancelBtn: { flex: 1, backgroundColor: '#F1F5F9', minHeight: 48, paddingVertical: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#CBD5E1' },
   popupCancelText: { color: '#475569', fontWeight: 'bold', fontSize: 14 },
-  popupConfirmBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
+  popupConfirmBtn: { flex: 1, minHeight: 48, paddingVertical: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   popupConfirmText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
-  popupSingleBtn: { width: '100%', paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
+  popupSingleBtn: { width: '100%', minHeight: 48, paddingVertical: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   popupSingleBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 }
 });
 

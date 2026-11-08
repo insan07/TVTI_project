@@ -11,6 +11,7 @@ import {
   Platform,
   useWindowDimensions,
   ScrollView,
+  Keyboard,
   Alert
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -36,9 +37,25 @@ export default function VerifyResetOtpScreen() {
   const [cooldown, setCooldown] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Theme mode: 'light' | 'dark'
-  const { mode: themeMode, isDark } = useTheme();
+  const { mode: themeMode, isDark, toggleTheme } = useTheme();
 
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -276,8 +293,8 @@ export default function VerifyResetOtpScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]} edges={['top', 'bottom']}>
-      {/* TVTI Campus Building Background Image */}
+    <View style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]}>
+      {/* TVTI Campus Building Background Image — Fills Entire Physical Screen */}
       <Image
         source={
           isLight
@@ -332,13 +349,39 @@ export default function VerifyResetOtpScreen() {
         />
       )}
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      {/* Floating Theme Toggle Icon (Moon/Sun only, NO header bar) */}
+      <TouchableOpacity
+        style={[
+          styles.themeIconOnlyBtn,
+          {
+            top: Math.max(insets.top + 8, 16),
+            right: 18,
+            backgroundColor: isLight ? 'rgba(255, 255, 255, 0.88)' : 'rgba(30, 41, 59, 0.85)',
+            borderColor: isLight ? 'rgba(226, 232, 240, 0.9)' : 'rgba(255, 255, 255, 0.15)',
+          },
+        ]}
+        onPress={toggleTheme}
+        activeOpacity={0.8}
+        accessibilityLabel={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
       >
+        <Icon
+          name={isLight ? 'moon-outline' : 'sunny-outline'}
+          size={20}
+          color={isLight ? '#334155' : '#F59E0B'}
+        />
+      </TouchableOpacity>
+
+      <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent}
+          contentContainerStyle={[
+            isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent,
+            !isDesktop && isKeyboardVisible && styles.mobileScrollContentKeyboard,
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -417,7 +460,8 @@ export default function VerifyResetOtpScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -425,12 +469,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  themeIconOnlyBtn: {
+    position: 'absolute',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+    borderWidth: 1,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.15)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 4,
+      },
+    }),
+  },
 
   /* ---------- Mobile Layout Styles ---------- */
   mobileScrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     paddingVertical: 28,
+  },
+  mobileScrollContentKeyboard: {
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    paddingBottom: 160,
   },
   mobileContainer: {
     width: '100%',

@@ -73,7 +73,7 @@ export default function EnrollStudentScreen() {
   const availableStudents = activeStudents.filter(s => !enrolledIds.includes(s._id) && (s.name.toLowerCase().includes(search.toLowerCase()) || s.email.toLowerCase().includes(search.toLowerCase())));
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F3F4F6'}} edges={['top']}>
+    <SafeAreaView style={{flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F3F4F6'}} edges={['top', 'bottom']}>
       <ScreenBackground />
       <KeyboardAvoidingView style={{flex: 1}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.container, isDark && { backgroundColor: 'transparent' }]}>
@@ -96,7 +96,7 @@ export default function EnrollStudentScreen() {
               data={availableStudents}
               keyExtractor={i => i._id}
               getItemLayout={(data, index) => ({ length: 80, offset: 80 * index, index })}
-              contentContainerStyle={{paddingBottom: 20}}
+              contentContainerStyle={{paddingBottom: 100}}
               renderItem={({item}) => (
                 <TouchableOpacity
                   style={[styles.row, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}

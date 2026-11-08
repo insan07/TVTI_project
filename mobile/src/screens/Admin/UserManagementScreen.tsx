@@ -4217,9 +4217,11 @@ const styles = StyleSheet.create({
   popupCancelBtn: {
     flex: 1,
     backgroundColor: '#F1F5F9',
+    minHeight: 48,
     paddingVertical: 12,
     borderRadius: 24,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#CBD5E1'
   },
@@ -4230,9 +4232,11 @@ const styles = StyleSheet.create({
   },
   popupConfirmBtn: {
     flex: 1,
+    minHeight: 48,
     paddingVertical: 12,
     borderRadius: 24,
     alignItems: 'center',
+    justifyContent: 'center',
     ...Platform.select({
       web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.2)' },
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4 }
@@ -4245,9 +4249,11 @@ const styles = StyleSheet.create({
   },
   popupSingleBtn: {
     width: '100%',
+    minHeight: 48,
     paddingVertical: 12,
     borderRadius: 24,
     alignItems: 'center',
+    justifyContent: 'center',
     ...Platform.select({
       web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.2)' },
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4 }
