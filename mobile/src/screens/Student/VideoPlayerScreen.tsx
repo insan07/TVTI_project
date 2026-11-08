@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,28 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import YoutubeIframe from 'react-native-youtube-iframe';
 import api from '../../services/api';
 import { API_URL } from '../../config/constants';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenHeader from '../../components/shared/ScreenHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
+import { AuthContext } from '../../context/AuthContext';
+import {
+  enableNativeScreenCaptureProtection,
+  disableNativeScreenCaptureProtection,
+  hardenHtmlVideoElement,
+  subscribeToScreenCaptureEvents,
+} from '../../utils/screenCaptureProtection';
+
+const WATERMARK_POSITIONS = [
+  { top: 14, left: 16 },
+  { top: 14, right: 16 },
+  { bottom: 48, right: 16 },
+  { bottom: 48, left: 16 },
+  { top: 92, left: '28%' as any },
+];
 
 const formatUploadedTime = (dateStr?: string) => {
   if (!dateStr) return 'Upload date unknown';
@@ -44,17 +59,60 @@ export default function VideoPlayerScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
+  const auth = useContext(AuthContext);
   const videoId = route.params?.videoId;
 
   const [videoData, setVideoData] = useState<any>(null);
   const [notesUrl, setNotesUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [securityLockReason, setSecurityLockReason] = useState<string | null>(null);
+  const [ytPlaying, setYtPlaying] = useState<boolean>(false);
+  const [watermarkPosIdx, setWatermarkPosIdx] = useState<number>(0);
 
   const player = useVideoPlayer('', (p) => {
     p.loop = false;
   });
 
   const videoViewRef = useRef<any>(null);
+
+  const lockPlaybackForSecurity = useCallback(
+    (reason: string) => {
+      try {
+        player.pause();
+      } catch (_) {}
+      setYtPlaying(false);
+      setSecurityLockReason(reason);
+    },
+    [player]
+  );
+
+  // 1. Enable Native OS Screen-Recording Block (Android FLAG_SECURE / iOS capture prevention) while screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      enableNativeScreenCaptureProtection();
+      return () => {
+        disableNativeScreenCaptureProtection();
+      };
+    }, [])
+  );
+
+  // 2. Subscribe to AppState, Web blur/visibility, keyboard shortcuts, and getDisplayMedia interception
+  useEffect(() => {
+    const unsubscribe = subscribeToScreenCaptureEvents((reason) => {
+      lockPlaybackForSecurity(reason);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [lockPlaybackForSecurity]);
+
+  // 3. Rotate dynamic anti-piracy student watermark position every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setWatermarkPosIdx((prev) => (prev + 1) % WATERMARK_POSITIONS.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (videoData?.url && videoData.type !== 'youtube') {
@@ -65,10 +123,9 @@ export default function VideoPlayerScreen() {
   useEffect(() => {
     if (Platform.OS === 'web' && videoViewRef.current?.nativeRef?.current) {
       const videoElement = videoViewRef.current.nativeRef.current;
-      videoElement.setAttribute('controlsList', 'nodownload');
-      videoElement.oncontextmenu = (e: any) => e.preventDefault();
+      hardenHtmlVideoElement(videoElement, lockPlaybackForSecurity);
     }
-  }, [videoData?.url, loading]);
+  }, [videoData?.url, loading, lockPlaybackForSecurity]);
 
   useEffect(() => {
     if (videoId) {
@@ -117,6 +174,9 @@ export default function VideoPlayerScreen() {
   }
 
   const yTId = videoData?.type === 'youtube' && videoData?.url ? getYoutubeId(videoData.url) : null;
+  const studentIdentity = auth?.user
+    ? `${auth.user.name || 'Student'} • ${auth.user.index_number || auth.user.email || 'TVTI'}`
+    : 'TVTI Protected Stream';
 
   return (
     <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
@@ -130,12 +190,37 @@ export default function VideoPlayerScreen() {
       </View>
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
-        {/* Video Player Frame */}
-        <View style={styles.videoContainer} {...({ onContextMenu: (e: any) => e.preventDefault() } as any)}>
+        {/* Protected Video Player Frame */}
+        <View
+          style={[styles.videoContainer, Platform.OS === 'web' && ({ userSelect: 'none', WebkitUserSelect: 'none' } as any)]}
+          {...({ onContextMenu: (e: any) => e.preventDefault() } as any)}
+        >
           {videoData?.type === 'youtube' && yTId ? (
-            <YoutubeIframe height={230} videoId={yTId} />
+            <YoutubeIframe
+              height={230}
+              videoId={yTId}
+              play={ytPlaying && !securityLockReason}
+              onChangeState={(state: string) => {
+                if (state === 'playing') setYtPlaying(true);
+                else if (state === 'paused' || state === 'ended') setYtPlaying(false);
+              }}
+              initialPlayerParams={{
+                modestbranding: true,
+                rel: false,
+                controls: true,
+              }}
+            />
           ) : videoData?.url ? (
-            <VideoView ref={videoViewRef} style={styles.video} player={player} {...({ allowsFullscreen: true, allowsPictureInPicture: true } as any)} />
+            <VideoView
+              ref={videoViewRef}
+              style={styles.video}
+              player={player}
+              {...({
+                allowsFullscreen: true,
+                allowsPictureInPicture: false,
+                contentFit: 'contain',
+              } as any)}
+            />
           ) : (
             <View style={styles.videoMockContainer}>
               <View style={styles.playButtonCircle}>
@@ -154,6 +239,41 @@ export default function VideoPlayerScreen() {
               </View>
             </View>
           )}
+
+          {/* Dynamic Moving Anti-Piracy Student Watermark Overlay */}
+          <View
+            pointerEvents="none"
+            style={[styles.watermarkOverlay, WATERMARK_POSITIONS[watermarkPosIdx]]}
+          >
+            <Text style={styles.watermarkText}>{studentIdentity}</Text>
+          </View>
+
+          {/* Security Blackout Shield when Screen Recording / Capture / Blur is Detected */}
+          {securityLockReason ? (
+            <View style={styles.securityBlackoutShield}>
+              <View style={styles.securityIconBadge}>
+                <Icon name="shield-half-outline" size={28} color="#F97316" />
+              </View>
+              <Text style={styles.securityBlackoutTitle}>Screen Recording & Capture Restricted</Text>
+              <Text style={styles.securityBlackoutDesc}>{securityLockReason}</Text>
+              <TouchableOpacity
+                style={styles.resumePlaybackBtn}
+                activeOpacity={0.85}
+                onPress={() => setSecurityLockReason(null)}
+              >
+                <Icon name="play" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.resumePlaybackBtnText}>Resume Protected Video</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </View>
+
+        {/* DRM / Screen-Recording Protection Notice Bar */}
+        <View style={[styles.drmNoticeBar, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255,255,255,0.06)' }]}>
+          <Icon name="lock-closed" size={13} color="#F58220" style={{ marginRight: 6 }} />
+          <Text style={[styles.drmNoticeText, isDark && { color: '#94A3B8' }]}>
+            Protected Stream • 3rd-party screen recording & capture are blocked
+          </Text>
         </View>
 
         {/* Content Details Body */}
@@ -261,10 +381,89 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 230,
     backgroundColor: '#000000',
+    position: 'relative',
+    overflow: 'hidden',
   },
   video: {
     width: '100%',
     height: '100%',
+  },
+  watermarkOverlay: {
+    position: 'absolute',
+    backgroundColor: 'rgba(15, 23, 42, 0.42)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    zIndex: 20,
+  },
+  watermarkText: {
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 10.5,
+    ...FONTS.bold,
+    letterSpacing: 0.4,
+  },
+  securityBlackoutShield: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#090D16',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    zIndex: 50,
+  },
+  securityIconBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.3)',
+  },
+  securityBlackoutTitle: {
+    color: '#FFFFFF',
+    fontSize: 15.5,
+    ...FONTS.bold,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  securityBlackoutDesc: {
+    color: '#94A3B8',
+    fontSize: 12,
+    ...FONTS.regular,
+    textAlign: 'center',
+    marginBottom: 14,
+    lineHeight: 17,
+  },
+  resumePlaybackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F58220',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 20,
+  },
+  resumePlaybackBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    ...FONTS.bold,
+  },
+  drmNoticeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFEDD5',
+  },
+  drmNoticeText: {
+    fontSize: 11.5,
+    color: '#9A3412',
+    ...FONTS.medium,
   },
   videoMockContainer: {
     flex: 1,

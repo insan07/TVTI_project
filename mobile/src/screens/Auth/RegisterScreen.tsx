@@ -2076,29 +2076,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderColor: '#E2E8F0',
   },
-  backButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-    alignSelf: 'flex-start',
-    minHeight: 40,
-  },
-  backButtonText: {
-    color: '#FF6500',
-    fontSize: 13,
-    fontWeight: '600',
-  },
   welcomeTitle: {
     fontSize: 24,
     color: '#FFFFFF',
     fontWeight: '700',
     marginBottom: 4,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   welcomeSubtitle: {
     fontSize: 13.5,
     color: '#A89F93',
     lineHeight: 20,
     marginBottom: 20,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
 
   /* STEPPER INDICATOR HEADER */

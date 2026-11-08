@@ -701,27 +701,20 @@ const styles = StyleSheet.create({
     paddingVertical: 36,
     paddingHorizontal: 34,
   },
-  backButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    alignSelf: 'flex-start',
-  },
-  backButtonText: {
-    color: '#FF6500',
-    fontSize: 13,
-    fontWeight: '600',
-  },
   welcomeTitle: {
     fontSize: 25,
     fontWeight: '700',
     marginBottom: 6,
     letterSpacing: -0.2,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   welcomeSubtitle: {
     fontSize: 13.5,
     lineHeight: 20,
     marginBottom: 24,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   errorBox: {
     flexDirection: 'row',
