@@ -50,6 +50,9 @@
     "react-native-webview": "13.16.1",
     "react-native-youtube-iframe": "^2.4.1"
   },
+  "overrides": {
+    "ws": "^8.21.3"
+  },
   "devDependencies": {
     "@types/react": "~19.2.4",
     "typescript": "~6.0.3"
