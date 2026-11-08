@@ -1077,7 +1077,7 @@ export default function PracticeSessionsScreen() {
               viewMode === 'Day' ? (() => {
                 const daySlots = slots.filter(s => getLocalDateString(getSlotActualDate(s.week_start_date, s.day_of_week)) === getLocalDateString(selectedDate));
                 return (
-                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}>
+                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 120 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                       <View>
                         <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#FFFFFF' : '#0F172A' }}>
@@ -1122,7 +1122,7 @@ export default function PracticeSessionsScreen() {
                   </ScrollView>
                 );
               })() :
-                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}>
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 120 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}>
                   {slots.length === 0 ? (
                     <View style={[styles.emptyWeekCard, isDark && styles.emptyWeekCardDark]}>
                       <Icon name="calendar-outline" size={44} color={isDark ? '#475569' : '#CBD5E1'} style={{ marginBottom: 10 }} />
@@ -1373,7 +1373,7 @@ export default function PracticeSessionsScreen() {
           <View style={[styles.modalContent, isDark && styles.modalCardDark]}>
             <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>{alertModal.title}</Text>
             <Text style={[{ color: '#4B5563', marginBottom: 20 }, isDark && { color: '#A89F93' }]}>{alertModal.message}</Text>
-            <TouchableOpacity style={[styles.submitBtn, { backgroundColor: '#FF5E14' }]} onPress={() => { setAlertModal({ ...alertModal, visible: false }); if (alertModal.onOk) alertModal.onOk(); }}>
+            <TouchableOpacity style={styles.alertOkBtn} onPress={() => { setAlertModal({ ...alertModal, visible: false }); if (alertModal.onOk) alertModal.onOk(); }}>
               <Text style={styles.submitBtnText}>OK</Text>
             </TouchableOpacity>
           </View>
@@ -2032,8 +2032,10 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     flex: 2,
-    paddingVertical: 12,
+    minHeight: 48,
+    paddingVertical: 13,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#0F172A',
     borderRadius: 24,
     marginLeft: 8,
@@ -2042,7 +2044,20 @@ const styles = StyleSheet.create({
       default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 5, elevation: 4 }
     }),
   },
-  submitBtnText: { color: '#fff', fontWeight: 'bold' },
+  alertOkBtn: {
+    width: '100%',
+    minHeight: 48,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF5E14',
+    borderRadius: 24,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(255, 94, 20, 0.22)' },
+      default: { shadowColor: '#FF5E14', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 5, elevation: 4 }
+    }),
+  },
+  submitBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
 
   emptyText: { color: '#6B7280', textAlign: 'center', marginTop: 30, fontSize: 14 },
   createActionsRow: { flexDirection: 'row', gap: 12, marginTop: 20 },

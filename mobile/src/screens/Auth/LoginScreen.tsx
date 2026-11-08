@@ -17,13 +17,15 @@ import {
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showToast } from '../../components/shared/Toast';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isNarrow = width < 380;
@@ -43,6 +45,22 @@ export default function LoginScreen() {
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState(initialMsg);
   const [focusedInput, setFocusedInput] = useState<'email' | 'password' | null>(null);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const authContext = useContext(AuthContext);
   const navigation = useNavigation<any>();
@@ -180,6 +198,19 @@ export default function LoginScreen() {
         isNarrow && styles.cardNarrow,
       ]}
     >
+      <BlurView
+        intensity={Platform.OS === 'android' ? 35 : 55}
+        tint={isLight ? 'light' : 'dark'}
+        style={StyleSheet.absoluteFill}
+      />
+      {/* Specular Top Rim Reflection Sheen */}
+      <View
+        pointerEvents="none"
+        style={[
+          styles.cardTopSheen,
+          { backgroundColor: isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.18)' },
+        ]}
+      />
       <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
         Welcome Back
       </Text>
@@ -290,7 +321,12 @@ export default function LoginScreen() {
           placeholder="Enter password"
           placeholderTextColor={isLight ? '#94A3B8' : '#8A7D71'}
           value={password}
-          onFocus={() => setFocusedInput('password')}
+          onFocus={() => {
+            setFocusedInput('password');
+            setTimeout(() => {
+              pageScrollRef.current?.scrollToEnd({ animated: true });
+            }, 120);
+          }}
           onBlur={() => setFocusedInput(null)}
           onChangeText={(text) => {
             setPassword(text);
@@ -347,30 +383,8 @@ export default function LoginScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]} edges={['top', 'bottom', 'left', 'right']}>
-      {/* An in-flow toolbar keeps the theme switch clear of the scrollable form. */}
-      <View style={[styles.topBarContainer, isNarrow && styles.topBarNarrow]}>
-        <TouchableOpacity
-          style={[
-            styles.themeToggleBtn,
-            isLight ? styles.themeToggleBtnLight : styles.themeToggleBtnDark,
-          ]}
-          onPress={toggleTheme}
-          activeOpacity={0.82}
-          accessibilityLabel={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
-        >
-          <Icon
-            name={isLight ? 'moon-outline' : 'sunny-outline'}
-            size={17}
-            color={isLight ? '#334155' : '#F59E0B'}
-          />
-          <Text style={[styles.themeToggleText, { color: isLight ? '#1E293B' : '#F1F5F9' }]}>
-            {isLight ? 'Dark Mode' : 'Light Mode'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* TVTI Campus Building Background Image */}
+    <View style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]}>
+      {/* TVTI Campus Building Background Image — Stretches Whole Physical Screen */}
       <Image
         source={
           isLight
@@ -378,10 +392,9 @@ export default function LoginScreen() {
             : require('../../../assets/background.jpeg')
         }
         style={[
-          StyleSheet.absoluteFill,
+          styles.backgroundImage,
           Platform.OS === 'web' && ({
-            width: '100%',
-            height: '100%',
+            position: 'fixed',
             zIndex: -2,
             objectFit: 'cover',
             objectPosition: 'center',
@@ -400,6 +413,7 @@ export default function LoginScreen() {
             {
               width: '100%',
               height: '100%',
+              position: 'fixed',
               zIndex: -1,
               pointerEvents: 'none',
               background: isLight
@@ -416,22 +430,46 @@ export default function LoginScreen() {
         <LinearGradient
           colors={
             isLight
-              ? ['rgba(255, 255, 255, 0.65)', 'rgba(255, 255, 255, 0.45)', 'rgba(255, 255, 255, 0.75)']
-              : ['rgba(15, 23, 42, 0.95)', 'rgba(20, 28, 44, 0.90)', 'rgba(10, 15, 26, 0.98)']
+              ? ['rgba(255, 255, 255, 0.50)', 'rgba(255, 255, 255, 0.30)', 'rgba(255, 255, 255, 0.60)']
+              : ['rgba(15, 23, 42, 0.82)', 'rgba(20, 28, 44, 0.78)', 'rgba(10, 15, 26, 0.88)']
           }
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
         />
       )}
 
-      <KeyboardAvoidingView
-        style={styles.scrollArea}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      {/* Floating Theme Toggle Icon (Moon/Sun only, NO header bar) */}
+      <TouchableOpacity
+        style={[
+          styles.themeIconOnlyBtn,
+          {
+            top: Math.max(insets.top + 8, 16),
+            right: 18,
+            backgroundColor: isLight ? 'rgba(255, 255, 255, 0.88)' : 'rgba(30, 41, 59, 0.85)',
+            borderColor: isLight ? 'rgba(226, 232, 240, 0.9)' : 'rgba(255, 255, 255, 0.15)',
+          },
+        ]}
+        onPress={toggleTheme}
+        activeOpacity={0.8}
+        accessibilityLabel={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
       >
-        <ScrollView
+        <Icon
+          name={isLight ? 'moon-outline' : 'sunny-outline'}
+          size={20}
+          color={isLight ? '#334155' : '#F59E0B'}
+        />
+      </TouchableOpacity>
+
+      <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={styles.scrollArea}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
           ref={pageScrollRef}
           style={styles.scrollArea}
           contentContainerStyle={[
             isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent,
+            !isDesktop && isKeyboardVisible && styles.mobileScrollContentKeyboard,
             isNarrow && styles.scrollContentNarrow,
           ]}
           showsVerticalScrollIndicator={false}
@@ -516,7 +554,8 @@ export default function LoginScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -525,6 +564,26 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
     overflow: 'hidden',
+  },
+  themeIconOnlyBtn: {
+    position: 'absolute',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+    borderWidth: 1,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.15)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 4,
+      },
+    }),
   },
   scrollArea: {
     flex: 1,
@@ -570,8 +629,8 @@ const styles = StyleSheet.create({
       : {}),
   },
   themeToggleBtnLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.36)',
-    borderColor: 'rgba(226, 232, 240, 0.95)',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderColor: 'rgba(255, 255, 255, 0.95)',
   },
   themeToggleBtnDark: {
     backgroundColor: 'rgba(20, 27, 38, 0.85)',
@@ -590,7 +649,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 12,
-    paddingBottom: 28,
+    paddingBottom: 40,
+  },
+  mobileScrollContentKeyboard: {
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    paddingBottom: 160,
   },
   scrollContentNarrow: {
     paddingHorizontal: 16,
@@ -740,6 +804,12 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 
+  backgroundImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+  },
+
   /* ---------- Login Card Component Styles ---------- */
   card: {
     borderRadius: 24,
@@ -747,20 +817,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     width: '100%',
     minWidth: 0,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cardTopSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
+    height: 1.5,
+    borderRadius: 1,
+    zIndex: 2,
   },
   cardNarrow: {
     paddingHorizontal: 20,
     paddingVertical: 24,
   },
   cardLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.66)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.74)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.80,
-    shadowRadius: 30,
-    elevation: 6,
+    shadowOpacity: 0.15,
+    shadowRadius: 28,
+    elevation: 8,
     ...(Platform.OS === 'web'
       ? ({
         backdropFilter: 'blur(30px)',
@@ -770,14 +851,14 @@ const styles = StyleSheet.create({
       : {}),
   },
   cardDark: {
-    backgroundColor: 'rgba(20, 27, 38, 0.62)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(20, 27, 38, 0.74)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.50,
     shadowRadius: 28,
-    elevation: 8,
+    elevation: 10,
     ...(Platform.OS === 'web'
       ? ({
         backdropFilter: 'blur(26px)',

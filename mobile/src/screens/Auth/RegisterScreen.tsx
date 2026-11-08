@@ -12,6 +12,7 @@ import {
   Platform,
   Image,
   Linking,
+  Keyboard,
   useWindowDimensions
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,6 +20,7 @@ import api from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -151,6 +153,22 @@ export default function RegisterScreen() {
     }
   }, [errorMsg]);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Email OTP States
   const [emailVerified, setEmailVerified] = useState(false);
@@ -873,6 +891,29 @@ export default function RegisterScreen() {
           isCompact && styles.compactCard,
         ]}
       >
+        <BlurView
+          intensity={Platform.OS === 'android' ? 35 : 55}
+          tint={isLight ? 'light' : 'dark'}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Specular Top Rim Reflection Sheen */}
+        <View
+          pointerEvents="none"
+          style={[
+            styles.cardTopSheen,
+            { backgroundColor: isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.18)' },
+          ]}
+        />
+        {/* Back to Sign In Action */}
+        <TouchableOpacity
+          onPress={handleBackToLogin}
+          style={styles.backButtonRow}
+          activeOpacity={0.7}
+        >
+          <Icon name="arrow-back" size={18} color="#FF6500" style={{ marginRight: 6 }} />
+          <Text style={styles.backButtonText}>Back to Sign In</Text>
+        </TouchableOpacity>
+
         <Text style={[styles.welcomeTitle, isCompact && styles.compactWelcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
           {emailVerified ? 'Student Registration' : 'Verify your email'}
         </Text>
@@ -1376,28 +1417,8 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isLight && styles.containerLight]} edges={['top', 'bottom', 'left', 'right']}>
-      {/* Keep the toolbar in flow so it cannot overlap branding or form controls. */}
-      <View style={[styles.topBarContainer, { paddingHorizontal: pagePadding, minHeight: isShort || !isDesktop ? 56 : 64 }]}>
-        <TouchableOpacity
-          onPress={toggleTheme}
-          style={[styles.themeToggleButton, isLight && styles.themeToggleButtonLight]}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
-        >
-          <Icon
-            name={isLight ? 'moon-outline' : 'sunny-outline'}
-            size={17}
-            color={isLight ? '#334155' : '#F59E0B'}
-          />
-          <Text style={[styles.themeToggleText, { color: isLight ? '#1E293B' : '#F1F5F9' }]}>
-            {isLight ? 'Dark Mode' : 'Light Mode'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* TVTI Campus Building Background Image */}
+    <View style={[styles.container, isLight && styles.containerLight]}>
+      {/* TVTI Campus Building Background Image — Fills Entire Physical Screen */}
       <Image
         source={
           isLight
@@ -1405,10 +1426,9 @@ export default function RegisterScreen() {
             : require('../../../assets/background.jpeg')
         }
         style={[
-          StyleSheet.absoluteFill,
+          styles.backgroundImage,
           Platform.OS === 'web' && ({
-            width: '100%',
-            height: '100%',
+            position: 'fixed',
             zIndex: -2,
             objectFit: 'cover',
             objectPosition: 'center',
@@ -1427,6 +1447,7 @@ export default function RegisterScreen() {
             {
               width: '100%',
               height: '100%',
+              position: 'fixed',
               zIndex: -1,
               pointerEvents: 'none',
               background: isLight
@@ -1443,22 +1464,47 @@ export default function RegisterScreen() {
         <LinearGradient
           colors={
             isLight
-              ? ['rgba(255, 255, 255, 0.65)', 'rgba(255, 255, 255, 0.45)', 'rgba(255, 255, 255, 0.75)']
-              : ['rgba(15, 23, 42, 0.95)', 'rgba(20, 28, 44, 0.90)', 'rgba(10, 15, 26, 0.98)']
+              ? ['rgba(255, 255, 255, 0.50)', 'rgba(255, 255, 255, 0.30)', 'rgba(255, 255, 255, 0.60)']
+              : ['rgba(15, 23, 42, 0.82)', 'rgba(20, 28, 44, 0.78)', 'rgba(10, 15, 26, 0.88)']
           }
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
         />
       )}
 
-      <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      {/* Floating Theme Toggle Icon (Moon/Sun only, NO header bar) */}
+      <TouchableOpacity
+        style={[
+          styles.themeIconOnlyBtn,
+          {
+            top: Math.max(insets.top + 8, 16),
+            right: 18,
+            backgroundColor: isLight ? 'rgba(255, 255, 255, 0.88)' : 'rgba(30, 41, 59, 0.85)',
+            borderColor: isLight ? 'rgba(226, 232, 240, 0.9)' : 'rgba(255, 255, 255, 0.15)',
+          },
+        ]}
+        onPress={toggleTheme}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
       >
+        <Icon
+          name={isLight ? 'moon-outline' : 'sunny-outline'}
+          size={20}
+          color={isLight ? '#334155' : '#F59E0B'}
+        />
+      </TouchableOpacity>
+
+      <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={styles.keyboardContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <ScrollView
           ref={pageScrollRef}
           style={styles.pageScroll}
           contentContainerStyle={[
             isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent,
+            !isDesktop && isKeyboardVisible && styles.mobileScrollContentKeyboard,
             { paddingHorizontal: pagePadding },
             isShort && styles.shortScrollContent,
           ]}
@@ -1679,7 +1725,8 @@ export default function RegisterScreen() {
         </TouchableOpacity>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -1692,6 +1739,26 @@ const styles = StyleSheet.create({
   },
   containerLight: {
     backgroundColor: '#F8FAFC',
+  },
+  themeIconOnlyBtn: {
+    position: 'absolute',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+    borderWidth: 1,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.15)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 4,
+      },
+    }),
   },
 
   /* ---------- Toolbar ---------- */
@@ -1750,7 +1817,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 40,
+  },
+  mobileScrollContentKeyboard: {
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    paddingBottom: 160,
   },
   mobileContainer: {
     width: '100%',
@@ -1890,6 +1962,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
 
+  backgroundImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+  },
+
   /* ---------- Card Component Styles ---------- */
   card: {
     width: '100%',
@@ -1898,6 +1976,17 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     paddingHorizontal: 20,
     elevation: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cardTopSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
+    height: 1.5,
+    borderRadius: 1,
+    zIndex: 2,
   },
   compactCard: {
     paddingHorizontal: 20,
@@ -1908,14 +1997,14 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   cardLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.66)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.74)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.80,
-    shadowRadius: 30,
-    elevation: 6,
+    shadowOpacity: 0.15,
+    shadowRadius: 28,
+    elevation: 8,
     ...(Platform.OS === 'web'
       ? ({
         backdropFilter: 'blur(30px)',
@@ -1925,14 +2014,14 @@ const styles = StyleSheet.create({
       : {}),
   },
   cardDark: {
-    backgroundColor: 'rgba(20, 27, 38, 0.66)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(20, 27, 38, 0.74)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.80,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowOpacity: 0.50,
+    shadowRadius: 28,
+    elevation: 10,
     ...(Platform.OS === 'web'
       ? ({ backdropFilter: 'blur(26px)', WebkitBackdropFilter: 'blur(26px)' } as any)
       : {}),

@@ -11,10 +11,12 @@ import {
   Platform,
   useWindowDimensions,
   ScrollView,
+  Keyboard,
   Alert
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { RADIUS } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -36,9 +38,25 @@ export default function ResetPasswordScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [focusedInput, setFocusedInput] = useState<'new' | 'confirm' | null>(null);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Theme mode: 'light' | 'dark'
-  const { mode: themeMode, isDark } = useTheme();
+  const { mode: themeMode, isDark, toggleTheme } = useTheme();
 
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -135,6 +153,35 @@ export default function ResetPasswordScreen() {
         isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
       ]}
     >
+      <BlurView
+        intensity={Platform.OS === 'android' ? 35 : 55}
+        tint={isLight ? 'light' : 'dark'}
+        style={StyleSheet.absoluteFill}
+      />
+      {/* Specular Top Rim Reflection Sheen */}
+      <View
+        pointerEvents="none"
+        style={[
+          styles.cardTopSheen,
+          { backgroundColor: isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.18)' },
+        ]}
+      />
+      {/* Back button */}
+      <TouchableOpacity
+        onPress={() => {
+          if (navigation?.canGoBack && navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('Login');
+          }
+        }}
+        style={styles.backButtonRow}
+        activeOpacity={0.7}
+      >
+        <Icon name="arrow-back" size={18} color="#FF6500" style={{ marginRight: 6 }} />
+        <Text style={styles.backButtonText}>Back to Sign In</Text>
+      </TouchableOpacity>
+
       <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
         Reset Password
       </Text>
@@ -268,8 +315,8 @@ export default function ResetPasswordScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]} edges={['top', 'bottom']}>
-      {/* TVTI Campus Building Background Image */}
+    <View style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]}>
+      {/* TVTI Campus Building Background Image — Fills Entire Physical Screen */}
       <Image
         source={
           isLight
@@ -277,7 +324,7 @@ export default function ResetPasswordScreen() {
             : require('../../../assets/background.jpeg')
         }
         style={[
-          StyleSheet.absoluteFill,
+          styles.backgroundImage,
           Platform.OS === 'web' && ({
             position: 'fixed',
             width: '100vw',
@@ -285,6 +332,8 @@ export default function ResetPasswordScreen() {
             zIndex: -2,
             objectFit: 'cover',
             objectPosition: 'center',
+            filter: isLight ? 'blur(3px)' : 'none',
+            transform: isLight ? 'scale(1.03)' : 'none',
           } as any),
         ]}
         resizeMode="cover"
@@ -315,20 +364,46 @@ export default function ResetPasswordScreen() {
         <LinearGradient
           colors={
             isLight
-              ? ['rgba(255, 255, 255, 0.36)', 'rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.40)']
-              : ['rgba(15, 23, 42, 0.95)', 'rgba(20, 28, 44, 0.90)', 'rgba(10, 15, 26, 0.98)']
+              ? ['rgba(255, 255, 255, 0.50)', 'rgba(255, 255, 255, 0.30)', 'rgba(255, 255, 255, 0.60)']
+              : ['rgba(15, 23, 42, 0.82)', 'rgba(20, 28, 44, 0.78)', 'rgba(10, 15, 26, 0.88)']
           }
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
         />
       )}
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      {/* Floating Theme Toggle Icon (Moon/Sun only, NO header bar) */}
+      <TouchableOpacity
+        style={[
+          styles.themeIconOnlyBtn,
+          {
+            top: Math.max(insets.top + 8, 16),
+            right: 18,
+            backgroundColor: isLight ? 'rgba(255, 255, 255, 0.88)' : 'rgba(30, 41, 59, 0.85)',
+            borderColor: isLight ? 'rgba(226, 232, 240, 0.9)' : 'rgba(255, 255, 255, 0.15)',
+          },
+        ]}
+        onPress={toggleTheme}
+        activeOpacity={0.8}
+        accessibilityLabel={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
       >
+        <Icon
+          name={isLight ? 'moon-outline' : 'sunny-outline'}
+          size={20}
+          color={isLight ? '#334155' : '#F59E0B'}
+        />
+      </TouchableOpacity>
+
+      <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent}
+          contentContainerStyle={[
+            isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent,
+            !isDesktop && isKeyboardVisible && styles.mobileScrollContentKeyboard,
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -407,7 +482,8 @@ export default function ResetPasswordScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -415,12 +491,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  themeIconOnlyBtn: {
+    position: 'absolute',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+    borderWidth: 1,
+    ...Platform.select({
+      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.15)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 4,
+      },
+    }),
+  },
 
   /* ---------- Mobile Layout Styles ---------- */
   mobileScrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     paddingVertical: 28,
+  },
+  mobileScrollContentKeyboard: {
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    paddingBottom: 160,
   },
   mobileContainer: {
     width: '100%',
@@ -535,21 +636,38 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 
+  backgroundImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+  },
+
   /* ---------- Card Component Styles ---------- */
   card: {
     borderRadius: 24,
     paddingVertical: 32,
     paddingHorizontal: 28,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cardTopSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
+    height: 1.5,
+    borderRadius: 1,
+    zIndex: 2,
   },
   cardLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.62)',
+    backgroundColor: 'rgba(255, 255, 255, 0.74)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.80,
-    shadowRadius: 30,
-    elevation: 6,
+    shadowOpacity: 0.15,
+    shadowRadius: 28,
+    elevation: 8,
     ...(Platform.OS === 'web'
       ? ({
         backdropFilter: 'blur(24px)',
@@ -559,14 +677,14 @@ const styles = StyleSheet.create({
       : {}),
   },
   cardDark: {
-    backgroundColor: 'rgba(20, 27, 38, 0.82)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    backgroundColor: 'rgba(20, 27, 38, 0.74)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.50,
     shadowRadius: 28,
-    elevation: 8,
+    elevation: 10,
     ...(Platform.OS === 'web'
       ? ({
         backdropFilter: 'blur(26px)',

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Twintec VTI",
     "slug": "twintec-vti",
+    "owner": "twintec_7",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -27,6 +28,7 @@
     "android": {
       "package": "com.twintecvti.app",
       "googleServicesFile": "./google-services.json",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -37,7 +39,8 @@
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-        "NOTIFICATIONS"
+        "NOTIFICATIONS",
+        "POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -57,7 +60,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "488f75cc-a9ab-4bce-81e6-d8eacc59834a"
+        "projectId": "d81fd55d-4476-433d-b4d2-2fd051c61361"
       }
     }
   }

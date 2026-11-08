@@ -244,6 +244,64 @@ export const sendNotification = async (options: SendNotificationOptions): Promis
       })
     );
 
+    // 4. Dispatch Push Notifications to Mobile Devices
+    try {
+      const usersWithTokens = await User.find({
+        _id: { $in: targetUserIds },
+        $or: [
+          { expo_push_token: { $exists: true, $ne: '' } },
+          { fcm_token: { $exists: true, $ne: '' } },
+        ],
+      }).select('_id expo_push_token fcm_token');
+
+      const expoMessages: any[] = [];
+      const seenTokens = new Set<string>();
+
+      for (const u of usersWithTokens) {
+        const token = u.expo_push_token || u.fcm_token;
+        if (token && !seenTokens.has(token)) {
+          seenTokens.add(token);
+          if (token.startsWith('ExponentPushToken[') || token.startsWith('ExpoPushToken[')) {
+            expoMessages.push({
+              to: token,
+              sound: 'default',
+              title,
+              body: message,
+              data: {
+                type,
+                relatedId: relatedId ? relatedId.toString() : undefined,
+                link,
+              },
+              channelId: 'default',
+              priority: 'high',
+            });
+          }
+        }
+      }
+
+      if (expoMessages.length > 0) {
+        for (let i = 0; i < expoMessages.length; i += 100) {
+          const batch = expoMessages.slice(i, i + 100);
+          fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Accept-Encoding': 'gzip, deflate',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(batch),
+          }).then(async (res) => {
+            const data = await res.json();
+            console.log('[NotificationService] Expo Push response:', JSON.stringify(data));
+          }).catch((err) => {
+            console.warn('[NotificationService] Expo Push send failed:', err);
+          });
+        }
+      }
+    } catch (pushErr) {
+      console.warn('[NotificationService] Push dispatch failed:', pushErr);
+    }
+
     return notificationDocs;
   } catch (error) {
     console.error('[NotificationService] sendNotification failed:', error);

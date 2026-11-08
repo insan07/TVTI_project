@@ -240,7 +240,12 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
       </View>
 
       {/* SCROLLABLE CONTENT */}
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
+      <ScrollView
+        style={styles.scrollContent}
+        contentContainerStyle={{ paddingBottom: 110 }}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
 
         {/* Content Body */}
         {loading ? (
@@ -990,14 +995,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   submitBtn: { 
-    flex: 1, 
-    paddingVertical: 12, 
+    width: '100%',
+    minHeight: 48,
+    paddingVertical: 14, 
     alignItems: 'center', 
-    backgroundColor: '#0F172A', 
+    justifyContent: 'center',
+    backgroundColor: '#F58220', 
     borderRadius: 24 
   },
   submitBtnText: { 
     color: '#FFFFFF', 
-    fontWeight: 'bold' 
+    fontWeight: 'bold',
+    fontSize: 15,
   },
 });

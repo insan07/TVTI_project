@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 60,
+    paddingBottom: 110,
   },
 
   /* Top Header Bar */
@@ -1175,9 +1175,11 @@ const styles = StyleSheet.create({
   popupCancelBtn: {
     flex: 1,
     backgroundColor: '#F1F5F9',
+    minHeight: 48,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#CBD5E1'
   },
@@ -1188,9 +1190,11 @@ const styles = StyleSheet.create({
   },
   popupConfirmBtn: {
     flex: 1,
+    minHeight: 48,
     paddingVertical: 12,
     borderRadius: 10,
-    alignItems: 'center'
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   popupConfirmText: {
     color: '#FFFFFF',
@@ -1199,9 +1203,11 @@ const styles = StyleSheet.create({
   },
   popupSingleBtn: {
     width: '100%',
+    minHeight: 48,
     paddingVertical: 12,
     borderRadius: 10,
-    alignItems: 'center'
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   popupSingleBtnText: {
     color: '#FFFFFF',

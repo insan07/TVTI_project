@@ -788,7 +788,8 @@ const styles = StyleSheet.create({
   submitBtn: {
     backgroundColor: '#000000',
     borderRadius: 8,
-    paddingVertical: 11,
+    minHeight: 46,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

@@ -9,12 +9,14 @@ import {
   UIManager,
   ScrollView,
   Animated,
-  LayoutRectangle
+  LayoutRectangle,
+  Keyboard
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '../../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {
@@ -29,6 +31,20 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
   const [tabLayouts, setTabLayouts] = useState<{ [key: number]: LayoutRectangle }>({});
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Filter visible routes (ignore hidden screens like MyStudents)
   const visibleRoutes = state.routes.filter((route) => {
@@ -139,10 +155,19 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
     });
   };
 
+  if (isKeyboardVisible) {
+    return null;
+  }
+
   return (
     <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom + 10, 16) }]}>
       {/* Liquid Glass Dock Container (Foggy white in light mode, midnight navy in dark mode) */}
       <View style={[styles.tabBarContainer, isDark ? styles.tabBarContainerDark : styles.tabBarContainerLight]}>
+        <BlurView
+          intensity={Platform.OS === 'android' ? 35 : 55}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
         {/* Top Rim Glossy Liquid Reflection */}
         <View style={[styles.capsuleTopSheen, isDark ? styles.capsuleTopSheenDark : styles.capsuleTopSheenLight]} />
 
@@ -246,7 +271,11 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
               });
             };
 
-            return (
+            if (isKeyboardVisible) {
+    return null;
+  }
+
+  return (
               <TouchableOpacity
                 key={route.key}
                 onLayout={(e) => handleLayout(idx, e.nativeEvent.layout)}
@@ -300,10 +329,11 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     borderWidth: 1.5,
+    overflow: 'hidden',
   },
   tabBarContainerDark: {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)', // Deep midnight navy background
-    borderColor: 'rgba(255, 255, 255, 0.08)', // Glossy liquid drop glass rim
+    backgroundColor: 'rgba(15, 23, 42, 0.82)', // Deep midnight navy frosted glass
+    borderColor: 'rgba(255, 255, 255, 0.14)', // Glossy liquid drop glass rim
     ...Platform.select({
       web: {
         backdropFilter: 'blur(20px)',
@@ -320,7 +350,7 @@ const styles = StyleSheet.create({
     }),
   },
   tabBarContainerLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.82)', // Foggy white frosted glass
+    backgroundColor: 'rgba(255, 255, 255, 0.78)', // Foggy white frosted glass
     borderColor: 'rgba(255, 255, 255, 0.95)', // Soft white glass rim
     ...Platform.select({
       web: {
