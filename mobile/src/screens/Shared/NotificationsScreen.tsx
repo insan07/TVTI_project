@@ -431,7 +431,7 @@ export default function NotificationsScreen() {
           renderItem={renderItem}
           keyExtractor={i => i._id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F58220']} />}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 80 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 80 }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Icon name="notifications-outline" size={48} color={isDark ? '#64748B' : '#9CA3AF'} />
@@ -473,10 +473,11 @@ const styles = StyleSheet.create({
     borderColor: '#FECACA',
   },
   filterBarWrapper: {
-    paddingVertical: 8,
+    paddingTop: 14,
+    paddingBottom: 0,
   },
   filterBarContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     gap: 8,
   },
   filterChip: {
@@ -503,7 +504,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     padding: 15,
-    marginBottom: 10,
+    marginBottom: 14,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',

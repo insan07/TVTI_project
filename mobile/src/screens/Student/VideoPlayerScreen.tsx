@@ -510,8 +510,8 @@ const styles = StyleSheet.create({
     ...FONTS.medium,
   },
   contentPadding: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl,
+    paddingHorizontal: 20,
+    paddingTop: 14,
     paddingBottom: SPACING.xxxl,
   },
   videoTitle: {
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
-    marginBottom: SPACING.xxl,
+    marginBottom: 14,
     ...SHADOW.sm,
     borderWidth: 1,
     borderColor: '#EFEFEF',

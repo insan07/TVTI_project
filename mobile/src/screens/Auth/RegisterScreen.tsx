@@ -1396,14 +1396,6 @@ export default function RegisterScreen() {
 
           </>
         ) : renderEmailVerification()}
-
-        {/* FOOTER */}
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: isLight ? '#64748B' : '#8E8276' }]}>Already have an account? </Text>
-          <TouchableOpacity style={styles.footerLink} onPress={handleBackToLogin}>
-            <Text style={styles.link}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     );
   };

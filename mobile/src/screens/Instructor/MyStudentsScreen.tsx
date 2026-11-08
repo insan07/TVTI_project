@@ -234,7 +234,7 @@ export default function MyStudentsScreen() {
       <FlatList
         data={filteredStudents}
         keyExtractor={item => item._id}
-        contentContainerStyle={{ padding: 15, paddingBottom: 90 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 90 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
-    marginHorizontal: 16, marginBottom: 12, borderRadius: 10, paddingHorizontal: 15,
+    marginHorizontal: 20, marginTop: 14, marginBottom: 14, borderRadius: 10, paddingHorizontal: 15,
     borderWidth: 1, borderColor: '#E2E8F0',
     ...Platform.select({
       web: { boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.04)' },
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, paddingVertical: 12, fontSize: 14.5, ...FONTS.regular, color: '#0F172A' },
-  filterRow: { marginBottom: 12 },
+  filterRow: { marginBottom: 14 },
   filterPill: {
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
     backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', marginRight: 10,
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   filterPillActive: { backgroundColor: '#F58220', borderColor: '#F58220' },
   filterPillText: { fontSize: 13, color: '#475569', ...FONTS.medium },
   filterPillTextActive: { color: '#FFFFFF', ...FONTS.bold },
-  statsBar: { paddingHorizontal: 16, paddingBottom: 10 },
+  statsBar: { paddingHorizontal: 20, paddingBottom: 14 },
   statsText: { fontSize: 12.5, color: '#64748B', ...FONTS.medium },
   emptyContainer: { alignItems: 'center', marginTop: 60 },
   emptyTitle: { color: '#0F172A', fontSize: 17, ...FONTS.bold, marginTop: 15 },

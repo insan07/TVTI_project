@@ -463,7 +463,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingTop: 14,
   },
   topHeader: {
     paddingTop: 8,
@@ -482,7 +483,7 @@ const styles = StyleSheet.create({
   controlsBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   toggleBtn: {
     flexDirection: 'row',
@@ -524,7 +525,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     alignItems: 'center',
   },
   overviewStat: {
@@ -553,7 +554,7 @@ const styles = StyleSheet.create({
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     elevation: 1,

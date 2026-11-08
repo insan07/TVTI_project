@@ -1255,7 +1255,7 @@ export default function ApplicationsManagementScreen({
             data={displayedApplications}
             keyExtractor={item => item._id}
             renderItem={renderApplicationCard}
-            contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 110 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#000000']} />}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
@@ -1719,7 +1719,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    marginBottom: 10,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     ...Platform.select({

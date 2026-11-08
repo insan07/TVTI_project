@@ -10,6 +10,7 @@ import { setupNotificationListeners } from '../services/NotificationService';
 import { AuthContext } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { AuthNavigator } from './AuthNavigator';
+import AppLoadingAnimation from '../components/shared/AppLoadingAnimation';
 import { API_URL } from '../config/constants';
 import { COLORS } from '../config/theme';
 import api from '../services/api';
@@ -199,7 +200,7 @@ const linking: LinkingOptions<any> = {
 };
 
 export const AppNavigator = () => {
-  const { navigationTheme } = useTheme();
+  const { navigationTheme, isDark } = useTheme();
   const context = useContext(AuthContext);
   const [isRestoringSession, setIsRestoringSession] = useState(true);
   const navigationRef = useNavigationContainerRef();
@@ -247,11 +248,7 @@ export const AppNavigator = () => {
 
   // Keep the form mounted during sign-in so pending state, input, and errors survive.
   if (isLoading && isRestoringSession) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <AppLoadingAnimation isDark={false} message="Restoring session..." />;
   }
 
   // Shared header styling for stack screens (sub-pages only, not tab screens)

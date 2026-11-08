@@ -10,7 +10,9 @@ import {
   ScrollView,
   Animated,
   LayoutRectangle,
-  Keyboard
+  Keyboard,
+  PanResponder,
+  Vibration,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -23,6 +25,29 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+// Crisp, subtle haptic feedback
+const triggerHaptic = (type: 'tick' | 'grab' | 'drop' = 'tick') => {
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        if (type === 'tick') navigator.vibrate(6);
+        else if (type === 'grab') navigator.vibrate(8);
+        else if (type === 'drop') navigator.vibrate(12);
+      }
+    } else {
+      if (type === 'tick') {
+        Vibration.vibrate(8);
+      } else if (type === 'grab') {
+        Vibration.vibrate(10);
+      } else if (type === 'drop') {
+        Vibration.vibrate(14);
+      }
+    }
+  } catch (_e) {
+    // Graceful fallback
+  }
+};
+
 export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   state,
   descriptors,
@@ -32,6 +57,18 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   const { isDark } = useTheme();
   const [tabLayouts, setTabLayouts] = useState<{ [key: number]: LayoutRectangle }>({});
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Dragging states
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragHoverIndex, setDragHoverIndex] = useState<number | null>(null);
+
+  const isDraggingRef = useRef(false);
+  const dragHoverIndexRef = useRef<number | null>(null);
+  const dragStartXRef = useRef(0);
+  const tabLayoutsRef = useRef<{ [key: number]: LayoutRectangle }>({});
+  const activeIndexRef = useRef(0);
+  const currentTranslateXRef = useRef(0);
+  const currentIndicatorWidthRef = useRef(44);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -63,16 +100,46 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
     (r) => r.key === state.routes[state.index]?.key
   );
 
+  const visibleRoutesRef = useRef(visibleRoutes);
+  const navigationRef = useRef(navigation);
+
+  useEffect(() => {
+    tabLayoutsRef.current = tabLayouts;
+  }, [tabLayouts]);
+
+  useEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
+
+  useEffect(() => {
+    visibleRoutesRef.current = visibleRoutes;
+    navigationRef.current = navigation;
+  }, [visibleRoutes, navigation]);
+
   const translateX = useRef(new Animated.Value(0)).current;
   const indicatorWidth = useRef(new Animated.Value(44)).current;
-  const liquidScaleX = useRef(new Animated.Value(1)).current;
-  const liquidScaleY = useRef(new Animated.Value(1)).current;
-  const rippleScale = useRef(new Animated.Value(0)).current;
-  const rippleOpacity = useRef(new Animated.Value(0)).current;
+  const indicatorScale = useRef(new Animated.Value(1)).current;
 
   const [hasMeasured, setHasMeasured] = useState(false);
 
+  // Keep track of real-time animated values for drag mathematics
   useEffect(() => {
+    const xListener = translateX.addListener(({ value }) => {
+      currentTranslateXRef.current = value;
+    });
+    const widthListener = indicatorWidth.addListener(({ value }) => {
+      currentIndicatorWidthRef.current = value;
+    });
+    return () => {
+      translateX.removeListener(xListener);
+      indicatorWidth.removeListener(widthListener);
+    };
+  }, [translateX, indicatorWidth]);
+
+  // Spring to current active tab layout when not dragging
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+
     if (activeIndex !== -1 && tabLayouts[activeIndex]) {
       const { x, width } = tabLayouts[activeIndex];
 
@@ -81,66 +148,176 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
         indicatorWidth.setValue(width);
         setHasMeasured(true);
       } else {
-        // Silky-Smooth Liquid Physics Spring Animation
+        triggerHaptic('tick');
+
+        // Clean, responsive Apple-calibrated spring animation
         Animated.parallel([
           Animated.spring(translateX, {
             toValue: x,
-            tension: 45,
-            friction: 7.5,
+            tension: 68,
+            friction: 9.5,
             useNativeDriver: false,
           }),
           Animated.spring(indicatorWidth, {
             toValue: width,
-            tension: 45,
-            friction: 7.5,
+            tension: 68,
+            friction: 9.5,
             useNativeDriver: false,
           }),
-          Animated.sequence([
-            Animated.timing(liquidScaleX, {
-              toValue: 1.16,
-              duration: 120,
-              useNativeDriver: false,
-            }),
-            Animated.spring(liquidScaleX, {
-              toValue: 1.0,
-              tension: 75,
-              friction: 6,
-              useNativeDriver: false,
-            }),
-          ]),
-          Animated.sequence([
-            Animated.timing(liquidScaleY, {
-              toValue: 0.84,
-              duration: 120,
-              useNativeDriver: false,
-            }),
-            Animated.spring(liquidScaleY, {
-              toValue: 1.0,
-              tension: 75,
-              friction: 6,
-              useNativeDriver: false,
-            }),
-          ]),
-        ]).start();
-
-        // Trigger liquid splash ripple wave
-        rippleScale.setValue(0.3);
-        rippleOpacity.setValue(0.65);
-        Animated.parallel([
-          Animated.timing(rippleScale, {
-            toValue: 1.7,
-            duration: 380,
-            useNativeDriver: false,
-          }),
-          Animated.timing(rippleOpacity, {
-            toValue: 0,
-            duration: 380,
+          Animated.spring(indicatorScale, {
+            toValue: 1.0,
+            tension: 68,
+            friction: 9,
             useNativeDriver: false,
           }),
         ]).start();
       }
     }
   }, [activeIndex, tabLayouts]);
+
+  const snapToTab = (idx: number) => {
+    const layout = tabLayoutsRef.current[idx];
+    if (layout) {
+      Animated.parallel([
+        Animated.spring(translateX, {
+          toValue: layout.x,
+          tension: 68,
+          friction: 9.5,
+          useNativeDriver: false,
+        }),
+        Animated.spring(indicatorWidth, {
+          toValue: layout.width,
+          tension: 68,
+          friction: 9.5,
+          useNativeDriver: false,
+        }),
+        Animated.spring(indicatorScale, {
+          toValue: 1.0,
+          tension: 68,
+          friction: 9,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }
+  };
+
+  const finishDrag = () => {
+    isDraggingRef.current = false;
+    setIsDragging(false);
+
+    triggerHaptic('drop');
+
+    const targetIdx = dragHoverIndexRef.current ?? activeIndexRef.current;
+    setDragHoverIndex(null);
+    dragHoverIndexRef.current = null;
+
+    const routes = visibleRoutesRef.current;
+    const nav = navigationRef.current;
+    const curActive = activeIndexRef.current;
+
+    if (targetIdx !== -1 && targetIdx !== curActive && routes[targetIdx]) {
+      const route = routes[targetIdx];
+      const event = nav.emit({
+        type: 'tabPress',
+        target: route.key,
+        canPreventDefault: true,
+      });
+
+      if (!event.defaultPrevented) {
+        LayoutAnimation.configureNext({
+          duration: 220,
+          update: { type: 'spring', springDamping: 0.85 },
+          create: { type: 'linear', property: 'opacity' },
+          delete: { type: 'linear', property: 'opacity' },
+        });
+        nav.navigate(route.name, route.params);
+      } else {
+        snapToTab(curActive);
+      }
+    } else {
+      snapToTab(curActive);
+    }
+  };
+
+  // PanResponder for smooth, precision drag navigation
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponder: (_evt, gestureState) => {
+        return Math.abs(gestureState.dx) > 6 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onMoveShouldSetPanResponderCapture: (_evt, gestureState) => {
+        return Math.abs(gestureState.dx) > 6 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderGrant: () => {
+        isDraggingRef.current = true;
+        setIsDragging(true);
+
+        triggerHaptic('grab');
+
+        const curActive = activeIndexRef.current;
+        dragStartXRef.current = currentTranslateXRef.current;
+        dragHoverIndexRef.current = curActive;
+        setDragHoverIndex(curActive);
+
+        // Subtle lift scale when picked up
+        Animated.spring(indicatorScale, {
+          toValue: 1.04,
+          tension: 80,
+          friction: 8,
+          useNativeDriver: false,
+        }).start();
+      },
+      onPanResponderMove: (_evt, gestureState) => {
+        if (!isDraggingRef.current) return;
+
+        const rawX = dragStartXRef.current + gestureState.dx;
+        const layouts = tabLayoutsRef.current;
+        const tabIndices = Object.keys(layouts).map(Number).sort((a, b) => a - b);
+        if (tabIndices.length === 0) return;
+
+        const firstTab = layouts[tabIndices[0]];
+        const lastTab = layouts[tabIndices[tabIndices.length - 1]];
+        const minX = firstTab?.x ?? 0;
+        const curWidth = currentIndicatorWidthRef.current;
+        const maxX = (lastTab?.x ?? 0) + (lastTab?.width ?? 0) - curWidth;
+
+        const clampedX = Math.max(minX, Math.min(maxX, rawX));
+        translateX.setValue(clampedX);
+
+        // Find closest tab to indicator center
+        const bubbleCenter = clampedX + curWidth / 2;
+        const routes = visibleRoutesRef.current;
+        let closestIdx = activeIndexRef.current;
+        let minDistance = Infinity;
+
+        for (let i = 0; i < routes.length; i++) {
+          const layout = layouts[i];
+          if (layout) {
+            const tabCenter = layout.x + layout.width / 2;
+            const dist = Math.abs(bubbleCenter - tabCenter);
+            if (dist < minDistance) {
+              minDistance = dist;
+              closestIdx = i;
+            }
+          }
+        }
+
+        if (dragHoverIndexRef.current !== closestIdx) {
+          dragHoverIndexRef.current = closestIdx;
+          setDragHoverIndex(closestIdx);
+          triggerHaptic('tick');
+        }
+      },
+      onPanResponderRelease: () => {
+        finishDrag();
+      },
+      onPanResponderTerminate: () => {
+        finishDrag();
+      },
+    })
+  ).current;
 
   if (visibleRoutes.length === 0) return null;
 
@@ -161,58 +338,50 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
 
   return (
     <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom + 10, 16) }]}>
-      {/* Liquid Glass Dock Container (Foggy white in light mode, midnight navy in dark mode) */}
-      <View style={[styles.tabBarContainer, isDark ? styles.tabBarContainerDark : styles.tabBarContainerLight]}>
+      {/* Clean, Elegant Floating Dock */}
+      <View
+        {...panResponder.panHandlers}
+        style={[
+          styles.tabBarContainer,
+          isDark ? styles.tabBarContainerDark : styles.tabBarContainerLight,
+        ]}
+      >
         <BlurView
-          intensity={Platform.OS === 'android' ? 35 : 55}
+          intensity={Platform.OS === 'android' ? 30 : 50}
           tint={isDark ? 'dark' : 'light'}
           style={StyleSheet.absoluteFill}
         />
-        {/* Top Rim Glossy Liquid Reflection */}
-        <View style={[styles.capsuleTopSheen, isDark ? styles.capsuleTopSheenDark : styles.capsuleTopSheenLight]} />
 
         <ScrollView
           horizontal
+          scrollEnabled={isScrollable && !isDragging}
           showsHorizontalScrollIndicator={false}
-          bounces={true}
+          bounces={false}
           contentContainerStyle={[
             styles.scrollContent,
             !isScrollable && { flex: 1, justifyContent: 'space-between' }
           ]}
         >
-          {/* Liquid Animated Background Bubble Pill */}
+          {/* Crisp, Modern Active Indicator Pill */}
           {hasMeasured && (
             <Animated.View
               style={[
-                styles.liquidIndicator,
+                styles.activeIndicator,
+                isDragging && styles.activeIndicatorDragging,
                 {
                   width: indicatorWidth,
                   transform: [
                     { translateX },
-                    { scaleX: liquidScaleX },
-                    { scaleY: liquidScaleY },
+                    { scale: indicatorScale },
                   ],
                 },
               ]}
             >
               <LinearGradient
-                colors={['rgba(255, 160, 0, 1)', 'rgba(249, 115, 22, 1)', 'rgba(234, 88, 12, 1)']}
+                colors={['#F97316', '#EA580C']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.liquidGradient}
-              />
-              {/* Glossy liquid active pill highlight sheen */}
-              <View style={styles.liquidGlossSheen} />
-
-              {/* Liquid splash ripple halo wave */}
-              <Animated.View
-                style={[
-                  styles.liquidRippleHalo,
-                  {
-                    transform: [{ scale: rippleScale }],
-                    opacity: rippleOpacity,
-                  },
-                ]}
+                style={styles.indicatorGradient}
               />
             </Animated.View>
           )}
@@ -220,6 +389,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
           {visibleRoutes.map((route, idx) => {
             const index = state.routes.findIndex((r) => r.key === route.key);
             const isFocused = state.index === index;
+            const isHovered = isDragging && dragHoverIndex === idx;
             const { options } = descriptors[route.key];
 
             const label =
@@ -247,6 +417,8 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
             else if (route.name === 'Results') iconName = 'podium';
 
             const onPress = () => {
+              if (isDraggingRef.current) return;
+
               const event = navigation.emit({
                 type: 'tabPress',
                 target: route.key,
@@ -255,8 +427,8 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
 
               if (!isFocused && !event.defaultPrevented) {
                 LayoutAnimation.configureNext({
-                  duration: 280,
-                  update: { type: 'spring', springDamping: 0.8 },
+                  duration: 220,
+                  update: { type: 'spring', springDamping: 0.85 },
                   create: { type: 'linear', property: 'opacity' },
                   delete: { type: 'linear', property: 'opacity' },
                 });
@@ -271,11 +443,11 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
               });
             };
 
-            if (isKeyboardVisible) {
-    return null;
-  }
+            const iconColor = (isFocused && !isDragging) || isHovered
+              ? '#FFFFFF'
+              : (isDark ? '#94A3B8' : '#64748B');
 
-  return (
+            return (
               <TouchableOpacity
                 key={route.key}
                 onLayout={(e) => handleLayout(idx, e.nativeEvent.layout)}
@@ -289,15 +461,22 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
                 style={[
                   styles.tabItem,
                   isFocused ? styles.activeTabItem : styles.inactiveTabItem,
+                  Platform.OS === 'web' && ({ cursor: isDragging ? 'grabbing' : 'pointer' } as any),
                 ]}
               >
                 <Icon
                   name={iconName as any}
                   size={20}
-                  color={isFocused ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B')}
+                  color={iconColor}
                 />
                 {isFocused && (
-                  <Text style={styles.activeLabel} numberOfLines={1}>
+                  <Text
+                    style={[
+                      styles.activeLabel,
+                      isDragging && dragHoverIndex !== idx && styles.dimmedActiveLabel,
+                    ]}
+                    numberOfLines={1}
+                  >
                     {label}
                   </Text>
                 )}
@@ -315,80 +494,66 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignSelf: 'center',
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 440,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 9999,
   },
   tabBarContainer: {
-    borderRadius: 36,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    maxWidth: 420,
+    borderRadius: 28,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    maxWidth: 400,
     width: '100%',
     position: 'relative',
-    borderWidth: 1.5,
     overflow: 'hidden',
   },
   tabBarContainerDark: {
-    backgroundColor: 'rgba(15, 23, 42, 0.82)', // Deep midnight navy frosted glass
-    borderColor: 'rgba(255, 255, 255, 0.14)', // Glossy liquid drop glass rim
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     ...Platform.select({
       web: {
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        boxShadow: '0px 14px 36px rgba(0, 0, 0, 0.75), 0px 4px 20px rgba(249, 115, 22, 0.25)',
+        boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.50)',
       },
       default: {
         shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-        elevation: 14,
-      },
-    }),
-  },
-  tabBarContainerLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.78)', // Foggy white frosted glass
-    borderColor: 'rgba(255, 255, 255, 0.95)', // Soft white glass rim
-    ...Platform.select({
-      web: {
-        backdropFilter: 'blur(22px)',
-        WebkitBackdropFilter: 'blur(22px)',
-        boxShadow: '0px 12px 32px rgba(15, 23, 42, 0.12), 0px 4px 18px rgba(249, 115, 22, 0.18)',
-      },
-      default: {
-        shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.12,
+        shadowOpacity: 0.35,
         shadowRadius: 16,
         elevation: 10,
       },
     }),
   },
-  capsuleTopSheen: {
-    position: 'absolute',
-    top: 0,
-    left: 24,
-    right: 24,
-    height: 1.5,
-    borderRadius: 1,
-    zIndex: 3,
-  },
-  capsuleTopSheenDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.50)',
-  },
-  capsuleTopSheenLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  tabBarContainerLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.90)',
+    borderWidth: 1,
+    borderColor: 'rgba(226, 232, 240, 0.85)',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        boxShadow: '0px 8px 24px rgba(15, 23, 42, 0.08)',
+      },
+      default: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 14,
+        elevation: 6,
+      },
+    }),
   },
   scrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     position: 'relative',
   },
-  liquidIndicator: {
+  activeIndicator: {
     position: 'absolute',
     left: 0,
     top: 0,
@@ -398,64 +563,66 @@ const styles = StyleSheet.create({
     zIndex: 1,
     ...Platform.select({
       web: {
-        boxShadow: '0px 6px 18px rgba(249, 115, 22, 0.55)',
+        boxShadow: '0px 3px 12px rgba(249, 115, 22, 0.32)',
+        cursor: 'grab' as any,
       },
       default: {
         shadowColor: '#F97316',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.55,
-        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.30,
+        shadowRadius: 8,
+        elevation: 4,
+      },
+    }),
+  },
+  activeIndicatorDragging: {
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 6px 18px rgba(249, 115, 22, 0.45)',
+        cursor: 'grabbing' as any,
+      },
+      default: {
+        shadowColor: '#F97316',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.45,
+        shadowRadius: 12,
         elevation: 8,
       },
     }),
   },
-  liquidGradient: {
+  indicatorGradient: {
     ...StyleSheet.absoluteFill,
     borderRadius: 22,
-  },
-  liquidGlossSheen: {
-    position: 'absolute',
-    top: 0,
-    left: 10,
-    right: 10,
-    height: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.55)',
-    borderRadius: 1,
-  },
-  liquidRippleHalo: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.35)',
-    alignSelf: 'center',
-    top: -8,
   },
   tabItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 26,
+    height: 44,
+    borderRadius: 22,
     zIndex: 2,
   },
   inactiveTabItem: {
     width: 44,
-    height: 44,
-    borderRadius: 22,
     backgroundColor: 'transparent',
   },
   activeTabItem: {
     backgroundColor: 'transparent',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    height: 44,
   },
   activeLabel: {
     color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
+    fontWeight: '600',
+    fontSize: 13,
     marginLeft: 6,
+    letterSpacing: 0.1,
+  },
+  dimmedActiveLabel: {
+    opacity: 0.35,
   },
 });
+
+
+
 
 

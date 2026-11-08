@@ -99,12 +99,12 @@ export default function ScheduleScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
-  calendarStrip: { backgroundColor: '#fff', paddingVertical: 14, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  calendarStrip: { backgroundColor: '#fff', paddingVertical: 14, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   dayBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginHorizontal: 4 },
   dayBtnActive: { backgroundColor: '#F97316' },
   dayText: { fontWeight: '600', color: '#6B7280', fontSize: 13 },
   dayTextActive: { color: '#fff' },
-  card: { backgroundColor: '#fff', marginHorizontal: 16, marginTop: 14, borderRadius: 14, borderWidth: 1, borderColor: '#E2E8F0', flexDirection: 'row', overflow: 'hidden' },
+  card: { backgroundColor: '#fff', marginHorizontal: 20, marginTop: 14, borderRadius: 14, borderWidth: 1, borderColor: '#E2E8F0', flexDirection: 'row', overflow: 'hidden' },
   timeTag: { backgroundColor: 'rgba(249, 115, 22, 0.1)', paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', width: 75 },
   timeText: { color: '#EA580C', fontWeight: 'bold', textAlign: 'center', fontSize: 13 },
   cardContent: { padding: 14, flex: 1 },

@@ -180,8 +180,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentPadding: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl,
+    paddingHorizontal: 20,
+    paddingTop: 14,
     paddingBottom: SPACING.xxxl,
   },
   selectBatchLabel: {
@@ -192,14 +192,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   dropdownContainer: {
-    marginBottom: SPACING.xl,
+    marginBottom: 14,
   },
   summaryCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: RADIUS.lg,
     padding: SPACING.xl,
     alignItems: 'center',
-    marginBottom: SPACING.xxl,
+    marginBottom: 14,
     ...SHADOW.sm,
     borderWidth: 1,
     borderColor: '#EFEFEF',
@@ -208,10 +208,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#1A1A1A',
     ...FONTS.bold,
-    marginBottom: SPACING.lg,
+    marginBottom: 14,
   },
   gaugeContainer: {
-    marginBottom: SPACING.lg,
+    marginBottom: 14,
   },
   gaugeCircle: {
     width: 140,
@@ -240,13 +240,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#1A1A1A',
     ...FONTS.bold,
-    marginBottom: SPACING.md,
+    marginBottom: 14,
   },
   assessmentCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
-    marginBottom: SPACING.md,
+    marginBottom: 14,
     ...SHADOW.sm,
     borderWidth: 1,
     borderColor: '#EFEFEF',

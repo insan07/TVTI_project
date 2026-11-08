@@ -419,8 +419,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentPadding: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl,
+    paddingHorizontal: 20,
+    paddingTop: 14,
     paddingBottom: SPACING.xxxl,
   },
   pageTitle: {
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: RADIUS.lg,
     overflow: 'hidden',
-    marginBottom: SPACING.md,
+    marginBottom: 14,
     ...SHADOW.sm,
     borderWidth: 1,
     borderColor: '#EFEFEF',

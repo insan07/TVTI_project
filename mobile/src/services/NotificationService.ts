@@ -3,7 +3,32 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import api from './api';
 
-// Configure foreground notification handling (heads-up banner, sound, badge)
+// 1. Configure Android high-importance notification channel immediately
+export async function setupAndroidNotificationChannel() {
+  if (Platform.OS !== 'android') return;
+  try {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'Twintec VTI Notifications',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF5E14',
+      sound: 'default',
+      enableVibrate: true,
+      showBadge: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      bypassDnd: false,
+    });
+  } catch (e) {
+    console.warn('[NotificationService] Failed to set default notification channel:', e);
+  }
+}
+
+// Auto-run channel setup immediately on import
+if (Platform.OS === 'android') {
+  setupAndroidNotificationChannel().catch(() => {});
+}
+
+// 2. Configure foreground notification handling (heads-up banner, sound, badge)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -11,6 +36,7 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
     shouldShowBanner: true,
     shouldShowList: true,
+    priority: Notifications.AndroidNotificationPriority.MAX,
   }),
 });
 
@@ -34,6 +60,9 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   }
 
   try {
+    // Ensure default notification channel is active on Android
+    await setupAndroidNotificationChannel();
+
     // 1. Android 13+ (API 33+) explicit runtime permission
     if (Platform.OS === 'android' && typeof Platform.Version === 'number' && Platform.Version >= 33) {
       try {
@@ -45,35 +74,24 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       }
     }
 
-    // 2. Android notification channel (High importance for heads-up banner & sound)
-    if (Platform.OS === 'android') {
-      try {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'Twintec VTI Notifications',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF5E14',
-          sound: 'default',
-          enableVibrate: true,
-          showBadge: true,
-        });
-      } catch (e) {
-        console.warn('[NotificationService] Failed to set notification channel:', e);
-      }
-    }
-
-    // 3. Expo Notification permissions
+    // 2. Expo Notification permissions
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
       finalStatus = status;
     }
 
     let expoPushToken: string | null = null;
     let fcmToken: string | null = null;
 
-    // 4. Get Expo Push Token
+    // 3. Get Expo Push Token
     try {
       const projectId =
         Constants?.expoConfig?.extra?.eas?.projectId ||
@@ -86,7 +104,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       console.warn('[NotificationService] Could not obtain Expo push token:', e);
     }
 
-    // 5. Get Firebase FCM token if available
+    // 4. Get Firebase FCM token if available
     try {
       const messaging = getMessaging();
       if (messaging) {
@@ -103,7 +121,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       console.warn('[NotificationService] Could not obtain FCM token:', e);
     }
 
-    // 6. Send tokens to backend
+    // 5. Send tokens to backend
     const activeToken = expoPushToken || fcmToken;
     if (activeToken) {
       await api.post('/users/fcm-token', {
@@ -146,11 +164,21 @@ export const setupNotificationListeners = async (navigationRef: any) => {
     console.warn('[NotificationService] Failed to add notification response listener:', e);
   }
 
-  // B. Firebase listeners (if available in native build)
+  // B. Listen for foreground notification delivery -> coordinate in-app feedback
+  try {
+    const receivedSub = Notifications.addNotificationReceivedListener(notification => {
+      console.log('[NotificationService] Foreground notification received:', notification);
+    });
+    cleanups.push(() => receivedSub.remove());
+  } catch (e) {
+    console.warn('[NotificationService] Failed to add notification received listener:', e);
+  }
+
+  // C. Firebase listeners (if available in native build)
   try {
     const messaging = getMessaging();
     if (messaging) {
-      // Foreground: message received while app is open -> schedule local notification banner
+      // Foreground: message received while app is open -> schedule local notification banner with high priority channel
       const unsubscribeForeground = messaging().onMessage(async (remoteMessage: any) => {
         console.log('[NotificationService] FCM Message received in foreground:', remoteMessage);
         const title = remoteMessage.notification?.title || remoteMessage.data?.title || 'Twintec VTI';
@@ -162,8 +190,11 @@ export const setupNotificationListeners = async (navigationRef: any) => {
               body,
               data: remoteMessage.data || {},
               sound: 'default',
+              color: '#FF5E14',
             },
-            trigger: null,
+            trigger: {
+              channelId: 'default',
+            } as any,
           });
         } catch (err) {
           console.warn('[NotificationService] Failed to schedule foreground banner:', err);

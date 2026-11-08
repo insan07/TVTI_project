@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
+import { storage } from '../../utils/storage';
 
 export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadCount?: number }) {
   const { user } = useContext(AuthContext) as any;
@@ -83,8 +84,24 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
+  const bookmarkStorageKey = `pinned_lessons_${user?._id || 'default'}`;
+
+  useEffect(() => {
+    storage.getItem(bookmarkStorageKey).then((saved) => {
+      if (saved) {
+        try {
+          setBookmarkedLessons(JSON.parse(saved));
+        } catch {}
+      }
+    });
+  }, [bookmarkStorageKey]);
+
   const toggleBookmark = (lessonId: string) => {
-    setBookmarkedLessons(prev => ({ ...prev, [lessonId]: !prev[lessonId] }));
+    setBookmarkedLessons(prev => {
+      const next = { ...prev, [lessonId]: !prev[lessonId] };
+      storage.setItem(bookmarkStorageKey, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
   };
 
   if (loading) {
@@ -102,6 +119,14 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
       : passedUnreadCount !== undefined
         ? passedUnreadCount
         : data?.notifications?.filter((n: any) => !n.is_read).length || 0;
+
+  // Batch Assignment Status
+  const hasAssignedBatch = data?.has_assigned_batch !== false && (
+    (data?.assigned_batches && data.assigned_batches.length > 0) ||
+    !!data?.next_class ||
+    !!data?.next_practice
+  );
+  const assignedBatch = data?.assigned_batches?.[0];
 
   // Upcoming Practical Details
   const nextPractice = data?.next_practice || data?.next_available_practice;
@@ -147,8 +172,15 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
     }
   }
 
-  // Fetch real theory lessons from backend if available, otherwise empty
-  const theoryLessons = data?.theory_lessons || [];
+  // Fetch real theory lessons from backend and sort pinned lessons to the very top
+  const rawTheoryLessons = data?.theory_lessons || [];
+  const theoryLessons = [...rawTheoryLessons].sort((a: any, b: any) => {
+    const aPinned = !!bookmarkedLessons[a._id];
+    const bPinned = !!bookmarkedLessons[b._id];
+    if (aPinned && !bPinned) return -1;
+    if (!aPinned && bPinned) return 1;
+    return 0;
+  });
 
   return (
     <View style={{ flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F8FAFC' }}>
@@ -196,9 +228,38 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
       >
         <View style={styles.mainContent}>
         {/* ========================================================================= */}
+        {/* BATCH STATUS BANNER / PENDING NOTICE */}
+        {/* ========================================================================= */}
+        {!hasAssignedBatch ? (
+          <View style={[styles.pendingBatchCard, isDark && styles.pendingBatchCardDark]}>
+            <View style={styles.pendingBatchIconCircle}>
+              <Icon name="hourglass-outline" size={26} color="#F58220" />
+            </View>
+            <Text style={[styles.pendingBatchTitle, isDark && { color: '#FFFFFF' }]}>
+              Batch Assignment Pending
+            </Text>
+            <Text style={[styles.pendingBatchDesc, isDark && { color: '#94A3B8' }]}>
+              You have not been assigned to a batch yet. Once an administrator assigns you to a batch, your course details, theory lessons, timetable, and practical sessions will appear here.
+            </Text>
+          </View>
+        ) : assignedBatch ? (
+          <View style={[styles.assignedBatchBanner, isDark && styles.assignedBatchBannerDark]}>
+            <View style={styles.assignedBatchIconBox}>
+              <Icon name="school-outline" size={20} color="#F58220" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.assignedBatchSubtitle, isDark && { color: '#94A3B8' }]}>Assigned Batch</Text>
+              <Text style={[styles.assignedBatchTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
+                {assignedBatch?.name || 'Active Batch'}{assignedBatch?.course_id?.title ? ` • ${assignedBatch.course_id.title}` : ''}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {/* ========================================================================= */}
         {/* SECTION 1: UPCOMING PRACTICAL (Conditionally Rendered) */}
         {/* ========================================================================= */}
-        {nextPractice && (
+        {hasAssignedBatch && nextPractice && (
           <View>
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Upcoming Practical</Text>
@@ -262,77 +323,87 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
         {/* ========================================================================= */}
         {/* SECTION 2: RECENT THEORY LESSONS */}
         {/* ========================================================================= */}
-        <View style={[styles.sectionHeaderRow, { marginTop: 28 }]}>
-          <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Recent Theory Lessons</Text>
-        </View>
+        {hasAssignedBatch && theoryLessons.length > 0 && (
+          <>
+            <View style={[styles.sectionHeaderRow, { marginTop: 28 }]}>
+              <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Recent Theory Lessons</Text>
+            </View>
 
-        <View style={styles.lessonsListContainer}>
-          {theoryLessons.map((lesson: any) => {
-            const isBookmarked = !!bookmarkedLessons[lesson._id];
-            let thumbUrl = lesson.thumbnail || null;
-            if (!thumbUrl && lesson.cloudinary_url) {
-              if (lesson.cloudinary_url.includes('youtube.com') || lesson.cloudinary_url.includes('youtu.be')) {
-                const match = lesson.cloudinary_url.match(/[?&]v=([^&]+)/) || lesson.cloudinary_url.match(/youtu\.be\/([^?]+)/);
-                if (match && match[1]) {
-                  thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+            <View style={styles.lessonsListContainer}>
+              {theoryLessons.map((lesson: any) => {
+                const isBookmarked = !!bookmarkedLessons[lesson._id];
+                let thumbUrl = lesson.thumbnail || null;
+                if (!thumbUrl && lesson.cloudinary_url) {
+                  if (lesson.cloudinary_url.includes('youtube.com') || lesson.cloudinary_url.includes('youtu.be')) {
+                    const match = lesson.cloudinary_url.match(/[?&]v=([^&]+)/) || lesson.cloudinary_url.match(/youtu\.be\/([^?]+)/);
+                    if (match && match[1]) {
+                      thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+                    }
+                  } else if (lesson.cloudinary_url.includes('cloudinary.com')) {
+                    thumbUrl = lesson.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
+                  }
                 }
-              } else if (lesson.cloudinary_url.includes('cloudinary.com')) {
-                thumbUrl = lesson.cloudinary_url.replace(/\.[^/.]+$/, ".jpg");
-              }
-            }
 
-            return (
-              <TouchableOpacity
-                key={lesson._id}
-                style={[styles.lessonCard, isDark && styles.lessonCardDark]}
-                activeOpacity={0.85}
-                onPress={() => navigation.navigate('Videos')}
-              >
-                {/* Thumbnail image with play button overlay */}
-                <View style={styles.thumbnailWrapper}>
-                  {thumbUrl ? (
-                    <Image source={{ uri: thumbUrl }} style={styles.thumbnailImg} />
-                  ) : (
-                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                      <Icon name={lesson.content_type === 'material' ? 'document-text' : 'videocam'} size={32} color={isDark ? '#64748B' : '#9CA3AF'} />
+                return (
+                  <TouchableOpacity
+                    key={lesson._id}
+                    style={[styles.lessonCard, isDark && styles.lessonCardDark]}
+                    activeOpacity={0.85}
+                    onPress={() => navigation.navigate('Videos')}
+                  >
+                    {/* Thumbnail image with play button overlay */}
+                    <View style={styles.thumbnailWrapper}>
+                      {thumbUrl ? (
+                        <Image source={{ uri: thumbUrl }} style={styles.thumbnailImg} />
+                      ) : (
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                          <Icon name={lesson.content_type === 'material' ? 'document-text' : 'videocam'} size={32} color={isDark ? '#64748B' : '#9CA3AF'} />
+                        </View>
+                      )}
+                      {lesson.content_type !== 'material' && (
+                        <View style={styles.playOverlayCircle}>
+                          <Icon name="play" size={14} color="#FFFFFF" style={{ marginLeft: 2 }} />
+                        </View>
+                      )}
                     </View>
-                  )}
-                  {lesson.content_type !== 'material' && (
-                    <View style={styles.playOverlayCircle}>
-                      <Icon name="play" size={14} color="#FFFFFF" style={{ marginLeft: 2 }} />
+
+                    {/* Lesson Info */}
+                    <View style={styles.lessonContentColumn}>
+                      <View style={styles.tagDurationRow}>
+                        <View style={[styles.tagBadgePill, isDark && styles.tagBadgePillDark]}>
+                          <Text style={[styles.tagBadgeText, isDark && { color: '#CBD5E1' }]}>{(lesson.topic || 'General').toUpperCase()}</Text>
+                        </View>
+                        {isBookmarked && (
+                          <View style={[styles.pinnedBadgePill, isDark && styles.pinnedBadgePillDark]}>
+                            <Icon name="pin" size={10} color="#F58220" style={{ marginRight: 3 }} />
+                            <Text style={styles.pinnedBadgeText}>PINNED</Text>
+                          </View>
+                        )}
+                        <Text style={[styles.durationText, isDark && { color: '#94A3B8' }]}>{lesson.duration || '--:--'}</Text>
+                      </View>
+
+                      <Text style={[styles.lessonTitleText, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
+                        {lesson.title}
+                      </Text>
                     </View>
-                  )}
-                </View>
 
-                {/* Lesson Info */}
-                <View style={styles.lessonContentColumn}>
-                  <View style={styles.tagDurationRow}>
-                    <View style={[styles.tagBadgePill, isDark && styles.tagBadgePillDark]}>
-                      <Text style={[styles.tagBadgeText, isDark && { color: '#CBD5E1' }]}>{(lesson.topic || 'General').toUpperCase()}</Text>
-                    </View>
-                    <Text style={[styles.durationText, isDark && { color: '#94A3B8' }]}>{lesson.duration || '--:--'}</Text>
-                  </View>
-
-                  <Text style={[styles.lessonTitleText, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
-                    {lesson.title}
-                  </Text>
-                </View>
-
-                {/* Bookmark Icon */}
-                <TouchableOpacity
-                  style={styles.bookmarkTouch}
-                  onPress={() => toggleBookmark(lesson._id)}
-                >
-                  <Icon
-                    name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                    size={20}
-                    color={isBookmarked ? '#F58220' : isDark ? '#64748B' : '#A1A1AA'}
-                  />
-                </TouchableOpacity>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                    {/* Bookmark Icon */}
+                    <TouchableOpacity
+                      style={styles.bookmarkTouch}
+                      onPress={() => toggleBookmark(lesson._id)}
+                    >
+                      <Icon
+                        name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                        size={20}
+                        color={isBookmarked ? '#F58220' : isDark ? '#64748B' : '#A1A1AA'}
+                      />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         {/* ========================================================================= */}
         {/* SECTION 3: RECENT ANNOUNCEMENTS */}
@@ -879,6 +950,27 @@ const styles = StyleSheet.create({
     color: '#374151',
     letterSpacing: 0.5,
   },
+  pinnedBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 130, 32, 0.35)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    marginRight: 8,
+  },
+  pinnedBadgePillDark: {
+    backgroundColor: 'rgba(245, 130, 32, 0.15)',
+    borderColor: 'rgba(245, 130, 32, 0.4)',
+  },
+  pinnedBadgeText: {
+    fontSize: 9.5,
+    ...FONTS.bold,
+    color: '#EA580C',
+    letterSpacing: 0.5,
+  },
   durationText: {
     fontSize: 12,
     color: '#6B7280',
@@ -893,6 +985,85 @@ const styles = StyleSheet.create({
   bookmarkTouch: {
     padding: 8,
     marginLeft: 8,
+  },
+  pendingBatchCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 130, 32, 0.25)',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+    }),
+  },
+  pendingBatchCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(245, 130, 32, 0.3)',
+  },
+  pendingBatchIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(245, 130, 32, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  pendingBatchTitle: {
+    fontSize: 16,
+    ...FONTS.bold,
+    color: '#0F172A',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  pendingBatchDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  assignedBatchBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 2 },
+    }),
+  },
+  assignedBatchBannerDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  assignedBatchIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245, 130, 32, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  assignedBatchSubtitle: {
+    fontSize: 11,
+    ...FONTS.bold,
+    color: '#F58220',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  assignedBatchTitle: {
+    fontSize: 14.5,
+    ...FONTS.bold,
+    color: '#0F172A',
+    marginTop: 2,
   },
   announcementsList: {
     gap: 12,

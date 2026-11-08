@@ -933,7 +933,7 @@ export default function AdminSlotManagementScreen() {
     return (
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 110 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* 1. WEEK CARD (Matching Month View Card Style) */}
@@ -1228,7 +1228,7 @@ export default function AdminSlotManagementScreen() {
     return (
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 110 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={[styles.monthCardContainer, isDark && styles.monthCardContainerDark]}>
@@ -1407,7 +1407,7 @@ export default function AdminSlotManagementScreen() {
                 return (
                   <ScrollView
                     style={{ flex: 1 }}
-                    contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+                    contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 100 }}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                     onScroll={handleScroll}
                     scrollEventThrottle={16}
@@ -1458,7 +1458,7 @@ export default function AdminSlotManagementScreen() {
               })() :
                 <ScrollView
                   style={{ flex: 1 }}
-                  contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+                  contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 100 }}
                   refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                   onScroll={handleScroll}
                   scrollEventThrottle={16}
@@ -2305,10 +2305,11 @@ const styles = StyleSheet.create({
   viewToggleRow: {
     flexDirection: 'row',
     backgroundColor: '#F1F5F9',
-    marginHorizontal: 16,
+    marginHorizontal: 20,
     borderRadius: 26,
     padding: 4,
-    marginTop: 6,
+    marginTop: 14,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     ...Platform.select({
@@ -2414,8 +2415,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  dateNavigator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  dateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginHorizontal: 16 },
+  dateNavigator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', marginBottom: 14 },
+  dateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginHorizontal: 14 },
   dateBadgeText: { color: '#F97316', fontWeight: '600', fontSize: 14 },
 
   listTopBar: { backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
@@ -2429,7 +2430,7 @@ const styles = StyleSheet.create({
   filterBtnOutline: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
   filterBtnOutlineText: { marginLeft: 6, color: '#4B5563', fontSize: 13, fontWeight: '500' },
 
-  cardWrapper: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 8, elevation: 2, zIndex: 1 },
+  cardWrapper: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 14, elevation: 2, zIndex: 1 },
   cardAccent: { width: 6, backgroundColor: '#F97316', borderTopLeftRadius: 12, borderBottomLeftRadius: 12 },
   cardInner: { flex: 1, padding: 12 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },

@@ -197,7 +197,7 @@ export default function InstructorHomeScreen() {
         </LinearGradient>
 
         {/* Announcements Glassmorphic Card */}
-        <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+        <View style={{ marginHorizontal: 20, marginBottom: 14 }}>
           <TouchableOpacity
             onPress={() => navigation.navigate('PostAnnouncement')}
             activeOpacity={0.82}
@@ -231,7 +231,7 @@ export default function InstructorHomeScreen() {
         </View>
 
         {/* 4. Quick Actions */}
-        <Text style={[styles.sectionTitleNoMargin, { marginHorizontal: 16, marginBottom: 12 }, isDark && { color: '#FFFFFF' }]}>
+        <Text style={[styles.sectionTitleNoMargin, { marginHorizontal: 20, marginBottom: 14 }, isDark && { color: '#FFFFFF' }]}>
           Quick Actions
         </Text>
         <View style={styles.actionsContainer}>
@@ -497,11 +497,11 @@ const styles = StyleSheet.create({
   profileBtn: { padding: 6 },
 
   graphicHeader: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
-    marginBottom: 16,
+    marginBottom: 14,
     overflow: 'hidden',
     position: 'relative',
     ...Platform.select({
@@ -763,16 +763,16 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     fontSize: 16, fontWeight: 'bold', color: '#111827',
-    marginHorizontal: 16, marginTop: 16, marginBottom: 12,
+    marginHorizontal: 20, marginTop: 14, marginBottom: 14,
   },
   sectionHeaderRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginHorizontal: 16, marginTop: 24, marginBottom: 12,
+    marginHorizontal: 20, marginTop: 14, marginBottom: 14,
   },
   sectionTitleNoMargin: { fontSize: 16, fontWeight: 'bold', color: '#111827' },
   viewAllText: { color: '#F58220', fontWeight: 'bold', fontSize: 13 },
 
-  actionsContainer: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, gap: 8 },
+  actionsContainer: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, gap: 14 },
   actionBtn: { flex: 1, alignItems: 'center' },
   actionIconBg: {
     width: 56, height: 56, borderRadius: 28,
@@ -803,14 +803,14 @@ const styles = StyleSheet.create({
   },
 
   emptyCard: {
-    marginHorizontal: 16, backgroundColor: '#FFF', borderRadius: 10,
+    marginHorizontal: 20, backgroundColor: '#FFF', borderRadius: 10,
     padding: 24, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', ...SHADOW.sm,
   },
   emptyText: { color: '#9CA3AF', fontSize: 14, marginTop: 10 },
   emptyAction: { color: '#F58220', fontSize: 13, fontWeight: 'bold', marginTop: 8 },
 
   slotCard: {
-    backgroundColor: '#FFF', marginHorizontal: 16, marginBottom: 12,
+    backgroundColor: '#FFF', marginHorizontal: 20, marginBottom: 14,
     padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB',
     borderLeftWidth: 4, borderLeftColor: '#F58220', ...SHADOW.sm,
   },
@@ -826,9 +826,9 @@ const styles = StyleSheet.create({
   progressFill: { height: 6, backgroundColor: '#F58220', borderRadius: 3 },
   manageBtnText: { color: '#F58220', fontSize: 12, fontWeight: 'bold' },
 
-  horizontalScrollContent: { paddingLeft: 16, paddingRight: 8 },
+  horizontalScrollContent: { paddingHorizontal: 20 },
   videoCard: {
-    width: 160, marginRight: 12, backgroundColor: '#FFF',
+    width: 160, marginRight: 14, backgroundColor: '#FFF',
     borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', ...SHADOW.sm,
   },
   videoThumbnailContainer: { height: 95, width: '100%', backgroundColor: '#F3F4F6' },
@@ -842,7 +842,7 @@ const styles = StyleSheet.create({
   videoTopic: { fontSize: 10, color: '#6B7280', marginTop: 2 },
 
   announcementsContainer: {
-    marginHorizontal: 16, backgroundColor: '#FFF',
+    marginHorizontal: 20, backgroundColor: '#FFF',
     borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', ...SHADOW.sm,
   },
   announcementItem: { flexDirection: 'row', alignItems: 'center', padding: 12 },

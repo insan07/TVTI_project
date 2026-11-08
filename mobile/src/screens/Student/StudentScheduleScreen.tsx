@@ -220,23 +220,25 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
       <ScreenBackground />
       {/* FIXED STICKY TOP HEADER */}
       <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
-        <ScreenHeader title="Schedule" subtitle="Timetable & practical slots" />
+        <ScreenHeader title="Schedule" subtitle="Timetable & practical slots" showBack={false} />
 
-        {/* Sleek Compact Course Selector Header Bar */}
-        <View style={styles.courseSelectContainer}>
-          <TouchableOpacity
-            style={[styles.compactCourseSelect, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
-            activeOpacity={0.85}
-            onPress={() => setCourseModalVisible(true)}
-          >
-            <View style={styles.courseSelectLeft}>
-              <Text style={[styles.compactCourseTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
-                {courseTitle}
-              </Text>
-            </View>
-            <Icon name="chevron-down" size={18} color={isDark ? '#94A3B8' : '#71717A'} />
-          </TouchableOpacity>
-        </View>
+        {/* Sleek Compact Course Selector Header Bar (Only when batches assigned) */}
+        {batches.length > 0 && (
+          <View style={styles.courseSelectContainer}>
+            <TouchableOpacity
+              style={[styles.compactCourseSelect, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
+              activeOpacity={0.85}
+              onPress={() => setCourseModalVisible(true)}
+            >
+              <View style={styles.courseSelectLeft}>
+                <Text style={[styles.compactCourseTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
+                  {courseTitle}
+                </Text>
+              </View>
+              <Icon name="chevron-down" size={18} color={isDark ? '#94A3B8' : '#71717A'} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* SCROLLABLE CONTENT */}
@@ -250,6 +252,20 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
         {/* Content Body */}
         {loading ? (
           <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 40 }} />
+        ) : batches.length === 0 ? (
+          <View style={[styles.contentPadding, { marginTop: 20 }]}>
+            <View style={[styles.pendingBatchCard, isDark && styles.pendingBatchCardDark]}>
+              <View style={styles.pendingBatchIconCircle}>
+                <Icon name="hourglass-outline" size={28} color="#F58220" />
+              </View>
+              <Text style={[styles.pendingBatchTitle, isDark && { color: '#FFFFFF' }]}>
+                Batch Assignment Pending
+              </Text>
+              <Text style={[styles.pendingBatchDesc, isDark && { color: '#94A3B8' }]}>
+                Your timetable, class schedule, and practical lab booking slots will be available here once an administrator assigns your batch.
+              </Text>
+            </View>
+          </View>
         ) : (
           <View style={styles.contentPadding}>
             {/* Section 1: Regular Classes (Blue Theme) */}
@@ -622,8 +638,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   courseSelectContainer: {
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.md,
+    paddingHorizontal: 20,
+    marginTop: 14,
+    marginBottom: 0,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
   },
   compactCourseSelect: {
     flexDirection: 'row',
@@ -776,8 +796,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   contentPadding: {
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: 20,
+    paddingTop: 14,
     paddingBottom: SPACING.xxxl,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
   },
   sectionTitle: {
     fontSize: 18,
@@ -1007,5 +1031,44 @@ const styles = StyleSheet.create({
     color: '#FFFFFF', 
     fontWeight: 'bold',
     fontSize: 15,
+  },
+  pendingBatchCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginVertical: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 130, 32, 0.25)',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+    }),
+  },
+  pendingBatchCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(245, 130, 32, 0.3)',
+  },
+  pendingBatchIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(245, 130, 32, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  pendingBatchTitle: {
+    fontSize: 16,
+    ...FONTS.bold,
+    color: '#0F172A',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  pendingBatchDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#64748B',
+    textAlign: 'center',
   },
 });

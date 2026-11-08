@@ -391,6 +391,7 @@ export default function UploadVideoScreen() {
       <ScreenHeader
         title="Upload Content"
         subtitle="Publish video lessons & study materials"
+        showBack={false}
       />
 
       {activeTab === 'upload' ? (
@@ -630,7 +631,7 @@ export default function UploadVideoScreen() {
               <Text style={[styles.loadingText, isDark && { color: '#94A3B8' }]}>Loading modules and study materials...</Text>
             </View>
           ) : allModuleTopics.length > 0 ? (
-            <ScrollView contentContainerStyle={{ padding: 15, paddingBottom: 120 }}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 120 }}>
               {allModuleTopics.map((topic, idx) => {
                 const topicVideos = getVideosForTopic(topic);
                 const topicMaterials = getMaterialsForTopic(topic);
@@ -1079,7 +1080,7 @@ const styles = StyleSheet.create({
     ...FONTS.bold,
   },
   card: {
-    backgroundColor: '#FFFFFF', margin: 16, borderRadius: 14, padding: 20,
+    backgroundColor: '#FFFFFF', marginHorizontal: 20, marginTop: 14, marginBottom: 14, borderRadius: 14, padding: 20,
     borderWidth: 1, borderColor: '#E2E8F0',
     ...Platform.select({
       web: { boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)' },
@@ -1087,8 +1088,8 @@ const styles = StyleSheet.create({
     }),
   },
   cardTitle: { fontSize: 18, ...FONTS.bold, color: '#0F172A', marginBottom: 14, textAlign: 'center' },
-  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  modeRowList: { flexDirection: 'row', gap: 8, padding: 16, paddingBottom: 0 },
+  modeRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  modeRowList: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 0 },
   modeBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#F1F5F9', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
   modeBtnActive: { backgroundColor: '#F58220', borderColor: '#F58220' },
   modeBtnText: { ...FONTS.bold, color: '#475569', fontSize: 13 },
@@ -1220,7 +1221,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.78)',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.90)',
     ...Platform.select({
