@@ -7,6 +7,7 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import Toast from './src/components/shared/Toast';
 import OfflineBanner from './src/components/shared/OfflineBanner';
+import AppLoadingAnimation from './src/components/shared/AppLoadingAnimation';
 
 import {
   useFonts,
@@ -99,7 +100,7 @@ export default function App() {
   }, []);
 
   if (!fontsLoaded) {
-    return null;
+    return <AppLoadingAnimation message="Loading resources..." />;
   }
 
   return (

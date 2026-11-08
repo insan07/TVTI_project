@@ -183,72 +183,77 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
       <ScreenBackground />
       {/* FIXED STICKY TOP HEADER */}
       <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
-        <ScreenHeader title="Uploads" subtitle="Course videos & study materials" />
+        <ScreenHeader title="Uploads" subtitle="Course videos & study materials" showBack={false} />
 
-        {/* Course Selector Dropdown Pill */}
-        <TouchableOpacity
-          style={[styles.compactCourseSelect, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
-          activeOpacity={0.85}
-          onPress={() => setCourseModalVisible(true)}
-        >
-          <View style={styles.courseSelectLeft}>
-            <Text style={[styles.compactCourseTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
-              {courseTitle}
-            </Text>
+        {/* Top Controls Container (Course Selector & Filter Bar with consistent spacing) */}
+        {batches.length > 0 && (
+          <View style={styles.topControlsContainer}>
+            {/* Course Selector Dropdown Pill */}
+            <TouchableOpacity
+              style={[styles.compactCourseSelect, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
+              activeOpacity={0.85}
+              onPress={() => setCourseModalVisible(true)}
+            >
+              <View style={styles.courseSelectLeft}>
+                <Text style={[styles.compactCourseTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
+                  {courseTitle}
+                </Text>
+              </View>
+              <Icon name="chevron-down" size={18} color={isDark ? '#94A3B8' : '#71717A'} />
+            </TouchableOpacity>
+
+            {/* Filter Bar Pills */}
+            <View style={[styles.compactFilterRow, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.85)', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+              <TouchableOpacity
+                style={[styles.compactFilterPill, activeFilter === 'all' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
+                onPress={() => setActiveFilter('all')}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name="grid-outline"
+                  size={13}
+                  color={activeFilter === 'all' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.compactFilterText, activeFilter === 'all' && styles.compactFilterTextActive, activeFilter !== 'all' && isDark && { color: '#94A3B8' }]}>
+                  All ({videos.length + materials.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.compactFilterPill, activeFilter === 'videos' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
+                onPress={() => setActiveFilter('videos')}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name="play-circle-outline"
+                  size={13}
+                  color={activeFilter === 'videos' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.compactFilterText, activeFilter === 'videos' && styles.compactFilterTextActive, activeFilter !== 'videos' && isDark && { color: '#94A3B8' }]}>
+                  Videos ({videos.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.compactFilterPill, activeFilter === 'pdf' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
+                onPress={() => setActiveFilter('pdf')}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name="document-text-outline"
+                  size={13}
+                  color={activeFilter === 'pdf' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.compactFilterText, activeFilter === 'pdf' && styles.compactFilterTextActive, activeFilter !== 'pdf' && isDark && { color: '#94A3B8' }]}>
+                  PDFs ({materials.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <Icon name="chevron-down" size={18} color={isDark ? '#94A3B8' : '#71717A'} />
-        </TouchableOpacity>
-
-        {/* Filter Bar Pills */}
-        <View style={[styles.compactFilterRow, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.85)', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
-          <TouchableOpacity
-            style={[styles.compactFilterPill, activeFilter === 'all' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
-            onPress={() => setActiveFilter('all')}
-            activeOpacity={0.8}
-          >
-            <Icon
-              name="grid-outline"
-              size={13}
-              color={activeFilter === 'all' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
-              style={{ marginRight: 4 }}
-            />
-            <Text style={[styles.compactFilterText, activeFilter === 'all' && styles.compactFilterTextActive, activeFilter !== 'all' && isDark && { color: '#94A3B8' }]}>
-              All ({videos.length + materials.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.compactFilterPill, activeFilter === 'videos' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
-            onPress={() => setActiveFilter('videos')}
-            activeOpacity={0.8}
-          >
-            <Icon
-              name="play-circle-outline"
-              size={13}
-              color={activeFilter === 'videos' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
-              style={{ marginRight: 4 }}
-            />
-            <Text style={[styles.compactFilterText, activeFilter === 'videos' && styles.compactFilterTextActive, activeFilter !== 'videos' && isDark && { color: '#94A3B8' }]}>
-              Videos ({videos.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.compactFilterPill, activeFilter === 'pdf' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
-            onPress={() => setActiveFilter('pdf')}
-            activeOpacity={0.8}
-          >
-            <Icon
-              name="document-text-outline"
-              size={13}
-              color={activeFilter === 'pdf' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
-              style={{ marginRight: 4 }}
-            />
-            <Text style={[styles.compactFilterText, activeFilter === 'pdf' && styles.compactFilterTextActive, activeFilter !== 'pdf' && isDark && { color: '#94A3B8' }]}>
-              PDFs ({materials.length})
-            </Text>
-          </TouchableOpacity>
-        </View>
+        )}
       </View>
 
       {/* SCROLLABLE CONTENT */}
@@ -260,6 +265,18 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
         <View style={styles.contentPadding}>
           {loadingVideos || loadingMaterials ? (
             <ActivityIndicator size="large" color="#F58220" style={{ marginVertical: 36 }} />
+          ) : batches.length === 0 ? (
+            <View style={[styles.pendingBatchCard, isDark && styles.pendingBatchCardDark, { marginTop: 16 }]}>
+              <View style={styles.pendingBatchIconCircle}>
+                <Icon name="hourglass-outline" size={28} color="#F58220" />
+              </View>
+              <Text style={[styles.pendingBatchTitle, isDark && { color: '#FFFFFF' }]}>
+                Batch Assignment Pending
+              </Text>
+              <Text style={[styles.pendingBatchDesc, isDark && { color: '#94A3B8' }]}>
+                Course videos, lecture notes, and study materials will be accessible here once an administrator assigns your batch.
+              </Text>
+            </View>
           ) : allModuleTopics.length > 0 ? (
             allModuleTopics.map((topic, idx) => {
               const moduleVideos = getVideosForTopic(topic);
@@ -676,9 +693,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
+  topControlsContainer: {
+    paddingHorizontal: 20,
+    marginTop: 14,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
+  },
   contentPadding: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
   },
   mainTitle: {
     fontSize: 28,
@@ -695,7 +722,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginBottom: 12,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E4E4E7',
     ...Platform.select({
@@ -721,7 +748,7 @@ const styles = StyleSheet.create({
     padding: 4,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 20,
+    marginBottom: 0,
     ...Platform.select({
       web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
       default: {}
@@ -848,7 +875,7 @@ const styles = StyleSheet.create({
 
   /* MODULE SECTION & ACCORDION */
   moduleSectionBox: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
   moduleHeader: {
     flexDirection: 'row',
@@ -1102,5 +1129,44 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
     fontSize: 14,
+  },
+  pendingBatchCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginVertical: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 130, 32, 0.25)',
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+    }),
+  },
+  pendingBatchCardDark: {
+    backgroundColor: '#141B26',
+    borderColor: 'rgba(245, 130, 32, 0.3)',
+  },
+  pendingBatchIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(245, 130, 32, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  pendingBatchTitle: {
+    fontSize: 16,
+    ...FONTS.bold,
+    color: '#0F172A',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  pendingBatchDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#64748B',
+    textAlign: 'center',
   },
 });

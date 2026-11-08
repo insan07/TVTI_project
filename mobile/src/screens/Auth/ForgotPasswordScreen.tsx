@@ -224,16 +224,6 @@ export default function ForgotPasswordScreen() {
           <Text style={styles.buttonText}>Send Verification Code</Text>
         )}
       </TouchableOpacity>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={[styles.footerText, { color: isLight ? '#64748B' : '#94A3B8' }]}>
-          Remember your password?{' '}
-        </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.link}>Sign In</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 

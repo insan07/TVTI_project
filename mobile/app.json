@@ -33,6 +33,11 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "splash": {
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff"
+      },
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -52,6 +57,14 @@
       "expo-video",
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FF5E14",
+          "defaultChannel": "default"
+        }
+      ],
       "expo-build-properties",
       "expo-font",
       "expo-image",

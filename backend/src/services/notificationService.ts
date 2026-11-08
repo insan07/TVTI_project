@@ -274,6 +274,7 @@ export const sendNotification = async (options: SendNotificationOptions): Promis
               },
               channelId: 'default',
               priority: 'high',
+              _displayInForeground: true,
             });
           }
         }

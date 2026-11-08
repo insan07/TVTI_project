@@ -889,6 +889,7 @@ export default function RegisterScreen() {
           isLight ? styles.cardLight : styles.cardDark,
           isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
           isCompact && styles.compactCard,
+          !emailVerified && isDesktop && { maxWidth: 520, alignSelf: 'center', width: '100%' },
         ]}
       >
         <BlurView
@@ -1395,14 +1396,6 @@ export default function RegisterScreen() {
 
           </>
         ) : renderEmailVerification()}
-
-        {/* FOOTER */}
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: isLight ? '#64748B' : '#8E8276' }]}>Already have an account? </Text>
-          <TouchableOpacity style={styles.footerLink} onPress={handleBackToLogin}>
-            <Text style={styles.link}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     );
   };
@@ -1497,7 +1490,7 @@ export default function RegisterScreen() {
             isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent,
             !isDesktop && isKeyboardVisible && styles.mobileScrollContentKeyboard,
             { paddingHorizontal: pagePadding },
-            isShort && styles.shortScrollContent,
+            !isDesktop && isShort && styles.shortScrollContent,
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -1856,7 +1849,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingTop: 40,
+    paddingBottom: 40,
+    paddingHorizontal: 32,
   },
   shortScrollContent: {
     paddingTop: 8,
@@ -1864,7 +1859,7 @@ const styles = StyleSheet.create({
   },
   desktopContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
     maxWidth: 1200,

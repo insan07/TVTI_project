@@ -1590,8 +1590,8 @@ export default function UserManagementScreen() {
           <ScrollView
             style={{ flex: 1 }}
             contentContainerStyle={{
-              paddingHorizontal: 16,
-              paddingTop: 20,
+              paddingHorizontal: 20,
+              paddingTop: 14,
               paddingBottom: 100,
               maxWidth: 960,
               width: '100%',
@@ -1912,7 +1912,7 @@ export default function UserManagementScreen() {
                     </View>
                   );
                 }}
-                contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 110 }}
+                contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 110 }}
                 ListEmptyComponent={<Text style={styles.emptyListText}>No records found for this filter.</Text>}
               />
             )}
@@ -3508,9 +3508,9 @@ const styles = StyleSheet.create({
   },
   searchFilterRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    marginTop: 8,
+    paddingHorizontal: 20,
+    marginBottom: 0,
+    marginTop: 14,
   },
   searchBox: {
     flex: 1,
@@ -3648,7 +3648,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 12,
-    marginBottom: 8,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     overflow: 'visible',
@@ -4586,13 +4586,14 @@ const styles = StyleSheet.create({
   /* SUB-FILTER PILL BAR STYLES */
   subFilterBarSection: {
     backgroundColor: '#F8FAFC',
-    paddingVertical: 10,
+    paddingTop: 14,
+    paddingBottom: 0,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
   subFilterBarScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingHorizontal: 20,
+    gap: 10,
   },
   subFilterPill: {
     paddingHorizontal: 14,

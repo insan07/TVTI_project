@@ -651,7 +651,7 @@ export default function PracticeSessionsScreen() {
     return (
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 110 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* 1. WEEK CARD (Matching Month View Card Style) */}
@@ -946,7 +946,7 @@ export default function PracticeSessionsScreen() {
     return (
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 110 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={[styles.monthCardContainer, isDark && styles.monthCardContainerDark]}>
@@ -1018,6 +1018,7 @@ export default function PracticeSessionsScreen() {
       <ScreenHeader
         title="Practice Slots"
         subtitle="Schedule & manage practical sessions"
+        showBack={false}
       />
 
       <View style={[styles.viewToggleRow, isDark && styles.viewToggleRowDark]}>
@@ -1077,7 +1078,7 @@ export default function PracticeSessionsScreen() {
               viewMode === 'Day' ? (() => {
                 const daySlots = slots.filter(s => getLocalDateString(getSlotActualDate(s.week_start_date, s.day_of_week)) === getLocalDateString(selectedDate));
                 return (
-                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 120 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}>
+                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 120 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                       <View>
                         <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#FFFFFF' : '#0F172A' }}>
@@ -1122,7 +1123,7 @@ export default function PracticeSessionsScreen() {
                   </ScrollView>
                 );
               })() :
-                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 120 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}>
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 120 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5E14']} />}>
                   {slots.length === 0 ? (
                     <View style={[styles.emptyWeekCard, isDark && styles.emptyWeekCardDark]}>
                       <Icon name="calendar-outline" size={44} color={isDark ? '#475569' : '#CBD5E1'} style={{ marginBottom: 10 }} />
@@ -1481,10 +1482,11 @@ const styles = StyleSheet.create({
   viewToggleRow: {
     flexDirection: 'row',
     backgroundColor: '#F1F5F9',
-    marginHorizontal: 16,
+    marginHorizontal: 20,
     borderRadius: 26,
     padding: 4,
-    marginTop: 10,
+    marginTop: 14,
+    marginBottom: 0,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     ...Platform.select({
@@ -1522,7 +1524,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  subHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  subHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 0 },
   subHeaderLeft: { flexDirection: 'row', alignItems: 'center' },
   subHeaderTitle: { fontSize: 15, fontWeight: '600', color: '#F97316', marginLeft: 8 },
   createBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
@@ -1530,8 +1532,8 @@ const styles = StyleSheet.create({
   backToSlotsBtn: { flexDirection: 'row', alignItems: 'center' },
   backToSlotsText: { marginLeft: 4, color: '#6B7280', fontWeight: '500' },
 
-  dateNavigator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  dateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginHorizontal: 16 },
+  dateNavigator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', marginTop: 14 },
+  dateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginHorizontal: 14 },
   dateBadgeText: { color: '#F97316', fontWeight: '600', fontSize: 14 },
 
   listTopBar: { backgroundColor: '#fff', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
@@ -1545,7 +1547,7 @@ const styles = StyleSheet.create({
   filterBtnOutline: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
   filterBtnOutlineText: { marginLeft: 6, color: '#4B5563', fontSize: 14, fontWeight: '500' },
 
-  cardWrapper: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 16, elevation: 2, zIndex: 1 },
+  cardWrapper: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 14, elevation: 2, zIndex: 1 },
   cardAccent: { width: 6, backgroundColor: '#F97316', borderTopLeftRadius: 12, borderBottomLeftRadius: 12 },
   cardInner: { flex: 1, padding: 16 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },

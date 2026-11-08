@@ -320,6 +320,7 @@ export default function ProfileScreen() {
           user?.role === 'admin' ? 'Admin Profile' : 'Student Profile'
         }
         subtitle="Account details & preferences"
+        showBack={false}
       />
 
       <ScrollView
@@ -609,6 +610,11 @@ export default function ProfileScreen() {
                         </View>
                         <View style={{ flex: 1, marginLeft: 12 }}>
                           <Text style={styles.courseTitleText}>{course.title}</Text>
+                          {course.batch_name ? (
+                            <Text style={{ fontSize: 12, color: '#F58220', fontWeight: '600', marginTop: 2 }}>
+                              Batch: {course.batch_name}
+                            </Text>
+                          ) : null}
                           {course.course_fee !== undefined ? (
                             <Text style={styles.courseSubFee}>Fee: {formatCurrency(course.course_fee)}</Text>
                           ) : null}
@@ -616,7 +622,7 @@ export default function ProfileScreen() {
                       </View>
                     ))
                   ) : (
-                    <Text style={styles.emptyText}>No enrolled courses registered yet.</Text>
+                    <Text style={styles.emptyText}>No assigned batch yet. Course and batch information will appear once assigned by an administrator.</Text>
                   )}
                 </View>
               </>
@@ -1305,7 +1311,7 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 14,
     paddingBottom: 120,
     maxWidth: 900,
     width: '100%',
@@ -1387,7 +1393,7 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
     maxWidth: 900,
     width: '100%',
     alignSelf: 'center',
@@ -1585,8 +1591,8 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
 
   /* MENU ACTION LIST CARDS */
   menuListSection: {
-    gap: 10,
-    marginTop: 4,
+    gap: 14,
+    marginTop: 0,
   },
   menuCard: {
     backgroundColor: isDark ? '#141B26' : '#FFFFFF',

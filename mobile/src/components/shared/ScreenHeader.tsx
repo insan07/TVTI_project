@@ -36,8 +36,8 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
     isDark = false;
   }
 
-  // Show back navigation button unless explicitly disabled with showBack={false}
-  const canGoBack = showBack !== undefined ? showBack : true;
+  // Show back navigation button only if explicitly enabled or can go back
+  const canGoBack = showBack !== undefined ? showBack : (navigation?.canGoBack ? navigation.canGoBack() : false);
 
   const handleBack = () => {
     if (onBackPress) {
@@ -53,25 +53,16 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
     <View
       style={[
         styles.headerCardContainer,
-        isDark ? {
-          backgroundColor: 'rgba(15, 23, 42, 0.85)',
-          borderBottomColor: 'rgba(255, 255, 255, 0.10)',
-        } : {
-          backgroundColor: 'rgba(255, 255, 255, 0.88)',
-          borderBottomColor: 'rgba(226, 232, 240, 0.85)',
-        },
         containerStyle,
       ]}
     >
-      <BlurView
-        intensity={Platform.OS === 'android' ? 30 : 50}
-        tint={isDark ? 'dark' : 'light'}
-        style={StyleSheet.absoluteFill}
-      />
       <View style={styles.headerLeftGroup}>
         {canGoBack ? (
           <TouchableOpacity
-            style={styles.normalBackNav}
+            style={[
+              styles.normalBackNav,
+              isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' },
+            ]}
             onPress={handleBack}
             activeOpacity={0.65}
             hitSlop={HEADER_THEME.backIconHitSlop}
@@ -126,24 +117,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: HEADER_THEME.paddingHorizontal,
     paddingVertical: HEADER_THEME.paddingVertical,
-    backgroundColor: HEADER_THEME.backgroundColor,
-    borderBottomWidth: HEADER_THEME.borderBottomWidth,
-    borderBottomColor: HEADER_THEME.borderBottomColor,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
     maxWidth: 1100,
     width: '100%',
     alignSelf: 'center',
-    overflow: 'hidden',
-    ...Platform.select({
-      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
-      default: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.03,
-        shadowRadius: 3,
-        elevation: HEADER_THEME.elevation,
-      },
-    }),
-    zIndex: 100,
+    zIndex: 10,
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -155,6 +134,10 @@ const styles = StyleSheet.create({
     marginRight: HEADER_THEME.backIconSpacingRight,
     justifyContent: 'center',
     alignItems: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
   },
   titleWrapper: {
     flex: 1,

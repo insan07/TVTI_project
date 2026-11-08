@@ -403,7 +403,7 @@ export default function CourseManagementScreen() {
           data={filteredCourses}
           keyExtractor={item => item._id}
           renderItem={renderCourseCard}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 100 }}
           ListEmptyComponent={<Text style={[styles.emptyText, isDark && { color: '#64748B' }]}>No courses found.</Text>}
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -571,9 +571,9 @@ const styles = StyleSheet.create({
   },
   searchFilterRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    marginTop: 8,
+    paddingHorizontal: 20,
+    marginBottom: 0,
+    marginTop: 14,
   },
   searchBox: {
     flex: 1,
@@ -621,11 +621,12 @@ const styles = StyleSheet.create({
   },
   filterOptionsPanel: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    marginBottom: 4,
+    marginTop: 14,
+    marginBottom: 0,
   },
   filterPanelTitle: {
     fontSize: 11,
@@ -668,7 +669,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 12,
-    marginBottom: 8,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     ...Platform.select({

@@ -507,7 +507,7 @@ export default function AdminDashboardScreen() {
         ) : (
           <>
             {/* Announcements Glassmorphic Card */}
-            <View style={{ marginHorizontal: 16, marginBottom: 12 }}>
+            <View style={{ marginHorizontal: 20, marginBottom: 14 }}>
               <TouchableOpacity
                 onPress={() => navigation.navigate('PostAnnouncement')}
                 activeOpacity={0.82}
@@ -539,7 +539,7 @@ export default function AdminDashboardScreen() {
             </View>
 
             {/* WEBSITE TOOLS CARD */}
-            <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+            <View style={{ marginHorizontal: 20, marginBottom: 14 }}>
               <TouchableOpacity
                 onPress={handleOpenWebsiteTools}
                 activeOpacity={0.82}
@@ -1483,11 +1483,11 @@ const styles = StyleSheet.create({
 
   /* Graphic Hero Header */
   graphicHeader: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
-    marginBottom: 16,
+    marginBottom: 14,
     overflow: 'hidden',
     position: 'relative',
     ...Platform.select({
@@ -1769,11 +1769,11 @@ const styles = StyleSheet.create({
 
   /* Section Cards */
   sectionCard: {
-    marginHorizontal: 16,
+    marginHorizontal: 20,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     elevation: 1,

@@ -69,53 +69,65 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
     const notifications = await Notification.find({ user_id: req.user._id }).sort({ createdAt: -1 }).limit(3);
 
     const enrollments = await Enrollment.find({ student_id: req.user._id, status: 'active' }).select('batch_id');
-    const batchIds = enrollments.map(e => e.batch_id);
+    const batchIds = enrollments.map(e => e.batch_id).filter(Boolean);
+    const hasAssignedBatch = batchIds.length > 0;
 
-    const nextBatch = await Batch.findOne({ _id: { $in: batchIds } })
-      .populate('course_id', 'title')
-      .populate('instructor_ids', 'name email phone profile_photo')
-      .lean();
+    let assignedBatches: any[] = [];
+    let nextBatch = null;
+    let nextPracticeBooking = null;
+    let nextAvailablePractice = null;
+    let theory_lessons: any[] = [];
 
     const nowMs = Date.now();
 
-    const confirmedBookings = await SlotBooking.find({ student_id: req.user._id, status: 'confirmed' })
-      .populate({
-        path: 'slot_id',
-        populate: [
-          { path: 'batch_id', populate: { path: 'course_id', select: 'title' } },
-          { path: 'instructor_id', select: 'name email phone profile_photo' }
-        ]
-      })
-      .lean();
-
-    const upcomingBookings = confirmedBookings
-      .filter((b: any) => b.slot_id && getSlotEndTimestamp(b.slot_id) >= nowMs)
-      .sort((a: any, b: any) => getSlotStartTimestamp(a.slot_id) - getSlotStartTimestamp(b.slot_id));
-
-    const nextPracticeBooking = upcomingBookings[0] || null;
-
-    let nextAvailablePractice = null;
-    if (!nextPracticeBooking) {
-      const openSlots = await PracticeSlot.find({ batch_id: { $in: batchIds }, is_open: true })
-        .populate({ path: 'batch_id', populate: { path: 'course_id', select: 'title' } })
-        .populate('instructor_id', 'name email phone profile_photo')
+    if (hasAssignedBatch) {
+      assignedBatches = await Batch.find({ _id: { $in: batchIds } })
+        .populate('course_id', 'title code')
         .lean();
 
-      const upcomingOpenSlots = openSlots
-        .filter((s: any) => getSlotEndTimestamp(s) >= nowMs)
-        .sort((a: any, b: any) => getSlotStartTimestamp(a) - getSlotStartTimestamp(b));
+      nextBatch = await Batch.findOne({ _id: { $in: batchIds } })
+        .populate('course_id', 'title code')
+        .populate('instructor_ids', 'name email phone profile_photo')
+        .lean();
 
-      nextAvailablePractice = upcomingOpenSlots[0] || null;
+      const confirmedBookings = await SlotBooking.find({ student_id: req.user._id, status: 'confirmed' })
+        .populate({
+          path: 'slot_id',
+          populate: [
+            { path: 'batch_id', populate: { path: 'course_id', select: 'title code' } },
+            { path: 'instructor_id', select: 'name email phone profile_photo' }
+          ]
+        })
+        .lean();
+
+      const upcomingBookings = confirmedBookings
+        .filter((b: any) => b.slot_id && getSlotEndTimestamp(b.slot_id) >= nowMs)
+        .sort((a: any, b: any) => getSlotStartTimestamp(a.slot_id) - getSlotStartTimestamp(b.slot_id));
+
+      nextPracticeBooking = upcomingBookings[0] || null;
+
+      if (!nextPracticeBooking) {
+        const openSlots = await PracticeSlot.find({ batch_id: { $in: batchIds }, is_open: true })
+          .populate({ path: 'batch_id', populate: { path: 'course_id', select: 'title code' } })
+          .populate('instructor_id', 'name email phone profile_photo')
+          .lean();
+
+        const upcomingOpenSlots = openSlots
+          .filter((s: any) => getSlotEndTimestamp(s) >= nowMs)
+          .sort((a: any, b: any) => getSlotStartTimestamp(a) - getSlotStartTimestamp(b));
+
+        nextAvailablePractice = upcomingOpenSlots[0] || null;
+      }
+
+      theory_lessons = await Video.find({ batch_id: { $in: batchIds } })
+        .sort({ createdAt: -1 })
+        .limit(3)
+        .lean();
     }
-
-    const theory_lessons = await Video.find({ batch_id: { $in: batchIds } })
-      .sort({ createdAt: -1 })
-      .limit(3)
-      .lean();
 
     const announcements = await Announcement.find({
       $or: [
-        { batch_id: { $in: batchIds } },
+        ...(hasAssignedBatch ? [{ batch_id: { $in: batchIds } }] : []),
         { batch_id: null },
       ],
     })
@@ -126,6 +138,8 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
       .lean();
 
     res.json({
+      has_assigned_batch: hasAssignedBatch,
+      assigned_batches: assignedBatches,
       notifications,
       announcements,
       next_class: nextBatch,

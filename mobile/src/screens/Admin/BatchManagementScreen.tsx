@@ -483,7 +483,7 @@ export default function BatchManagementScreen() {
           data={filteredBatches}
           renderItem={renderBatchCard}
           keyExtractor={i => i._id}
-          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 100 }}
           ListEmptyComponent={<Text style={[styles.emptyText, isDark && { color: '#64748B' }]}>No batches found.</Text>}
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -862,9 +862,9 @@ const styles = StyleSheet.create({
   },
   searchFilterRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    marginTop: 8,
+    paddingHorizontal: 20,
+    marginBottom: 0,
+    marginTop: 14,
   },
   searchBox: {
     flex: 1,
@@ -951,7 +951,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FEF3C7',
-    marginHorizontal: 16,
+    marginHorizontal: 20,
     marginBottom: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 12,
-    marginBottom: 8,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     ...Platform.select({
