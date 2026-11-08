@@ -153,7 +153,6 @@ export default function ResetPasswordScreen() {
         isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
       ]}
     >
-<<<<<<< HEAD
       <BlurView
         intensity={Platform.OS === 'android' ? 35 : 55}
         tint={isLight ? 'light' : 'dark'}
@@ -183,8 +182,6 @@ export default function ResetPasswordScreen() {
         <Text style={styles.backButtonText}>Back to Sign In</Text>
       </TouchableOpacity>
 
-=======
->>>>>>> e951c5b3c1a6afc7897db043b524a9c331ebfa6e
       <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
         Reset Password
       </Text>
@@ -703,6 +700,17 @@ const styles = StyleSheet.create({
   desktopCardDark: {
     paddingVertical: 36,
     paddingHorizontal: 34,
+  },
+  backButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    alignSelf: 'flex-start',
+  },
+  backButtonText: {
+    color: '#FF6500',
+    fontSize: 13,
+    fontWeight: '600',
   },
   welcomeTitle: {
     fontSize: 25,
