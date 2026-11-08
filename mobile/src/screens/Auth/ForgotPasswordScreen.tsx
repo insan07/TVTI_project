@@ -143,6 +143,7 @@ export default function ForgotPasswordScreen() {
         isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
       ]}
     >
+<<<<<<< HEAD
       <BlurView
         intensity={Platform.OS === 'android' ? 35 : 55}
         tint={isLight ? 'light' : 'dark'}
@@ -172,6 +173,8 @@ export default function ForgotPasswordScreen() {
         <Text style={styles.backButtonText}>Back to Sign In</Text>
       </TouchableOpacity>
 
+=======
+>>>>>>> e951c5b3c1a6afc7897db043b524a9c331ebfa6e
       <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
         Forgot Password
       </Text>
@@ -639,22 +642,13 @@ const styles = StyleSheet.create({
     paddingVertical: 36,
     paddingHorizontal: 34,
   },
-  backButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    alignSelf: 'flex-start',
-  },
-  backButtonText: {
-    color: '#FF6500',
-    fontSize: 13,
-    fontWeight: '600',
-  },
   welcomeTitle: {
     fontSize: 25,
     fontWeight: '700',
     marginBottom: 24,
     letterSpacing: -0.2,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   errorBox: {
     flexDirection: 'row',

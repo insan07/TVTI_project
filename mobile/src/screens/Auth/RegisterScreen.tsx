@@ -891,6 +891,7 @@ export default function RegisterScreen() {
           isCompact && styles.compactCard,
         ]}
       >
+<<<<<<< HEAD
         <BlurView
           intensity={Platform.OS === 'android' ? 35 : 55}
           tint={isLight ? 'light' : 'dark'}
@@ -914,6 +915,8 @@ export default function RegisterScreen() {
           <Text style={styles.backButtonText}>Back to Sign In</Text>
         </TouchableOpacity>
 
+=======
+>>>>>>> e951c5b3c1a6afc7897db043b524a9c331ebfa6e
         <Text style={[styles.welcomeTitle, isCompact && styles.compactWelcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
           {emailVerified ? 'Student Registration' : 'Verify your email'}
         </Text>
@@ -2076,29 +2079,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderColor: '#E2E8F0',
   },
-  backButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-    alignSelf: 'flex-start',
-    minHeight: 40,
-  },
-  backButtonText: {
-    color: '#FF6500',
-    fontSize: 13,
-    fontWeight: '600',
-  },
   welcomeTitle: {
     fontSize: 24,
     color: '#FFFFFF',
     fontWeight: '700',
     marginBottom: 4,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   welcomeSubtitle: {
     fontSize: 13.5,
     color: '#A89F93',
     lineHeight: 20,
     marginBottom: 20,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
 
   /* STEPPER INDICATOR HEADER */

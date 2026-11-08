@@ -880,10 +880,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 4,
     letterSpacing: -0.2,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   welcomeSubtitle: {
     fontSize: 13.5,
     marginBottom: 24,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   infoBox: {
     flexDirection: 'row',
