@@ -182,21 +182,6 @@ export default function VerifyResetOtpScreen() {
           { backgroundColor: isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.18)' },
         ]}
       />
-      {/* Back to previous screen */}
-      <TouchableOpacity
-        onPress={() => {
-          if (navigation?.canGoBack && navigation.canGoBack()) {
-            navigation.goBack();
-          } else {
-            navigation.navigate('ForgotPassword');
-          }
-        }}
-        style={styles.backButtonRow}
-        activeOpacity={0.7}
-      >
-        <Icon name="arrow-back" size={18} color="#FF6500" style={{ marginRight: 6 }} />
-        <Text style={styles.backButtonText}>Back</Text>
-      </TouchableOpacity>
 
       <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
         Verify Code
