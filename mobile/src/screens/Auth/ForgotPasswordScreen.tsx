@@ -156,21 +156,6 @@ export default function ForgotPasswordScreen() {
           { backgroundColor: isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.18)' },
         ]}
       />
-      {/* Back to login header action */}
-      <TouchableOpacity
-        onPress={() => {
-          if (navigation?.canGoBack && navigation.canGoBack()) {
-            navigation.goBack();
-          } else {
-            navigation.navigate('Login');
-          }
-        }}
-        style={styles.backButtonRow}
-        activeOpacity={0.7}
-      >
-        <Icon name="arrow-back" size={18} color="#FF6500" style={{ marginRight: 6 }} />
-        <Text style={styles.backButtonText}>Back to Sign In</Text>
-      </TouchableOpacity>
 
       <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
         Forgot Password

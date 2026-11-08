@@ -904,15 +904,6 @@ export default function RegisterScreen() {
             { backgroundColor: isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.18)' },
           ]}
         />
-        {/* Back to Sign In Action */}
-        <TouchableOpacity
-          onPress={handleBackToLogin}
-          style={styles.backButtonRow}
-          activeOpacity={0.7}
-        >
-          <Icon name="arrow-back" size={18} color="#FF6500" style={{ marginRight: 6 }} />
-          <Text style={styles.backButtonText}>Back to Sign In</Text>
-        </TouchableOpacity>
 
         <Text style={[styles.welcomeTitle, isCompact && styles.compactWelcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
           {emailVerified ? 'Student Registration' : 'Verify your email'}
