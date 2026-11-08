@@ -24,6 +24,7 @@
     "@react-navigation/native-stack": "^7.14.12",
     "axios": "^1.15.2",
     "expo": "~57.0.24",
+    "expo-blur": "~57.0.3",
     "expo-build-properties": "~57.0.21",
     "expo-constants": "^57.0.14",
     "expo-dev-client": "~57.0.19",

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { HEADER_THEME } from '../../config/headerTheme';
@@ -53,15 +54,20 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
       style={[
         styles.headerCardContainer,
         isDark ? {
-          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          backgroundColor: 'rgba(15, 23, 42, 0.85)',
           borderBottomColor: 'rgba(255, 255, 255, 0.10)',
         } : {
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          backgroundColor: 'rgba(255, 255, 255, 0.88)',
           borderBottomColor: 'rgba(226, 232, 240, 0.85)',
         },
         containerStyle,
       ]}
     >
+      <BlurView
+        intensity={Platform.OS === 'android' ? 30 : 50}
+        tint={isDark ? 'dark' : 'light'}
+        style={StyleSheet.absoluteFill}
+      />
       <View style={styles.headerLeftGroup}>
         {canGoBack ? (
           <TouchableOpacity
@@ -126,6 +132,7 @@ const styles = StyleSheet.create({
     maxWidth: 1100,
     width: '100%',
     alignSelf: 'center',
+    overflow: 'hidden',
     ...Platform.select({
       web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
       default: {

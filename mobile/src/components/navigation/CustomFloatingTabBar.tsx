@@ -15,6 +15,7 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '../../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {
@@ -143,6 +144,11 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
     <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom + 10, 16) }]}>
       {/* Liquid Glass Dock Container (Foggy white in light mode, midnight navy in dark mode) */}
       <View style={[styles.tabBarContainer, isDark ? styles.tabBarContainerDark : styles.tabBarContainerLight]}>
+        <BlurView
+          intensity={Platform.OS === 'android' ? 35 : 55}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
         {/* Top Rim Glossy Liquid Reflection */}
         <View style={[styles.capsuleTopSheen, isDark ? styles.capsuleTopSheenDark : styles.capsuleTopSheenLight]} />
 
@@ -300,10 +306,11 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     borderWidth: 1.5,
+    overflow: 'hidden',
   },
   tabBarContainerDark: {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)', // Deep midnight navy background
-    borderColor: 'rgba(255, 255, 255, 0.08)', // Glossy liquid drop glass rim
+    backgroundColor: 'rgba(15, 23, 42, 0.82)', // Deep midnight navy frosted glass
+    borderColor: 'rgba(255, 255, 255, 0.14)', // Glossy liquid drop glass rim
     ...Platform.select({
       web: {
         backdropFilter: 'blur(20px)',
@@ -320,7 +327,7 @@ const styles = StyleSheet.create({
     }),
   },
   tabBarContainerLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.82)', // Foggy white frosted glass
+    backgroundColor: 'rgba(255, 255, 255, 0.78)', // Foggy white frosted glass
     borderColor: 'rgba(255, 255, 255, 0.95)', // Soft white glass rim
     ...Platform.select({
       web: {

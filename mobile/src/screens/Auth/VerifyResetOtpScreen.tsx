@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { RADIUS } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -151,6 +152,19 @@ export default function VerifyResetOtpScreen() {
         isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
       ]}
     >
+      <BlurView
+        intensity={Platform.OS === 'android' ? 35 : 55}
+        tint={isLight ? 'light' : 'dark'}
+        style={StyleSheet.absoluteFill}
+      />
+      {/* Specular Top Rim Reflection Sheen */}
+      <View
+        pointerEvents="none"
+        style={[
+          styles.cardTopSheen,
+          { backgroundColor: isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.18)' },
+        ]}
+      />
       {/* Back to previous screen */}
       <TouchableOpacity
         onPress={() => {
@@ -271,7 +285,7 @@ export default function VerifyResetOtpScreen() {
             : require('../../../assets/background.jpeg')
         }
         style={[
-          StyleSheet.absoluteFill,
+          styles.backgroundImage,
           Platform.OS === 'web' && ({
             position: 'fixed',
             width: '100vw',
@@ -311,10 +325,10 @@ export default function VerifyResetOtpScreen() {
         <LinearGradient
           colors={
             isLight
-              ? ['rgba(255, 255, 255, 0.65)', 'rgba(255, 255, 255, 0.45)', 'rgba(255, 255, 255, 0.75)']
-              : ['rgba(15, 23, 42, 0.95)', 'rgba(20, 28, 44, 0.90)', 'rgba(10, 15, 26, 0.98)']
+              ? ['rgba(255, 255, 255, 0.50)', 'rgba(255, 255, 255, 0.30)', 'rgba(255, 255, 255, 0.60)']
+              : ['rgba(15, 23, 42, 0.82)', 'rgba(20, 28, 44, 0.78)', 'rgba(10, 15, 26, 0.88)']
           }
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
         />
       )}
 
@@ -531,21 +545,38 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 
+  backgroundImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+  },
+
   /* ---------- Card Component Styles ---------- */
   card: {
     borderRadius: 24,
     paddingVertical: 32,
     paddingHorizontal: 28,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cardTopSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
+    height: 1.5,
+    borderRadius: 1,
+    zIndex: 2,
   },
   cardLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.62)',
+    backgroundColor: 'rgba(255, 255, 255, 0.74)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.80,
-    shadowRadius: 30,
-    elevation: 6,
+    shadowOpacity: 0.15,
+    shadowRadius: 28,
+    elevation: 8,
     ...(Platform.OS === 'web'
       ? ({
         backdropFilter: 'blur(24px)',
@@ -555,14 +586,14 @@ const styles = StyleSheet.create({
       : {}),
   },
   cardDark: {
-    backgroundColor: 'rgba(20, 27, 38, 0.82)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    backgroundColor: 'rgba(20, 27, 38, 0.74)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.50,
     shadowRadius: 28,
-    elevation: 8,
+    elevation: 10,
     ...(Platform.OS === 'web'
       ? ({
         backdropFilter: 'blur(26px)',
