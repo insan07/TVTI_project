@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TVTI Portal - System Architecture, Features & Recent Updates Report</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+      @bottom-right {
+        content: counter(page);
+      }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      line-height: 1.5;
+      font-size: 10pt;
+      margin: 0;
+      padding: 0;
+    }
+    h1, h2, h3, h4 {
+      color: #0f172a;
+      font-weight: 700;
+      margin-top: 1.2em;
+      margin-bottom: 0.5em;
+    }
+    h1 {
+      font-size: 22pt;
+      color: #ea580c;
+      border-bottom: 2px solid #ea580c;
+      padding-bottom: 6px;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 14pt;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      page-break-after: avoid;
+    }
+    h3 {
+      font-size: 11pt;
+      color: #c2410c;
+      margin-bottom: 4px;
+      page-break-after: avoid;
+    }
+    p {
+      margin: 0 0 8px 0;
+    }
+    ul, ol {
+      margin: 0 0 10px 0;
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 4px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      font-size: 8pt;
+      font-weight: 600;
+      border-radius: 4px;
+      background: #ffedd5;
+      color: #c2410c;
+      text-transform: uppercase;
+    }
+    .header-box {
+      background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .header-box h1 {
+      margin: 0 0 6px 0;
+      border: none;
+      padding: 0;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 8.5pt;
+      color: #475569;
+    }
+    .meta-item strong {
+      color: #0f172a;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 16px 0;
+      font-size: 8.5pt;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-weight: 600;
+    }
+    tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .card {
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      background: #ffffff;
+      page-break-inside: avoid;
+    }
+    .card-title {
+      font-weight: 700;
+      font-size: 10pt;
+      color: #0f172a;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .status-pill {
+      font-size: 7.5pt;
+      padding: 1px 6px;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+    .status-done { background: #dcfce7; color: #15803d; }
+    .status-sec { background: #fee2e2; color: #b91c1c; }
+    .status-info { background: #e0f2fe; color: #0369a1; }
+    .page-break {
+      page-break-before: always;
+    }
+    .footer {
+      margin-top: 30px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 8px;
+      font-size: 8pt;
+      color: #94a3b8;
+      text-align: center;
+    }
+    code {
+      font-family: Consolas, Monaco, "Andale Mono", monospace;
+      font-size: 8.5pt;
+      background: #f1f5f9;
+      padding: 1px 4px;
+      border-radius: 3px;
+      color: #0f172a;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-box">
+    <h1>Twintec TVTI Portal</h1>
+    <p style="font-size: 11pt; color: #475569; margin-bottom: 4px;"><strong>Full Technical & Functional Specification Report</strong></p>
+    <p style="font-size: 9pt; color: #64748b; margin: 0;">Comprehensive overview covering Architecture, Role Portals, Practical Slot Management, Security Hardening, Dynamic Watermarking, and Recent UI/UX Enhancements.</p>
+    <div class="meta-grid">
+      <div class="meta-item"><strong>Project:</strong> TVTI Mobile & Web App</div>
+      <div class="meta-item"><strong>Date:</strong> November 8, 2026</div>
+      <div class="meta-item"><strong>Branch:</strong> <code>ifthi</code> (Clean & Verified)</div>
+      <div class="meta-item"><strong>Backend:</strong> Node.js / Express / MongoDB</div>
+      <div class="meta-item"><strong>Mobile:</strong> React Native / Expo</div>
+      <div class="meta-item"><strong>Web:</strong> React / Vite / Tailwind</div>
+    </div>
+  </div>
+
+  <h2>1. Executive Summary & Core Objectives</h2>
+  <p>
+    The Twintec Vocational Training Institute (TVTI) platform is a unified cross-platform management ecosystem. It provides dedicated role-based portals for <strong>Students</strong>, <strong>Instructors</strong>, and <strong>Administrators</strong>. Key recent milestones include complete hardening against screen capture and recording, unification of modular video lectures and PDF study materials, intelligent practical slot scheduling with multi-tier conflict resolution, automated real-time notifications, and glassmorphic responsive authentication screens.
+  </p>
+
+  <h2>2. System Architecture & Tech Stack</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 20%;">Tier</th>
+        <th style="width: 35%;">Technologies</th>
+        <th style="width: 45%;">Key Responsibilities</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Mobile Client</strong></td>
+        <td>React Native 0.74+, Expo 51+, React Navigation, Reanimated, BlurView</td>
+        <td>Native iOS & Android mobile application with biometric & responsive web support.</td>
+      </tr>
+      <tr>
+        <td><strong>Web Frontend</strong></td>
+        <td>React 18, Vite, Tailwind CSS, Lucide Icons, Axios</td>
+        <td>High-performance web management and student portal for desktop browsers.</td>
+      </tr>
+      <tr>
+        <td><strong>Backend API</strong></td>
+        <td>Node.js, Express, TypeScript, Mongoose, Socket.io, Multer</td>
+        <td>RESTful API with role-based auth middleware, rate limiting, and real-time socket events.</td>
+      </tr>
+      <tr>
+        <td><strong>Database & Storage</strong></td>
+        <td>MongoDB Atlas, Cloudinary CDN, Local Protected Storage</td>
+        <td>Encrypted user records, session scheduling, media streaming, and PDF materials.</td>
+      </tr>
+      <tr>
+        <td><strong>Security Engine</strong></td>
+        <td>Android FLAG_SECURE, Expo ScreenCapture, DOM Blur Shield</td>
+        <td>Zero-leakage video streaming, watermark overlays, and DevTools/recording interception.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3. Role-Based Portals & Functional Modules</h2>
+
+  <div class="card">
+    <div class="card-title">
+      <span>A. Student Portal</span>
+      <span class="status-pill status-done">Production Ready</span>
+    </div>
+    <ul>
+      <li><strong>Dashboard & Home:</strong> Live announcements, upcoming scheduled practical sessions, attendance metrics, and enrolled course overview.</li>
+      <li><strong>Unified Video Lectures & PDF Notes:</strong> Modular grouping (Module 1, 2, etc.) where video players and downloadable/viewable PDF lecture notes sit together inside the module accordion.</li>
+      <li><strong>Practical Slot Booking:</strong> Browse open slots by date, view real-time available seats, 1-tap booking, and cancellation request workflow.</li>
+      <li><strong>Academic Results:</strong> Semester exam grades, practical evaluation scorecards, and instructor feedback logs.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <span>B. Instructor Portal</span>
+      <span class="status-pill status-done">Production Ready</span>
+    </div>
+    <ul>
+      <li><strong>Practice Sessions Management:</strong> Create slots with custom location, equipment notes, capacity, and instructor assignment. Enforces a strict 1-slot-per-day instructor policy.</li>
+      <li><strong>Upload Management:</strong> Publish YouTube URLs or direct video files, attach PDF notes, and upload standalone course documents.</li>
+      <li><strong>Student Evaluation:</strong> Grade practical attendance, mark completion status, and review cancellation requests.</li>
+      <li><strong>Announcements:</strong> Broadcast batch-specific or global news items directly to student mobile notifications.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <span>C. Administrator Portal</span>
+      <span class="status-pill status-done">Production Ready</span>
+    </div>
+    <ul>
+      <li><strong>Master Slot Scheduling:</strong> Multi-view calendar (Day, Week, Month, and List view) with slot locking, capacity adjustments, and instructor reallocation.</li>
+      <li><strong>Course & Batch Management:</strong> Create batches, assign lead instructors, and manage course syllabi.</li>
+      <li><strong>User Management:</strong> Approve pending student registrations, assign index numbers, trigger password resets, and manage role privileges.</li>
+    </ul>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>4. Advanced Screen Recording & Content Protection</h2>
+  <p>To preserve proprietary vocational training curriculum, a multi-layer anti-piracy system was developed:</p>
+
+  <div class="card">
+    <div class="card-title">
+      <span>Hardware & Operating System Level</span>
+      <span class="status-pill status-sec">Security Hardened</span>
+    </div>
+    <ul>
+      <li><strong>Android (FLAG_SECURE):</strong> Configured native window flags that force black screens when Android OS screen recorder, external capture cards, or third-party apps attempt to capture the viewport.</li>
+      <li><strong>iOS (ExpoScreenCapture):</strong> Native iOS recording detection that immediately hides the media layer and replaces video playback with a security blackout shield.</li>
+      <li><strong>AppState Transition Guard:</strong> Video player auto-pauses and dims when mobile applications are minimized or switched to split-screen/pip mode.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <span>Desktop & Web Capture Defense</span>
+      <span class="status-pill status-sec">Security Hardened</span>
+    </div>
+    <ul>
+      <li><strong>Screen Capture API Blocking:</strong> Trapped <code>navigator.mediaDevices.getDisplayMedia</code> and <code>getDisplayMediaWithStream</code> to reject unauthorized web capture requests.</li>
+      <li><strong>Shortcut Interception:</strong> Blocks <code>PrintScreen</code>, <code>F12</code>, <code>Ctrl+Shift+I</code> (Inspect Element), and <code>Ctrl+Shift+S</code> with automatic visual warnings.</li>
+      <li><strong>Window Focus Polling:</strong> 400ms interval polling checks <code>document.hasFocus()</code>. If OS snipping tools or Game Bar overlays take focus, the video element is blanked out immediately.</li>
+      <li><strong>Moving Anti-Piracy Watermark:</strong> Displays dynamic student identity data (Student Name, Registration/Index Number, Timestamp) floating randomly across the video feed every 4 seconds, rendering screen recordings forensically traceable.</li>
+    </ul>
+  </div>
+
+  <h2>5. Detailed Summary of Recent Upgrades & Fixes</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Area / Component</th>
+        <th style="width: 45%;">Problem Addressed & Implementation Details</th>
+        <th style="width: 30%;">Files Affected</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Student & Instructor Modules</strong></td>
+        <td>Unified module cards so videos and PDFs sit inside the same card box (`moduleSectionBox`), matching Instructor layout.</td>
+        <td><code>VideosScreen.tsx</code><br><code>UploadVideoScreen.tsx</code></td>
+      </tr>
+      <tr>
+        <td><strong>Practical Slot Management</strong></td>
+        <td>Enforced 1-slot-per-day limit per instructor; blocked booking/editing on expired or past dates; unified Day/Week/List views.</td>
+        <td><code>AdminSlotManagementScreen.tsx</code><br><code>PracticeSessionsScreen.tsx</code><br><code>practiceSlotController.ts</code></td>
+      </tr>
+      <tr>
+        <td><strong>Auth Screen Theme</strong></td>
+        <td>Removed redundant "Back to Sign In" links; centered card titles; converted Force Password Change to desktop 2-column glassmorphism.</td>
+        <td><code>LoginScreen.tsx</code><br><code>RegisterScreen.tsx</code><br><code>ForgotPasswordScreen.tsx</code><br><code>ForceChangePasswordScreen.tsx</code></td>
+      </tr>
+      <tr>
+        <td><strong>Slot Cancellation Workflow</strong></td>
+        <td>Allowed instructors/admins to approve or reject student slot cancellations with instant real-time student notification updates.</td>
+        <td><code>studentPracticeController.ts</code><br><code>NotificationsScreen.tsx</code></td>
+      </tr>
+      <tr>
+        <td><strong>Date & Time Pickers</strong></td>
+        <td>Resolved horizontal overflow on small devices by stacking Hour and Minutes vertically with clean scroll pickers.</td>
+        <td><code>DateTimePickerModals.tsx</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>6. Enhanced Entity-Relationship (EER) Architecture</h2>
+  <p>The TVTI Portal relies on a structured relational data model on MongoDB. Below is the Entity-Relationship matrix mapping primary entities, relations, and cardinalities:</p>
+  
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 20%;">Parent Entity</th>
+        <th style="width: 20%;">Relationship</th>
+        <th style="width: 20%;">Child Entity</th>
+        <th style="width: 15%;">Cardinality</th>
+        <th style="width: 25%;">Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>USER</strong></td>
+        <td>Specialization</td>
+        <td><strong>STUDENT / INSTRUCTOR / ADMIN</strong></td>
+        <td><code>1 : 0..1</code></td>
+        <td>Disjoint role specialization based on <code>role</code> enum.</td>
+      </tr>
+      <tr>
+        <td><strong>COURSE</strong></td>
+        <td>Offers</td>
+        <td><strong>BATCH</strong></td>
+        <td><code>1 : M</code></td>
+        <td>One course schedules multiple batches over time.</td>
+      </tr>
+      <tr>
+        <td><strong>BATCH</strong></td>
+        <td>Enrolls</td>
+        <td><strong>ENROLLMENT</strong></td>
+        <td><code>1 : M</code></td>
+        <td>A batch holds multiple student enrollments.</td>
+      </tr>
+      <tr>
+        <td><strong>STUDENT</strong></td>
+        <td>Enrolls in</td>
+        <td><strong>ENROLLMENT</strong></td>
+        <td><code>1 : M</code></td>
+        <td>Students can enroll in multiple training batches.</td>
+      </tr>
+      <tr>
+        <td><strong>BATCH</strong></td>
+        <td>Assigns</td>
+        <td><strong>INSTRUCTOR</strong></td>
+        <td><code>M : N</code></td>
+        <td>Multiple instructors assigned via <code>instructor_ids[]</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>BATCH</strong></td>
+        <td>Hosts</td>
+        <td><strong>PRACTICE_SLOT</strong></td>
+        <td><code>1 : M</code></td>
+        <td>Batches schedule weekly practical lab sessions.</td>
+      </tr>
+      <tr>
+        <td><strong>INSTRUCTOR</strong></td>
+        <td>Supervises</td>
+        <td><strong>PRACTICE_SLOT</strong></td>
+        <td><code>1 : M</code></td>
+        <td>Strictly limited to 1 practical slot per day.</td>
+      </tr>
+      <tr>
+        <td><strong>PRACTICE_SLOT</strong></td>
+        <td>Reservations</td>
+        <td><strong>SLOT_BOOKING</strong></td>
+        <td><code>1 : M</code></td>
+        <td>Students reserve lab seats up to slot capacity.</td>
+      </tr>
+      <tr>
+        <td><strong>STUDENT</strong></td>
+        <td>Books</td>
+        <td><strong>SLOT_BOOKING</strong></td>
+        <td><code>1 : M</code></td>
+        <td>Unique compound index prevents duplicate bookings.</td>
+      </tr>
+      <tr>
+        <td><strong>BATCH</strong></td>
+        <td>Content</td>
+        <td><strong>VIDEO (Lecture/PDF)</strong></td>
+        <td><code>1 : M</code></td>
+        <td>Unified video lectures and PDF study documents.</td>
+      </tr>
+      <tr>
+        <td><strong>STUDENT</strong></td>
+        <td>Attendance</td>
+        <td><strong>ATTENDANCE</strong></td>
+        <td><code>1 : M</code></td>
+        <td>Logs presence, absence, late, or excused status.</td>
+      </tr>
+      <tr>
+        <td><strong>STUDENT</strong></td>
+        <td>Evaluations</td>
+        <td><strong>RESULT</strong></td>
+        <td><code>1 : M</code></td>
+        <td>Records marks and grades for course assessments.</td>
+      </tr>
+      <tr>
+        <td><strong>COURSE</strong></td>
+        <td>Applications</td>
+        <td><strong>APPLICATION</strong></td>
+        <td><code>1 : M</code></td>
+        <td>Prospective student admissions and payment review.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>7. Quality Assurance, Build & Verification Status</h2>
+  <ul>
+    <li><strong>TypeScript Compilation:</strong> <code>npx tsc --noEmit</code> passes with <strong>0 errors</strong> across all backend and mobile TypeScript files.</li>
+    <li><strong>API Stability:</strong> Express 5 backend verified with route guards, input validation, and secure password hashing via <code>bcryptjs</code>.</li>
+    <li><strong>Git Cleanliness:</strong> Working directory is clean, synchronized with upstream branch <code>ifthi</code>, and compliant with commit constraints.</li>
+  </ul>
+
+  <div class="footer">
+    TVTI Portal Technical Documentation • Generated on November 8, 2026 • Confidential & Proprietary
+  </div>
+
+</body>
+</html>
+
