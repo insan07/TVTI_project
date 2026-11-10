@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { AuthGlassSurface, authGlassStyles } from '../../components/shared/AuthGlassSurface';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
@@ -43,19 +43,7 @@ export default function PasswordResetSuccessScreen() {
         isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
       ]}
     >
-      <BlurView
-        intensity={Platform.OS === 'android' ? 35 : 55}
-        tint={isLight ? 'light' : 'dark'}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* Specular Top Rim Reflection Sheen */}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.cardTopSheen,
-          { backgroundColor: isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.18)' },
-        ]}
-      />
+      <AuthGlassSurface isLight={isLight} />
       <View style={styles.iconCircle}>
         <Icon name="checkmark" size={36} color="#FFFFFF" />
       </View>
@@ -356,48 +344,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  cardTopSheen: {
-    position: 'absolute',
-    top: 0,
-    left: 20,
-    right: 20,
-    height: 1.5,
-    borderRadius: 1,
-    zIndex: 2,
-  },
   cardLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.74)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 28,
-    elevation: 8,
-    ...(Platform.OS === 'web'
-      ? ({
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        boxShadow: '0 16px 40px -8px rgba(15, 23, 42, 0.10), 0 0 1px 1px rgba(255, 255, 255, 0.9)',
-      } as any)
-      : {}),
+    ...authGlassStyles.light,
   },
   cardDark: {
-    backgroundColor: 'rgba(20, 27, 38, 0.74)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.50,
-    shadowRadius: 28,
-    elevation: 10,
-    ...(Platform.OS === 'web'
-      ? ({
-        backdropFilter: 'blur(26px)',
-        WebkitBackdropFilter: 'blur(26px)',
-        boxShadow: '0 20px 48px -10px rgba(0, 0, 0, 0.55), 0 0 1px 1px rgba(255, 255, 255, 0.08)',
-      } as any)
-      : {}),
+    ...authGlassStyles.dark,
   },
   desktopCardLight: {
     paddingVertical: 44,
