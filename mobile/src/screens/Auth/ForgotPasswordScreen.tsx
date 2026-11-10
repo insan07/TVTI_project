@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -10,13 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
-  ScrollView,
   Keyboard,
   Alert
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { AuthGlassSurface, authGlassStyles } from '../../components/shared/AuthGlassSurface';
+import { AuthFormScrollView, AuthTextInput } from '../../components/shared/AuthForm';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { RADIUS } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -50,7 +49,7 @@ export default function ForgotPasswordScreen() {
   }, []);
 
   // Theme mode: 'light' | 'dark'
-  const { mode: themeMode, isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme } = useTheme();
 
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -58,49 +57,6 @@ export default function ForgotPasswordScreen() {
   const isLight = !isDark;
 
 
-  // Web autofill styles for chrome/safari input boxes
-  useEffect(() => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const styleId = 'lms-autofill-styles';
-      let style = document.getElementById(styleId) as HTMLStyleElement | null;
-      if (!style) {
-        style = document.createElement('style');
-        style.id = styleId;
-        document.head.appendChild(style);
-      }
-      if (themeMode === 'light') {
-        style.innerHTML = `
-          input:-webkit-autofill,
-          input:-webkit-autofill:hover, 
-          input:-webkit-autofill:focus,
-          input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
-            -webkit-text-fill-color: #0F172A !important;
-            caret-color: #0F172A !important;
-            transition: background-color 5000s ease-in-out 0s;
-          }
-          input {
-            background-color: transparent !important;
-          }
-        `;
-      } else {
-        style.innerHTML = `
-          input:-webkit-autofill,
-          input:-webkit-autofill:hover, 
-          input:-webkit-autofill:focus,
-          input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 1000px rgba(22, 16, 12, 0.70) inset !important;
-            -webkit-text-fill-color: #FFFFFF !important;
-            caret-color: #FFFFFF !important;
-            transition: background-color 5000s ease-in-out 0s;
-          }
-          input {
-            background-color: transparent !important;
-          }
-        `;
-      }
-    }
-  }, [themeMode]);
 
   const handleSendOtp = async () => {
     setErrorMsg('');
@@ -143,19 +99,22 @@ export default function ForgotPasswordScreen() {
         isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
       ]}
     >
-      <BlurView
-        intensity={Platform.OS === 'android' ? 35 : 55}
-        tint={isLight ? 'light' : 'dark'}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* Specular Top Rim Reflection Sheen */}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.cardTopSheen,
-          { backgroundColor: isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.18)' },
-        ]}
-      />
+      <AuthGlassSurface isLight={isLight} />
+      {/* Back to login header action */}
+      <TouchableOpacity
+        onPress={() => {
+          if (navigation?.canGoBack && navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('Login');
+          }
+        }}
+        style={styles.backButtonRow}
+        activeOpacity={0.7}
+      >
+        <Icon name="arrow-back" size={18} color="#FF6500" style={{ marginRight: 6 }} />
+        <Text style={styles.backButtonText}>Back to Sign In</Text>
+      </TouchableOpacity>
 
       <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
         Forgot Password
@@ -191,7 +150,7 @@ export default function ForgotPasswordScreen() {
           color={isFocused ? '#FF5E14' : (isLight ? '#94A3B8' : '#8A7D71')}
           style={styles.inputIcon}
         />
-        <TextInput
+        <AuthTextInput
           style={[
             styles.input,
             { color: isLight ? '#0F172A' : '#FFFFFF' },
@@ -224,6 +183,16 @@ export default function ForgotPasswordScreen() {
           <Text style={styles.buttonText}>Send Verification Code</Text>
         )}
       </TouchableOpacity>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text style={[styles.footerText, { color: isLight ? '#64748B' : '#94A3B8' }]}>
+          Remember your password?{' '}
+        </Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.link}>Sign In</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -311,7 +280,7 @@ export default function ForgotPasswordScreen() {
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-        <ScrollView
+        <AuthFormScrollView
           style={{ flex: 1 }}
           contentContainerStyle={[
             isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent,
@@ -393,7 +362,7 @@ export default function ForgotPasswordScreen() {
               </View>
             </View>
           )}
-        </ScrollView>
+        </AuthFormScrollView>
       </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -563,48 +532,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  cardTopSheen: {
-    position: 'absolute',
-    top: 0,
-    left: 20,
-    right: 20,
-    height: 1.5,
-    borderRadius: 1,
-    zIndex: 2,
-  },
   cardLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.74)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 28,
-    elevation: 8,
-    ...(Platform.OS === 'web'
-      ? ({
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        boxShadow: '0 16px 40px -8px rgba(15, 23, 42, 0.10), 0 0 1px 1px rgba(255, 255, 255, 0.9)',
-      } as any)
-      : {}),
+    ...authGlassStyles.light,
   },
   cardDark: {
-    backgroundColor: 'rgba(20, 27, 38, 0.74)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.50,
-    shadowRadius: 28,
-    elevation: 10,
-    ...(Platform.OS === 'web'
-      ? ({
-        backdropFilter: 'blur(26px)',
-        WebkitBackdropFilter: 'blur(26px)',
-        boxShadow: '0 20px 48px -10px rgba(0, 0, 0, 0.55), 0 0 1px 1px rgba(255, 255, 255, 0.08)',
-      } as any)
-      : {}),
+    ...authGlassStyles.dark,
   },
   desktopCardLight: {
     paddingVertical: 38,
@@ -626,12 +558,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   welcomeTitle: {
+    textAlign: 'center',
     fontSize: 25,
     fontWeight: '700',
     marginBottom: 24,
     letterSpacing: -0.2,
-    textAlign: 'center',
-    alignSelf: 'center',
   },
   errorBox: {
     flexDirection: 'row',
@@ -667,48 +598,29 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 22,
     paddingHorizontal: 14,
-    height: 48,
+    minHeight: 48,
   },
   inputContainerLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.36)',
-    borderColor: 'rgba(203, 213, 225, 0.72)',
-    borderWidth: 1.2,
-    ...(Platform.OS === 'web'
-      ? ({
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
-      } as any)
-      : {}),
+    ...authGlassStyles.inputLight,
   },
   inputContainerDark: {
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    borderWidth: 1.1,
+    ...authGlassStyles.inputDark,
   },
   inputContainerFocusedLight: {
-    borderColor: '#FF5E14',
-    backgroundColor: '#FFFFFF',
-    ...(Platform.OS === 'web'
-      ? ({
-        boxShadow: '0 0 0 3px rgba(255, 94, 20, 0.14)',
-      } as any)
-      : {}),
+    ...authGlassStyles.inputFocusedLight,
   },
   inputContainerFocusedDark: {
-    borderColor: '#FF5E14',
-    backgroundColor: 'rgba(20, 27, 38, 0.90)',
-    ...(Platform.OS === 'web'
-      ? ({
-        boxShadow: '0 0 0 3px rgba(249, 115, 22, 0.20)',
-      } as any)
-      : {}),
+    ...authGlassStyles.inputFocusedDark,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    height: '100%',
-    fontSize: 14.5,
+    minWidth: 0,
+    minHeight: 46,
+    paddingVertical: 10,
+    fontSize: 16,
     backgroundColor: 'transparent',
   },
   button: {

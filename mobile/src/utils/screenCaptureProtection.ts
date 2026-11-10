@@ -1,5 +1,5 @@
 import { Platform, AppState, AppStateStatus } from 'react-native';
-import { requireOptionalNativeModule } from 'expo-modules-core';
+import * as ScreenCapture from 'expo-screen-capture';
 
 const PROTECTION_KEY = 'tvti_student_video_drm';
 
@@ -9,9 +9,8 @@ const PROTECTION_KEY = 'tvti_student_video_drm';
 export async function enableNativeScreenCaptureProtection(): Promise<void> {
   if (Platform.OS === 'web') return;
   try {
-    const expoScreenCapture = requireOptionalNativeModule<any>('ExpoScreenCapture');
-    if (expoScreenCapture?.preventScreenCapture) {
-      await expoScreenCapture.preventScreenCapture(PROTECTION_KEY);
+    if (ScreenCapture.preventScreenCaptureAsync) {
+      await ScreenCapture.preventScreenCaptureAsync(PROTECTION_KEY);
     }
   } catch (err) {
     // Fallback silent ignore if native module is unavailable in custom runtime
@@ -24,9 +23,8 @@ export async function enableNativeScreenCaptureProtection(): Promise<void> {
 export async function disableNativeScreenCaptureProtection(): Promise<void> {
   if (Platform.OS === 'web') return;
   try {
-    const expoScreenCapture = requireOptionalNativeModule<any>('ExpoScreenCapture');
-    if (expoScreenCapture?.allowScreenCapture) {
-      await expoScreenCapture.allowScreenCapture(PROTECTION_KEY);
+    if (ScreenCapture.allowScreenCaptureAsync) {
+      await ScreenCapture.allowScreenCaptureAsync(PROTECTION_KEY);
     }
   } catch (err) {
     // Fallback silent ignore

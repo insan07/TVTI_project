@@ -72,10 +72,13 @@ const AdminCoursesStack = () => (
 
 
 import { CustomFloatingTabBar } from '../components/navigation/CustomFloatingTabBar';
+import { TabGlassBackdropProvider, TabSceneBackdrop } from '../components/navigation/TabGlassBackdrop';
 
 const StudentTabs = ({ unreadCount }: { unreadCount: number; insets: any }) => (
+  <TabGlassBackdropProvider>
   <Tab.Navigator
     tabBar={(props) => <CustomFloatingTabBar {...props} />}
+    screenLayout={({ children }) => <TabSceneBackdrop>{children}</TabSceneBackdrop>}
     screenOptions={{ headerShown: false }}
     backBehavior="history"
   >
@@ -90,11 +93,14 @@ const StudentTabs = ({ unreadCount }: { unreadCount: number; insets: any }) => (
     </Tab.Screen>
     <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
+  </TabGlassBackdropProvider>
 );
 
 const InstructorTabs = ({ insets }: { insets: any }) => (
+  <TabGlassBackdropProvider>
   <Tab.Navigator
     tabBar={(props) => <CustomFloatingTabBar {...props} />}
+    screenLayout={({ children }) => <TabSceneBackdrop>{children}</TabSceneBackdrop>}
     screenOptions={{ headerShown: false }}
     backBehavior="history"
   >
@@ -128,11 +134,14 @@ const InstructorTabs = ({ insets }: { insets: any }) => (
       }}
     />
   </Tab.Navigator>
+  </TabGlassBackdropProvider>
 );
 
 const AdminTabs = ({ insets }: { insets: any }) => (
+  <TabGlassBackdropProvider>
   <Tab.Navigator
     tabBar={(props) => <CustomFloatingTabBar {...props} />}
+    screenLayout={({ children }) => <TabSceneBackdrop>{children}</TabSceneBackdrop>}
     screenOptions={{ headerShown: false }}
     backBehavior="history"
   >
@@ -142,6 +151,7 @@ const AdminTabs = ({ insets }: { insets: any }) => (
     <Tab.Screen name="Practice" component={AdminSlotManagementScreen} options={{ tabBarLabel: 'Slots' }} />
     <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
+  </TabGlassBackdropProvider>
 );
 
 import { LinkingOptions } from '@react-navigation/native';

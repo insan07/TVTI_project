@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -20,20 +19,19 @@ import api from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { AuthGlassSurface, authGlassStyles } from '../../components/shared/AuthGlassSurface';
+import { AuthFormScrollView, AuthTextInput } from '../../components/shared/AuthForm';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 const FIELD_SURFACE = {
-  backgroundColor: 'transparent',
-  borderWidth: 1.1,
-  borderColor: 'rgba(255, 255, 255, 0.13)',
-  borderRadius: 10,
+  ...authGlassStyles.inputDark,
+  borderRadius: 12,
 };
 const FIELD_SURFACE_LIGHT = {
   ...FIELD_SURFACE,
-  borderColor: '#E2E8F0',
+  ...authGlassStyles.inputLight,
 };
 
 export default function RegisterScreen() {
@@ -52,51 +50,9 @@ export default function RegisterScreen() {
   const modalMaxHeight = Math.max(0, height - insets.top - insets.bottom - 32);
 
   // Theme mode: 'light' | 'dark'. Defaults to 'light' to match design screenshot
-  const { mode: themeMode, isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme } = useTheme();
   const isLight = !isDark;
 
-  useEffect(() => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const styleId = 'lms-autofill-styles';
-      let style = document.getElementById(styleId) as HTMLStyleElement | null;
-      if (!style) {
-        style = document.createElement('style');
-        style.id = styleId;
-        document.head.appendChild(style);
-      }
-      if (themeMode === 'light') {
-        style.innerHTML = `
-          input:-webkit-autofill,
-          input:-webkit-autofill:hover, 
-          input:-webkit-autofill:focus,
-          input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
-            -webkit-text-fill-color: #0F172A !important;
-            caret-color: #0F172A !important;
-            transition: background-color 5000s ease-in-out 0s;
-          }
-          input {
-            background-color: transparent !important;
-          }
-        `;
-      } else {
-        style.innerHTML = `
-          input:-webkit-autofill,
-          input:-webkit-autofill:hover, 
-          input:-webkit-autofill:focus,
-          input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 1000px rgba(22, 16, 12, 0.70) inset !important;
-            -webkit-text-fill-color: #FFFFFF !important;
-            caret-color: #FFFFFF !important;
-            transition: background-color 5000s ease-in-out 0s;
-          }
-          input {
-            background-color: transparent !important;
-          }
-        `;
-      }
-    }
-  }, [themeMode]);
 
   // Wizard Step State (1 to 5)
   const [currentStep, setCurrentStep] = useState(1);
@@ -794,7 +750,7 @@ export default function RegisterScreen() {
           Email Address
         </Text>
         <View style={[styles.emailOtpWrapper, isNarrow && styles.stackedRow]}>
-          <TextInput
+          <AuthTextInput glass
             testID="registration-email"
             accessibilityLabel="Email address"
             style={[inputStyle, styles.emailInput, isNarrow && styles.stackedControl]}
@@ -828,10 +784,10 @@ export default function RegisterScreen() {
         ) : null}
 
         {otpSent && (
-          <View style={[styles.otpCardBox, isLight && { backgroundColor: '#F8FAFC', borderColor: 'rgba(255, 101, 0, 0.4)' }]}>
+          <View style={[styles.otpCardBox, isLight && styles.otpCardBoxLight]}>
             <Text style={styles.otpInstructionText}>Enter the 6-digit code from your email</Text>
             <View style={[styles.otpRow, isNarrow && styles.stackedRow]}>
-              <TextInput
+              <AuthTextInput glass
                 testID="registration-otp"
                 accessibilityLabel="Verification code"
                 style={[inputStyle, styles.otpInputStyle, isNarrow && styles.stackedControl]}
@@ -889,22 +845,9 @@ export default function RegisterScreen() {
           isLight ? styles.cardLight : styles.cardDark,
           isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
           isCompact && styles.compactCard,
-          !emailVerified && isDesktop && { maxWidth: 520, alignSelf: 'center', width: '100%' },
         ]}
       >
-        <BlurView
-          intensity={Platform.OS === 'android' ? 35 : 55}
-          tint={isLight ? 'light' : 'dark'}
-          style={StyleSheet.absoluteFill}
-        />
-        {/* Specular Top Rim Reflection Sheen */}
-        <View
-          pointerEvents="none"
-          style={[
-            styles.cardTopSheen,
-            { backgroundColor: isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.18)' },
-          ]}
-        />
+        <AuthGlassSurface isLight={isLight} />
 
         <Text style={[styles.welcomeTitle, isCompact && styles.compactWelcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
           {emailVerified ? 'Student Registration' : 'Verify your email'}
@@ -967,7 +910,7 @@ export default function RegisterScreen() {
                 {currentStep === 1 && (
                   <View style={styles.stepSectionBox}>
                     <Text style={labelStyle}>First Name *</Text>
-                    <TextInput
+                    <AuthTextInput glass
                       style={inputStyle}
                       placeholder="Enter your first name"
                       placeholderTextColor={placeholderColor}
@@ -976,7 +919,7 @@ export default function RegisterScreen() {
                     />
 
                     <Text style={labelStyle}>Last Name *</Text>
-                    <TextInput
+                    <AuthTextInput glass
                       style={inputStyle}
                       placeholder="Enter your last name"
                       placeholderTextColor={placeholderColor}
@@ -986,8 +929,8 @@ export default function RegisterScreen() {
 
                     <Text style={labelStyle}>Date Of Birth *</Text>
                     <View style={styles.dobThreeRow}>
-                      <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
-                        <TextInput
+                      <View style={styles.dobBox}>
+                        <AuthTextInput glass
                           style={[styles.dobInput, isLight && { color: '#0F172A' }]}
                           placeholder="DD"
                           placeholderTextColor={placeholderColor}
@@ -997,8 +940,8 @@ export default function RegisterScreen() {
                           onChangeText={handleDobDDChange}
                         />
                       </View>
-                      <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
-                        <TextInput
+                      <View style={styles.dobBox}>
+                        <AuthTextInput glass
                           style={[styles.dobInput, isLight && { color: '#0F172A' }]}
                           placeholder="MM"
                           placeholderTextColor={placeholderColor}
@@ -1008,8 +951,8 @@ export default function RegisterScreen() {
                           onChangeText={handleDobMMChange}
                         />
                       </View>
-                      <View style={[styles.dobBox, isLight && styles.dobBoxLight]}>
-                        <TextInput
+                      <View style={styles.dobBox}>
+                        <AuthTextInput glass
                           style={[styles.dobInput, isLight && { color: '#0F172A' }]}
                           placeholder="YYYY"
                           placeholderTextColor={placeholderColor}
@@ -1022,7 +965,7 @@ export default function RegisterScreen() {
                     </View>
 
                     <Text style={labelStyle}>Mobile Number *</Text>
-                    <TextInput
+                    <AuthTextInput glass
                       style={inputStyle}
                       placeholder="0771234567 or +94771234567"
                       placeholderTextColor={placeholderColor}
@@ -1034,7 +977,7 @@ export default function RegisterScreen() {
                     <Text style={labelStyle}>Gender *</Text>
                     <TouchableOpacity
                       style={[styles.dropdownSelectTrigger, isLight && styles.dropdownSelectTriggerLight]}
-                      onPress={() => setGenderModalVisible(true)}
+                      onPress={() => { Keyboard.dismiss(); setGenderModalVisible(true); }}
                       activeOpacity={0.8}
                     >
                       <View style={styles.dropdownLeftRow}>
@@ -1047,7 +990,7 @@ export default function RegisterScreen() {
                     </TouchableOpacity>
 
                     <Text style={labelStyle}>National ID Number (NIC) - Optional</Text>
-                    <TextInput
+                    <AuthTextInput glass
                       style={inputStyle}
                       placeholder="e.g. 199812345678 or 987654321V"
                       placeholderTextColor={placeholderColor}
@@ -1056,7 +999,7 @@ export default function RegisterScreen() {
                     />
 
                     <Text style={labelStyle}>Residential Address *</Text>
-                    <TextInput
+                    <AuthTextInput glass
                       style={[inputStyle, { height: 74, textAlignVertical: 'top', paddingTop: 10 }]}
                       placeholder="e.g. No. 12, Main Street, Colombo 03"
                       placeholderTextColor={placeholderColor}
@@ -1073,7 +1016,7 @@ export default function RegisterScreen() {
                 {currentStep === 2 && (
                   <View style={styles.stepSectionBox}>
                     <Text style={labelStyle}>Parent / Guardian Full Name *</Text>
-                    <TextInput
+                    <AuthTextInput glass
                       style={inputStyle}
                       placeholder="Enter parent or guardian's name"
                       placeholderTextColor={placeholderColor}
@@ -1084,7 +1027,7 @@ export default function RegisterScreen() {
                     <Text style={labelStyle}>Relationship to Student *</Text>
                     <TouchableOpacity
                       style={[styles.dropdownSelectTrigger, isLight && styles.dropdownSelectTriggerLight]}
-                      onPress={() => setRelationshipModalVisible(true)}
+                      onPress={() => { Keyboard.dismiss(); setRelationshipModalVisible(true); }}
                       activeOpacity={0.8}
                     >
                       <View style={styles.dropdownLeftRow}>
@@ -1097,7 +1040,7 @@ export default function RegisterScreen() {
                     </TouchableOpacity>
 
                     <Text style={labelStyle}>Guardian Mobile Number *</Text>
-                    <TextInput
+                    <AuthTextInput glass
                       style={inputStyle}
                       placeholder="e.g. 0771234567"
                       placeholderTextColor={placeholderColor}
@@ -1107,7 +1050,7 @@ export default function RegisterScreen() {
                     />
 
                     <Text style={labelStyle}>Guardian Occupation (Optional)</Text>
-                    <TextInput
+                    <AuthTextInput glass
                       style={inputStyle}
                       placeholder="e.g. Civil Engineer, Teacher, Merchant"
                       placeholderTextColor={placeholderColor}
@@ -1145,7 +1088,7 @@ export default function RegisterScreen() {
                     {formData.education_level === 'Below O/L' && (
                       <View style={{ marginTop: 2 }}>
                         <Text style={labelStyle}>Current Grade Level *</Text>
-                        <TextInput
+                        <AuthTextInput glass
                           style={inputStyle}
                           placeholder="e.g. Grade 8, Grade 9, Grade 10"
                           placeholderTextColor={placeholderColor}
@@ -1156,7 +1099,7 @@ export default function RegisterScreen() {
                     )}
 
                     <Text style={labelStyle}>School or Institute Name *</Text>
-                    <TextInput
+                    <AuthTextInput glass
                       style={inputStyle}
                       placeholder="e.g. Royal College, Colombo"
                       placeholderTextColor={placeholderColor}
@@ -1396,6 +1339,14 @@ export default function RegisterScreen() {
 
           </>
         ) : renderEmailVerification()}
+
+        {/* FOOTER */}
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, { color: isLight ? '#64748B' : '#8E8276' }]}>Already have an account? </Text>
+          <TouchableOpacity style={styles.footerLink} onPress={handleBackToLogin}>
+            <Text style={styles.link}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -1483,14 +1434,14 @@ export default function RegisterScreen() {
           style={styles.keyboardContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-        <ScrollView
+        <AuthFormScrollView
           ref={pageScrollRef}
           style={styles.pageScroll}
           contentContainerStyle={[
             isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent,
             !isDesktop && isKeyboardVisible && styles.mobileScrollContentKeyboard,
             { paddingHorizontal: pagePadding },
-            !isDesktop && isShort && styles.shortScrollContent,
+            isShort && styles.shortScrollContent,
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -1566,7 +1517,7 @@ export default function RegisterScreen() {
               </View>
             </View>
           )}
-        </ScrollView>
+        </AuthFormScrollView>
       </KeyboardAvoidingView>
 
       {/* ========================================================================= */}
@@ -1849,9 +1800,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 40,
-    paddingHorizontal: 32,
+    paddingVertical: 24,
   },
   shortScrollContent: {
     paddingTop: 8,
@@ -1859,7 +1808,7 @@ const styles = StyleSheet.create({
   },
   desktopContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
     width: '100%',
     maxWidth: 1200,
@@ -1965,15 +1914,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  cardTopSheen: {
-    position: 'absolute',
-    top: 0,
-    left: 20,
-    right: 20,
-    height: 1.5,
-    borderRadius: 1,
-    zIndex: 2,
-  },
   compactCard: {
     paddingHorizontal: 20,
     paddingVertical: 20,
@@ -1983,41 +1923,14 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   cardLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.74)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 28,
-    elevation: 8,
-    ...(Platform.OS === 'web'
-      ? ({
-        backdropFilter: 'blur(30px)',
-        WebkitBackdropFilter: 'blur(30px)',
-        boxShadow: '0 16px 40px -8px rgba(15, 23, 42, 0.10), 0 0 1px 1px rgba(255, 255, 255, 0.9)',
-      } as any)
-      : {}),
+    ...authGlassStyles.light,
   },
   cardDark: {
-    backgroundColor: 'rgba(20, 27, 38, 0.74)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.50,
-    shadowRadius: 28,
-    elevation: 10,
-    ...(Platform.OS === 'web'
-      ? ({ backdropFilter: 'blur(26px)', WebkitBackdropFilter: 'blur(26px)' } as any)
-      : {}),
+    ...authGlassStyles.dark,
   },
   textInputLight: {
     ...FIELD_SURFACE_LIGHT,
     color: '#0F172A',
-  },
-  dobBoxLight: {
-    ...FIELD_SURFACE_LIGHT,
   },
   dropdownSelectTriggerLight: {
     ...FIELD_SURFACE_LIGHT,
@@ -2062,32 +1975,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderColor: '#E2E8F0',
   },
-  backButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    alignSelf: 'flex-start',
-  },
-  backButtonText: {
-    color: '#FF6500',
-    fontSize: 13,
-    fontWeight: '600',
-  },
   welcomeTitle: {
+    textAlign: 'center',
     fontSize: 24,
     color: '#FFFFFF',
     fontWeight: '700',
     marginBottom: 4,
-    textAlign: 'center',
-    alignSelf: 'center',
   },
   welcomeSubtitle: {
+    textAlign: 'center',
     fontSize: 13.5,
     color: '#A89F93',
     lineHeight: 20,
     marginBottom: 20,
-    textAlign: 'center',
-    alignSelf: 'center',
   },
 
   /* STEPPER INDICATOR HEADER */
@@ -2195,14 +2095,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dobBox: {
-    ...FIELD_SURFACE,
     flex: 1,
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dobInput: {
-    backgroundColor: 'transparent',
+    ...FIELD_SURFACE,
     width: '100%',
     minWidth: 0,
     minHeight: 48,
@@ -2311,12 +2210,16 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   otpCardBox: {
-    backgroundColor: 'rgba(35, 25, 18, 0.65)',
+    backgroundColor: 'rgba(35, 25, 18, 0.55)',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 101, 0, 0.3)',
     marginTop: 4,
+  },
+  otpCardBoxLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderColor: 'rgba(255, 101, 0, 0.35)',
   },
   otpInstructionText: {
     fontSize: 12,
@@ -2888,7 +2791,7 @@ const styles = StyleSheet.create({
   },
   dropdownSelectText: {
     flexShrink: 1,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
   },

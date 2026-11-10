@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
+import EnrolledCoursesCard from '../../components/student/EnrolledCoursesCard';
 import { storage } from '../../utils/storage';
 
 export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadCount?: number }) {
@@ -126,7 +127,9 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
     !!data?.next_class ||
     !!data?.next_practice
   );
-  const assignedBatch = data?.assigned_batches?.[0];
+  const enrolledBatches = data?.assigned_batches?.length
+    ? data.assigned_batches
+    : data?.next_class ? [data.next_class] : [];
 
   // Upcoming Practical Details
   const nextPractice = data?.next_practice || data?.next_available_practice;
@@ -228,33 +231,12 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
       >
         <View style={styles.mainContent}>
         {/* ========================================================================= */}
-        {/* BATCH STATUS BANNER / PENDING NOTICE */}
+        {/* ENROLLED COURSES */}
         {/* ========================================================================= */}
-        {!hasAssignedBatch ? (
-          <View style={[styles.pendingBatchCard, isDark && styles.pendingBatchCardDark]}>
-            <View style={styles.pendingBatchIconCircle}>
-              <Icon name="hourglass-outline" size={26} color="#F58220" />
-            </View>
-            <Text style={[styles.pendingBatchTitle, isDark && { color: '#FFFFFF' }]}>
-              Batch Assignment Pending
-            </Text>
-            <Text style={[styles.pendingBatchDesc, isDark && { color: '#94A3B8' }]}>
-              You have not been assigned to a batch yet. Once an administrator assigns you to a batch, your course details, theory lessons, timetable, and practical sessions will appear here.
-            </Text>
-          </View>
-        ) : assignedBatch ? (
-          <View style={[styles.assignedBatchBanner, isDark && styles.assignedBatchBannerDark]}>
-            <View style={styles.assignedBatchIconBox}>
-              <Icon name="school-outline" size={20} color="#F58220" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.assignedBatchSubtitle, isDark && { color: '#94A3B8' }]}>Assigned Batch</Text>
-              <Text style={[styles.assignedBatchTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
-                {assignedBatch?.name || 'Active Batch'}{assignedBatch?.course_id?.title ? ` • ${assignedBatch.course_id.title}` : ''}
-              </Text>
-            </View>
-          </View>
-        ) : null}
+        <EnrolledCoursesCard
+          batches={enrolledBatches}
+          hasAssignedBatch={!!hasAssignedBatch}
+        />
 
         {/* ========================================================================= */}
         {/* SECTION 1: UPCOMING PRACTICAL (Conditionally Rendered) */}
@@ -985,85 +967,6 @@ const styles = StyleSheet.create({
   bookmarkTouch: {
     padding: 8,
     marginLeft: 8,
-  },
-  pendingBatchCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 130, 32, 0.25)',
-    ...Platform.select({
-      web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
-    }),
-  },
-  pendingBatchCardDark: {
-    backgroundColor: '#141B26',
-    borderColor: 'rgba(245, 130, 32, 0.3)',
-  },
-  pendingBatchIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(245, 130, 32, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  pendingBatchTitle: {
-    fontSize: 16,
-    ...FONTS.bold,
-    color: '#0F172A',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  pendingBatchDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#64748B',
-    textAlign: 'center',
-  },
-  assignedBatchBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    ...Platform.select({
-      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 2 },
-    }),
-  },
-  assignedBatchBannerDark: {
-    backgroundColor: '#141B26',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  assignedBatchIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(245, 130, 32, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  assignedBatchSubtitle: {
-    fontSize: 11,
-    ...FONTS.bold,
-    color: '#F58220',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  assignedBatchTitle: {
-    fontSize: 14.5,
-    ...FONTS.bold,
-    color: '#0F172A',
-    marginTop: 2,
   },
   announcementsList: {
     gap: 12,
