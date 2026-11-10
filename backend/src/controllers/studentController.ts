@@ -4,7 +4,7 @@ import Batch from '../models/Batch';
 import Notification from '../models/Notification';
 import SlotBooking from '../models/SlotBooking';
 import PracticeSlot from '../models/PracticeSlot';
-import Video from '../models/Video';
+import { getRecentTheoryLessons } from '../services/studentVideoActivity';
 import Announcement from '../models/Announcement';
 import { AuthRequest } from '../middleware/authMiddleware';
 
@@ -119,10 +119,7 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
         nextAvailablePractice = upcomingOpenSlots[0] || null;
       }
 
-      theory_lessons = await Video.find({ batch_id: { $in: batchIds } })
-        .sort({ createdAt: -1 })
-        .limit(3)
-        .lean();
+      theory_lessons = await getRecentTheoryLessons(req.user._id, batchIds);
     }
 
     const announcements = await Announcement.find({

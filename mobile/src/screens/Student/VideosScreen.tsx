@@ -1,1172 +1,414 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Linking,
-  Alert,
-  Platform,
-  Image,
-  LayoutAnimation,
-  UIManager,
-  Modal,
-  TouchableWithoutFeedback
+  AccessibilityInfo, ActivityIndicator, Alert, Image, LayoutAnimation,
+  Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet,
+  Text, TouchableOpacity, UIManager, useWindowDimensions, View,
 } from 'react-native';
-import api from '../../services/api';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import api from '../../services/api';
 import { API_URL } from '../../config/constants';
-import ScreenHeader from '../../components/shared/ScreenHeader';
-import ScreenBackground from '../../components/shared/ScreenBackground';
+import { COLORS, FONTS } from '../../config/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { communicationTheme } from '../../components/shared/communicationTheme';
 import {
-  enableNativeScreenCaptureProtection,
-  disableNativeScreenCaptureProtection,
+  formatUploadDate, getUploadThumbnail, groupUploadModules,
+  uploadDocumentUrl, type UploadItem,
+} from '../../utils/uploadLibrary';
+import {
+  enableNativeScreenCaptureProtection, disableNativeScreenCaptureProtection,
 } from '../../utils/screenCaptureProtection';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const formatUploadedTime = (dateStr?: string) => {
-  if (!dateStr) return 'Upload date unknown';
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return 'Uploaded recently';
+type Filter = 'all' | 'videos' | 'pdf';
+type Batch = { _id: string; name?: string; course_id?: { title?: string } };
 
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffHours < 1) return 'Uploaded just now';
-  if (diffHours < 24) return `Uploaded ${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
-  if (diffDays < 7) return `Uploaded ${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
-  
-  return `Uploaded on ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
-};
-
-export default function VideosScreen({ unreadCount }: { unreadCount?: number }) {
+export default function VideosScreen({ unreadCount = 0 }: { unreadCount?: number }) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const wide = width >= 900;
   const { isDark } = useTheme();
-
-  const [activeFilter, setActiveFilter] = useState<'all' | 'videos' | 'pdf'>('all');
-  const [batches, setBatches] = useState<any[]>([]);
+  const theme = communicationTheme(isDark);
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<Filter>('all');
   const [courseModalVisible, setCourseModalVisible] = useState(false);
-  
-  const [videos, setVideos] = useState<any[]>([]);
-  const [materials, setMaterials] = useState<any[]>([]);
-  
-  const [loadingVideos, setLoadingVideos] = useState(false);
-  const [loadingMaterials, setLoadingMaterials] = useState(false);
-
+  const [videos, setVideos] = useState<UploadItem[]>([]);
+  const [materials, setMaterials] = useState<UploadItem[]>([]);
+  const [loadingBatches, setLoadingBatches] = useState(true);
+  const [loadingContent, setLoadingContent] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
+  const activeBatchRef = useRef<string | null>(null);
+  const focusedRef = useRef(false);
+  const contentRequestRef = useRef(0);
+  const batchRequestRef = useRef(0);
+  const reduceMotionRef = useRef(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      enableNativeScreenCaptureProtection();
-      api.get('/students/batches').then(res => {
-        setBatches(res.data || []);
-        if (res.data && res.data.length > 0) {
-          const targetId = activeBatchId || res.data[0]._id;
-          if (!activeBatchId) setActiveBatchId(targetId);
-          fetchContent(targetId);
-        }
-      }).catch(e => console.warn('Failed to load batches:', e));
-      return () => {
-        disableNativeScreenCaptureProtection();
-      };
-    }, [activeBatchId])
-  );
+  useEffect(() => {
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then(enabled => {
+      if (mounted) reduceMotionRef.current = enabled;
+    });
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', enabled => {
+      reduceMotionRef.current = enabled;
+    });
+    return () => { mounted = false; subscription.remove(); };
+  }, []);
 
-  // We can remove the old fetchBatches function as it's handled in useFocusEffect now
-
-  const fetchContent = (batchId: string) => {
-    fetchVideos(batchId);
-    fetchMaterials(batchId);
-  };
-
-  const fetchVideos = async (batchId: string) => {
-    setLoadingVideos(true);
-    try {
-      const res = await api.get(`/students/batches/${batchId}/videos`);
-      setVideos(res.data || []);
-      
-      // Modules remain collapsed by default until user taps to expand
-      setExpandedModules({});
-    } catch (e) {
-      console.warn('Failed to load videos:', e);
-    } finally {
-      setLoadingVideos(false);
+  const fetchContent = useCallback(async (batchId: string) => {
+    const request = ++contentRequestRef.current;
+    setLoadingContent(true);
+    setLoadError(null);
+    const [videoResult, materialResult] = await Promise.allSettled([
+      api.get(`/students/batches/${batchId}/videos`),
+      api.get(`/students/batches/${batchId}/materials`),
+    ]);
+    if (!focusedRef.current || request !== contentRequestRef.current) return;
+    setVideos(videoResult.status === 'fulfilled' && Array.isArray(videoResult.value.data) ? videoResult.value.data : []);
+    setMaterials(materialResult.status === 'fulfilled' && Array.isArray(materialResult.value.data) ? materialResult.value.data : []);
+    if (videoResult.status === 'rejected' || materialResult.status === 'rejected') {
+      setLoadError(videoResult.status === 'rejected' && materialResult.status === 'rejected'
+        ? 'Unable to load uploads.' : 'Some uploads could not be loaded.');
     }
-  };
+    setLoadingContent(false);
+  }, []);
 
-  const fetchMaterials = async (batchId: string) => {
-    setLoadingMaterials(true);
+  const fetchBatches = useCallback(async () => {
+    const request = ++batchRequestRef.current;
+    setLoadingBatches(true);
+    setLoadError(null);
     try {
-      const res = await api.get(`/students/batches/${batchId}/materials`);
-      setMaterials(res.data || []);
-    } catch (e) {
-      console.warn('Failed to load materials:', e);
+      const response = await api.get('/students/batches');
+      if (!focusedRef.current || request !== batchRequestRef.current) return;
+      const nextBatches: Batch[] = Array.isArray(response.data) ? response.data : [];
+      setBatches(nextBatches);
+      const nextId = nextBatches.find(batch => batch._id === activeBatchRef.current)?._id || nextBatches[0]?._id || null;
+      if (nextId !== activeBatchRef.current) setExpandedModules({});
+      activeBatchRef.current = nextId;
+      setActiveBatchId(nextId);
+      if (nextId) await fetchContent(nextId);
+      else {
+        contentRequestRef.current += 1;
+        setVideos([]);
+        setMaterials([]);
+        setLoadingContent(false);
+      }
+    } catch {
+      if (focusedRef.current && request === batchRequestRef.current) setLoadError('Unable to load your courses.');
     } finally {
-      setLoadingMaterials(false);
+      if (focusedRef.current && request === batchRequestRef.current) setLoadingBatches(false);
     }
-  };
+  }, [fetchContent]);
 
-  const handleBatchSelect = (batchId: string) => {
+  useFocusEffect(useCallback(() => {
+    focusedRef.current = true;
+    void enableNativeScreenCaptureProtection();
+    void fetchBatches();
+    return () => {
+      focusedRef.current = false;
+      contentRequestRef.current += 1;
+      batchRequestRef.current += 1;
+      void disableNativeScreenCaptureProtection();
+    };
+  }, [fetchBatches]));
+
+  const selectBatch = (batchId: string) => {
+    setCourseModalVisible(false);
+    if (batchId === activeBatchRef.current) return;
+    activeBatchRef.current = batchId;
     setActiveBatchId(batchId);
-    fetchContent(batchId);
+    setVideos([]);
+    setMaterials([]);
+    setExpandedModules({});
+    void fetchContent(batchId);
   };
 
-  const toggleModule = (modKey: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedModules((prev) => ({
-      ...prev,
-      [modKey]: !prev[modKey],
-    }));
+  const toggleModule = (key: string) => {
+    if (!reduceMotionRef.current) LayoutAnimation.configureNext({
+      duration: 180,
+      update: { type: LayoutAnimation.Types.easeInEaseOut },
+      create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+      delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+    });
+    setExpandedModules(previous => ({ ...previous, [key]: !previous[key] }));
   };
 
-  const openPdfDocument = (rawUrl: string, title: string) => {
+  const openDocument = (rawUrl: string | undefined, title: string) => {
     if (!rawUrl) {
-      Alert.alert('Error', 'PDF URL not found');
+      Alert.alert('Document unavailable', 'This document is not available yet.');
       return;
     }
-    let url = rawUrl;
-    if (url.startsWith('/uploads/') || url.startsWith('/api/files/')) {
-      url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
-    }
-    navigation.navigate('PdfViewer', { pdfUrl: url, title });
+    navigation.navigate('PdfViewer', { pdfUrl: uploadDocumentUrl(rawUrl, API_URL), title });
   };
 
-  const currentBatch = batches.find((b) => b._id === activeBatchId);
-  const courseTitle = currentBatch?.course_id?.title || 'Select Course';
+  const currentBatch = batches.find(batch => batch._id === activeBatchId);
+  const modules = useMemo(() => groupUploadModules(videos, materials), [videos, materials]);
+  const visibleModules = modules.filter(module => activeFilter === 'videos'
+    ? module.videos.length > 0 : activeFilter === 'pdf' ? module.materials.length > 0 : true);
+  const showVideos = activeFilter !== 'pdf';
+  const showMaterials = activeFilter !== 'videos';
+  const initialLoading = loadingBatches && batches.length === 0;
 
-  // Extract all unique modules/topics across both videos and materials in order
-  const allModuleTopics: string[] = [];
-  videos.forEach((v: any) => {
-    const t = v.topic || 'General Module';
-    if (!allModuleTopics.some((existing) => existing.toLowerCase().trim() === t.toLowerCase().trim())) {
-      allModuleTopics.push(t);
-    }
-  });
-  materials.forEach((m: any) => {
-    const t = m.topic || 'General Module';
-    if (!allModuleTopics.some((existing) => existing.toLowerCase().trim() === t.toLowerCase().trim())) {
-      allModuleTopics.push(t);
-    }
-  });
-
-  const getVideosForTopic = (topic: string) => {
-    return videos.filter(
-      (v: any) => (v.topic || 'General Module').toLowerCase().trim() === topic.toLowerCase().trim()
+  const renderVideo = (video: UploadItem) => {
+    const thumbnail = getUploadThumbnail(video);
+    const date = formatUploadDate(video.createdAt || video.uploaded_at);
+    return (
+      <TouchableOpacity
+        key={`video:${video._id}`}
+        style={[styles.videoRow, { borderTopColor: theme.line }]}
+        onPress={() => navigation.navigate('VideoPlayer', { videoId: video._id, batchId: activeBatchId })}
+        activeOpacity={0.65}
+        accessibilityRole="button"
+        accessibilityLabel={`Open video: ${video.title}`}
+      >
+        <View style={[styles.thumbnail, wide && styles.thumbnailWide]}>
+          {!!thumbnail && <Image source={{ uri: thumbnail }} style={styles.thumbnailImage} resizeMode="cover" />}
+          <View style={styles.playOverlay}><Icon name="play" size={22} color={COLORS.secondary} /></View>
+        </View>
+        <View style={styles.itemContent}>
+          <Text style={[styles.itemTitle, { color: theme.text }]} numberOfLines={2}>{video.title}</Text>
+          <View style={styles.itemMetadata}>
+            {!!date && <Text style={[styles.metadataText, { color: theme.muted }]}>{date}</Text>}
+            {!!video.duration && <Text style={[styles.metadataText, { color: theme.muted }]}>{video.duration}</Text>}
+          </View>
+          {!!video.notes_url && (
+            <TouchableOpacity
+              onPress={event => { event.stopPropagation(); openDocument(video.notes_url, `${video.title} (Notes)`); }}
+              style={styles.notesButton}
+              accessibilityRole="button"
+              accessibilityLabel={`Open notes for ${video.title}`}
+              activeOpacity={0.65}
+            >
+              <Icon name="document-text-outline" size={14} color={COLORS.secondary} />
+              <Text style={styles.notesText}>Notes</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
     );
   };
 
-  const getMaterialsForTopic = (topic: string) => {
-    return materials.filter(
-      (m: any) => (m.topic || 'General Module').toLowerCase().trim() === topic.toLowerCase().trim()
-    );
-  };
-
-  const showVideos = activeFilter === 'all' || activeFilter === 'videos';
-  const showPdfs = activeFilter === 'all' || activeFilter === 'pdf';
+  const renderMaterial = (material: UploadItem) => (
+    <TouchableOpacity
+      key={`material:${material._id}`}
+      style={[styles.materialRow, { borderTopColor: theme.line }]}
+      onPress={() => openDocument(material.cloudinary_url, material.title)}
+      accessibilityRole="button"
+      accessibilityLabel={`Open document: ${material.title}`}
+      activeOpacity={0.65}
+    >
+      <Icon name="document-text-outline" size={25} color={COLORS.secondary} />
+      <View style={styles.itemContent}>
+        <Text style={[styles.itemTitle, { color: theme.text }]} numberOfLines={2}>{material.title}</Text>
+        <Text style={[styles.metadataText, { color: theme.muted, marginTop: 6 }]}>{formatUploadDate(material.createdAt || material.uploaded_at)}</Text>
+      </View>
+      <Icon name="arrow-forward" size={17} color={theme.muted} style={{ transform: [{ rotate: '-45deg' }] }} />
+    </TouchableOpacity>
+  );
 
   return (
-    <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
-      <ScreenBackground />
-      {/* FIXED STICKY TOP HEADER */}
-      <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
-        <ScreenHeader title="Uploads" subtitle="Course videos & study materials" showBack={false} />
-
-        {/* Top Controls Container (Course Selector & Filter Bar with consistent spacing) */}
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+      <View style={styles.headerShell}>
+        <View style={styles.titleRow}>
+          <Text accessibilityRole="header" style={[styles.pageTitle, { color: theme.text }]}>Uploads</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Notifications')} accessibilityRole="button" accessibilityLabel={unreadCount ? `${unreadCount} unread notifications` : 'Notifications'} style={styles.notificationButton}>
+            <Icon name="notifications-outline" size={23} color={theme.text} />
+            {unreadCount > 0 && <View style={styles.notificationDot} />}
+          </TouchableOpacity>
+        </View>
         {batches.length > 0 && (
-          <View style={styles.topControlsContainer}>
-            {/* Course Selector Dropdown Pill */}
+          <>
             <TouchableOpacity
-              style={[styles.compactCourseSelect, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}
-              activeOpacity={0.85}
               onPress={() => setCourseModalVisible(true)}
+              style={[styles.courseSelector, { borderColor: theme.line }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Select course. ${currentBatch?.course_id?.title || currentBatch?.name || 'Course'}`}
+              accessibilityState={{ expanded: courseModalVisible }}
+              activeOpacity={0.7}
             >
-              <View style={styles.courseSelectLeft}>
-                <Text style={[styles.compactCourseTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
-                  {courseTitle}
-                </Text>
+              <View style={styles.itemContent}>
+                <Text style={[styles.courseTitle, { color: theme.text }]} numberOfLines={2}>{currentBatch?.course_id?.title || currentBatch?.name || 'Select course'}</Text>
+                {!!currentBatch?.name && <Text style={[styles.batchName, { color: theme.muted }]} numberOfLines={1}>{currentBatch.name}</Text>}
               </View>
-              <Icon name="chevron-down" size={18} color={isDark ? '#94A3B8' : '#71717A'} />
+              <Icon name="chevron-down" size={18} color={theme.muted} />
             </TouchableOpacity>
-
-            {/* Filter Bar Pills */}
-            <View style={[styles.compactFilterRow, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.85)', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
-              <TouchableOpacity
-                style={[styles.compactFilterPill, activeFilter === 'all' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
-                onPress={() => setActiveFilter('all')}
-                activeOpacity={0.8}
-              >
-                <Icon
-                  name="grid-outline"
-                  size={13}
-                  color={activeFilter === 'all' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={[styles.compactFilterText, activeFilter === 'all' && styles.compactFilterTextActive, activeFilter !== 'all' && isDark && { color: '#94A3B8' }]}>
-                  All ({videos.length + materials.length})
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.compactFilterPill, activeFilter === 'videos' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
-                onPress={() => setActiveFilter('videos')}
-                activeOpacity={0.8}
-              >
-                <Icon
-                  name="play-circle-outline"
-                  size={13}
-                  color={activeFilter === 'videos' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={[styles.compactFilterText, activeFilter === 'videos' && styles.compactFilterTextActive, activeFilter !== 'videos' && isDark && { color: '#94A3B8' }]}>
-                  Videos ({videos.length})
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.compactFilterPill, activeFilter === 'pdf' && (isDark ? { backgroundColor: '#F97316' } : styles.compactFilterPillActive)]}
-                onPress={() => setActiveFilter('pdf')}
-                activeOpacity={0.8}
-              >
-                <Icon
-                  name="document-text-outline"
-                  size={13}
-                  color={activeFilter === 'pdf' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#52525B')}
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={[styles.compactFilterText, activeFilter === 'pdf' && styles.compactFilterTextActive, activeFilter !== 'pdf' && isDark && { color: '#94A3B8' }]}>
-                  PDFs ({materials.length})
-                </Text>
-              </TouchableOpacity>
+            <View style={[styles.filterRow, { borderBottomColor: theme.line }]}>
+              {([
+                { key: 'all', label: 'All', count: videos.length + materials.length },
+                { key: 'videos', label: 'Videos', count: videos.length },
+                { key: 'pdf', label: 'Materials', count: materials.length },
+              ] as const).map(filter => {
+                const selected = activeFilter === filter.key;
+                return (
+                  <TouchableOpacity
+                    key={filter.key}
+                    onPress={() => setActiveFilter(filter.key)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={`${filter.label}, ${filter.count} items`}
+                    style={[styles.filterTab, { borderBottomColor: selected ? COLORS.secondary : 'transparent' }]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.filterLabel, { color: selected ? theme.text : theme.muted }, selected && styles.selectedFilter]}>{filter.label}</Text>
+                    <Text style={[styles.filterCount, { color: theme.muted }]}>{filter.count}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </View>
+          </>
         )}
       </View>
 
-      {/* SCROLLABLE CONTENT */}
       <ScrollView
-        style={styles.scrollContent}
-        contentContainerStyle={styles.contentContainerStyle}
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(120, insets.bottom + 104) }]}
+        refreshControl={<RefreshControl refreshing={loadingBatches && batches.length > 0} onRefresh={() => void fetchBatches()} colors={[COLORS.secondary]} tintColor={COLORS.secondary} />}
       >
-        <View style={styles.contentPadding}>
-          {loadingVideos || loadingMaterials ? (
-            <ActivityIndicator size="large" color="#F58220" style={{ marginVertical: 36 }} />
-          ) : batches.length === 0 ? (
-            <View style={[styles.pendingBatchCard, isDark && styles.pendingBatchCardDark, { marginTop: 16 }]}>
-              <View style={styles.pendingBatchIconCircle}>
-                <Icon name="hourglass-outline" size={28} color="#F58220" />
-              </View>
-              <Text style={[styles.pendingBatchTitle, isDark && { color: '#FFFFFF' }]}>
-                Batch Assignment Pending
-              </Text>
-              <Text style={[styles.pendingBatchDesc, isDark && { color: '#94A3B8' }]}>
-                Course videos, lecture notes, and study materials will be accessible here once an administrator assigns your batch.
-              </Text>
-            </View>
-          ) : allModuleTopics.length > 0 ? (
-            allModuleTopics.map((topic, idx) => {
-              const moduleVideos = getVideosForTopic(topic);
-              const moduleMaterials = getMaterialsForTopic(topic);
-
-              const hasVideos = moduleVideos.length > 0;
-              const hasMaterials = moduleMaterials.length > 0;
-
-              // Filter check
-              if (activeFilter === 'videos' && !hasVideos) return null;
-              if (activeFilter === 'pdf' && !hasMaterials) return null;
-              if (!hasVideos && !hasMaterials) return null;
-
-              const isExpanded = !!expandedModules[topic];
-
-              return (
-                <View key={topic} style={styles.moduleSectionBox}>
-                  {/* Module Accordion Header */}
-                  <TouchableOpacity
-                    style={[
-                      styles.moduleHeader,
-                      isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
-                      { marginBottom: isExpanded ? 12 : 0 },
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => toggleModule(topic)}
-                  >
-                    <View style={{ flex: 1, marginRight: 10 }}>
-                      <Text style={[styles.moduleTag, isDark && { color: '#FB923C' }]}>MODULE {idx + 1}</Text>
-                      <Text style={[styles.moduleTitle, isDark && { color: '#FFFFFF' }]}>{topic}</Text>
-                      <View style={styles.moduleMetaBadgeRow}>
-                        {hasVideos && showVideos ? (
-                          <View style={styles.moduleMetaPill}>
-                            <Icon name="play-circle" size={12} color="#F58220" style={{ marginRight: 3 }} />
-                            <Text style={styles.moduleMetaPillText}>
-                              {moduleVideos.length} {moduleVideos.length === 1 ? 'Video' : 'Videos'}
-                            </Text>
-                          </View>
-                        ) : null}
-                        {hasMaterials && showPdfs ? (
-                          <View style={[styles.moduleMetaPill, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.18)' : '#FEF3C7' }]}>
-                            <Icon name="document-text" size={12} color={isDark ? '#FBBF24' : '#B45309'} style={{ marginRight: 3 }} />
-                            <Text style={[styles.moduleMetaPillText, { color: isDark ? '#FBBF24' : '#B45309' }]}>
-                              {moduleMaterials.length} {moduleMaterials.length === 1 ? 'PDF' : 'PDFs'}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    </View>
-                    <Icon
-                      name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
-                      size={20}
-                      color={isDark ? '#94A3B8' : '#1A1A1A'}
-                    />
-                  </TouchableOpacity>
-
-                  {/* Expanded Module Content: Videos AND PDFs */}
-                  {isExpanded && (
-                    <View style={styles.moduleVideosContainer}>
-                      {/* 1. Module Video Lectures */}
-                      {hasVideos && showVideos && (
-                        <View style={{ marginBottom: hasMaterials && showPdfs ? 16 : 0 }}>
-                          {moduleVideos.map((v: any, vIdx: number) => {
-                            let thumbUrl: string | null = null;
-                            let isLocalVideo = false;
-                            let localVideoUrl = '';
-
-                            if (v.youtube_url) {
-                              const match =
-                                v.youtube_url.match(/[?&]v=([^&]+)/) ||
-                                v.youtube_url.match(/youtu\.be\/([^?]+)/);
-                              if (match && match[1]) {
-                                thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
-                              }
-                            } else if (v.cloudinary_url) {
-                              if (v.cloudinary_url.includes('cloudinary.com')) {
-                                thumbUrl = v.cloudinary_url.replace(/\.[^/.]+$/, '.jpg');
-                              } else if (v.cloudinary_url.startsWith('/uploads/')) {
-                                isLocalVideo = true;
-                                localVideoUrl = `${API_URL.replace(/\/api\/?$/, '')}${v.cloudinary_url}`;
-                              }
-                            }
-
-                            if (!thumbUrl && !isLocalVideo) {
-                              thumbUrl = null;
-                            }
-
-                            return (
-                              <TouchableOpacity
-                                key={v._id || vIdx}
-                                style={[
-                                  styles.youtubeVideoCard,
-                                  isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
-                                ]}
-                                activeOpacity={0.88}
-                                onPress={() =>
-                                  navigation.navigate('VideoPlayer', {
-                                    videoId: v._id,
-                                    batchId: activeBatchId,
-                                  })
-                                }
-                              >
-                                {/* Widescreen 16:9 Thumbnail Header */}
-                                <View style={styles.widescreenThumbWrapper}>
-                                  {thumbUrl ? (
-                                    <Image
-                                      source={{ uri: thumbUrl }}
-                                      style={styles.widescreenThumbImage}
-                                      resizeMode="cover"
-                                    />
-                                  ) : isLocalVideo && Platform.OS === 'web' ? (
-                                    (() => {
-                                      const VideoElement = 'video' as any;
-                                      return (
-                                        <VideoElement
-                                          src={localVideoUrl}
-                                          style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            objectFit: 'cover',
-                                          }}
-                                          preload="metadata"
-                                          controlsList="nodownload noplaybackrate noremoteplayback"
-                                          disablePictureInPicture
-                                          onContextMenu={(e: any) => e.preventDefault()}
-                                          muted
-                                        />
-                                      );
-                                    })()
-                                  ) : (
-                                    <View style={styles.placeholderThumbBox}>
-                                      <Icon name="logo-youtube" size={48} color="#FF0000" />
-                                    </View>
-                                  )}
-
-                                  {/* Central Play Button */}
-                                  <View style={styles.thumbPlayOverlay}>
-                                    <View style={styles.youtubePlayCircle}>
-                                      <Icon name="play" size={24} color="#FFFFFF" style={{ marginLeft: 3 }} />
-                                    </View>
-                                  </View>
-
-                                  {/* Duration Badge */}
-                                  <View style={styles.durationPill}>
-                                    <Text style={styles.durationPillText}>
-                                      {v.duration || '--:--'}
-                                    </Text>
-                                  </View>
-                                </View>
-
-                                {/* Video Meta Info */}
-                                <View style={styles.youtubeVideoMeta}>
-                                  <View style={styles.metaHeaderRow}>
-                                    <View style={[styles.topicBadgePill, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.18)' }]}>
-                                      <Text style={[styles.topicBadgeText, isDark && { color: '#FB923C' }]}>
-                                        {(v.topic || 'LECTURE').toUpperCase()}
-                                      </Text>
-                                    </View>
-
-                                    {/* Direct One-Tap PDF Notes Action */}
-                                    {v.notes_url ? (
-                                      <TouchableOpacity
-                                        style={[styles.pdfBadgePill, isDark && { backgroundColor: 'rgba(245, 158, 11, 0.22)' }]}
-                                        activeOpacity={0.7}
-                                        onPress={(e: any) => {
-                                          e?.stopPropagation?.();
-                                          openPdfDocument(v.notes_url, `${v.title} (Notes)`);
-                                        }}
-                                      >
-                                        <Icon
-                                          name="document-text"
-                                          size={12}
-                                          color={isDark ? '#FBBF24' : '#B45309'}
-                                          style={{ marginRight: 4 }}
-                                        />
-                                        <Text style={[styles.pdfBadgeText, isDark && { color: '#FBBF24' }]}>Open PDF</Text>
-                                      </TouchableOpacity>
-                                    ) : null}
-                                  </View>
-
-                                  <Text style={[styles.youtubeVideoTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={2}>
-                                    {v.title}
-                                  </Text>
-
-                                  <View style={styles.youtubeChannelRow}>
-                                    <Icon
-                                      name="time-outline"
-                                      size={14}
-                                      color={isDark ? '#94A3B8' : '#71717A'}
-                                      style={{ marginRight: 4 }}
-                                    />
-                                    <Text style={[styles.youtubeChannelText, isDark && { color: '#94A3B8' }]}>
-                                      {formatUploadedTime(v.createdAt || v.uploaded_at)}
-                                    </Text>
-                                  </View>
-                                </View>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-
-                      {/* 2. Module PDF Study Materials */}
-                      {hasMaterials && showPdfs && (
-                        <View style={styles.modulePdfsContainer}>
-                          {hasVideos && showVideos && (
-                            <View style={styles.moduleSubHeaderRow}>
-                              <Icon name="document-text" size={15} color="#F58220" style={{ marginRight: 6 }} />
-                              <Text style={[styles.moduleSubHeaderTitle, isDark && { color: '#CBD5E1' }]}>
-                                Module PDF Study Notes ({moduleMaterials.length})
-                              </Text>
-                            </View>
-                          )}
-                          <View style={styles.materialsListContainer}>
-                            {moduleMaterials.map((mat: any) => {
-                              let thumbUrl = null;
-                              if (mat.cloudinary_url && mat.cloudinary_url.includes('cloudinary.com')) {
-                                thumbUrl = mat.cloudinary_url.replace(/\.[^/.]+$/, '.jpg');
-                              }
-                              return (
-                                <View
-                                  key={mat._id}
-                                  style={[
-                                    styles.materialCard,
-                                    isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
-                                  ]}
-                                >
-                                  <View
-                                    style={[
-                                      styles.materialIconCircle,
-                                      isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' },
-                                      thumbUrl ? { backgroundColor: 'transparent' } : {},
-                                    ]}
-                                  >
-                                    {thumbUrl ? (
-                                      <Image
-                                        source={{ uri: thumbUrl }}
-                                        style={{ width: '100%', height: '100%', borderRadius: 12 }}
-                                        resizeMode="cover"
-                                      />
-                                    ) : (
-                                      <Icon name="document-text" size={26} color="#F58220" />
-                                    )}
-                                  </View>
-                                  <View style={styles.materialInfo}>
-                                    <Text style={[styles.materialTitle, isDark && { color: '#FFFFFF' }]}>
-                                      {mat.title}
-                                    </Text>
-                                    <Text style={[styles.materialTopic, isDark && { color: '#94A3B8' }]}>
-                                      Topic: {mat.topic || 'General'}
-                                    </Text>
-                                    <Text style={[styles.materialDate, isDark && { color: '#64748B' }]}>
-                                      Posted: {new Date(mat.createdAt).toLocaleDateString()}
-                                    </Text>
-                                  </View>
-
-                                  <TouchableOpacity
-                                    style={styles.openPdfBtnWrapper}
-                                    activeOpacity={0.8}
-                                    onPress={() => openPdfDocument(mat.cloudinary_url, mat.title)}
-                                  >
-                                    <LinearGradient
-                                      colors={['#F58220', '#D97706']}
-                                      start={{ x: 0, y: 0 }}
-                                      end={{ x: 1, y: 0 }}
-                                      style={styles.openPdfBtn}
-                                    >
-                                      <Icon name="arrow-down-circle" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
-                                      <Text style={styles.openPdfBtnText}>Open PDF</Text>
-                                    </LinearGradient>
-                                  </TouchableOpacity>
-                                </View>
-                              );
-                            })}
-                          </View>
-                        </View>
-                      )}
-                    </View>
-                  )}
-                </View>
-              );
-            })
-          ) : (
-            <View style={[styles.emptyMaterialsBox, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
-              <Icon name="folder-open-outline" size={44} color={isDark ? '#475569' : '#CBD5E1'} />
-              <Text style={[styles.emptyStateText, isDark && { color: '#94A3B8' }]}>
-                No video lectures or study materials available for this course yet.
-              </Text>
+        <View style={styles.contentShell}>
+          {!!loadError && (
+            <View style={[styles.errorRow, { borderBottomColor: theme.line }]}>
+              <Text style={[styles.emptyText, { color: theme.muted, flex: 1 }]}>{loadError}</Text>
+              <TouchableOpacity onPress={() => void fetchBatches()} accessibilityRole="button" style={styles.retryButton}><Text style={styles.notesText}>Retry</Text></TouchableOpacity>
             </View>
           )}
+          {initialLoading || loadingContent ? (
+            <View style={styles.loading}><ActivityIndicator size="large" color={COLORS.secondary} /></View>
+          ) : batches.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>No uploads yet</Text>
+              <Text style={[styles.emptyText, { color: theme.muted }]}>Your uploads will appear once a batch is assigned.</Text>
+            </View>
+          ) : visibleModules.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>{activeFilter === 'videos' ? 'No videos yet' : activeFilter === 'pdf' ? 'No materials yet' : 'No uploads yet'}</Text>
+            </View>
+          ) : visibleModules.map(module => {
+            const expanded = !!expandedModules[module.key];
+            const position = modules.findIndex(item => item.key === module.key) + 1;
+            const counts = [
+              showVideos && module.videos.length ? `${module.videos.length} ${module.videos.length === 1 ? 'video' : 'videos'}` : '',
+              showMaterials && module.materials.length ? `${module.materials.length} ${module.materials.length === 1 ? 'file' : 'files'}` : '',
+            ].filter(Boolean).join(' · ');
+            return (
+              <View key={module.key} style={[styles.moduleSection, { borderBottomColor: theme.line }]}>
+                <TouchableOpacity
+                  onPress={() => toggleModule(module.key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${module.title}, ${counts}`}
+                  accessibilityState={{ expanded }}
+                  style={styles.moduleHeader}
+                  activeOpacity={0.65}
+                >
+                  <Text style={styles.moduleNumber}>{String(position).padStart(2, '0')}</Text>
+                  <View style={styles.itemContent}>
+                    <Text style={[styles.moduleTitle, { color: theme.text }]}>{module.title}</Text>
+                    <Text style={[styles.metadataText, { color: theme.muted, marginTop: 5 }]}>{counts}</Text>
+                  </View>
+                  <Icon name={expanded ? 'remove' : 'add'} size={21} color={theme.muted} />
+                </TouchableOpacity>
+                {expanded && (
+                  <View style={[styles.moduleBody, wide && styles.moduleBodyWide]}>
+                    {showVideos && module.videos.map(renderVideo)}
+                    {showMaterials && module.materials.map(renderMaterial)}
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
       </ScrollView>
 
-      {/* Course Selection Dropdown Modal */}
-      <Modal
-        visible={courseModalVisible}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setCourseModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setCourseModalVisible(false)}
-        >
-          <TouchableWithoutFeedback>
-            <View style={[styles.dropdownModalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
-              <View style={[styles.dropdownHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
-                <Text style={[styles.dropdownTitle, isDark && { color: '#FFFFFF' }]}>Select Course</Text>
-                <TouchableOpacity
-                  onPress={() => setCourseModalVisible(false)}
-                  style={styles.closeBtn}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Icon name="close" size={20} color={isDark ? '#94A3B8' : '#71717A'} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
-                {batches.length > 0 ? (
-                  batches.map((batch) => {
-                    const isSelected = batch._id === activeBatchId;
-                    const title = batch.course_id?.title || batch.name || 'Course';
-                    const batchCode = batch.batch_code || batch.code || '';
-                    return (
-                      <TouchableOpacity
-                        key={batch._id}
-                        style={[
-                          styles.courseOptionItem,
-                          isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.08)' },
-                          isSelected && (isDark ? { backgroundColor: 'rgba(249, 115, 22, 0.18)', borderColor: '#F97316' } : styles.courseOptionItemSelected),
-                        ]}
-                        activeOpacity={0.7}
-                        onPress={() => {
-                          handleBatchSelect(batch._id);
-                          setCourseModalVisible(false);
-                        }}
-                      >
-                        <View style={{ flex: 1, marginRight: 8 }}>
-                          <Text
-                            style={[
-                              styles.courseOptionText,
-                              isDark && { color: '#FFFFFF' },
-                              isSelected && styles.courseOptionTextSelected,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {title}
-                          </Text>
-                          {batchCode ? (
-                            <Text style={[styles.courseOptionSub, isDark && { color: '#94A3B8' }]}>Batch: {batchCode}</Text>
-                          ) : null}
-                        </View>
-                        {isSelected ? (
-                          <View style={styles.activeCheckCircle}>
-                            <Icon name="checkmark" size={14} color="#FFFFFF" />
-                          </View>
-                        ) : (
-                          <Icon name="chevron-forward" size={16} color={isDark ? '#64748B' : '#D4D4D8'} />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })
-                ) : (
-                  <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                    <Text style={{ color: isDark ? '#94A3B8' : '#71717A', fontSize: 14 }}>No courses available</Text>
-                  </View>
-                )}
-              </ScrollView>
+      <Modal visible={courseModalVisible} transparent animationType="fade" onRequestClose={() => setCourseModalVisible(false)}>
+        <View style={[styles.modalOverlay, { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setCourseModalVisible(false)} accessibilityRole="button" accessibilityLabel="Close course picker" />
+          <View accessibilityViewIsModal style={[styles.courseDialog, { backgroundColor: theme.surface, borderColor: theme.line }]}>
+            <View style={[styles.dialogHeader, { borderBottomColor: theme.line }]}>
+              <Text accessibilityRole="header" style={[styles.dialogTitle, { color: theme.text }]}>Select course</Text>
+              <TouchableOpacity onPress={() => setCourseModalVisible(false)} accessibilityRole="button" accessibilityLabel="Close course picker" style={styles.closeButton}><Icon name="close" size={22} color={theme.text} /></TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
-        </TouchableOpacity>
+            <ScrollView style={styles.dialogScroll} contentContainerStyle={styles.courseOptions}>
+              {batches.map((batch, index) => {
+                const selected = batch._id === activeBatchId;
+                return (
+                  <TouchableOpacity
+                    key={batch._id}
+                    onPress={() => selectBatch(batch._id)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
+                    activeOpacity={0.65}
+                    style={[styles.courseOption, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line }]}
+                  >
+                    <View style={styles.itemContent}>
+                      <Text style={[styles.courseTitle, { color: theme.text }]}>{batch.course_id?.title || batch.name || 'Course'}</Text>
+                      {!!batch.name && <Text style={[styles.batchName, { color: theme.muted }]}>{batch.name}</Text>}
+                    </View>
+                    {selected && <Icon name="checkmark" size={22} color={COLORS.secondary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  topNotificationBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xs,
-  },
-  bellBtn: {
-    padding: SPACING.xs,
-    position: 'relative',
-  },
-  badgeDot: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-  },
-
-  scrollContent: {
-    flex: 1,
-  },
-  contentContainerStyle: {
-    paddingBottom: 110,
-  },
-  stickyHeader: {
-    backgroundColor: '#F8F9FA',
-    paddingHorizontal: SPACING.lg,
-    zIndex: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  topControlsContainer: {
-    paddingHorizontal: 20,
-    marginTop: 14,
-    maxWidth: 1100,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  contentPadding: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    maxWidth: 1100,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  mainTitle: {
-    fontSize: 28,
-    ...FONTS.extraBold,
-    color: '#18181B',
-    marginBottom: 16,
-  },
-
-  compactCourseSelect: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
-    ...Platform.select({
-      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
-    }),
-  },
-  courseSelectLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
-  },
-  compactCourseTitle: {
-    fontSize: 14.5,
-    ...FONTS.extraBold,
-    color: '#18181B',
-  },
-  compactFilterRow: {
-    flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 26,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 0,
-    ...Platform.select({
-      web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
-      default: {}
-    }),
-  },
-  compactFilterPill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-    borderRadius: 22,
-  },
-  compactFilterPillActive: {
-    backgroundColor: '#0F172A',
-    ...Platform.select({
-      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
-      default: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.22,
-        shadowRadius: 6,
-        elevation: 4,
-      }
-    }),
-  },
-  compactFilterText: {
-    fontSize: 12.5,
-    ...FONTS.medium,
-    color: '#64748B',
-  },
-  compactFilterTextActive: {
-    color: '#FFFFFF',
-    ...FONTS.bold,
-  },
-
-  /* DROPDOWN MODAL STYLES (MATCHING DESIGN SCREENSHOT EXACTLY) */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 22,
-  },
-  dropdownModalCard: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
-    ...Platform.select({
-      web: { boxShadow: '0px 12px 36px rgba(0, 0, 0, 0.16)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.16, shadowRadius: 24, elevation: 10 },
-    }),
-  },
-  dropdownHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 16,
-    marginBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F4F4F6',
-  },
-  dropdownTitle: {
-    fontSize: 18,
-    ...FONTS.extraBold,
-    color: '#18181B',
-  },
-  closeBtn: {
-    padding: 4,
-  },
-  courseOptionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 18,
-    marginBottom: 10,
-    backgroundColor: '#FAFAFA',
-    borderWidth: 1.5,
-    borderColor: '#F3F4F6',
-  },
-  courseOptionItemSelected: {
-    backgroundColor: '#FFF5EB',
-    borderColor: '#F58220',
-  },
-  courseOptionText: {
-    fontSize: 14.5,
-    ...FONTS.bold,
-    color: '#374151',
-  },
-  courseOptionTextSelected: {
-    color: '#F58220',
-  },
-  courseOptionSub: {
-    fontSize: 12,
-    ...FONTS.medium,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  activeCheckCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F58220',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  contentSectionGroup: {
-    marginBottom: 10,
-  },
-  sectionHeadingTitle: {
-    fontSize: 18,
-    ...FONTS.extraBold,
-    color: '#18181B',
-    marginBottom: 14,
-  },
-
-  /* MODULE SECTION & ACCORDION */
-  moduleSectionBox: {
-    marginBottom: 14,
-  },
-  moduleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
-    ...Platform.select({
-      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.03)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 },
-    }),
-  },
-  moduleTag: {
-    fontSize: 11.5,
-    color: '#B45309',
-    ...FONTS.bold,
-    letterSpacing: 0.6,
-    marginBottom: 4,
-  },
-  moduleTitle: {
-    fontSize: 17.5,
-    color: '#1A1A1A',
-    ...FONTS.extraBold,
-  },
-  moduleMetaBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
-  },
-  moduleMetaPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(249, 115, 22, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  moduleMetaPillText: {
-    fontSize: 10.5,
-    ...FONTS.bold,
-    color: '#EA580C',
-  },
-  moduleVideosContainer: {
-    paddingTop: 4,
-  },
-  modulePdfsContainer: {
-    marginTop: 8,
-    marginBottom: 6,
-  },
-  moduleSubHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  moduleSubHeaderTitle: {
-    fontSize: 13,
-    ...FONTS.bold,
-    color: '#475569',
-  },
-
-  /* YOUTUBE STYLE FULL THUMBNAIL VIDEO CARDS */
-  youtubeVideoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
-    ...Platform.select({
-      web: { boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.06)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
-    }),
-  },
-  widescreenThumbWrapper: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-    backgroundColor: '#18181B',
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  widescreenThumbImage: {
-    width: '100%',
-    height: '100%',
-  },
-  placeholderThumbBox: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#27272A',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  thumbPlayOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  youtubePlayCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#F58220',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Platform.select({
-      web: { boxShadow: '0px 4px 12px rgba(245, 130, 32, 0.5)' },
-      default: { shadowColor: '#F58220', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 8, elevation: 4 },
-    }),
-  },
-  durationPill: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  durationPillText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    ...FONTS.bold,
-  },
-  youtubeVideoMeta: {
-    padding: 16,
-  },
-  metaHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  topicBadgePill: {
-    backgroundColor: '#FFF3E6',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  topicBadgeText: {
-    fontSize: 10,
-    ...FONTS.extraBold,
-    color: '#F58220',
-    letterSpacing: 0.5,
-  },
-  pdfBadgePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  pdfBadgeText: {
-    fontSize: 11,
-    ...FONTS.bold,
-    color: '#B45309',
-  },
-  youtubeVideoTitle: {
-    fontSize: 16.5,
-    ...FONTS.extraBold,
-    color: '#18181B',
-    lineHeight: 23,
-    marginBottom: 6,
-  },
-  youtubeChannelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  youtubeChannelText: {
-    fontSize: 12,
-    color: '#71717A',
-    ...FONTS.medium,
-  },
-
-  /* MATERIALS LIST */
-  materialsListContainer: {
-    gap: 12,
-  },
-  materialCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    ...SHADOW.sm,
-  },
-  materialIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#FFF3E6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  materialInfo: {
-    flex: 1,
-    marginRight: 10,
-  },
-  materialTitle: {
-    fontSize: 15.5,
-    ...FONTS.bold,
-    color: '#0F172A',
-    marginBottom: 2,
-  },
-  materialTopic: {
-    fontSize: 12,
-    color: '#64748B',
-    ...FONTS.medium,
-  },
-  materialDate: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  openPdfBtnWrapper: {
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  openPdfBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  openPdfBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12.5,
-    ...FONTS.bold,
-  },
-  emptyMaterialsBox: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  emptyStateText: {
-    color: '#888888',
-    ...FONTS.regular,
-    textAlign: 'center',
-    marginTop: 12,
-    fontSize: 14,
-  },
-  pendingBatchCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    marginVertical: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 130, 32, 0.25)',
-    ...Platform.select({
-      web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
-    }),
-  },
-  pendingBatchCardDark: {
-    backgroundColor: '#141B26',
-    borderColor: 'rgba(245, 130, 32, 0.3)',
-  },
-  pendingBatchIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(245, 130, 32, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  pendingBatchTitle: {
-    fontSize: 16,
-    ...FONTS.bold,
-    color: '#0F172A',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  pendingBatchDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#64748B',
-    textAlign: 'center',
-  },
+  container: { flex: 1 },
+  headerShell: { width: '100%', maxWidth: 1040, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 16 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
+  pageTitle: { ...FONTS.semiBold, fontSize: 28, lineHeight: 38, letterSpacing: -0.8 },
+  notificationButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -10 },
+  notificationDot: { position: 'absolute', width: 5, height: 5, borderRadius: 3, top: 9, right: 10, backgroundColor: COLORS.secondary },
+  courseSelector: { flexDirection: 'row', alignItems: 'center', gap: 16, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, minHeight: 68, marginBottom: 18 },
+  courseTitle: { ...FONTS.semiBold, fontSize: 15, lineHeight: 22, letterSpacing: -0.2 },
+  batchName: { ...FONTS.regular, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  filterRow: { flexDirection: 'row', gap: 24, borderBottomWidth: StyleSheet.hairlineWidth },
+  filterTab: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 48, borderBottomWidth: 2 },
+  filterLabel: { ...FONTS.regular, fontSize: 13 },
+  selectedFilter: { ...FONTS.semiBold },
+  filterCount: { ...FONTS.regular, fontSize: 11 },
+  scroll: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
+  contentShell: { width: '100%', maxWidth: 1040, alignSelf: 'center', paddingHorizontal: 24 },
+  moduleSection: { borderBottomWidth: StyleSheet.hairlineWidth },
+  moduleHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 24 },
+  moduleNumber: { ...FONTS.medium, fontSize: 12, width: 24, color: COLORS.secondary, alignSelf: 'flex-start', marginTop: 4 },
+  moduleTitle: { ...FONTS.semiBold, fontSize: 17, lineHeight: 25, letterSpacing: -0.3 },
+  moduleBody: { paddingBottom: 12 },
+  moduleBodyWide: { paddingLeft: 40 },
+  videoRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 20, borderTopWidth: StyleSheet.hairlineWidth },
+  thumbnail: { width: 96, aspectRatio: 16 / 10, backgroundColor: COLORS.primary, borderRadius: 7, overflow: 'hidden' },
+  thumbnailWide: { width: 144 },
+  thumbnailImage: { width: '100%', height: '100%' },
+  playOverlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0, 0, 0, 0.16)', alignItems: 'center', justifyContent: 'center' },
+  itemContent: { flex: 1, minWidth: 0 },
+  itemTitle: { ...FONTS.semiBold, fontSize: 15, lineHeight: 23, letterSpacing: -0.2 },
+  itemMetadata: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4, marginTop: 7 },
+  metadataText: { ...FONTS.regular, fontSize: 11, lineHeight: 17 },
+  notesButton: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 36, alignSelf: 'flex-start', marginTop: 2 },
+  notesText: { ...FONTS.semiBold, fontSize: 12, color: COLORS.secondary },
+  materialRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 22, borderTopWidth: StyleSheet.hairlineWidth },
+  loading: { paddingVertical: 64, alignItems: 'center' },
+  emptyState: { paddingVertical: 64, gap: 10 },
+  emptyTitle: { ...FONTS.semiBold, fontSize: 17, lineHeight: 25 },
+  emptyText: { ...FONTS.regular, fontSize: 13, lineHeight: 21 },
+  errorRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  retryButton: { minHeight: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.45)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
+  courseDialog: { width: '100%', maxWidth: 560, maxHeight: '80%', borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
+  dialogHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 24, paddingRight: 12, minHeight: 64, borderBottomWidth: StyleSheet.hairlineWidth },
+  dialogTitle: { ...FONTS.semiBold, fontSize: 16 },
+  closeButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  dialogScroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
+  courseOptions: { paddingHorizontal: 24 },
+  courseOption: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 20 },
 });

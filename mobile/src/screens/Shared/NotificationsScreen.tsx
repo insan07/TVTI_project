@@ -13,11 +13,11 @@ import api from '../../services/api';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ScreenHeader from '../../components/shared/ScreenHeader';
-import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
 import { AuthContext } from '../../context/AuthContext';
 import { FONTS } from '../../config/theme';
+import { communicationTheme, COMMUNICATION_ACCENT } from '../../components/shared/communicationTheme';
+import { notificationText } from '../../utils/notificationText';
 
 type FilterTab = 'all' | 'unread' | 'practical' | 'academic';
 
@@ -47,6 +47,7 @@ const ACADEMIC_TYPES = new Set([
 
 export default function NotificationsScreen() {
   const { isDark } = useTheme();
+  const theme = communicationTheme(isDark);
   const authContext = useContext(AuthContext) as any;
   const userRole = String(authContext?.userRole || authContext?.user?.role || 'student').toLowerCase();
 
@@ -236,60 +237,30 @@ export default function NotificationsScreen() {
     }
   };
 
-  const getTypeMeta = (type: string) => {
-    switch (type) {
-      case 'practice_slots':
-        return { name: 'calendar', color: '#F58220', label: 'Practice Slot', actionText: 'View Slots' };
-      case 'session_booked':
-      case 'booking_confirmed':
-        return { name: 'checkmark-circle', color: '#10B981', label: 'Slot Booking', actionText: 'View Schedule' };
-      case 'booking_rejected':
-      case 'booking_cancelled':
-        return { name: 'close-circle', color: '#EF4444', label: 'Booking Cancellation', actionText: 'Manage Slot' };
-      case 'cancellation_approved':
-        return { name: 'checkmark-done-circle', color: '#10B981', label: 'Cancellation Approved', actionText: 'View Schedule' };
-      case 'cancellation_rejected':
-        return { name: 'alert-circle', color: '#F59E0B', label: 'Cancellation Declined', actionText: 'View Schedule' };
-      case 'schedule_change':
-        return { name: 'time', color: '#8B5CF6', label: 'Schedule Update', actionText: 'View Schedule' };
-      case 'batch_assigned':
-      case 'student_enrolled':
-        return { name: 'people', color: '#06B6D4', label: 'Batch Enrollment', actionText: 'Open Batch' };
-      case 'new_video':
-      case 'video_uploaded':
-        return { name: 'videocam', color: '#2563EB', label: 'Video Lecture', actionText: 'Watch Video' };
-      case 'material':
-      case 'material_uploaded':
-        return { name: 'document-text', color: '#6366F1', label: 'Study Material', actionText: 'Open Material' };
-      case 'announcement':
-        return { name: 'megaphone', color: '#F58220', label: 'Announcement', actionText: 'View Notice' };
-      case 'new_result':
-      case 'result_published':
-        return { name: 'ribbon', color: '#10B981', label: 'Exam Result', actionText: 'View Result' };
-      case 'certificate':
-        return { name: 'school', color: '#D97706', label: 'Certification', actionText: 'View Transcript' };
-      case 'payment':
-        return { name: 'card', color: '#10B981', label: 'Fee & Payment', actionText: 'View Payment' };
-      case 'new_application':
-      case 'application_update':
-        return { name: 'person-add', color: '#EC4899', label: 'Admission', actionText: 'View Details' };
-      case 'account_status':
-      case 'admin_alert':
-        return { name: 'shield-checkmark', color: '#3B82F6', label: 'Account Alert', actionText: 'View Account' };
-      default:
-        return { name: 'notifications', color: '#64748B', label: 'General', actionText: 'Open' };
-    }
+  const getTypeLabel = (type: string) => {
+    const value = String(type || '').toLowerCase();
+    if (PRACTICAL_TYPES.has(value)) return 'Practical';
+    if (['batch_assigned', 'student_enrolled'].includes(value)) return 'Enrollment';
+    if (['new_video', 'video_uploaded'].includes(value)) return 'Video';
+    if (['material', 'material_uploaded'].includes(value)) return 'Material';
+    if (value === 'announcement') return 'Announcement';
+    if (['new_result', 'result_published'].includes(value)) return 'Result';
+    if (value === 'certificate') return 'Certificate';
+    if (value === 'payment') return 'Payment';
+    if (['new_application', 'application_update'].includes(value)) return 'Admission';
+    if (['account_status', 'admin_alert'].includes(value)) return 'Account';
+    return 'Update';
   };
 
   const formatTime = (dateString: string) => {
-    if (!dateString) return 'Just now';
     const date = new Date(dateString);
-    const now = new Date();
-    const diff = Math.floor((now.getTime() - date.getTime()) / 60000);
-    if (diff < 1) return 'Just now';
-    if (diff < 60) return `${diff}m ago`;
-    if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
-    return `${Math.floor(diff / 1440)}d ago`;
+    if (!dateString || Number.isNaN(date.getTime())) return '';
+    const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+    if (minutes < 1) return 'Now';
+    if (minutes < 60) return `${minutes}m`;
+    if (minutes < 1440) return `${Math.floor(minutes / 60)}h`;
+    if (minutes < 10080) return `${Math.floor(minutes / 1440)}d`;
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   };
 
   const filteredNotifications = useMemo(() => {
@@ -307,137 +278,123 @@ export default function NotificationsScreen() {
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  const renderItem = ({ item }: { item: any }) => {
-    const meta = getTypeMeta(item.type);
-    return (
+  const renderItem = ({ item }: { item: any }) => (
+    <View style={[styles.notificationRow, { borderBottomColor: theme.line }]}>
       <TouchableOpacity
-        style={[
-          styles.card,
-          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
-          !item.is_read && (isDark ? styles.unreadCardDark : styles.unreadCard),
-        ]}
+        style={styles.notificationContent}
         onPress={() => handleNotificationPress(item)}
-        activeOpacity={0.75}
+        activeOpacity={0.65}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.is_read ? '' : 'Unread: '}${notificationText(item.title)}`}
       >
-        <View style={[styles.iconBox, { backgroundColor: `${meta.color}18` }]}>
-          <Icon name={meta.name as any} size={22} color={meta.color} />
+        <View style={styles.readIndicator}>
+          {!item.is_read && <View style={styles.unreadDot} />}
         </View>
         <View style={styles.info}>
-          <View style={styles.topMetaRow}>
-            <View style={[styles.categoryBadge, { backgroundColor: `${meta.color}18` }]}>
-              <Text style={[styles.categoryBadgeText, { color: meta.color }]}>{meta.label}</Text>
-            </View>
-            <Text style={[styles.time, isDark && { color: '#64748B' }]}>{formatTime(item.createdAt)}</Text>
+          <View style={styles.metadata}>
+            <Text style={[styles.metadataText, { color: theme.muted }]}>{getTypeLabel(item.type)}</Text>
+            <Text style={[styles.metadataText, { color: theme.muted }]}>{formatTime(item.createdAt)}</Text>
           </View>
-          <Text
-            style={[
-              styles.title,
-              isDark && { color: '#FFFFFF' },
-              !item.is_read && (isDark ? { color: '#FFA05C' } : styles.unreadText),
-            ]}
-          >
-            {item.title}
+          <Text style={[styles.title, { color: theme.text }, !item.is_read && styles.unreadTitle]} numberOfLines={2}>
+            {notificationText(item.title)}
           </Text>
-          <Text style={[styles.message, isDark && { color: '#94A3B8' }]} numberOfLines={2}>
-            {item.message}
-          </Text>
-          <View style={styles.bottomActionRow}>
-            <View style={styles.actionLinkRow}>
-              <Text style={[styles.actionLinkText, { color: meta.color }]}>{meta.actionText}</Text>
-              <Icon name="arrow-forward" size={12} color={meta.color} />
-            </View>
-            <TouchableOpacity
-              onPress={() => deleteNotification(item._id)}
-              style={styles.deleteIconBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Icon name="trash-outline" size={15} color={isDark ? '#64748B' : '#94A3B8'} />
-            </TouchableOpacity>
-          </View>
+          <Text style={[styles.message, { color: theme.muted }]} numberOfLines={2}>{notificationText(item.message)}</Text>
         </View>
-        {!item.is_read && <View style={styles.unreadDot} />}
       </TouchableOpacity>
-    );
+      <TouchableOpacity
+        onPress={() => deleteNotification(item._id)}
+        style={styles.deleteButton}
+        accessibilityRole="button"
+        accessibilityLabel={`Delete notification: ${notificationText(item.title)}`}
+        activeOpacity={0.6}
+      >
+        <Icon name="close" size={18} color={theme.muted} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const emptyLabels: Record<FilterTab, string> = {
+    all: 'No notifications yet.',
+    unread: 'Nothing unread.',
+    practical: 'No practical updates.',
+    academic: 'No academic updates.',
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
-      <ScreenBackground />
-      <ScreenHeader
-        title="Notifications"
-        subtitle={unreadCount > 0 ? `${unreadCount} unread update${unreadCount !== 1 ? 's' : ''}` : 'All caught up'}
-        showBack={true}
-        rightElement={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
+      <View style={styles.pageHeader}>
+        <View style={styles.utilityBar}>
+          <TouchableOpacity
+            onPress={() => {
+              if (navigation.canGoBack()) navigation.goBack();
+              else navigation.navigate(userRole === 'admin' ? 'AdminApp' : userRole === 'instructor' ? 'InstructorApp' : 'StudentApp', { screen: 'Home' });
+            }}
+            style={styles.backButton}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Icon name="arrow-back" size={23} color={theme.text} />
+          </TouchableOpacity>
+          <View style={styles.utilityActions}>
             {unreadCount > 0 && (
-              <TouchableOpacity onPress={markAllAsRead} style={styles.markReadBtn} activeOpacity={0.7}>
-                <Text style={styles.markReadText}>Mark all read</Text>
+              <TouchableOpacity onPress={markAllAsRead} style={styles.utilityButton} accessibilityRole="button" accessibilityLabel="Mark all notifications as read">
+                <Icon name="checkmark-done-outline" size={23} color={COMMUNICATION_ACCENT} />
               </TouchableOpacity>
             )}
             {notifications.length > 0 && (
-              <TouchableOpacity
-                onPress={clearAllNotifications}
-                style={[styles.clearBtn, isDark && { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
-                activeOpacity={0.7}
-              >
-                <Icon name="trash-outline" size={14} color="#EF4444" />
+              <TouchableOpacity onPress={clearAllNotifications} style={styles.utilityButton} accessibilityRole="button" accessibilityLabel="Clear all notifications">
+                <Icon name="trash-outline" size={20} color={theme.muted} />
               </TouchableOpacity>
             )}
           </View>
-        }
-      />
-
-      {/* Filter Bar */}
-      <View style={styles.filterBarWrapper}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterBarContent}>
+        </View>
+        <View style={styles.titleRow}>
+          <Text accessibilityRole="header" style={[styles.pageTitle, { color: theme.text }]}>Notifications</Text>
+          {unreadCount > 0 && <Text style={[styles.unreadCount, { color: theme.muted }]}>{unreadCount} unread</Text>}
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.line }}
+          contentContainerStyle={styles.filters}
+        >
           {[
-            { key: 'all', label: `All (${notifications.length})` },
-            { key: 'unread', label: `Unread (${unreadCount})` },
-            { key: 'practical', label: 'Practical Slots' },
-            { key: 'academic', label: 'Courses & Notices' },
+            { key: 'all', label: 'All' },
+            { key: 'unread', label: 'Unread' },
+            { key: 'practical', label: 'Practical' },
+            { key: 'academic', label: 'Academic' },
           ].map(tab => {
-            const isSelected = activeFilter === tab.key;
+            const selected = activeFilter === tab.key;
             return (
               <TouchableOpacity
                 key={tab.key}
-                style={[
-                  styles.filterChip,
-                  isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255,255,255,0.08)' },
-                  isSelected && styles.filterChipActive,
-                ]}
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
                 onPress={() => setActiveFilter(tab.key as FilterTab)}
-                activeOpacity={0.75}
+                style={[styles.filterTab, { borderBottomColor: selected ? COMMUNICATION_ACCENT : 'transparent' }]}
+                activeOpacity={0.7}
               >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    isDark && { color: '#94A3B8' },
-                    isSelected && styles.filterChipTextActive,
-                  ]}
-                >
-                  {tab.label}
-                </Text>
+                <Text style={[styles.filterLabel, { color: selected ? theme.text : theme.muted }, selected && styles.filterLabelSelected]}>{tab.label}</Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
       </View>
-
       {loading ? (
-        <ActivityIndicator size="large" color="#F58220" style={{ marginTop: 50 }} />
+        <View style={styles.loading}><ActivityIndicator size="large" color={COMMUNICATION_ACCENT} /></View>
       ) : (
         <FlatList
+          style={styles.list}
           data={filteredNotifications}
           renderItem={renderItem}
-          keyExtractor={i => i._id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F58220']} />}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 80 }}
+          keyExtractor={item => item._id}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COMMUNICATION_ACCENT]} tintColor={COMMUNICATION_ACCENT} />}
+          contentContainerStyle={styles.listContent}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Icon name="notifications-outline" size={48} color={isDark ? '#64748B' : '#9CA3AF'} />
-              <Text style={[styles.emptyText, isDark && { color: '#94A3B8' }]}>
-                {activeFilter === 'all' ? 'No notifications yet.' : `No ${activeFilter} notifications found.`}
-              </Text>
+            <View style={styles.empty}>
+              <Icon name="notifications-outline" size={28} color={theme.muted} />
+              <Text style={[styles.emptyText, { color: theme.muted }]}>{emptyLabels[activeFilter]}</Text>
             </View>
           }
         />
@@ -447,163 +404,33 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  markReadBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 11,
-    backgroundColor: 'rgba(245, 130, 32, 0.1)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 130, 32, 0.25)',
-  },
-  markReadText: {
-    color: '#EA580C',
-    fontSize: 12,
-    ...FONTS.semiBold,
-  },
-  clearBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  filterBarWrapper: {
-    paddingTop: 14,
-    paddingBottom: 0,
-  },
-  filterBarContent: {
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  filterChipActive: {
-    backgroundColor: '#F58220',
-    borderColor: '#F58220',
-  },
-  filterChipText: {
-    fontSize: 12,
-    color: '#475569',
-    ...FONTS.semiBold,
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
-  },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    padding: 15,
-    marginBottom: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignItems: 'flex-start',
-    elevation: 1,
-  },
-  unreadCard: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FED7AA',
-  },
-  unreadCardDark: {
-    backgroundColor: 'rgba(249, 115, 22, 0.12)',
-    borderColor: 'rgba(249, 115, 22, 0.35)',
-  },
-  iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 13,
-    marginTop: 2,
-  },
-  info: {
-    flex: 1,
-  },
-  topMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  categoryBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  categoryBadgeText: {
-    fontSize: 10,
-    ...FONTS.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  title: {
-    fontSize: 15,
-    color: '#0F172A',
-    ...FONTS.semiBold,
-  },
-  unreadText: {
-    ...FONTS.bold,
-    color: '#0F172A',
-  },
-  message: {
-    color: '#64748B',
-    fontSize: 13,
-    marginTop: 3,
-    ...FONTS.regular,
-    lineHeight: 18,
-  },
-  time: {
-    color: '#94A3B8',
-    fontSize: 11,
-    ...FONTS.medium,
-  },
-  bottomActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  actionLinkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  actionLinkText: {
-    fontSize: 12,
-    ...FONTS.semiBold,
-  },
-  deleteIconBtn: {
-    padding: 2,
-  },
-  unreadDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    backgroundColor: '#F58220',
-    marginLeft: 8,
-    marginTop: 6,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 60,
-  },
-  emptyText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#94A3B8',
-    ...FONTS.regular,
-  },
+  container: { flex: 1 },
+  pageHeader: { width: '100%', maxWidth: 860, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 4 },
+  utilityBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 48 },
+  backButton: { width: 44, height: 44, marginLeft: -12, alignItems: 'center', justifyContent: 'center' },
+  utilityActions: { flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: -12 },
+  utilityButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 12, marginTop: 8, marginBottom: 16 },
+  pageTitle: { ...FONTS.semiBold, fontSize: 28, lineHeight: 38, letterSpacing: -0.8, flexGrow: 1 },
+  unreadCount: { ...FONTS.regular, fontSize: 12, lineHeight: 18 },
+  filters: { flexDirection: 'row', gap: 24 },
+  filterTab: { minHeight: 46, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 2 },
+  filterLabel: { ...FONTS.regular, fontSize: 13 },
+  filterLabelSelected: { ...FONTS.semiBold },
+  list: { flex: 1, width: '100%', maxWidth: 860, alignSelf: 'center' },
+  listContent: { paddingHorizontal: 24, paddingBottom: 40, paddingTop: 4 },
+  notificationRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth },
+  notificationContent: { flex: 1, minWidth: 0, flexDirection: 'row', gap: 10, paddingVertical: 22 },
+  readIndicator: { width: 6, paddingTop: 31, alignItems: 'center' },
+  unreadDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: COMMUNICATION_ACCENT },
+  info: { flex: 1, minWidth: 0 },
+  metadata: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, marginBottom: 7 },
+  metadataText: { ...FONTS.regular, fontSize: 11, lineHeight: 16 },
+  title: { ...FONTS.medium, fontSize: 15, lineHeight: 22, letterSpacing: -0.15 },
+  unreadTitle: { ...FONTS.semiBold },
+  message: { ...FONTS.regular, fontSize: 13, lineHeight: 20, marginTop: 5 },
+  deleteButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -12 },
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  empty: { alignItems: 'center', paddingVertical: 80, gap: 14 },
+  emptyText: { ...FONTS.regular, fontSize: 14, textAlign: 'center' },
 });
