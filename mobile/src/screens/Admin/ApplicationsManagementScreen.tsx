@@ -11,7 +11,8 @@ import {
   ScrollView,
   Platform,
   TextInput,
-  Share
+  Share,
+  Keyboard
 } from 'react-native';
 import { Image } from 'expo-image';
 import api from '../../services/api';
@@ -49,7 +50,7 @@ export default function ApplicationsManagementScreen({
   const design = usersSectionTheme(isDark);
   const styles = useMemo(() => createStyles(usersSectionTheme(isDark)), [isDark]);
   const [feedback, setFeedback] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info'; onOk?: () => void }>({ visible: false, title: '', message: '', type: 'info' });
-  const showFeedback = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info', onOk?: () => void) => setFeedback({ visible: true, title, message, type, onOk });
+  const showFeedback = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info', onOk?: () => void) => { Keyboard.dismiss(); setFeedback({ visible: true, title, message, type, onOk }); };
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -298,6 +299,7 @@ export default function ApplicationsManagementScreen({
       return;
     }
     if (assignedBatchIds.length !== assignedCourseIds.length) { showFeedback('Batch required', 'Select one batch for every selected course.'); return; }
+    Keyboard.dismiss();
     setReviewModalVisible(false);
     setConfirmModal({
       visible: true,
@@ -314,6 +316,7 @@ export default function ApplicationsManagementScreen({
 
   const handlePromptReject = () => {
     if (!selectedAppForReview) return;
+    Keyboard.dismiss();
     setReviewModalVisible(false);
     setConfirmModal({
       visible: true,
@@ -357,7 +360,7 @@ export default function ApplicationsManagementScreen({
         setCredentialsModalVisible(true);
       } else {
         const msg = 'Application approved successfully.';
-        showFeedback('Success', msg, 'success', () => { onApproved?.(); onBack?.(); });
+        showFeedback('Success', msg, 'success', () => { setSelectedAppForReview(null); onApproved?.(); onBack?.(); });
       }
 
       fetchPendingApplications();
@@ -372,6 +375,7 @@ export default function ApplicationsManagementScreen({
 
   const handlePromptResendCredentials = () => {
     if (!selectedAppForReview || resendingCredentials) return;
+    Keyboard.dismiss();
     const applicationId = selectedAppForReview._id;
     setReviewModalVisible(false);
     setConfirmModal({
@@ -411,9 +415,8 @@ export default function ApplicationsManagementScreen({
       });
       setRejectReasonModalVisible(false);
       setReviewModalVisible(false);
-      setSelectedAppForReview(null);
       const msg = response.data.email_sent ? 'Application rejected. The rejection reason was emailed to the student.' : 'Application rejected. The email could not be delivered.';
-      showFeedback('Success', msg, 'success', () => { onApproved?.(); onBack?.(); });
+      showFeedback('Success', msg, 'success', () => { setSelectedAppForReview(null); onApproved?.(); onBack?.(); });
       fetchPendingApplications();
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Failed to reject application';
@@ -649,20 +652,22 @@ export default function ApplicationsManagementScreen({
     }
   };
 
+  const handleCloseApplicationFlow = () => {
+    if (approving || resendingCredentials || rejectingId) return;
+    if (confirmModal.visible) { setConfirmModal(current => ({ ...current, visible: false })); setReviewModalVisible(true); return; }
+    if (feedback.visible) { const action = feedback.onOk; setFeedback(current => ({ ...current, visible: false })); if (action) action(); else setReviewModalVisible(true); return; }
+    if (slipZoomModalVisible) { setSlipZoomModalVisible(false); return; }
+    if (rejectReasonModalVisible) { setRejectReasonModalVisible(false); setReviewModalVisible(true); return; }
+    const finished = credentialsModalVisible;
+    setCredentialsModalVisible(false); setReviewModalVisible(false); setSelectedAppForReview(null);
+    if (finished) onApproved?.(); onBack?.();
+  };
+
   const renderContentBody = () => {
     if (selectedAppForReview) {
       return (
-        <>
-          <Modal
-            visible={Boolean(selectedAppForReview) && reviewModalVisible}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={() => {
-              setSelectedAppForReview(null);
-              setReviewModalVisible(false);
-              if (onBack) onBack();
-            }}
-          >
+        <Modal visible transparent animationType="slide" onRequestClose={handleCloseApplicationFlow}><View style={{ flex: 1 }}>
+          <View style={[StyleSheet.absoluteFill, { display: (Boolean(selectedAppForReview) && reviewModalVisible) ? 'flex' : 'none' }]}>
             <View style={styles.modalOverlay}>
               <View style={[styles.modalCard, { height: '88%', width: '92%', maxWidth: 650, padding: 0, overflow: 'hidden' }]}>
                 <View style={{ flex: 1, backgroundColor: design.surface }}>
@@ -938,10 +943,10 @@ export default function ApplicationsManagementScreen({
               </View>
             </View>
           </View>
-        </Modal>
+        </View>
 
           {/* Slip Image Full Screen Zoom Modal */}
-          <Modal visible={slipZoomModalVisible} animationType="fade" transparent={true} onRequestClose={() => setSlipZoomModalVisible(false)}>
+          <View style={[StyleSheet.absoluteFill, { display: (slipZoomModalVisible) ? 'flex' : 'none' }]}>
             <View style={styles.zoomModalOverlay}>
               <TouchableOpacity accessibilityRole="button" style={styles.zoomCloseBtn} onPress={() => setSlipZoomModalVisible(false)}>
                 <Icon name="close-circle" size={32} color="#FFFFFF" />
@@ -950,10 +955,10 @@ export default function ApplicationsManagementScreen({
                 <Image source={{ uri: selectedAppForReview.payment_slip }} style={styles.fullZoomImg} contentFit="contain" />
               )}
             </View>
-          </Modal>
+          </View>
 
           {/* GENERATED CREDENTIALS MODAL */}
-          <Modal visible={credentialsModalVisible} animationType="slide" transparent={true} onRequestClose={() => { setCredentialsModalVisible(false); setSelectedAppForReview(null); setReviewModalVisible(false); onApproved?.(); onBack?.(); }}>
+          <View style={[StyleSheet.absoluteFill, { display: (credentialsModalVisible) ? 'flex' : 'none' }]}>
             <View style={styles.modalOverlay}>
               <View style={styles.credentialsModalCard}>
                 <View style={styles.successIconCircle}>
@@ -1001,10 +1006,10 @@ export default function ApplicationsManagementScreen({
                 </TouchableOpacity>
               </View>
             </View>
-          </Modal>
+          </View>
 
           {/* REJECTION REASON INPUT MODAL */}
-          <Modal visible={rejectReasonModalVisible} animationType="fade" transparent={true} onRequestClose={() => setRejectReasonModalVisible(false)}>
+          <View style={[StyleSheet.absoluteFill, { display: (rejectReasonModalVisible) ? 'flex' : 'none' }]}>
             <View style={styles.modalOverlay}>
               <View style={styles.rejectModalCard}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -1017,7 +1022,7 @@ export default function ApplicationsManagementScreen({
                       <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 12, color: design.muted }}>{selectedAppForReview?.full_name}</Text>
                     </View>
                   </View>
-                  <TouchableOpacity accessibilityRole="button" onPress={() => setRejectReasonModalVisible(false)}>
+                  <TouchableOpacity accessibilityRole="button" onPress={() => { setRejectReasonModalVisible(false); setReviewModalVisible(true); }}>
                     <Icon name="close" size={22} color={design.muted} />
                   </TouchableOpacity>
                 </View>
@@ -1063,7 +1068,7 @@ export default function ApplicationsManagementScreen({
 
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
                   <TouchableOpacity accessibilityRole="button"                     style={[styles.modalBtn, { backgroundColor: design.field, flex: 1 }]}
-                    onPress={() => setRejectReasonModalVisible(false)}
+                    onPress={() => { setRejectReasonModalVisible(false); setReviewModalVisible(true); }}
                     activeOpacity={0.8}
                   >
                     <Text style={{ fontFamily: FONTS.semiBold.fontFamily,  color: design.muted, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
@@ -1083,11 +1088,10 @@ export default function ApplicationsManagementScreen({
                 </View>
               </View>
             </View>
-          </Modal>
+          </View>
 
-          {/* CUSTOM IN-APP CONFIRMATION POPUP MODAL */}
-
-        </>
+          {renderFlowDialogs(true)}
+        </View></Modal>
       );
     }
 
@@ -1150,16 +1154,17 @@ export default function ApplicationsManagementScreen({
     );
   };
 
-  const renderContent = () => <>
-    {renderContentBody()}
-    <ManagementDialog visible={resendingCredentials} title="Sending credentials" message="Generating a new temporary password and emailing the student." busy confirmText="Sending…" onConfirm={() => {}} />
-    <ManagementDialog visible={confirmModal.visible} title={confirmModal.title} message={confirmModal.message} type={confirmModal.type}
+  const renderFlowDialogs = (inline = false) => <>
+    <ManagementDialog inline={inline} visible={resendingCredentials || approving} title={approving ? "Approving application" : "Sending credentials"} message="Generating login credentials and emailing the student." busy confirmText="Sending…" onConfirm={() => {}} />
+    <ManagementDialog inline={inline} visible={confirmModal.visible} title={confirmModal.title} message={confirmModal.message} type={confirmModal.type}
       confirmText={confirmModal.confirmText || 'Confirm'} cancelText={confirmModal.cancelText || 'Cancel'}
       onCancel={() => { setConfirmModal(prev => ({ ...prev, visible: false })); if (selectedAppForReview) setReviewModalVisible(true); }}
       onConfirm={() => { const action = confirmModal.onConfirm; setConfirmModal(prev => ({ ...prev, visible: false })); action?.(); }} />
-    <ManagementDialog visible={feedback.visible} title={feedback.title} message={feedback.message} type={feedback.type}
+    <ManagementDialog inline={inline} visible={feedback.visible} title={feedback.title} message={feedback.message} type={feedback.type}
       onConfirm={() => { const action = feedback.onOk; setFeedback(prev => ({ ...prev, visible: false })); if (action) action(); else if (selectedAppForReview && !credentialsModalVisible) setReviewModalVisible(true); }} />
   </>;
+
+  const renderContent = () => <>{renderContentBody()}{!selectedAppForReview && renderFlowDialogs()}</>;
 
   if (embedded) {
     return <View style={[styles.container, isDark && { backgroundColor: 'transparent' }]}>{renderContent()}</View>;
@@ -2688,7 +2693,7 @@ const createStyles = (design: ReturnType<typeof usersSectionTheme>) => StyleShee
     alignItems: 'flex-start',
     backgroundColor: design.accentSoft,
     borderWidth: 1,
-    borderColor: '#99F6E4',
+    borderColor: design.line,
     borderRadius: 12,
     padding: 12,
     marginBottom: 20,

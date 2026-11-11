@@ -169,13 +169,13 @@ export const fetchSystemActivities = async (limit = 20) => {
 // GET /api/admin/stats
 export const getAdminStats = async (req: Request, res: Response): Promise<void> => {
   try {
-    const totalStudents = await User.countDocuments({ role: 'student' });
+    const totalStudents = await User.countDocuments({ role: 'student', status: { $ne: 'rejected' } });
     const totalInstructors = await User.countDocuments({ role: 'instructor' });
     const activeCourses = await Course.countDocuments({ is_active: true });
-    const pendingApprovalsCount = await User.countDocuments({ role: 'student', is_active: false });
+    const pendingApprovalsCount = await User.countDocuments({ role: 'student', is_active: false, status: { $ne: 'rejected' } });
 
     // Pending users list (limit 5 for dashboard view)
-    const pendingUsers = await User.find({ role: 'student', is_active: false })
+    const pendingUsers = await User.find({ role: 'student', is_active: false, status: { $ne: 'rejected' } })
       .select('-password_hash')
       .sort({ createdAt: -1 })
       .limit(5);
@@ -215,6 +215,16 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
     if (role) query.role = role;
     if (status === 'pending') query.is_active = false;
     if (status === 'active') query.is_active = true;
+
+    if (!role || role === 'student') {
+      // Include older rejected applications whose retained accounts predate this rule.
+      const rejected = await Application.aggregate([
+        { $sort: { updatedAt: -1, createdAt: -1, _id: -1 } },
+        { $group: { _id: '$email', status: { $first: '$status' } } },
+        { $match: { status: 'rejected' } }
+      ]);
+      query.$nor = [{ role: 'student', $or: [{ status: 'rejected' }, { email: { $in: rejected.map(application => application._id) } }] }];
+    }
 
     const users = await User.find(query).select('-password_hash').sort({ createdAt: -1 });
     res.json(users);

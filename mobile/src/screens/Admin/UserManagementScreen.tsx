@@ -27,7 +27,8 @@ import ManagementSheet from '../../components/shared/ManagementSheet';
 import { PaymentListCard, PaymentDetails, AddPayment } from '../../components/shared/PaymentManagement';
 import { usersSectionTheme } from '../../components/shared/usersSectionTheme';
 import CustomDropdown from '../../components/shared/CustomDropdown';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { floatingTabBarClearance } from '../../components/navigation/floatingTabBarLayout';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import ApplicationsManagementScreen from './ApplicationsManagementScreen';
@@ -46,7 +47,7 @@ export type ModeType = 'applications' | 'students' | 'payments' | 'instructors';
 
 export type ApplicationsSubFilter = 'pending' | 'approved' | 'rejected';
 export type StudentsSubFilter = 'all' | 'active' | 'deactive' | 'completed';
-export type PaymentsSubFilter = 'pending' | 'completed';
+export type PaymentsSubFilter = 'review' | 'pending' | 'completed';
 export type InstructorsSubFilter = 'active' | 'deactive';
 
 const EXPORT_AVAILABLE_FIELDS = [
@@ -66,6 +67,8 @@ const EXPORT_AVAILABLE_FIELDS = [
 ];
 
 export default function UserManagementScreen() {
+  const insets = useSafeAreaInsets();
+  const dockClearance = floatingTabBarClearance(insets.bottom);
   const { isDark } = useTheme();
   const design = usersSectionTheme(isDark);
   const styles = useMemo(() => createStyles(usersSectionTheme(isDark)), [isDark]);
@@ -247,6 +250,7 @@ export default function UserManagementScreen() {
   const [paymentDossierModalVisible, setPaymentDossierModalVisible] = useState(false);
   const [paymentDossierData, setPaymentDossierData] = useState<any>(null);
   const [loadingDossier, setLoadingDossier] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [manualPayModalVisible, setManualPayModalVisible] = useState(false);
   const [manualPayForm, setManualPayForm] = useState({ amount: '', payment_method: 'physical_cash', notes: '' });
   const [recordingManualPay, setRecordingManualPay] = useState(false);
@@ -270,8 +274,8 @@ export default function UserManagementScreen() {
     }
   };
 
-  const fetchAllDashboardData = async () => {
-    setLoading(true);
+  const fetchAllDashboardData = async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
       const [appsRes, studentsRes, instRes, paymentsRes] = await Promise.allSettled([
         api.get('/admin/applications?status=all'),
@@ -295,9 +299,11 @@ export default function UserManagementScreen() {
     } catch (e: any) {
       console.warn('Failed to fetch dashboard data', e);
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
+
+  useFocusEffect(useCallback(() => { void fetchAllDashboardData(true); }, []));
 
   const fetchUsers = () => {
     fetchAllDashboardData();
@@ -640,7 +646,7 @@ export default function UserManagementScreen() {
   ];
 
   const isPaymentSettled = (payment: any) => payment.category === 'completed' || Number(payment.amount_paid ?? 0) >= Number(payment.total_fee ?? 0) || payment.payment_status === 'paid' || payment.payment_status === 'waived';
-  const paymentsMetrics = { pending: sourcePayments.filter(payment => !isPaymentSettled(payment)).length, completed: sourcePayments.filter(isPaymentSettled).length };
+  const paymentsMetrics = { review: sourcePayments.filter((payment: any) => Number(payment.pending_slips_count || 0) > 0).length, pending: sourcePayments.filter(payment => !isPaymentSettled(payment)).length, completed: sourcePayments.filter(isPaymentSettled).length };
 
   const instructorsMetrics = {
     active: (instructorsList || []).filter(i => i.is_active !== false).length,
@@ -699,6 +705,7 @@ export default function UserManagementScreen() {
           (p?.nic || '').toLowerCase().includes(term);
 
         const isCompleted = isPaymentSettled(p);
+        if (paymentsSubFilter === 'review') return matchesSearch && Number(p.pending_slips_count || 0) > 0;
 
         if (paymentsSubFilter === 'completed') {
           return matchesSearch && isCompleted;
@@ -908,6 +915,7 @@ export default function UserManagementScreen() {
           <View style={styles.rightCardCol}>
             {!isSelectMode && (
               <WhatsAppOptionsMenu
+                accessibilityLabel={`Application options for ${name}`}
                 options={[
                   {
                     id: 'view_app',
@@ -949,32 +957,6 @@ export default function UserManagementScreen() {
           </View>
         </View>
 
-        {!isSelectMode && status === 'pending' && (
-          <View style={styles.cardActions}>
-            <TouchableOpacity accessibilityRole="button"               style={styles.viewProfileBtn}
-              onPress={() => {
-                if (item.user_id) handleOpenDetails(item.user_id);
-                else setSelectedAppForReview(item);
-              }}
-            >
-              <Text style={styles.viewProfileText}>View Profile →</Text>
-            </TouchableOpacity>
-            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-              <TouchableOpacity accessibilityRole="button"                 style={styles.smallRejectBtn}
-                onPress={() => item.user_id ? handleReject(item.user_id, name) : setSelectedAppForReview(item)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.smallRejectBtnText}>Reject</Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button"                 style={styles.smallApproveBtn}
-                onPress={() => item.user_id ? handleApprove(item.user_id) : setSelectedAppForReview(item)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.smallApproveBtnText}>Approve</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
       </TouchableOpacity>
     );
   };
@@ -1369,7 +1351,7 @@ export default function UserManagementScreen() {
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Manage payments"               style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
               onPress={() => {
                 setActiveMode('payments');
-                setPaymentsSubFilter('pending');
+                setPaymentsSubFilter(paymentsMetrics.review > 0 ? 'review' : 'pending');
                 setCurrentView('detail');
               }}
               activeOpacity={0.75}
@@ -1475,7 +1457,7 @@ export default function UserManagementScreen() {
           <View style={{ width: '100%', maxWidth: 1100, alignSelf: 'center' }}>
             {activeMode === 'applications' && <ManagementFilterBar value={applicationsSubFilter} onChange={setApplicationsSubFilter} items={[{ value: 'pending', label: 'Pending', count: appMetrics.pending }, { value: 'approved', label: 'Approved', count: appMetrics.approved }, { value: 'rejected', label: 'Rejected', count: appMetrics.rejected }]} />}
             {activeMode === 'students' && <ManagementFilterBar value={studentsSubFilter} onChange={setStudentsSubFilter} items={[{ value: 'all', label: 'All', count: studentsMetrics.all }, { value: 'active', label: 'Active', count: studentsMetrics.active }, { value: 'deactive', label: 'Deactive', count: studentsMetrics.deactive }, { value: 'completed', label: 'Completed', count: studentsMetrics.completed }]} />}
-            {activeMode === 'payments' && <ManagementFilterBar value={paymentsSubFilter} onChange={setPaymentsSubFilter} items={[{ value: 'pending', label: 'Outstanding', count: paymentsMetrics.pending }, { value: 'completed', label: 'Settled', count: paymentsMetrics.completed }]} />}
+            {activeMode === 'payments' && <ManagementFilterBar value={paymentsSubFilter} onChange={setPaymentsSubFilter} items={[{ value: 'review', label: 'Review', count: paymentsMetrics.review }, { value: 'pending', label: 'Outstanding', count: paymentsMetrics.pending }, { value: 'completed', label: 'Settled', count: paymentsMetrics.completed }]} />}
             {activeMode === 'instructors' && <ManagementFilterBar value={instructorsSubFilter} onChange={setInstructorsSubFilter} items={[{ value: 'active', label: 'Active Staff', count: instructorsMetrics.active }, { value: 'deactive', label: 'Deactivated', count: instructorsMetrics.deactive }]} />}
           </View>
 
@@ -1504,6 +1486,8 @@ export default function UserManagementScreen() {
               <FlatList
                 style={{ width: '100%', maxWidth: 1100, alignSelf: 'center' }}
                 data={filteredUsers}
+                refreshing={refreshing}
+                onRefresh={async () => { setRefreshing(true); try { await fetchAllDashboardData(true); } finally { setRefreshing(false); } }}
                 keyExtractor={item => item._id}
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
@@ -1531,8 +1515,8 @@ export default function UserManagementScreen() {
                     </View>
                   );
                 }}
-                contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 110 }}
-                ListEmptyComponent={<Text style={styles.emptyListText}>No records found for this filter.</Text>}
+                contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: dockClearance + 96 }}
+                ListEmptyComponent={<Text style={styles.emptyListText}>{activeMode === 'payments' && paymentsSubFilter === 'review' ? 'No payments awaiting review.' : 'No records found for this filter.'}</Text>}
               />
             )}
           </>
@@ -1540,7 +1524,7 @@ export default function UserManagementScreen() {
       )}
 
       {currentView === 'detail' && activeMode !== 'payments' && !isSelectMode && <TouchableOpacity accessibilityRole="button" accessibilityLabel={activeMode === 'instructors' ? 'Create instructor' : 'Add student manually'} onPress={() => activeMode === 'instructors' ? setInstructorModalVisible(true) : setAdmissionTarget({ kind: 'create' })}
-        style={{ position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: design.accent, alignItems: 'center', justifyContent: 'center', zIndex: 20 }}><Icon name="add" size={28} color="#FFFFFF" /></TouchableOpacity>}
+        style={{ position: 'absolute', bottom: dockClearance + 16, right: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: design.accent, alignItems: 'center', justifyContent: 'center', zIndex: 20 }}><Icon name="add" size={28} color="#FFFFFF" /></TouchableOpacity>}
 
       {/* Add Instructor Modal */}
       <Modal visible={instructorModalVisible} animationType="slide" transparent={true} onRequestClose={() => setInstructorModalVisible(false)}>

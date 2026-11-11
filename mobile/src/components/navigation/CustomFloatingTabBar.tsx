@@ -24,6 +24,7 @@ import { BlurView } from 'expo-blur';
 import { useTheme } from '../../context/ThemeContext';
 import { COLORS } from '../../config/theme';
 import { useTabGlassBackdrop } from './TabGlassBackdrop';
+import { floatingTabBarBottom } from './floatingTabBarLayout';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -340,7 +341,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   }
 
   return (
-    <View pointerEvents="box-none" style={[styles.outerWrapper, { bottom: Math.max(insets.bottom + 10, 16) }]}>
+    <View pointerEvents="box-none" style={[styles.outerWrapper, { bottom: floatingTabBarBottom(insets.bottom) }]}>
       {/* Translucent dock with a reflected rim and a clear center. */}
       <View
         {...panResponder.panHandlers}

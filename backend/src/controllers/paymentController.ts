@@ -4,6 +4,8 @@ import User from '../models/User';
 import Application from '../models/Application';
 import { sendNotification } from '../services/notificationService';
 import { sendRawEmail } from '../services/emailService';
+import { reviewPayment, recordConfirmedPayment } from '../services/paymentReview';
+import { PracticalError } from '../services/practicalScheduling';
 
 // POST /api/students/payments/upload-slip
 export const uploadPaymentSlip = async (req: Request, res: Response): Promise<void> => {
@@ -215,162 +217,33 @@ export const getStudentPaymentDossier = async (req: Request, res: Response): Pro
   }
 };
 
-// PUT /api/admin/payments/slips/:slipId/verify
+// Deliver acknowledgements after the payment and balance have committed together.
+async function notifyPaymentReview(student: any, slip: any, approved: boolean) {
+  const message = approved ? 'Your payment of LKR ' + slip.amount.toLocaleString() + ' has been verified and credited to your account.' : 'Your payment receipt was rejected: ' + slip.rejection_reason;
+  try { await sendNotification({ userIds: [String(student._id)], title: approved ? 'Payment approved' : 'Payment receipt rejected', message, type: 'payment', relatedId: slip._id, link: '/profile' }); } catch { console.warn('Payment notification could not be delivered.'); }
+  try { if (student.email) await sendRawEmail(student.email, approved ? 'TVTI - Payment approved' : 'TVTI - Payment receipt rejected', 'Dear ' + student.name + ',\n\n' + message); } catch { console.warn('Payment email could not be delivered.'); }
+}
+function paymentError(error: any, res: Response) {
+  res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'The payment could not be saved. Please try again.' });
+}
 export const verifyPaymentSlip = async (req: Request, res: Response): Promise<void> => {
   try {
-    const adminId = (req as any).user?._id;
-    const { slipId } = req.params;
-
-    const slip = await PaymentSlip.findById(slipId);
-    if (!slip) {
-      res.status(404).json({ message: 'Payment slip not found' });
-      return;
-    }
-
-    if (slip.status === 'verified') {
-      res.status(400).json({ message: 'This payment slip is already verified' });
-      return;
-    }
-
-    slip.status = 'verified';
-    slip.verified_by = adminId;
-    slip.verified_at = new Date();
-    await slip.save();
-
-    // Update student amount_paid and payment_status
-    const student = await User.findById(slip.student_id);
-    if (student) {
-      if (!student.payment_info) {
-        student.payment_info = { total_fee: 25000, amount_paid: 0, payment_status: 'pending' };
-      }
-
-      const newAmountPaid = (student.payment_info.amount_paid || 0) + slip.amount;
-      const totalFee = student.payment_info.total_fee ?? 25000;
-      const newStatus = newAmountPaid >= totalFee ? 'paid' : 'partially_paid';
-
-      student.payment_info.amount_paid = newAmountPaid;
-      student.payment_info.payment_status = newStatus;
-      student.payment_info.last_updated = new Date();
-      await student.save();
-
-      // Send notification & email to student
-      await sendNotification({
-        userIds: [student._id.toString()],
-        title: 'Payment Slip Verified & Approved ✅',
-        message: `Your payment slip of LKR ${slip.amount.toLocaleString()} has been verified. Total amount settled: LKR ${newAmountPaid.toLocaleString()}/${totalFee.toLocaleString()}.`,
-        type: 'payment',
-        relatedId: slip._id,
-        link: '/profile',
-      });
-
-      if (student.email) {
-        const subject = 'TVTI VTI - Payment Receipt Verified';
-        const body = `Dear ${student.name},\n\nYour submitted payment slip of LKR ${slip.amount.toLocaleString()} has been verified and credited to your account.\n\nTotal Paid: LKR ${newAmountPaid.toLocaleString()}\nRemaining Balance: LKR ${Math.max(0, totalFee - newAmountPaid).toLocaleString()}\n\nThank you,\nTwintec Vocational Training Institute`;
-        sendRawEmail(student.email, subject, body).catch((e: any) => console.warn('Payment verify email failed:', e));
-      }
-    }
-
-    res.json({ message: 'Payment slip verified successfully', slip });
-  } catch (error: any) {
-    console.error('verifyPaymentSlip error:', error);
-    res.status(500).json({ message: 'Failed to verify payment slip' });
-  }
+    const result = await reviewPayment(String(req.params.slipId), true, (req as any).user?._id);
+    await notifyPaymentReview(result.student, result.slip, true);
+    res.json({ message: 'Payment approved and credited to the student.', slip: result.slip });
+  } catch (error) { paymentError(error, res); }
 };
-
-// PUT /api/admin/payments/slips/:slipId/reject
 export const rejectPaymentSlip = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { slipId } = req.params;
-    const { reason } = req.body;
-
-    const slip = await PaymentSlip.findById(slipId);
-    if (!slip) {
-      res.status(404).json({ message: 'Payment slip not found' });
-      return;
-    }
-
-    slip.status = 'rejected';
-    slip.rejection_reason = reason || 'Verification failed. Please re-upload a clear slip.';
-    await slip.save();
-
-    const student = await User.findById(slip.student_id);
-    if (student) {
-      await sendNotification({
-        userIds: [student._id.toString()],
-        title: 'Payment Slip Rejected ❌',
-        message: `Your payment slip of LKR ${slip.amount.toLocaleString()} was rejected: ${slip.rejection_reason}`,
-        type: 'payment',
-        relatedId: slip._id,
-        link: '/profile',
-      });
-
-      if (student.email) {
-        const subject = 'TVTI VTI - Payment Slip Verification Status';
-        const body = `Dear ${student.name},\n\nYour submitted payment slip of LKR ${slip.amount.toLocaleString()} could not be verified.\nReason: ${slip.rejection_reason}\n\nPlease log in to your profile to upload a revised payment slip.\n\nThank you,\nTwintec Vocational Training Institute`;
-        sendRawEmail(student.email, subject, body).catch((e: any) => console.warn('Payment reject email failed:', e));
-      }
-    }
-
-    res.json({ message: 'Payment slip rejected', slip });
-  } catch (error: any) {
-    console.error('rejectPaymentSlip error:', error);
-    res.status(500).json({ message: 'Failed to reject payment slip' });
-  }
+    const result = await reviewPayment(String(req.params.slipId), false, (req as any).user?._id, req.body.reason);
+    await notifyPaymentReview(result.student, result.slip, false);
+    res.json({ message: 'Payment receipt rejected.', slip: result.slip });
+  } catch (error) { paymentError(error, res); }
 };
-
-// POST /api/admin/payments/:studentId/record-manual
 export const recordManualPayment = async (req: Request, res: Response): Promise<void> => {
   try {
-    const adminId = (req as any).user?._id;
-    const { studentId } = req.params;
-    const { amount, payment_method, notes } = req.body;
-
-    if (!amount || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
-      res.status(400).json({ message: 'Valid payment amount is required' });
-      return;
-    }
-
-    const student = await User.findById(studentId);
-    if (!student) {
-      res.status(404).json({ message: 'Student record not found' });
-      return;
-    }
-
-    const slip = await PaymentSlip.create({
-      student_id: studentId,
-      amount: Number(amount),
-      payment_method: payment_method || 'physical_cash',
-      notes: notes || 'Direct counter payment recorded by admin',
-      status: 'verified',
-      verified_by: adminId,
-      verified_at: new Date(),
-    });
-
-    if (!student.payment_info) {
-      student.payment_info = { total_fee: 25000, amount_paid: 0, payment_status: 'pending' };
-    }
-
-    const newAmountPaid = (student.payment_info.amount_paid || 0) + Number(amount);
-    const totalFee = student.payment_info.total_fee ?? 25000;
-    const newStatus = newAmountPaid >= totalFee ? 'paid' : 'partially_paid';
-
-    student.payment_info.amount_paid = newAmountPaid;
-    student.payment_info.payment_status = newStatus;
-    student.payment_info.last_updated = new Date();
-    await student.save();
-
-    await sendNotification({
-      userIds: [student._id.toString()],
-      title: 'Payment Received ✅',
-      message: `A cash/counter payment of LKR ${Number(amount).toLocaleString()} was recorded for your account. Total settled: LKR ${newAmountPaid.toLocaleString()}/${totalFee.toLocaleString()}.`,
-      type: 'payment',
-      relatedId: slip._id,
-      link: '/profile',
-    });
-
-    res.status(201).json({ message: 'Payment recorded successfully', slip });
-  } catch (error: any) {
-    console.error('recordManualPayment error:', error);
-    res.status(500).json({ message: 'Failed to record manual payment' });
-  }
+    const result = await recordConfirmedPayment(String(req.params.studentId), (req as any).user?._id, req.body);
+    try { await sendNotification({ userIds: [String(result.student._id)], title: 'Payment received', message: 'A payment of LKR ' + result.slip.amount.toLocaleString() + ' was recorded for your account.', type: 'payment', relatedId: result.slip._id, link: '/profile' }); } catch { console.warn('Payment notification could not be delivered.'); }
+    res.status(201).json({ message: 'Payment recorded successfully.', slip: result.slip });
+  } catch (error) { paymentError(error, res); }
 };
