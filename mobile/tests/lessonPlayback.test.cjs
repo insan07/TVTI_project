@@ -13,6 +13,11 @@ function load(name, mocks = {}) {
 }
 const playback = load('lessonPlayback');
 
+test('YouTube speed options use provider-supported values, sorted without duplicates', () => {
+  assert.deepEqual(playback.availablePlaybackSpeeds([2, 0.5, 1, 1.5, 2, NaN, -1, '2']), [0.5, 1, 1.5, 2]);
+  assert.deepEqual(playback.availablePlaybackSpeeds(undefined), [1]);
+});
+
 test('recognizes actual YouTube links and rejects lookalike hosts and invalid IDs', () => {
   for (const url of ['https://youtu.be/dQw4w9WgXcQ', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=abc', 'https://www.youtube.com/shorts/dQw4w9WgXcQ', 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ']) {
     assert.equal(playback.youtubeVideoId(url), 'dQw4w9WgXcQ');

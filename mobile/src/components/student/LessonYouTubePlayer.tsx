@@ -34,7 +34,13 @@ export default forwardRef<LessonYouTubeHandle, LessonYouTubeProps>(function Less
     videoId={props.videoId}
     play={props.playing}
     mute={props.muted}
-    onReady={() => { setReady(true); props.onReady(); }}
+    playbackRate={props.playbackRate}
+    onReady={async () => {
+      setReady(true); props.onReady();
+      try { props.onRates(await iframe.current?.getAvailablePlaybackRates() || [1]); }
+      catch { props.onRates([1]); }
+    }}
+    onPlaybackRateChange={(rate: string) => props.onRateChange(Number(rate))}
     onError={props.onError}
     onChangeState={(state: string) => {
       if (state === 'playing') props.onPlaying(true);
@@ -42,8 +48,13 @@ export default forwardRef<LessonYouTubeHandle, LessonYouTubeProps>(function Less
     }}
     initialPlayerParams={{ controls: false, preventFullScreen: true, rel: false, start: props.startTime }}
     webViewProps={{
+      // WebView otherwise opens non-whitelisted schemes through Linking before
+      // consulting our callback. Route every scheme through our deny-by-default gate.
+      originWhitelist: ['*'],
       onShouldStartLoadWithRequest: (request: { url: string }) => allowLessonPlayerNavigation(request.url),
       onOpenWindow: () => {},
+      javaScriptCanOpenWindowsAutomatically: false,
+      allowsLinkPreview: false,
       setSupportMultipleWindows: false,
       allowsFullscreenVideo: false,
       allowsPictureInPictureMediaPlayback: false,

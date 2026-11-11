@@ -28,3 +28,10 @@ export function playbackTime(seconds: number): string {
   const minutes = Math.floor(value / 60);
   return `${minutes}:${String(value % 60).padStart(2, '0')}`;
 }
+
+export const DEFAULT_PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
+export function availablePlaybackSpeeds(values: unknown): number[] {
+  const speeds = Array.isArray(values) ? values.filter(value => typeof value === 'number' && Number.isFinite(value) && value >= 0.25 && value <= 16) : [];
+  return [...new Set([1, ...speeds])].sort((a, b) => a - b);
+}

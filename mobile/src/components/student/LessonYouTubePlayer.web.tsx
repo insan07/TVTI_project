@@ -41,6 +41,8 @@ export default forwardRef<LessonYouTubeHandle, LessonYouTubeProps>(function Less
           if (!active) return;
           hasReady = true;
           latest.current.onReady();
+          latest.current.onRates(player.current.getAvailablePlaybackRates?.() || [1]);
+          player.current.setPlaybackRate?.(latest.current.playbackRate);
           if (latest.current.muted) player.current.mute();
           if (latest.current.playing) player.current.playVideo();
           progress = setInterval(() => {
@@ -55,6 +57,7 @@ export default forwardRef<LessonYouTubeHandle, LessonYouTubeProps>(function Less
           if (data === 0 || data === 2) latest.current.onPlaying(false);
         },
         onError: () => { if (active) latest.current.onError(); },
+        onPlaybackRateChange: ({ data }: { data: number }) => { if (active) latest.current.onRateChange(data); },
       } });
     }, 100);
     const timeout = setTimeout(() => {
@@ -80,5 +83,6 @@ export default forwardRef<LessonYouTubeHandle, LessonYouTubeProps>(function Less
     if (!current?.mute) return;
     if (props.muted) current.mute(); else current.unMute();
   }, [props.muted]);
+  useEffect(() => { player.current?.setPlaybackRate?.(props.playbackRate); }, [props.playbackRate]);
   return React.createElement('div', { ref: host, style: { width: '100%', height: props.height } });
 });

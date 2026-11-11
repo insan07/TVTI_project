@@ -8,6 +8,7 @@ export default forwardRef<LessonVideoHandle, LessonVideoProps>(function LessonVi
   const player = useVideoPlayer(null, p => {
     p.loop = false;
     p.muted = props.muted;
+    p.playbackRate = props.playbackRate;
     p.timeUpdateEventInterval = 0.25;
     p.allowsExternalPlayback = false;
     p.staysActiveInBackground = false;
@@ -18,6 +19,7 @@ export default forwardRef<LessonVideoHandle, LessonVideoProps>(function LessonVi
     seekTo: seconds => { player.currentTime = seconds; },
     setMuted: muted => { player.muted = muted; },
   }), [player]);
+  useEffect(() => { player.playbackRate = props.playbackRate; }, [player, props.playbackRate]);
   useEffect(() => {
     let active = true;
     const subscriptions = [

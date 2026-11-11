@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Pressable, ScrollView, Platform, AppState } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Platform, AppState, Modal, Pressable } from 'react-native';
 import LessonVideoPlayer from '../../components/student/LessonVideoPlayer';
 import { LessonVideoHandle } from '../../components/student/LessonVideoPlayer.types';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -10,10 +10,9 @@ import { COLORS, FONTS } from '../../config/theme';
 import ScreenHeader from '../../components/shared/ScreenHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
-import { AuthContext } from '../../context/AuthContext';
 import LessonYouTubePlayer from '../../components/student/LessonYouTubePlayer';
 import { LessonYouTubeHandle } from '../../components/student/LessonYouTubePlayer.types';
-import { youtubeVideoId, playbackTime } from '../../utils/lessonPlayback';
+import { youtubeVideoId, playbackTime, DEFAULT_PLAYBACK_SPEEDS, availablePlaybackSpeeds } from '../../utils/lessonPlayback';
 import { enableNativeScreenCaptureProtection, disableNativeScreenCaptureProtection, subscribeToScreenCaptureEvents } from '../../utils/screenCaptureProtection';
 
 type Lesson = { url: string; type: 'youtube' | 'video'; title?: string; topic?: string };
@@ -23,7 +22,6 @@ export default function VideoPlayerScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
-  const auth = useContext(AuthContext);
   const videoId = route.params?.videoId;
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [notesUrl, setNotesUrl] = useState<string | null>(null);
@@ -36,11 +34,17 @@ export default function VideoPlayerScreen() {
   const [lockReason, setLockReason] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [overlayVisible, setOverlayVisible] = useState(true);
   const [muted, setMuted] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [youtubeRates, setYoutubeRates] = useState([1]);
+  const [speedOpen, setSpeedOpen] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [width, setWidth] = useState(0);
   const [seekWidth, setSeekWidth] = useState(0);
+  const seeking = useRef(false);
+  const pendingSeek = useRef<{ target: number; at: number } | null>(null);
   const videoView = useRef<LessonVideoHandle>(null);
   const youtube = useRef<LessonYouTubeHandle>(null);
   const focusedRef = useRef(false);
@@ -56,11 +60,19 @@ export default function VideoPlayerScreen() {
   const secondary = isDark ? '#A5A5A5' : '#707070';
   const border = isDark ? '#303030' : '#E8E8E8';
 
+  useEffect(() => { if (!playing) setOverlayVisible(true); }, [playing]);
+  useEffect(() => {
+    if (!playing || !overlayVisible) return;
+    const timer = setTimeout(() => setOverlayVisible(false), 2000);
+    return () => clearTimeout(timer);
+  }, [playing, overlayVisible]);
+
   const pauseAndLock = useCallback((reason: string) => {
     lockedRef.current = true;
     videoView.current?.pause();
     setPlaying(false);
     setReady(false);
+    setSpeedOpen(false);
     setLockReason(reason);
   }, []);
 
@@ -90,7 +102,11 @@ export default function VideoPlayerScreen() {
     setPlaying(false);
     setReady(false);
     setTime(0);
+    setPlaybackRate(1);
+    setYoutubeRates([1]);
     timeRef.current = 0;
+    pendingSeek.current = null;
+    seeking.current = false;
     setDuration(0);
     setLesson(null);
     setNotesUrl(null);
@@ -120,9 +136,20 @@ export default function VideoPlayerScreen() {
     return () => { active = false; };
   }, [videoId, reload]);
 
+  const updateProgress = (seconds: number, total: number) => {
+    if (Number.isFinite(total) && total > 0) setDuration(total);
+    if (!Number.isFinite(seconds) || seeking.current) return;
+    const pending = pendingSeek.current;
+    if (pending && Date.now() - pending.at < 1800 && Math.abs(seconds - pending.target) > 1.5) return;
+    pendingSeek.current = null;
+    timeRef.current = seconds;
+    setTime(seconds);
+  };
   const seek = (seconds: number) => {
     if (!allowed || !ready || !duration) return;
+    if (!Number.isFinite(seconds)) return;
     const target = Math.min(duration, Math.max(0, seconds));
+    pendingSeek.current = { target, at: Date.now() };
     if (isYoutube) youtube.current?.seekTo(target); else videoView.current?.seekTo(target);
     timeRef.current = target;
     setTime(target);
@@ -130,11 +157,11 @@ export default function VideoPlayerScreen() {
   const togglePlay = () => {
     if (!allowed || !ready || lockedRef.current) return;
     if (isYoutube) {
-      if (!playing && duration && time >= duration - 0.25) seek(0);
+      if (!playing && duration && time >= duration) seek(0);
       setPlaying(!playing);
     } else {
       if (playing) videoView.current?.pause();
-      else { if (duration && time >= duration - 0.25) videoView.current?.seekTo(0); videoView.current?.play(); }
+      else { if (duration && time >= duration) videoView.current?.seekTo(0); videoView.current?.play(); }
     }
   };
   const resume = () => {
@@ -147,10 +174,9 @@ export default function VideoPlayerScreen() {
   const control = (name: React.ComponentProps<typeof Icon>['name'], label: string, onPress: () => void, primary = false) => (
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} disabled={!allowed || !ready}
       onPress={onPress} style={[styles.control, primary && styles.play, (!allowed || !ready) && styles.disabled]}>
-      <Icon name={name} size={primary ? 22 : 21} color={primary ? '#FFFFFF' : foreground} />
+      <Icon name={name} size={primary ? 26 : 21} color={primary ? '#FFFFFF' : foreground} />
     </TouchableOpacity>
   );
-  const identity = auth?.user?.index_number || auth?.user?.name || 'TVTI Student';
 
   return <View style={[styles.screen, { backgroundColor: isDark ? '#111111' : '#F7F7F7' }]}>
     <ScreenBackground />
@@ -179,49 +205,70 @@ export default function VideoPlayerScreen() {
               <TouchableOpacity accessibilityRole="button" onPress={resume} style={styles.messageButton}><Text style={styles.buttonText}>Return to lesson</Text></TouchableOpacity>
             </View>
             : allowed && lesson ? isYoutube && youtubeId ? <LessonYouTubePlayer key={`${videoId}-${reload}`} ref={youtube}
-              videoId={youtubeId} height={height} playing={playing} muted={muted} startTime={timeRef.current}
+              videoId={youtubeId} height={height} playing={playing} muted={muted} startTime={timeRef.current} playbackRate={playbackRate}
+              onRates={rates => setYoutubeRates(availablePlaybackSpeeds(rates))}
+              onRateChange={rate => { if (Number.isFinite(rate) && rate > 0) setPlaybackRate(rate); }}
               onReady={() => setReady(true)} onPlaying={value => {
                 if (!allowedRef.current || lockedRef.current) { setPlaying(false); return; }
                 setPlaying(value);
-              }} onProgress={(seconds, total) => { timeRef.current = seconds; setTime(seconds); setDuration(total); }}
+              }} onProgress={updateProgress}
               onError={() => { setPlaying(false); setError('This YouTube lesson is unavailable or cannot be embedded. Please contact your instructor.'); }} />
               : <>
-                <LessonVideoPlayer ref={videoView} url={lesson.url} startTime={timeRef.current} muted={muted}
+                <LessonVideoPlayer ref={videoView} url={lesson.url} startTime={timeRef.current} muted={muted} playbackRate={playbackRate}
                   onReady={() => setReady(true)} onPlaying={value => {
                     if (value && (!allowedRef.current || lockedRef.current)) { videoView.current?.pause(); return; }
                     setPlaying(value);
-                  }} onProgress={(seconds, total) => { timeRef.current = seconds; setTime(seconds); setDuration(total); }}
+                  }} onProgress={updateProgress}
                   onError={() => { setPlaying(false); setError('This video could not be played. Please try again.'); }}
                   onRestrictedAction={pauseAndLock} />
-                <View pointerEvents="none" style={styles.watermark}><Text style={styles.watermarkText}>TVTI · {identity}</Text></View>
+                {ready && playing && !overlayVisible && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Show playback controls"
+                  style={StyleSheet.absoluteFill} onPress={() => setOverlayVisible(true)} />}
+                {ready && (!playing || overlayVisible) && <TouchableOpacity accessibilityRole="button" accessibilityLabel={playing ? 'Pause video' : 'Play video'}
+                  onPress={togglePlay} activeOpacity={0.85} style={styles.centerPlay}>
+                  <Icon name={playing ? 'pause' : 'play'} size={30} color="#FFFFFF" />
+                </TouchableOpacity>}
                 {!ready && <View pointerEvents="none" style={styles.center}><ActivityIndicator color={COLORS.secondary} /></View>}
               </> : null}
         </View>
         <View style={styles.details}>
           <View style={styles.controls}>
-            {control(playing ? 'pause' : 'play', playing ? 'Pause lesson' : 'Play lesson', togglePlay, true)}
+            <View style={styles.controlsSpacer} />
             {control('play-back-outline', 'Rewind 10 seconds', () => seek(time - 10))}
+            {control(playing ? 'pause' : 'play', playing ? 'Pause lesson' : 'Play lesson', togglePlay, true)}
             {control('play-forward-outline', 'Forward 10 seconds', () => seek(time + 10))}
-            <Text style={[styles.time, { color: secondary }]}>{playbackTime(time)} / {playbackTime(duration)}</Text>
             {control(muted ? 'volume-mute-outline' : 'volume-high-outline', muted ? 'Unmute lesson' : 'Mute lesson', () => { videoView.current?.setMuted(!muted); setMuted(!muted); })}
+          </View>
+          <View style={styles.timelineMeta}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Playback speed: ${playbackRate}x`}
+              disabled={!allowed || !ready} onPress={() => setSpeedOpen(true)} style={[styles.speedButton, { borderColor: border }, (!allowed || !ready) && styles.disabled]}>
+              <Text style={[styles.speedLabel, { color: foreground }]}>{playbackRate}×</Text><Icon name="chevron-down" size={12} color={secondary} />
+            </TouchableOpacity>
+            <Text style={[styles.time, { color: secondary }]}>{playbackTime(time)} / {playbackTime(duration)}</Text>
           </View>
           {Platform.OS === 'web' ? React.createElement('input', {
             type: 'range', 'aria-label': 'Lesson progress', min: 0, max: duration || 1, step: 0.1, value: time,
             disabled: !allowed || !ready || !duration,
+            onPointerDown: () => { seeking.current = true; },
+            onPointerUp: () => { seeking.current = false; },
+            onPointerCancel: () => { seeking.current = false; },
+            onBlur: () => { seeking.current = false; },
             onChange: (event: React.ChangeEvent<HTMLInputElement>) => seek(Number(event.target.value)),
             style: { width: '100%', height: 28, margin: 0, accentColor: COLORS.secondary, cursor: 'pointer' },
-          }) : <Pressable accessibilityRole="adjustable" accessibilityLabel="Lesson progress"
+          }) : <View accessible accessibilityRole="adjustable" accessibilityLabel="Lesson progress"
             accessibilityValue={{ min: 0, max: Math.max(1, Math.floor(duration)), now: Math.floor(time) }}
             accessibilityActions={[{ name: 'increment', label: 'Forward 10 seconds' }, { name: 'decrement', label: 'Rewind 10 seconds' }]}
             onAccessibilityAction={event => seek(time + (event.nativeEvent.actionName === 'increment' ? 10 : -10))}
-            disabled={!allowed || !ready || !duration} onLayout={event => setSeekWidth(event.nativeEvent.layout.width)}
-            onPress={event => { if (seekWidth) seek(event.nativeEvent.locationX / seekWidth * duration); }} style={styles.seekHit}>
+            onStartShouldSetResponder={() => !!(allowed && ready && duration)} onMoveShouldSetResponder={() => !!(allowed && ready && duration)}
+            onResponderGrant={event => { seeking.current = true; if (seekWidth) seek(event.nativeEvent.locationX / seekWidth * duration); }}
+            onResponderMove={event => { if (seekWidth) seek(event.nativeEvent.locationX / seekWidth * duration); }}
+            onResponderRelease={event => { if (seekWidth) seek(event.nativeEvent.locationX / seekWidth * duration); seeking.current = false; }}
+            onResponderTerminate={() => { seeking.current = false; }} onLayout={event => setSeekWidth(event.nativeEvent.layout.width)}
+            style={styles.seekHit}>
             <View pointerEvents="none" style={[styles.track, { backgroundColor: border }]}><View style={[styles.progress, { width: `${duration ? Math.min(100, time / duration * 100) : 0}%` }]} /></View>
-          </Pressable>}
+          </View>}
           <View style={[styles.lessonInfo, { borderColor: border }]}>
             <Text style={styles.eyebrow} numberOfLines={2}>{lesson?.topic || 'COURSE LESSON'}</Text>
             <Text style={[styles.title, { color: foreground }]}>{lesson?.title || (loading ? 'Loading lesson…' : 'Video lesson')}</Text>
-            <View style={styles.privateRow}><Icon name="shield-checkmark-outline" size={14} color={COLORS.secondary} /><Text style={[styles.caption, { color: secondary }]}>Private lesson · TVTI students</Text></View>
           </View>
         </View>
       </View>
@@ -233,6 +280,24 @@ export default function VideoPlayerScreen() {
         <Icon name="arrow-forward" size={19} color={foreground} />
       </TouchableOpacity>}
     </ScrollView>
+    <Modal visible={speedOpen && allowed} transparent animationType="fade" onRequestClose={() => setSpeedOpen(false)}>
+      <View style={styles.speedBackdrop}>
+        <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel="Close playback speed" onPress={() => setSpeedOpen(false)} />
+        <View accessibilityViewIsModal style={[styles.speedMenu, { backgroundColor: isDark ? '#1B1B1B' : '#FFFFFF', borderColor: border }]}>
+          <View style={styles.speedMenuHeader}><Text style={[styles.speedMenuTitle, { color: foreground }]}>Playback speed</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close speed menu" onPress={() => setSpeedOpen(false)} style={styles.control}><Icon name="close" size={21} color={foreground} /></TouchableOpacity>
+          </View>
+          <ScrollView style={{ maxHeight: 340 }}>
+            {(isYoutube ? youtubeRates : DEFAULT_PLAYBACK_SPEEDS).map(rate => <TouchableOpacity key={rate} accessibilityRole="radio"
+              accessibilityLabel={rate === 1 ? 'Normal speed, 1x' : `${rate}x speed`} accessibilityState={{ checked: playbackRate === rate }}
+              onPress={() => { setPlaybackRate(rate); setSpeedOpen(false); }} style={[styles.speedOption, { borderColor: border }]}>
+              <Text style={[styles.speedOptionLabel, { color: playbackRate === rate ? COLORS.secondary : foreground }]}>{rate === 1 ? 'Normal' : `${rate}×`}</Text>
+              {playbackRate === rate && <Icon name="checkmark" size={20} color={COLORS.secondary} />}
+            </TouchableOpacity>)}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   </View>;
 }
 
@@ -248,21 +313,29 @@ const styles = StyleSheet.create({
   messageButton: { marginTop: 3, backgroundColor: COLORS.secondary, borderRadius: 7, paddingHorizontal: 17, paddingVertical: 9 },
   buttonText: { ...FONTS.semiBold, color: '#FFFFFF', fontSize: 12 },
   details: { paddingHorizontal: 16 },
-  controls: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingTop: 12 },
+  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingTop: 12 },
+  controlsSpacer: { width: 40 },
+  centerPlay: { position: 'absolute', top: '50%', left: '50%', marginTop: -29, marginLeft: -29, width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(245,130,32,0.92)', justifyContent: 'center', alignItems: 'center' },
   control: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
-  play: { backgroundColor: COLORS.secondary, borderRadius: 9, marginRight: 4 },
+  play: { backgroundColor: COLORS.secondary, borderRadius: 12, width: 50, height: 48 },
   disabled: { opacity: 0.4 },
-  time: { ...FONTS.medium, fontSize: 11, flex: 1, textAlign: 'right', marginRight: 4, fontVariant: ['tabular-nums'] },
+  time: { ...FONTS.medium, fontSize: 11, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  timelineMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
+  speedButton: { flexDirection: 'row', gap: 6, alignItems: 'center', borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, minHeight: 32 },
+  speedLabel: { ...FONTS.semiBold, fontSize: 11 },
+  speedBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  speedMenu: { width: '100%', maxWidth: 340, borderWidth: 1, borderRadius: 14, paddingHorizontal: 18, paddingBottom: 12 },
+  speedMenuHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
+  speedMenuTitle: { ...FONTS.semiBold, fontSize: 16 },
+  speedOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 46, borderTopWidth: 1 },
+  speedOptionLabel: { ...FONTS.medium, fontSize: 14 },
   seekHit: { height: 28, justifyContent: 'center' },
   track: { height: 3, borderRadius: 2, overflow: 'hidden' },
   progress: { height: '100%', backgroundColor: COLORS.secondary },
   lessonInfo: { paddingTop: 14, paddingBottom: 20, borderTopWidth: 1, gap: 8 },
   eyebrow: { ...FONTS.semiBold, color: COLORS.secondary, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' },
   title: { ...FONTS.bold, fontSize: 21, lineHeight: 30 },
-  privateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   caption: { ...FONTS.regular, fontSize: 11, lineHeight: 18 },
-  watermark: { position: 'absolute', bottom: 12, right: 12, opacity: 0.5 },
-  watermarkText: { ...FONTS.medium, color: '#FFFFFF', fontSize: 10 },
   notes: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 16, borderWidth: 1, borderRadius: 12 },
   notesIcon: { width: 42, height: 46, backgroundColor: 'rgba(245,130,32,0.08)', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   notesCopy: { flex: 1, gap: 3 },
