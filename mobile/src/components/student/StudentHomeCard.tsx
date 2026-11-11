@@ -8,13 +8,14 @@ type Props = ViewProps & {
   title: string;
   headerAction?: React.ReactNode;
   variant?: 'default' | 'communication';
+  compact?: boolean;
 };
 
-export default function StudentHomeCard({ title, headerAction, variant = 'default', children, style, ...props }: Props) {
+export default function StudentHomeCard({ title, headerAction, variant = 'default', compact = false, children, style, ...props }: Props) {
   const { isDark } = useTheme();
   return (
-    <View {...props} style={styles.section}>
-      <View style={styles.header}>
+    <View {...props} style={[styles.section, compact && styles.compactSection]}>
+      <View style={[styles.header, compact && styles.compactHeader]}>
         <Text accessibilityRole="header" style={[styles.heading, { color: isDark ? '#FFFFFF' : COLORS.primary }]}>
           {title}
         </Text>
@@ -25,6 +26,7 @@ export default function StudentHomeCard({ title, headerAction, variant = 'defaul
           ? studentCommunicationSurface(isDark)
           : [studentHomeCardStyles.surface, isDark && studentHomeCardStyles.surfaceDark],
         styles.content,
+        compact && styles.compactContent,
         style,
       ]}>
         {children}
@@ -66,6 +68,9 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { boxShadow: 'none' }, default: {} }),
   },
   section: { marginBottom: 24 },
+  compactSection: { marginBottom: 16 },
+  compactHeader: { marginBottom: 6 },
+  compactContent: { paddingHorizontal: 16 },
   content: { paddingHorizontal: 18 },
   header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 14 },
   heading: { ...FONTS.bold, fontSize: 18, letterSpacing: -0.3, flex: 1, minWidth: 120 },

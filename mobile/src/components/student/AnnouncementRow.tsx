@@ -14,9 +14,9 @@ export type Announcement = {
   posted_by?: { name?: string; role?: string } | null;
 };
 
-type Props = { announcement: Announcement; dateLabel: string; divided?: boolean; onPress: () => void };
+type Props = { announcement: Announcement; dateLabel: string; divided?: boolean; compact?: boolean; onPress: () => void };
 
-export default function AnnouncementRow({ announcement, dateLabel, divided, onPress }: Props) {
+export default function AnnouncementRow({ announcement, dateLabel, divided, compact = false, onPress }: Props) {
   const { isDark } = useTheme();
   const theme = communicationTheme(isDark);
   return (
@@ -25,7 +25,7 @@ export default function AnnouncementRow({ announcement, dateLabel, divided, onPr
       accessibilityLabel={`Read announcement: ${announcement.title}`}
       onPress={onPress}
       activeOpacity={0.65}
-      style={[styles.row, divided && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line }]}
+      style={[styles.row, compact && { paddingVertical: 12, gap: 10 }, divided && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line }]}
     >
       <View style={styles.content}>
         <View style={styles.metadata}>
