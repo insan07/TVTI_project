@@ -40,6 +40,9 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+const UPLOAD_GAP = 10;
+const UPLOAD_CARD_PADDING = 14;
+
 export default function VideosScreen({ unreadCount }: { unreadCount?: number }) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -218,11 +221,16 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
   return (
     <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
       <ScreenBackground />
-      {/* FIXED STICKY TOP HEADER */}
       <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
         <ScreenHeader title="Uploads" subtitle="Course videos & study materials" showBack={false} />
+      </View>
 
-        {/* Top Controls Container (Course Selector & Filter Bar with consistent spacing) */}
+      <ScrollView
+        style={styles.scrollContent}
+        contentContainerStyle={styles.contentContainerStyle}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Filters scroll away with the uploads. */}
         {batches.length > 0 && (
           <View style={styles.topControlsContainer}>
             {/* Course Selector Dropdown Pill */}
@@ -293,14 +301,6 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
             </View>
           </View>
         )}
-      </View>
-
-      {/* SCROLLABLE CONTENT */}
-      <ScrollView
-        style={styles.scrollContent}
-        contentContainerStyle={styles.contentContainerStyle}
-        showsVerticalScrollIndicator={false}
-      >
         <Animated.View style={[styles.contentPadding, { opacity: contentOpacity }]}>
           {loadingVideos || loadingMaterials ? (
             <View style={[cardSurface, styles.loadingCard]}>
@@ -334,7 +334,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
               const isExpanded = !!expandedModules[topic];
 
               return (
-                <View key={topic} style={[cardSurface, styles.moduleSectionBox]}>
+                <View key={topic} style={cardSurface}>
                   <TouchableOpacity
                     style={styles.moduleHeader}
                     accessibilityRole="button"
@@ -589,23 +589,18 @@ const styles = StyleSheet.create({
   contentContainerStyle: {
     paddingBottom: 110,
   },
-  stickyHeader: {
-    backgroundColor: '#F8F9FA',
-    paddingHorizontal: SPACING.lg,
-    zIndex: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
-  },
   topControlsContainer: {
     paddingHorizontal: 20,
-    marginTop: 14,
+    paddingTop: UPLOAD_GAP,
+    gap: UPLOAD_GAP,
     maxWidth: 1100,
     width: '100%',
     alignSelf: 'center',
   },
   contentPadding: {
     paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingTop: UPLOAD_GAP,
+    gap: UPLOAD_GAP,
     maxWidth: 1100,
     width: '100%',
     alignSelf: 'center',
@@ -621,9 +616,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    marginBottom: 14,
+    paddingHorizontal: UPLOAD_CARD_PADDING,
+    paddingVertical: 10,
+    minHeight: 44,
   },
   courseSelectLeft: {
     flexDirection: 'row',
@@ -744,8 +739,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
 
-  moduleSectionBox: { marginBottom: 18 },
-  moduleHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20 },
+  moduleHeader: { flexDirection: 'row', alignItems: 'center', gap: UPLOAD_GAP, padding: UPLOAD_CARD_PADDING },
   moduleHeading: { flex: 1, minWidth: 0 },
   moduleTag: {
     ...FONTS.semiBold,
@@ -755,7 +749,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   moduleTitle: { ...FONTS.semiBold, fontSize: 18, lineHeight: 25, letterSpacing: -0.35 },
-  moduleMetadata: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 6, marginTop: 9 },
+  moduleMetadata: { flexDirection: 'row', flexWrap: 'wrap', columnGap: UPLOAD_GAP, rowGap: 6, marginTop: 6 },
   moduleCount: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   moduleCountText: { ...FONTS.regular, fontSize: 11, lineHeight: 16 },
   moduleChevron: {
@@ -798,7 +792,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   durationPillText: { ...FONTS.medium, fontSize: 10, color: '#FFFFFF' },
-  videoDetails: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 14 },
+  videoDetails: { padding: UPLOAD_CARD_PADDING },
   videoTitle: { ...FONTS.semiBold, fontSize: 16, lineHeight: 24, letterSpacing: -0.2 },
   videoFooter: {
     flexDirection: 'row',
@@ -815,9 +809,8 @@ const styles = StyleSheet.create({
   materialRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    gap: UPLOAD_GAP,
+    padding: UPLOAD_CARD_PADDING,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   materialIcon: {
@@ -848,7 +841,6 @@ const styles = StyleSheet.create({
   pendingBatchCard: {
     padding: 24,
     alignItems: 'center',
-    marginVertical: 20,
   },
   loadingCard: { paddingVertical: 36, alignItems: 'center' },
   pendingBatchIconCircle: {

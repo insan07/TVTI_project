@@ -9,7 +9,7 @@ import { StorageAccessFramework, writeAsStringAsync, EncodingType } from 'expo-f
 import * as Sharing from 'expo-sharing';
 import { API_URL } from '../../config/constants';
 import { COLORS, FONTS } from '../../config/theme';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import ViewerBackButton from '../../components/shared/ViewerBackButton';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
 import { storage } from '../../utils/storage';
@@ -119,13 +119,13 @@ export default function PdfViewerScreen() {
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} onPress={action} disabled={disabled}
       style={[styles.toolButton, disabled && { opacity: 0.3 }]}><Icon name={icon} size={20} color={foreground} /></TouchableOpacity>;
 
-  return <View style={[styles.screen, { backgroundColor: isDark ? '#111111' : '#F7F7F7' }]}>
+  return <View style={[styles.screen, { paddingTop: insets.top, backgroundColor: isDark ? '#111111' : '#F7F7F7' }]}>
     <ScreenBackground />
-    <View style={{ paddingTop: insets.top }}><ScreenHeader title="Lesson notes" showBack /></View>
-    <View style={[styles.content, { paddingBottom: insets.bottom + 16 }]}>
+    <View style={[styles.content, { paddingBottom: insets.bottom + 8 }]}>
       <View style={[styles.reader, { backgroundColor: isDark ? '#1B1B1B' : '#FFFFFF', borderColor: border }]}>
         <View style={[styles.heading, { borderColor: border }]}>
-          <Text style={[styles.title, { color: foreground, flex: 1 }]} numberOfLines={2}>{title}</Text>
+          <ViewerBackButton />
+          <Text accessibilityRole="header" style={[styles.title, { color: foreground, flex: 1, minWidth: 0 }]} numberOfLines={1}>{title}</Text>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Download document" disabled={!canDownload || saving}
             onPress={downloadDocument} style={[styles.download, (!canDownload || saving) && { opacity: 0.4 }]}>
             {saving ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Icon name="download-outline" size={18} color="#FFFFFF" />}
@@ -166,13 +166,13 @@ export default function PdfViewerScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  content: { flex: 1, width: '100%', maxWidth: 1040, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 12 },
+  content: { flex: 1, width: '100%', maxWidth: 1040, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 4 },
   reader: { flex: 1, borderWidth: 1, borderRadius: 14, overflow: 'hidden' },
-  heading: { padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1 },
-  download: { flexDirection: 'row', gap: 6, backgroundColor: COLORS.secondary, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  heading: { paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: 1 },
+  download: { flexDirection: 'row', gap: 6, backgroundColor: COLORS.secondary, paddingHorizontal: 10, minHeight: 36, borderRadius: 8, alignItems: 'center' },
   downloadLabel: { ...FONTS.semiBold, fontSize: 11, color: '#FFFFFF' },
-  title: { ...FONTS.semiBold, fontSize: 15, lineHeight: 22 },
-  toolbar: { paddingHorizontal: 8, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
+  title: { ...FONTS.semiBold, fontSize: 14, lineHeight: 20 },
+  toolbar: { paddingHorizontal: 8, paddingVertical: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
   toolGroup: { flexDirection: 'row', alignItems: 'center' },
   toolButton: { width: 36, height: 40, alignItems: 'center', justifyContent: 'center' },
   pageLabel: { ...FONTS.medium, fontSize: 11, minWidth: 70, textAlign: 'center' },
