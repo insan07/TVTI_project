@@ -2,10 +2,15 @@ import React from 'react';
 import { Platform, StyleSheet, Text, View, type ViewProps } from 'react-native';
 import { COLORS, FONTS } from '../../config/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { communicationTheme } from '../shared/communicationTheme';
 
-type Props = ViewProps & { title: string; headerAction?: React.ReactNode };
+type Props = ViewProps & {
+  title: string;
+  headerAction?: React.ReactNode;
+  variant?: 'default' | 'communication';
+};
 
-export default function StudentHomeCard({ title, headerAction, children, style, ...props }: Props) {
+export default function StudentHomeCard({ title, headerAction, variant = 'default', children, style, ...props }: Props) {
   const { isDark } = useTheme();
   return (
     <View {...props} style={styles.section}>
@@ -16,8 +21,9 @@ export default function StudentHomeCard({ title, headerAction, children, style, 
         {headerAction}
       </View>
       <View style={[
-        studentHomeCardStyles.surface,
-        isDark && studentHomeCardStyles.surfaceDark,
+        variant === 'communication'
+          ? studentCommunicationSurface(isDark)
+          : [studentHomeCardStyles.surface, isDark && studentHomeCardStyles.surfaceDark],
         styles.content,
         style,
       ]}>
@@ -44,7 +50,21 @@ export const studentHomeCardStyles = StyleSheet.create({
   rowDividerDark: { borderTopColor: 'rgba(255, 255, 255, 0.10)' },
 });
 
+export function studentCommunicationSurface(isDark: boolean) {
+  const theme = communicationTheme(isDark);
+  return [
+    studentHomeCardStyles.surface,
+    styles.communicationSurface,
+    { backgroundColor: theme.surface, borderColor: theme.line },
+  ];
+}
+
 const styles = StyleSheet.create({
+  communicationSurface: {
+    shadowOpacity: 0,
+    elevation: 0,
+    ...Platform.select({ web: { boxShadow: 'none' }, default: {} }),
+  },
   section: { marginBottom: 24 },
   content: { paddingHorizontal: 18 },
   header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 14 },

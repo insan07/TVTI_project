@@ -295,7 +295,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
         {hasAssignedBatch && (
           <StudentHomeCard
             title="Recent Theory Lessons"
-            style={[styles.noticeSection, { backgroundColor: communication.surface, borderColor: communication.line }]}
+            variant="communication"
           >
             {theoryLessons.length > 0 ? <View>
               {theoryLessons.map((lesson: any, index: number) => {
@@ -382,7 +382,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
         {/* ========================================================================= */}
         <StudentHomeCard
           title="Announcements"
-          style={[styles.noticeSection, { backgroundColor: communication.surface, borderColor: communication.line }]}
+          variant="communication"
           headerAction={announcements.length > 0 ? (
             <TouchableOpacity
               onPress={() => setAllAnnouncementsModalVisible(true)}
@@ -831,11 +831,6 @@ const styles = StyleSheet.create({
     ...FONTS.regular,
     fontSize: 13,
     lineHeight: 20,
-  },
-  noticeSection: {
-    shadowOpacity: 0,
-    elevation: 0,
-    ...Platform.select({ web: { boxShadow: 'none' }, default: {} }),
   },
   noticeDialog: {
     width: '100%',

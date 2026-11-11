@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import Video from '../models/Video';
 import Enrollment from '../models/Enrollment';
-import cloudinary from '../config/cloudinary';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { normalizeYouTubeUrl } from './videoController';
 import { Types } from 'mongoose';
@@ -98,7 +97,6 @@ export const getVideoStreamUrl = async (req: AuthRequest, res: Response): Promis
     if (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be')) {
       res.json({
         url: normalizeYouTubeUrl(rawUrl),
-        rawUrl,
         type: 'youtube',
         downloadable: false,
         title: video.title,
@@ -115,9 +113,8 @@ export const getVideoStreamUrl = async (req: AuthRequest, res: Response): Promis
 
     res.json({
       url: finalUrl,
-      downloadUrl: `${finalUrl}${finalUrl.includes('?') ? '&' : '?'}download=1`,
       type: 'video',
-      downloadable: true,
+      downloadable: false,
       title: video.title,
       topic: video.topic,
       notes_url: video.notes_url,
@@ -176,20 +173,7 @@ export const downloadVideo = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const rawUrl = video.cloudinary_url || '';
-    if (!rawUrl || rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be')) {
-      res.status(400).json({ message: 'This video is streamed from YouTube and cannot be downloaded.' });
-      return;
-    }
-
-    if (rawUrl.startsWith('/uploads/')) {
-      res.redirect(`${req.protocol}://${req.get('host')}${rawUrl}?download=1`);
-      return;
-    }
-
-    // Cloudinary supports attachment delivery by adding fl_attachment to the URL.
-    const downloadUrl = rawUrl.replace('/upload/', '/upload/fl_attachment/');
-    res.redirect(downloadUrl);
+    res.status(403).json({ message: 'Lesson videos are available for in-app viewing only. Downloads are disabled.' });
   } catch (error) {
     res.status(500).json({ message: 'Unable to download video' });
   }

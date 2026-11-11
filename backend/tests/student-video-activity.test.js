@@ -59,6 +59,8 @@ test('opening an authorized video records access, resolves its URL, and preserve
   await controller.getVideoStreamUrl(request({}), res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.url, 'https://example.test/uploads/videos/circuit.mp4');
+  assert.equal(res.body.downloadable, false);
+  assert.equal('downloadUrl' in res.body, false);
   assert.equal(getRecord().pinned_at, pinnedAt);
   assert.ok(getRecord().last_accessed_at > new Date('2025-01-01'));
   await controller.getVideoStreamUrl(request({}), response());
@@ -70,7 +72,16 @@ test('YouTube opens are included in access history', async () => {
   const res = response();
   await controller.getVideoStreamUrl(request({}), res);
   assert.equal(res.body.type, 'youtube');
+  assert.equal(res.body.downloadable, false);
+  assert.equal('downloadUrl' in res.body, false);
   assert.ok(getRecord().last_accessed_at instanceof Date);
+});
+
+test('video downloads are denied even for an enrolled student', async () => {
+  const res = response();
+  await controller.downloadVideo(request({}), res);
+  assert.equal(res.statusCode, 403);
+  assert.match(res.body.message, /Downloads are disabled/);
 });
 
 for (const [name, change, status] of [
