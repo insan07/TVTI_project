@@ -118,7 +118,7 @@ export default function InstructorHomeScreen() {
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry home page" style={styles.headerAction} onPress={() => { setRefreshing(true); void fetchDashboard(); }}><Text style={styles.link}>Retry</Text></TouchableOpacity>
         </View>}
 
-        <StudentHomeCard title="Quick Actions" variant="communication">
+        <StudentHomeCard title="Quick Actions" variant="communication" style={styles.quickActionsSurface}>
           <View style={styles.actionsRow}>
             {QUICK_ACTIONS.map((action, index) => <TouchableOpacity key={action.screen} accessibilityRole="button" accessibilityLabel={action.title}
               onPress={() => navigation.navigate(action.screen)} activeOpacity={0.65}
@@ -220,8 +220,9 @@ const styles = StyleSheet.create({
   scrollContent: { flex: 1 }, scrollContentStyle: { paddingBottom: 110 },
   mainContent: { paddingHorizontal: 20, paddingTop: 20, maxWidth: 1100, width: '100%', alignSelf: 'center' },
   headerAction: { minHeight: 44, justifyContent: 'center' }, link: { ...FONTS.semiBold, fontSize: 12, color: COLORS.secondary },
-  actionsRow: { flexDirection: 'row', paddingVertical: 18 }, actionButton: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 5, gap: 10 },
-  actionIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, actionLabel: { ...FONTS.semiBold, fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  quickActionsSurface: { paddingHorizontal: 0 },
+  actionsRow: { flexDirection: 'row', paddingVertical: 18 }, actionButton: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 2, gap: 10 },
+  actionIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, actionLabel: { ...FONTS.semiBold, fontSize: 11, lineHeight: 18, textAlign: 'center', width: '100%', flexShrink: 1 },
   empty: { paddingVertical: 18 }, emptyText: { ...FONTS.regular, fontSize: 13, lineHeight: 20 }, emptyAction: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   practicalRow: { paddingVertical: 16 }, practicalTop: { flexDirection: 'row', alignItems: 'center' },
   dateBadge: { width: 56, height: 56, borderRadius: 18, backgroundColor: '#FFEBDD', alignItems: 'center', justifyContent: 'center', marginRight: 14 },

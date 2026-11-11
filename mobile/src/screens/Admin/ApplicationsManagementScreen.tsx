@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,15 @@ import {
   Modal,
   ScrollView,
   Platform,
-  Alert,
   TextInput,
   Share
 } from 'react-native';
 import { Image } from 'expo-image';
 import api from '../../services/api';
+import { FONTS } from '../../config/theme';
+import CourseBatchAssignments from '../../components/shared/CourseBatchAssignments';
+import ManagementDialog from '../../components/shared/ManagementDialog';
+import { usersSectionTheme } from '../../components/shared/usersSectionTheme';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../config/theme';
@@ -43,6 +46,10 @@ export default function ApplicationsManagementScreen({
   statusFilter,
 }: ApplicationsManagementScreenProps) {
   const { isDark } = useTheme();
+  const design = usersSectionTheme(isDark);
+  const styles = useMemo(() => createStyles(usersSectionTheme(isDark)), [isDark]);
+  const [feedback, setFeedback] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info'; onOk?: () => void }>({ visible: false, title: '', message: '', type: 'info' });
+  const showFeedback = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info', onOk?: () => void) => setFeedback({ visible: true, title, message, type, onOk });
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,6 +60,7 @@ export default function ApplicationsManagementScreen({
   const [selectedAppForReview, setSelectedAppForReview] = useState<any>(null);
   const [allAvailableCourses, setAllAvailableCourses] = useState<any[]>([]);
   const [assignedCourseIds, setAssignedCourseIds] = useState<string[]>([]);
+  const [assignedBatchIds, setAssignedBatchIds] = useState<string[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [approving, setApproving] = useState(false);
 
@@ -64,6 +72,9 @@ export default function ApplicationsManagementScreen({
 
   // Credentials Modal States
   const [credentialsModalVisible, setCredentialsModalVisible] = useState(false);
+  const [resendingCredentials, setResendingCredentials] = useState(false);
+  const [credentialsTitle, setCredentialsTitle] = useState('Student Application Approved');
+  const [credentialsEmailSent, setCredentialsEmailSent] = useState(false);
   const [approvedCredentials, setApprovedCredentials] = useState<{
     index_number: string;
     temp_password: string;
@@ -119,19 +130,8 @@ export default function ApplicationsManagementScreen({
     const appName = name || 'this application';
     const confirmMsg = `Are you sure you want to PERMANENTLY delete the application for "${appName}"? This action cannot be undone.`;
 
-    if (Platform.OS === 'web') {
-      if (!window.confirm(confirmMsg)) return;
-      execDeleteSingleApp(appId);
-    } else {
-      Alert.alert(
-        '⚠️ Delete Application',
-        confirmMsg,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete Forever', style: 'destructive', onPress: () => execDeleteSingleApp(appId) }
-        ]
-      );
-    }
+    setReviewModalVisible(false);
+    setConfirmModal({ visible: true, title: 'Delete application?', message: confirmMsg, type: 'danger', confirmText: 'Delete forever', onConfirm: () => { void execDeleteSingleApp(appId); } });
   };
 
   const execDeleteSingleApp = async (appId: string) => {
@@ -140,13 +140,11 @@ export default function ApplicationsManagementScreen({
       setReviewModalVisible(false);
       setSelectedAppForReview(null);
       const msg = 'Application record permanently deleted.';
-      if (Platform.OS === 'web') window.alert(msg);
-      else Alert.alert('Deleted', msg);
+      showFeedback('Deleted', msg, 'success', onBack);
       fetchPendingApplications();
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Failed to delete application';
-      if (Platform.OS === 'web') window.alert(`Error: ${msg}`);
-      else Alert.alert('Error', msg);
+      showFeedback('Error', msg, 'error');
     }
   };
 
@@ -157,39 +155,29 @@ export default function ApplicationsManagementScreen({
     const execBulkDelete = async () => {
       try {
         setLoading(true);
+        const failed: string[] = [];
         for (const id of selectedAppIds) {
           try {
             await api.delete(`/admin/applications/${id}`);
           } catch (err) {
+            failed.push(id);
             console.warn(`Failed to delete application ${id}`, err);
           }
         }
-        setSelectedAppIds([]);
-        setIsSelectMode(false);
+        setSelectedAppIds(failed);
+        setIsSelectMode(failed.length > 0);
         fetchPendingApplications();
-        const msg = `Permanently deleted ${selectedAppIds.length} application(s).`;
-        if (Platform.OS === 'web') window.alert(msg);
-        else Alert.alert('Deleted', msg);
+        const deleted = selectedAppIds.length - failed.length;
+        const msg = `${deleted} application${deleted === 1 ? '' : 's'} deleted.${failed.length ? ` ${failed.length} remain selected. Please try again.` : ''}`;
+        showFeedback(failed.length ? 'Some applications could not be deleted' : 'Deleted', msg, failed.length ? 'error' : 'success');
       } catch (e) {
-        if (Platform.OS === 'web') window.alert('Bulk deletion failed.');
-        else Alert.alert('Error', 'Bulk deletion failed');
+        showFeedback('Error', 'Bulk deletion failed', 'error');
       } finally {
         setLoading(false);
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(confirmMsg)) execBulkDelete();
-    } else {
-      Alert.alert(
-        '⚠️ Bulk Delete Applications',
-        confirmMsg,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: `Delete ${selectedAppIds.length}`, style: 'destructive', onPress: execBulkDelete }
-        ]
-      );
-    }
+    setConfirmModal({ visible: true, title: 'Delete selected applications?', message: confirmMsg, type: 'danger', confirmText: 'Delete selected', onConfirm: () => { void execBulkDelete(); } });
   };
 
   const handleExportSelectedApps = () => {
@@ -270,6 +258,7 @@ export default function ApplicationsManagementScreen({
       initialIds = [(app.course_id._id || app.course_id)];
     }
     setAssignedCourseIds(initialIds);
+    setAssignedBatchIds((app.assigned_batch_ids || []).map((batch: any) => String(batch._id || batch)));
 
     let calculatedFee = 0;
     if (app.total_course_fee && app.total_course_fee > 0) {
@@ -280,7 +269,7 @@ export default function ApplicationsManagementScreen({
       calculatedFee = app.course_id.fee;
     }
 
-    setAdminTotalFee(calculatedFee > 0 ? String(calculatedFee) : '25000');
+    setAdminTotalFee(String(calculatedFee));
     setAdminAmountPaid(app.amount_paid !== undefined ? String(app.amount_paid) : '0');
     setAdminPaymentStatus(app.payment_status || (app.payment_method === 'bank_transfer' ? 'pending' : 'pending'));
 
@@ -292,8 +281,7 @@ export default function ApplicationsManagementScreen({
       if (prev.includes(courseId)) {
         if (prev.length === 1) {
           const msg = 'At least one course must be assigned to the student.';
-          if (Platform.OS === 'web') window.alert(msg);
-          else Alert.alert('Notice', msg);
+          showFeedback('Notice', msg, 'info');
           return prev;
         }
         return prev.filter(id => id !== courseId);
@@ -306,10 +294,10 @@ export default function ApplicationsManagementScreen({
     if (!selectedAppForReview) return;
     if (assignedCourseIds.length === 0) {
       const msg = 'Please select at least one course to assign.';
-      if (Platform.OS === 'web') window.alert(msg);
-      else Alert.alert('Error', msg);
+      showFeedback('Error', msg, 'error');
       return;
     }
+    if (assignedBatchIds.length !== assignedCourseIds.length) { showFeedback('Batch required', 'Select one batch for every selected course.'); return; }
     setReviewModalVisible(false);
     setConfirmModal({
       visible: true,
@@ -341,42 +329,11 @@ export default function ApplicationsManagementScreen({
     });
   };
 
-  const handlePromptResendCredentials = () => {
-    if (!selectedAppForReview) return;
-    setReviewModalVisible(false);
-    setConfirmModal({
-      visible: true,
-      title: 'Resend Credentials',
-      message: `Are you sure you want to resend login credentials to ${selectedAppForReview.full_name}?\n\nA fresh temporary password will be generated and dispatched to their email.`,
-      type: 'info',
-      confirmText: 'Resend Credentials',
-      cancelText: 'Cancel',
-      onConfirm: async () => {
-        try {
-          const res = await api.put(`/admin/users/${selectedAppForReview._id}/resend-credentials`);
-          if (res.data.credentials) {
-            setApprovedCredentials(res.data.credentials);
-            setCredentialsModalVisible(true);
-          } else {
-            const msg = `Official login credentials email resent to ${selectedAppForReview.full_name}.`;
-            if (Platform.OS === 'web') window.alert(msg);
-            else Alert.alert('Credentials Resent', msg);
-          }
-        } catch (e: any) {
-          const msg = e.response?.data?.message || 'Failed to resend credentials';
-          if (Platform.OS === 'web') window.alert(`Error: ${msg}`);
-          else Alert.alert('Error', msg);
-        }
-      }
-    });
-  };
-
   const handleApproveFromReview = async () => {
     if (!selectedAppForReview) return;
     if (assignedCourseIds.length === 0) {
       const msg = 'Please select at least one course to assign.';
-      if (Platform.OS === 'web') window.alert(msg);
-      else Alert.alert('Error', msg);
+      showFeedback('Error', msg, 'error');
       return;
     }
 
@@ -385,6 +342,7 @@ export default function ApplicationsManagementScreen({
       const res = await api.put(`/admin/applications/${selectedAppForReview._id}/status`, {
         status: 'approved',
         assigned_course_ids: assignedCourseIds,
+        assigned_batch_ids: assignedBatchIds,
         total_course_fee: Number(adminTotalFee) || 0,
         amount_paid: Number(adminAmountPaid) || 0,
         payment_status: adminPaymentStatus
@@ -393,23 +351,48 @@ export default function ApplicationsManagementScreen({
       setReviewModalVisible(false);
 
       if (res.data.credentials) {
+        setCredentialsTitle('Student Application Approved');
+        setCredentialsEmailSent(res.data.email_sent === true);
         setApprovedCredentials(res.data.credentials);
         setCredentialsModalVisible(true);
       } else {
         const msg = 'Application approved successfully.';
-        if (Platform.OS === 'web') window.alert(msg);
-        else Alert.alert('Success', msg);
+        showFeedback('Success', msg, 'success', () => { onApproved?.(); onBack?.(); });
       }
 
       fetchPendingApplications();
-      if (onApproved) onApproved();
+      // Keep the acknowledgement or credentials visible until it is dismissed.
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Failed to approve application';
-      if (Platform.OS === 'web') window.alert(`Error: ${msg}`);
-      else Alert.alert('Error', msg);
+      showFeedback('Error', msg, 'error');
     } finally {
       setApproving(false);
     }
+  };
+
+  const handlePromptResendCredentials = () => {
+    if (!selectedAppForReview || resendingCredentials) return;
+    const applicationId = selectedAppForReview._id;
+    setReviewModalVisible(false);
+    setConfirmModal({
+      visible: true, title: 'Resend Credentials',
+      message: `Generate a new temporary password and email it to ${selectedAppForReview.email}? The current password will be replaced.`,
+      confirmText: 'Resend Credentials', cancelText: 'Cancel', type: 'info',
+      onConfirm: async () => {
+        setResendingCredentials(true);
+        try {
+          const response = await api.put(`/admin/applications/${applicationId}/resend-credentials`);
+          setCredentialsTitle('New Login Credentials');
+          setCredentialsEmailSent(response.data.email_sent === true);
+          setApprovedCredentials(response.data.credentials);
+          setCredentialsModalVisible(true);
+          fetchPendingApplications();
+        } catch (error: any) {
+          setReviewModalVisible(true);
+          showFeedback('Unable to resend', error.response?.data?.message || 'Credentials could not be resent. Please try again.', 'error');
+        } finally { setResendingCredentials(false); }
+      }
+    });
   };
 
   const handleRejectFromReview = () => {
@@ -422,21 +405,19 @@ export default function ApplicationsManagementScreen({
     setRejectingId(appId);
     try {
       const finalReason = reason.trim() || 'Application details did not meet entry requirements.';
-      await api.put(`/admin/applications/${appId}/status`, {
+      const response = await api.put(`/admin/applications/${appId}/status`, {
         status: 'rejected',
         rejection_reason: finalReason
       });
       setRejectReasonModalVisible(false);
       setReviewModalVisible(false);
       setSelectedAppForReview(null);
-      const msg = 'Application rejected successfully. Rejection reason email sent to student.';
-      if (Platform.OS === 'web') window.alert(msg);
-      else Alert.alert('Success', msg);
+      const msg = response.data.email_sent ? 'Application rejected. The rejection reason was emailed to the student.' : 'Application rejected. The email could not be delivered.';
+      showFeedback('Success', msg, 'success', () => { onApproved?.(); onBack?.(); });
       fetchPendingApplications();
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Failed to reject application';
-      if (Platform.OS === 'web') window.alert(`Error: ${msg}`);
-      else Alert.alert('Error', msg);
+      showFeedback('Error', msg, 'error');
     } finally {
       setRejectingId(null);
     }
@@ -453,11 +434,10 @@ export default function ApplicationsManagementScreen({
     const isRejected = item.status === 'rejected';
     const isSelected = selectedAppIds.includes(item._id);
     return (
-      <TouchableOpacity
-        style={[
+      <TouchableOpacity accessibilityRole={Platform.OS === 'web' ? undefined : 'button'} role={Platform.OS === 'web' ? 'group' : undefined}         style={[
           styles.card,
-          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
-          isRejected && { opacity: 0.6, backgroundColor: isDark ? '#1E293B' : '#F8FAFC', borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#CBD5E1' },
+          isDark && { backgroundColor: design.surface, borderColor: design.line },
+          isRejected && { opacity: 0.6, backgroundColor: isDark ? design.surface : design.field, borderColor: isDark ? design.accent : design.line },
           isSelectMode && isSelected && styles.whatsappSelectedCard,
         ]}
         onPress={() => {
@@ -483,7 +463,7 @@ export default function ApplicationsManagementScreen({
             {item.student_photo ? (
               <Image source={{ uri: item.student_photo }} style={[styles.cardAvatarImg, isRejected && { opacity: 0.7 }]} />
             ) : (
-              <View style={[styles.avatarCircle, isRejected && { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
+              <View style={[styles.avatarCircle, isRejected && { backgroundColor: isDark ? design.surface : '#E2E8F0' }]}>
                 <Icon name="person" size={24} color={isRejected ? "#94A3B8" : (isDark ? "#94A3B8" : "#475569")} />
               </View>
             )}
@@ -496,13 +476,13 @@ export default function ApplicationsManagementScreen({
 
           <View style={styles.cardInfoCol}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <Text style={[styles.studentName, isDark && { color: '#FFFFFF' }, isRejected && { color: '#64748B' }]} numberOfLines={1}>{item.full_name}</Text>
+              <Text style={[styles.studentName, isDark && { color: design.text }, isRejected && { color: design.muted }]} numberOfLines={1}>{item.full_name}</Text>
             </View>
-            <Text style={[styles.studentEmailText, isDark && { color: '#94A3B8' }]} numberOfLines={1}>{item.email}</Text>
+            <Text style={[styles.studentEmailText, isDark && { color: design.muted }]} numberOfLines={1}>{item.email}</Text>
             {item.phone ? (
-              <Text style={[styles.studentPhoneText, isDark && { color: '#64748B' }]} numberOfLines={1}>{item.phone}</Text>
+              <Text style={[styles.studentPhoneText, isDark && { color: design.muted }]} numberOfLines={1}>{item.phone}</Text>
             ) : item.nic ? (
-              <Text style={[styles.studentPhoneText, isDark && { color: '#64748B' }]} numberOfLines={1}>{item.nic}</Text>
+              <Text style={[styles.studentPhoneText, isDark && { color: design.muted }]} numberOfLines={1}>{item.nic}</Text>
             ) : null}
           </View>
 
@@ -595,8 +575,7 @@ export default function ApplicationsManagementScreen({
       }
     } catch (e) {
       console.warn('Failed to print PDF', e);
-      if (Platform.OS === 'web') window.alert('Failed to generate PDF document.');
-      else Alert.alert('Error', 'Failed to generate PDF document.');
+      showFeedback('Error', 'Failed to generate PDF document.', 'error');
     }
   };
 
@@ -670,7 +649,7 @@ export default function ApplicationsManagementScreen({
     }
   };
 
-  const renderContent = () => {
+  const renderContentBody = () => {
     if (selectedAppForReview) {
       return (
         <>
@@ -686,7 +665,7 @@ export default function ApplicationsManagementScreen({
           >
             <View style={styles.modalOverlay}>
               <View style={[styles.modalCard, { height: '88%', width: '92%', maxWidth: 650, padding: 0, overflow: 'hidden' }]}>
-                <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+                <View style={{ flex: 1, backgroundColor: design.surface }}>
                 {/* Dossier Header Row with Save PDF, Share, and Close Icon Shortcuts */}
                 <View style={styles.detailsHeader}>
                   <View style={{ flex: 1 }}>
@@ -696,33 +675,30 @@ export default function ApplicationsManagementScreen({
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <TouchableOpacity
-                      style={styles.closeModalIconBtn}
+                    <TouchableOpacity accessibilityRole="button"                       style={styles.closeModalIconBtn}
                       onPress={handleSavePdf}
                       activeOpacity={0.7}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Icon name="document-text-outline" size={20} color="#4B5563" />
+                      <Icon name="document-text-outline" size={20} color={design.muted} />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.closeModalIconBtn}
+                    <TouchableOpacity accessibilityRole="button"                       style={styles.closeModalIconBtn}
                       onPress={handleSharePdf}
                       activeOpacity={0.7}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Icon name="share-social-outline" size={20} color="#4B5563" />
+                      <Icon name="share-social-outline" size={20} color={design.muted} />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.closeModalIconBtn}
+                    <TouchableOpacity accessibilityRole="button"                       style={styles.closeModalIconBtn}
                       onPress={() => {
                         setSelectedAppForReview(null);
                         setReviewModalVisible(false);
                         if (onBack) onBack();
                       }}
                       activeOpacity={0.7}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Close application review"
                     >
-                      <Icon name="close" size={22} color="#4B5563" />
+                      <Icon name="close" size={22} color={design.muted} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -732,7 +708,7 @@ export default function ApplicationsManagementScreen({
                   {selectedAppForReview?.status === 'rejected' && (
                     <View style={styles.rejectionNoticeBox}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <Icon name="alert-circle" size={18} color="#DC2626" />
+                        <Icon name="alert-circle" size={18} color={design.accent} />
                         <Text style={styles.rejectionNoticeTitle}>Application Rejected</Text>
                       </View>
                       <Text style={styles.rejectionNoticeReason}>
@@ -829,7 +805,7 @@ export default function ApplicationsManagementScreen({
                     <View style={styles.infoDivider} />
                     <View style={styles.infoRow}>
                       <Text style={styles.infoLabel}>Selected Payment Method:</Text>
-                      <Text style={[styles.infoVal, { fontWeight: 'bold', color: '#2563EB' }]}>
+                      <Text style={[styles.infoVal, { fontWeight: 'bold', color: design.accent }]}>
                         {selectedAppForReview.payment_method === 'bank_transfer'
                           ? 'Bank Deposit Slip Upload'
                           : 'Physical Cash Payment at Counter'}
@@ -839,7 +815,7 @@ export default function ApplicationsManagementScreen({
                     {selectedAppForReview.payment_slip ? (
                       <View style={{ marginTop: 10 }}>
                         <Text style={styles.infoLabel}>Uploaded Bank Deposit Receipt Slip:</Text>
-                        <TouchableOpacity onPress={() => setSlipZoomModalVisible(true)} style={styles.slipThumbnailBox}>
+                        <TouchableOpacity accessibilityRole="button" onPress={() => setSlipZoomModalVisible(true)} style={styles.slipThumbnailBox}>
                           <Image source={{ uri: selectedAppForReview.payment_slip }} style={styles.slipThumbnailImg} contentFit="contain" />
                           <View style={styles.zoomOverlayBadge}>
                             <Icon name="scan-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
@@ -890,9 +866,9 @@ export default function ApplicationsManagementScreen({
                     {(() => {
                       const balance = Math.max(0, (Number(adminTotalFee) || 0) - (Number(adminAmountPaid) || 0));
                       return (
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#334155' }}>
-                          <Text style={{ fontSize: 13, color: '#94A3B8' }}>Remaining Balance Due:</Text>
-                          <Text style={{ fontSize: 15, fontWeight: 'bold', color: balance > 0 ? '#F59E0B' : '#10B981' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: design.line }}>
+                          <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted }}>Remaining Balance Due:</Text>
+                          <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 15, fontWeight: 'bold', color: balance > 0 ? design.accent : design.accent }}>
                             LKR {balance.toLocaleString()}
                           </Text>
                         </View>
@@ -900,37 +876,10 @@ export default function ApplicationsManagementScreen({
                     })()}
                   </View>
 
-                  {/* 6. Course Assignments Card */}
                   <View style={styles.infoSectionCard}>
-                    <Text style={styles.sectionCardHeaderTitle}>Assigned Academic Courses</Text>
+                    <Text style={styles.sectionCardHeaderTitle}>Courses and Batch Assignments</Text>
                     <View style={styles.infoDivider} />
-                    {loadingCourses ? (
-                      <ActivityIndicator color="#059669" style={{ marginVertical: 10 }} />
-                    ) : (
-                      allAvailableCourses.map(course => {
-                        const isSelected = assignedCourseIds.includes(course._id);
-                        return (
-                          <TouchableOpacity
-                            key={course._id}
-                            style={[styles.courseSelectItem, isSelected && styles.courseSelectItemActive]}
-                            onPress={() => toggleAssignedCourse(course._id)}
-                            activeOpacity={0.8}
-                          >
-                            <View style={[styles.courseCheckbox, isSelected && styles.courseCheckboxActive]}>
-                              {isSelected && <Icon name="checkmark" size={12} color="#FFFFFF" />}
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={[styles.courseSelectTitle, isSelected && styles.courseSelectTitleActive]}>
-                                {course.title}
-                              </Text>
-                              <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
-                                {course.fee ? `Tuition: LKR ${course.fee.toLocaleString()}` : 'Free'} · {course.duration_weeks || 12} Weeks
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })
-                    )}
+                    <CourseBatchAssignments courseIds={assignedCourseIds} batchIds={assignedBatchIds} onCoursesChange={setAssignedCourseIds} onBatchesChange={setAssignedBatchIds} readOnly={selectedAppForReview.status === 'approved'} />
                   </View>
 
                   <View style={{ height: 20 }} />
@@ -939,17 +888,15 @@ export default function ApplicationsManagementScreen({
                 {/* Stable Bottom Actions matching Student Dossier popup */}
                 <View style={styles.detailsFooter}>
                   {selectedAppForReview?.status === 'approved' ? (
-                    <TouchableOpacity
-                      style={[styles.footerActionBtn, { backgroundColor: '#0D9488', flex: 1 }]}
-                      onPress={handlePromptResendCredentials}
-                      activeOpacity={0.85}
-                    >
-                      <Icon name="mail-unread-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                      <Text style={styles.footerActionText}>Resend Credentials</Text>
-                    </TouchableOpacity>
+                    <View style={{ gap: 10, flex: 1 }}>
+                      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Resend approved application credentials" style={[styles.footerActionBtn, { backgroundColor: design.accent }]} disabled={resendingCredentials} onPress={handlePromptResendCredentials}><Text style={styles.footerActionText}>Resend Credentials</Text></TouchableOpacity>
+                      <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Reject approved application" style={[styles.footerActionBtn, { backgroundColor: design.field, borderWidth: 1, borderColor: design.line }]} onPress={handlePromptReject}><Text style={[styles.footerActionText, { color: design.text }]}>Reject Application</Text></TouchableOpacity>
+                      <TouchableOpacity accessibilityRole="button" style={[styles.footerActionBtn, { backgroundColor: design.field, borderWidth: 1, borderColor: design.line }]} onPress={() => { setReviewModalVisible(false); setSelectedAppForReview(null); onBack?.(); }}><Text style={[styles.footerActionText, { color: design.text }]}>Close</Text></TouchableOpacity>
+                      </View>
+                    </View>
                   ) : selectedAppForReview?.status === 'rejected' ? (
-                    <TouchableOpacity
-                      style={[styles.footerActionBtn, { backgroundColor: '#F58220', flex: 1 }]}
+                    <TouchableOpacity accessibilityRole="button"                       style={[styles.footerActionBtn, { backgroundColor: design.accent, flex: 1 }]}
                       onPress={handlePromptApprove}
                       disabled={approving}
                       activeOpacity={0.85}
@@ -962,8 +909,7 @@ export default function ApplicationsManagementScreen({
                     </TouchableOpacity>
                   ) : (
                     <View style={{ flexDirection: 'row', gap: 10, flex: 1 }}>
-                      <TouchableOpacity
-                        style={[styles.footerActionBtn, { backgroundColor: '#E2E8F0', flex: 1 }]}
+                      <TouchableOpacity accessibilityRole="button" style={[styles.footerActionBtn, { backgroundColor: design.field, borderWidth: 1, borderColor: design.line, flex: 1 }]}
                         onPress={handlePromptReject}
                         disabled={approving || rejectingId !== null}
                         activeOpacity={0.8}
@@ -971,12 +917,11 @@ export default function ApplicationsManagementScreen({
                         {rejectingId ? (
                           <ActivityIndicator color="#1E293B" size="small" />
                         ) : (
-                          <Text style={[styles.footerActionText, { color: '#1E293B' }]}>Reject</Text>
+                          <Text style={[styles.footerActionText, { color: design.text }]}>Reject</Text>
                         )}
                       </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={[styles.footerActionBtn, { backgroundColor: '#F58220', flex: 1 }]}
+                      <TouchableOpacity accessibilityRole="button"                         style={[styles.footerActionBtn, { backgroundColor: design.accent, flex: 1 }]}
                         onPress={handlePromptApprove}
                         disabled={approving}
                         activeOpacity={0.85}
@@ -996,9 +941,9 @@ export default function ApplicationsManagementScreen({
         </Modal>
 
           {/* Slip Image Full Screen Zoom Modal */}
-          <Modal visible={slipZoomModalVisible} animationType="fade" transparent={true}>
+          <Modal visible={slipZoomModalVisible} animationType="fade" transparent={true} onRequestClose={() => setSlipZoomModalVisible(false)}>
             <View style={styles.zoomModalOverlay}>
-              <TouchableOpacity style={styles.zoomCloseBtn} onPress={() => setSlipZoomModalVisible(false)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.zoomCloseBtn} onPress={() => setSlipZoomModalVisible(false)}>
                 <Icon name="close-circle" size={32} color="#FFFFFF" />
               </TouchableOpacity>
               {selectedAppForReview?.payment_slip && (
@@ -1008,21 +953,21 @@ export default function ApplicationsManagementScreen({
           </Modal>
 
           {/* GENERATED CREDENTIALS MODAL */}
-          <Modal visible={credentialsModalVisible} animationType="slide" transparent={true}>
+          <Modal visible={credentialsModalVisible} animationType="slide" transparent={true} onRequestClose={() => { setCredentialsModalVisible(false); setSelectedAppForReview(null); setReviewModalVisible(false); onApproved?.(); onBack?.(); }}>
             <View style={styles.modalOverlay}>
               <View style={styles.credentialsModalCard}>
                 <View style={styles.successIconCircle}>
-                  <Icon name="checkmark-circle-outline" size={50} color="#10B981" />
+                  <Icon name="checkmark-circle-outline" size={50} color={design.accent} />
                 </View>
-                <Text style={styles.credModalTitle}>Student Application Approved</Text>
+                <Text style={styles.credModalTitle}>{credentialsTitle}</Text>
                 <Text style={styles.credModalSub}>
-                  Student account created, registration number assigned, and temporary password issued.
+                  {credentialsEmailSent ? 'Login credentials have been emailed to the student.' : 'Login credentials generated. Email delivery failed; save the details below.'}
                 </Text>
 
                 {approvedCredentials && (
                   <View style={styles.credentialsBox}>
                     <View style={styles.credRow}>
-                      <Text style={styles.credLabel}>Registration No:</Text>
+                      <Text style={styles.credLabel}>Index No:</Text>
                       <Text style={styles.credValue}>{approvedCredentials.index_number}</Text>
                     </View>
                     <View style={styles.credRow}>
@@ -1037,21 +982,20 @@ export default function ApplicationsManagementScreen({
                 )}
 
                 <View style={styles.expiryNoticeBox}>
-                  <Icon name="shield-checkmark-outline" size={18} color="#0F766E" style={{ marginRight: 8 }} />
+                  <Icon name="shield-checkmark-outline" size={18} color={design.accent} style={{ marginRight: 8 }} />
                   <Text style={styles.expiryNoticeText}>
-                    Temporary password expires in 7 days. Official login credentials have been dispatched to the student's email address.
+                    Temporary password expires in 7 days. Save these initial login details before closing.
                   </Text>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.closeCredModalBtn}
+                <TouchableOpacity accessibilityRole="button"                   style={styles.closeCredModalBtn}
                   onPress={() => {
                     setCredentialsModalVisible(false);
                     setSelectedAppForReview(null);
                     setReviewModalVisible(false);
                     if (onApproved) onApproved();
                     if (onBack) onBack();
-                  }}
+                  }} accessibilityLabel="Close credentials"
                 >
                   <Text style={styles.closeCredModalBtnText}>Close & Return</Text>
                 </TouchableOpacity>
@@ -1060,30 +1004,30 @@ export default function ApplicationsManagementScreen({
           </Modal>
 
           {/* REJECTION REASON INPUT MODAL */}
-          <Modal visible={rejectReasonModalVisible} animationType="fade" transparent={true}>
+          <Modal visible={rejectReasonModalVisible} animationType="fade" transparent={true} onRequestClose={() => setRejectReasonModalVisible(false)}>
             <View style={styles.modalOverlay}>
               <View style={styles.rejectModalCard}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center' }}>
-                      <Icon name="close-circle" size={20} color="#DC2626" />
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: design.dangerSoft, justifyContent: 'center', alignItems: 'center' }}>
+                      <Icon name="close-circle" size={20} color={design.accent} />
                     </View>
                     <View>
-                      <Text style={{ fontSize: 18, fontWeight: '700', color: '#0F172A' }}>Reject Application</Text>
-                      <Text style={{ fontSize: 12, color: '#64748B' }}>{selectedAppForReview?.full_name}</Text>
+                      <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 18, fontWeight: '700', color: design.text }}>Reject Application</Text>
+                      <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 12, color: design.muted }}>{selectedAppForReview?.full_name}</Text>
                     </View>
                   </View>
-                  <TouchableOpacity onPress={() => setRejectReasonModalVisible(false)}>
-                    <Icon name="close" size={22} color="#64748B" />
+                  <TouchableOpacity accessibilityRole="button" onPress={() => setRejectReasonModalVisible(false)}>
+                    <Icon name="close" size={22} color={design.muted} />
                   </TouchableOpacity>
                 </View>
 
-                <Text style={{ fontSize: 13, color: '#475569', marginBottom: 12, lineHeight: 18 }}>
+                <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted, marginBottom: 12, lineHeight: 18 }}>
                   Please specify the reason for rejecting this application. This explanation will be sent directly to the applicant's email address.
                 </Text>
 
                 {/* Quick Reason Chips */}
-                <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#64748B', marginBottom: 8, textTransform: 'uppercase' }}>Quick Presets:</Text>
+                <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 11.5, fontWeight: '700', color: design.muted, marginBottom: 8, textTransform: 'uppercase' }}>Quick Presets:</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
                   {[
                     'Incomplete / Unclear Documents',
@@ -1091,8 +1035,7 @@ export default function ApplicationsManagementScreen({
                     'Does Not Meet Entry Criteria',
                     'Duplicate Application Request'
                   ].map(preset => (
-                    <TouchableOpacity
-                      key={preset}
+                    <TouchableOpacity accessibilityRole="button"                       key={preset}
                       style={[
                         styles.presetChip,
                         rejectionReasonText === preset && styles.presetChipActive
@@ -1107,28 +1050,26 @@ export default function ApplicationsManagementScreen({
                   ))}
                 </View>
 
-                <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#64748B', marginBottom: 6, textTransform: 'uppercase' }}>Reason / Remarks:</Text>
+                <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 11.5, fontWeight: '700', color: design.muted, marginBottom: 6, textTransform: 'uppercase' }}>Reason / Remarks:</Text>
                 <TextInput
                   style={styles.rejectionTextInput}
                   placeholder="Type specific rejection reason here..."
-                  placeholderTextColor="#94A3B8"
-                  value={rejectionReasonText}
+                  placeholderTextColor={design.muted}
+                  accessibilityLabel="Application rejection reason" value={rejectionReasonText}
                   onChangeText={setRejectionReasonText}
                   multiline={true}
                   numberOfLines={3}
                 />
 
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, { backgroundColor: '#F1F5F9', flex: 1 }]}
+                  <TouchableOpacity accessibilityRole="button"                     style={[styles.modalBtn, { backgroundColor: design.field, flex: 1 }]}
                     onPress={() => setRejectReasonModalVisible(false)}
                     activeOpacity={0.8}
                   >
-                    <Text style={{ color: '#475569', fontWeight: '600', fontSize: 14 }}>Cancel</Text>
+                    <Text style={{ fontFamily: FONTS.semiBold.fontFamily,  color: design.muted, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.modalBtn, { backgroundColor: '#DC2626', flex: 1.5 }]}
+                  <TouchableOpacity accessibilityRole="button"                     style={[styles.modalBtn, { backgroundColor: design.accent, flex: 1.5 }]}
                     onPress={() => processReject(selectedAppForReview?._id, rejectionReasonText)}
                     disabled={rejectingId !== null}
                     activeOpacity={0.85}
@@ -1136,7 +1077,7 @@ export default function ApplicationsManagementScreen({
                     {rejectingId ? (
                       <ActivityIndicator color="#FFFFFF" size="small" />
                     ) : (
-                      <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Send Rejection Email</Text>
+                      <Text style={{ fontFamily: FONTS.bold.fontFamily,  color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Send Rejection Email</Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -1145,75 +1086,14 @@ export default function ApplicationsManagementScreen({
           </Modal>
 
           {/* CUSTOM IN-APP CONFIRMATION POPUP MODAL */}
-          <Modal
-            visible={confirmModal.visible}
-            transparent
-            animationType="fade"
-            onRequestClose={() => {
-              setConfirmModal(prev => ({ ...prev, visible: false }));
-              setReviewModalVisible(true);
-            }}
-          >
-            <View style={styles.popupOverlay}>
-              <View style={styles.popupCard}>
-                <View style={[
-                  styles.popupIconCircle,
-                  { backgroundColor: confirmModal.type === 'danger' ? '#FEE2E2' : confirmModal.type === 'lock' ? '#FEF3C7' : '#EFF6FF' }
-                ]}>
-                  <Icon
-                    name={
-                      confirmModal.type === 'danger'
-                        ? 'alert-circle-outline'
-                        : confirmModal.type === 'lock'
-                        ? 'lock-closed-outline'
-                        : 'information-circle-outline'
-                    }
-                    size={28}
-                    color={
-                      confirmModal.type === 'danger'
-                        ? '#DC2626'
-                        : confirmModal.type === 'lock'
-                        ? '#D97706'
-                        : '#2563EB'
-                    }
-                  />
-                </View>
-                <Text style={styles.popupTitle}>{confirmModal.title}</Text>
-                <Text style={styles.popupMessage}>{confirmModal.message}</Text>
-                <View style={styles.popupBtnRow}>
-                  <TouchableOpacity
-                    style={styles.popupCancelBtn}
-                    onPress={() => {
-                      setConfirmModal(prev => ({ ...prev, visible: false }));
-                      setReviewModalVisible(true);
-                    }}
-                  >
-                    <Text style={styles.popupCancelText}>{confirmModal.cancelText || 'Cancel'}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.popupConfirmBtn,
-                      { backgroundColor: confirmModal.type === 'danger' ? '#DC2626' : confirmModal.type === 'lock' ? '#D97706' : '#2563EB' }
-                    ]}
-                    onPress={() => {
-                      const action = confirmModal.onConfirm;
-                      setConfirmModal(prev => ({ ...prev, visible: false }));
-                      if (action) action();
-                    }}
-                  >
-                    <Text style={styles.popupConfirmText}>{confirmModal.confirmText || 'Confirm'}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </Modal>
+
         </>
       );
     }
 
     return (
       <>
-        <WhatsAppSelectionHeader
+        <WhatsAppSelectionHeader neutral
           visible={isSelectMode}
           selectedCount={selectedAppIds.length}
           onClearSelection={() => {
@@ -1243,7 +1123,7 @@ export default function ApplicationsManagementScreen({
               id: 'bulk_delete',
               icon: 'trash-outline',
               disabled: selectedAppIds.length === 0,
-              color: selectedAppIds.length > 0 ? '#EF4444' : '#FFFFFF',
+              color: selectedAppIds.length > 0 ? design.accent : '#FFFFFF',
               onPress: handleBulkDeleteApps,
             },
           ]}
@@ -1270,22 +1150,33 @@ export default function ApplicationsManagementScreen({
     );
   };
 
+  const renderContent = () => <>
+    {renderContentBody()}
+    <ManagementDialog visible={resendingCredentials} title="Sending credentials" message="Generating a new temporary password and emailing the student." busy confirmText="Sending…" onConfirm={() => {}} />
+    <ManagementDialog visible={confirmModal.visible} title={confirmModal.title} message={confirmModal.message} type={confirmModal.type}
+      confirmText={confirmModal.confirmText || 'Confirm'} cancelText={confirmModal.cancelText || 'Cancel'}
+      onCancel={() => { setConfirmModal(prev => ({ ...prev, visible: false })); if (selectedAppForReview) setReviewModalVisible(true); }}
+      onConfirm={() => { const action = confirmModal.onConfirm; setConfirmModal(prev => ({ ...prev, visible: false })); action?.(); }} />
+    <ManagementDialog visible={feedback.visible} title={feedback.title} message={feedback.message} type={feedback.type}
+      onConfirm={() => { const action = feedback.onOk; setFeedback(prev => ({ ...prev, visible: false })); if (action) action(); else if (selectedAppForReview && !credentialsModalVisible) setReviewModalVisible(true); }} />
+  </>;
+
   if (embedded) {
     return <View style={[styles.container, isDark && { backgroundColor: 'transparent' }]}>{renderContent()}</View>;
   }
 
   return (
-    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: design.surface }]} edges={['top']}>
       <ScreenBackground />
-      <View style={[styles.topHeader, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
-        <Text style={[styles.topHeaderTitle, isDark && { color: '#FFFFFF' }]}>Pending Registrations</Text>
+      <View style={[styles.topHeader, isDark && { backgroundColor: design.surface, borderBottomColor: design.line }]}>
+        <Text style={[styles.topHeaderTitle, isDark && { color: design.text }]}>Pending Registrations</Text>
       </View>
       {renderContent()}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (design: ReturnType<typeof usersSectionTheme>) => StyleSheet.create({
   fullScreenOverlay: {
     position: 'absolute',
     top: 0,
@@ -1293,7 +1184,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 99999,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
   },
   dossierBackHeaderRow: {
     flexDirection: 'row',
@@ -1305,37 +1196,37 @@ const styles = StyleSheet.create({
   savePdfBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: design.accent,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
-  },
-  savePdfBtnText: {
+  minHeight: 44, },
+  savePdfBtnText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
     color: '#FFFFFF',
   },
   /* MODERN STRUCTURED DOSSIER CARD STYLES */
   infoSectionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 14,
+    marginBottom: 10,
     ...Platform.select({
-      web: { boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' },
-      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0, shadowRadius: 4, elevation: 0 }
     }),
   },
-  sectionCardHeaderTitle: {
+  sectionCardHeaderTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#0F172A',
+    color: design.text,
   },
   infoDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.line,
     marginVertical: 12,
   },
   infoRow: {
@@ -1343,52 +1234,52 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
-  },
-  infoLabel: {
+  flexWrap: 'wrap', columnGap: 12, rowGap: 6, },
+  infoLabel: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 13,
-    color: '#64748B',
+    color: design.muted,
     fontWeight: '500',
-  },
-  infoVal: {
+  flexShrink: 1, },
+  infoVal: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#0F172A',
+    color: design.text,
     maxWidth: '65%',
     textAlign: 'right',
-  },
+  flexShrink: 1, },
   modalAvatarImg: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
   },
   infoAvatarCircle: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#0F172A',
+    backgroundColor: design.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  infoAvatarText: {
-    color: '#FFFFFF',
+  infoAvatarText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.text,
     fontWeight: 'bold',
     fontSize: 18,
   },
-  infoStudentName: {
+  infoStudentName: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 17,
     fontWeight: 'bold',
-    color: '#0F172A',
+    color: design.text,
   },
-  infoStudentEmail: {
+  infoStudentEmail: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 1,
   },
   slipThumbnailBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     borderRadius: 12,
     padding: 8,
     alignItems: 'center',
@@ -1402,76 +1293,76 @@ const styles = StyleSheet.create({
   zoomOverlayBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: design.surface,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 16,
     marginTop: 6,
   },
-  zoomOverlayText: {
+  zoomOverlayText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: 'bold',
   },
   noSlipBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     borderRadius: 10,
     padding: 12,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
   },
-  noSlipText: {
+  noSlipText: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 12.5,
-    color: '#64748B',
+    color: design.muted,
     fontStyle: 'italic',
   },
   adminFeeEditorCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: 18,
+    backgroundColor: design.surface,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 14,
-  },
-  adminFeeTitle: {
-    fontSize: 15,
+    marginBottom: 10,
+  borderWidth: 1, borderColor: design.line, },
+  adminFeeTitle: { fontFamily: FONTS.bold.fontFamily,
+    fontSize: 16.5,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: design.text,
   },
-  adminFeeSub: {
+  adminFeeSub: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 12,
-    color: '#94A3B8',
+    color: design.muted,
     marginTop: 2,
   },
-  feeInputLabel: {
+  feeInputLabel: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 12,
-    color: '#CBD5E1',
+    color: design.muted,
     marginBottom: 4,
     fontWeight: '600',
   },
-  feeInput: {
-    backgroundColor: '#1E293B',
+  feeInput: { fontFamily: FONTS.bold.fontFamily,
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 10,
+    borderColor: design.line,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#10B981',
-  },
+    color: design.text,
+  minHeight: 44, },
   courseSelectItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
   },
   courseSelectItemActive: {
-    borderColor: '#059669',
-    backgroundColor: '#ECFDF5',
+    borderColor: design.accent,
+    backgroundColor: design.successSoft,
   },
   courseCheckbox: {
     width: 20,
@@ -1482,19 +1373,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
   },
   courseCheckboxActive: {
-    backgroundColor: '#059669',
-    borderColor: '#059669',
+    backgroundColor: design.accent,
+    borderColor: design.accent,
   },
-  courseSelectTitle: {
+  courseSelectTitle: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#1E293B',
+    color: design.text,
   },
   courseSelectTitleActive: {
-    color: '#065F46',
+    color: design.success,
     fontWeight: 'bold',
   },
   /* PLAIN MINIMAL DESIGN STYLES */
@@ -1503,7 +1394,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: design.line,
     marginBottom: 8,
   },
   plainAvatarImg: {
@@ -1517,19 +1408,19 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: design.field,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
   },
-  plainNameText: {
+  plainNameText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 19,
     fontWeight: 'bold',
-    color: '#000000',
+    color: design.text,
   },
-  plainSubText: {
+  plainSubText: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13,
-    color: '#4B5563',
+    color: design.muted,
     marginTop: 2,
   },
   detailsHeader: {
@@ -1537,89 +1428,89 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: design.field,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: design.line,
     marginBottom: 12,
   },
-  detailsName: {
+  detailsName: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: design.text,
   },
-  detailsEmail: {
+  detailsEmail: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13,
-    color: '#6B7280',
+    color: design.muted,
     marginTop: 1,
   },
   closeModalIconBtn: {
     padding: 6,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: design.field,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  plainSectionTitle: {
+  plainSectionTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#000000',
+    color: design.text,
     marginTop: 20,
     marginBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: design.line,
     paddingBottom: 4,
   },
   plainRow: {
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: design.line,
   },
-  plainLabel: {
+  plainLabel: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: design.text,
   },
-  plainValue: {
+  plainValue: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 14,
-    color: '#000000',
+    color: design.text,
     marginTop: 2,
   },
-  plainTextInput: {
+  plainTextInput: { fontFamily: FONTS.regular.fontFamily,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: design.line,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#000000',
+    color: design.text,
     marginTop: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
   },
   plainCourseRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: design.line,
   },
   plainCheckbox: {
     width: 18,
     height: 18,
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: design.line,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
     borderRadius: 3,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
   },
   plainCheckboxActive: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
+    backgroundColor: design.accent,
+    borderColor: design.line,
   },
-  plainCourseTitle: {
+  plainCourseTitle: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 14,
-    color: '#000000',
+    color: design.text,
   },
   plainActionRow: {
     flexDirection: 'row',
@@ -1629,21 +1520,21 @@ const styles = StyleSheet.create({
   },
   plainRejectBtn: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: design.accent,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-  },
+  minHeight: 44, },
   plainApproveBtn: {
     flex: 1.5,
-    backgroundColor: '#000000',
+    backgroundColor: design.accent,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  plainBtnText: {
+  minHeight: 44, },
+  plainBtnText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 14,
@@ -1652,22 +1543,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     marginTop: 16,
     marginBottom: 40,
     width: '100%',
-  },
+  flexWrap: 'wrap', },
   smallRejectBtn: {
     paddingHorizontal: 22,
     paddingVertical: 10,
-    borderRadius: 24,
-    backgroundColor: '#E2E8F0',
+    borderRadius: 10,
+    backgroundColor: design.field,
     minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  smallRejectBtnText: {
-    color: '#1E293B',
+  minHeight: 44, borderWidth: 1, borderColor: design.line, },
+  smallRejectBtnText: { fontFamily: FONTS.semiBold.fontFamily,
+    color: design.text,
     fontSize: 13.5,
     fontWeight: '600',
     textAlign: 'center',
@@ -1675,66 +1566,66 @@ const styles = StyleSheet.create({
   smallApproveBtn: {
     paddingHorizontal: 22,
     paddingVertical: 10,
-    borderRadius: 24,
-    backgroundColor: '#F58220',
+    borderRadius: 10,
+    backgroundColor: design.accent,
     minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  smallApproveBtnText: {
+  minHeight: 44, },
+  smallApproveBtnText: { fontFamily: FONTS.semiBold.fontFamily,
     color: '#FFFFFF',
     fontSize: 13.5,
     fontWeight: '600',
     textAlign: 'center',
   },
-  smallBtnText: {
+  smallBtnText: { fontFamily: FONTS.semiBold.fontFamily,
     color: '#FFFFFF',
     fontSize: 13.5,
     fontWeight: '600',
     textAlign: 'center',
   },
-  coloredBtnText: {
+  coloredBtnText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: design.field,
   },
   topHeader: {
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: design.line,
   },
-  topHeaderTitle: {
+  topHeaderTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#111827',
+    color: design.text,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor: design.surface,
+    borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    marginBottom: 14,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     ...Platform.select({
       web: {
-        boxShadow: '0 2px 8px -2px rgba(15, 23, 42, 0.05), 0 1px 3px -1px rgba(15, 23, 42, 0.03)',
+        boxShadow: 'none',
       },
       default: {
         shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
+        shadowOpacity: 0,
         shadowRadius: 6,
-        elevation: 2,
+        elevation: 0,
       },
     }),
-  },
+  padding: 16, },
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1751,7 +1642,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
   },
   avatarCircle: {
     width: 48,
@@ -1768,35 +1659,35 @@ const styles = StyleSheet.create({
     marginRight: 12,
     justifyContent: 'center',
   },
-  studentName: {
+  studentName: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: design.text,
     letterSpacing: -0.2,
   },
-  studentEmailText: {
+  studentEmailText: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 2,
   },
-  studentPhoneText: {
+  studentPhoneText: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 12.5,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 3,
     fontWeight: '500',
   },
   pendingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: design.warningSoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
-  pendingBadgeText: {
-    color: '#D97706',
+  pendingBadgeText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.accent,
     fontSize: 10,
     fontWeight: 'bold',
   },
@@ -1804,12 +1695,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: design.line,
   },
-  courseSummaryLabel: {
+  courseSummaryLabel: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 12,
     fontWeight: '600',
-    color: '#4B5563',
+    color: design.muted,
     marginBottom: 6,
   },
   courseTagsContainer: {
@@ -1820,38 +1711,38 @@ const styles = StyleSheet.create({
   courseBadgeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: design.accentSoft,
     borderWidth: 1,
     borderColor: '#FED7AA',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
-  courseBadgeText: {
+  courseBadgeText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 11,
     fontWeight: '600',
-    color: '#92400E',
+    color: design.warning,
   },
   cardFooterActions: {
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: design.line,
   },
   reviewBtn: {
-    backgroundColor: '#111827',
+    backgroundColor: design.accent,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 24,
+    borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.2)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
-  reviewBtnText: {
+  minHeight: 44, },
+  reviewBtnText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 14,
@@ -1861,73 +1752,73 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 60,
   },
-  emptyTitleText: {
+  emptyTitleText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#374151',
+    color: design.text,
     marginTop: 12,
   },
-  emptySubText: {
+  emptySubText: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13,
-    color: '#9CA3AF',
+    color: design.muted,
     textAlign: 'center',
     marginTop: 4,
     maxWidth: 260,
   },
   detailsFooter: {
     padding: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: design.line,
   },
   footerActionBtn: {
     flex: 1,
-    borderRadius: 24,
+    borderRadius: 10,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.2)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 6, elevation: 0 }
     }),
-  },
-  footerActionText: {
+  minHeight: 44, minWidth: 90, },
+  footerActionText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 14,
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: design.surface,
+    borderRadius: 18,
     padding: 20,
-    width: '88%',
-    elevation: 6,
-  },
+    width: '92%',
+    elevation: 0,
+  borderWidth: 1, borderColor: design.line, maxWidth: 650, maxHeight: '90%', },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
   },
   reviewModalCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     borderRadius: 20,
     width: '100%',
     maxWidth: 680,
     maxHeight: '94%',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     ...Platform.select({
-      web: { boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.35)' },
-      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 12 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0, shadowRadius: 24, elevation: 0 }
     }),
   },
   brandTopRibbon: {
     height: 4,
-    backgroundColor: '#F58220',
+    backgroundColor: design.accent,
     width: '100%',
   },
   reviewModalHeader: {
@@ -1938,8 +1829,8 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: design.line,
+    backgroundColor: design.surface,
   },
   headerTitleGroup: {
     flex: 1,
@@ -1951,33 +1842,33 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   brandCrestBadge: {
-    backgroundColor: '#111827',
+    backgroundColor: design.surface,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     marginRight: 8,
   },
-  brandCrestText: {
+  brandCrestText: { fontFamily: FONTS.regular.fontFamily,
     color: '#F58220',
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.8,
   },
-  headerSuperText: {
+  headerSuperText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#64748B',
+    color: design.muted,
     letterSpacing: 1.1,
   },
-  reviewModalTitle: {
+  reviewModalTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 19,
     fontWeight: '800',
-    color: '#0F172A',
+    color: design.text,
     letterSpacing: -0.3,
   },
-  reviewModalSub: {
+  reviewModalSub: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 12,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -1985,11 +1876,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
   },
   modalScrollBody: {
     flex: 1,
@@ -1997,15 +1888,15 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   dossierSectionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,
     ...Platform.select({
-      web: { boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0, shadowRadius: 3, elevation: 0 }
     }),
   },
   profileHeroRow: {
@@ -2013,7 +1904,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: design.line,
   },
   profileAvatarImg: {
     width: 62,
@@ -2026,9 +1917,9 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 31,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2036,15 +1927,15 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 14,
   },
-  profileStudentName: {
+  profileStudentName: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: design.text,
     letterSpacing: -0.2,
   },
-  profileStudentEmail: {
+  profileStudentEmail: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 13,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 1,
     fontWeight: '500',
   },
@@ -2058,37 +1949,37 @@ const styles = StyleSheet.create({
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: design.successSoft,
     borderWidth: 1,
     borderColor: '#A7F3D0',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  verifiedBadgeText: {
+  verifiedBadgeText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 11,
     fontWeight: '700',
-    color: '#065F46',
+    color: design.success,
   },
   unverifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFBEB',
+    backgroundColor: design.warningSoft,
     borderWidth: 1,
     borderColor: '#FDE68A',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  unverifiedBadgeText: {
+  unverifiedBadgeText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 11,
     fontWeight: '700',
-    color: '#92400E',
+    color: design.warning,
   },
   pendingBadgePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: design.accentSoft,
     borderWidth: 1,
     borderColor: '#FED7AA',
     paddingHorizontal: 8,
@@ -2099,13 +1990,13 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#F58220',
+    backgroundColor: design.accent,
     marginRight: 5,
   },
-  pendingBadgePillText: {
+  pendingBadgePillText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 11,
     fontWeight: '700',
-    color: '#C2410C',
+    color: design.accent,
   },
   specGridContainer: {
     flexDirection: 'row',
@@ -2115,27 +2006,27 @@ const styles = StyleSheet.create({
   },
   specGridItem: {
     width: '48.5%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: design.line,
   },
   specGridItemFull: {
     width: '100%',
   },
-  specLabel: {
+  specLabel: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10,
     fontWeight: '700',
-    color: '#64748B',
+    color: design.muted,
     letterSpacing: 0.6,
     marginBottom: 2,
   },
-  specValue: {
+  specValue: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: design.text,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -2146,66 +2037,66 @@ const styles = StyleSheet.create({
     width: 3.5,
     height: 18,
     borderRadius: 2,
-    backgroundColor: '#F58220',
+    backgroundColor: design.accent,
     marginRight: 8,
   },
-  sectionHeadingText: {
+  sectionHeadingText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#0F172A',
+    color: design.text,
     letterSpacing: -0.2,
   },
-  sectionSubHeadingText: {
+  sectionSubHeadingText: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 11.5,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 1,
   },
   paymentMethodCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     marginBottom: 12,
   },
-  paymentMethodNoticeLabel: {
+  paymentMethodNoticeLabel: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 12.5,
-    color: '#475569',
+    color: design.muted,
     fontWeight: '600',
   },
   paymentMethodPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: design.accentSoft,
     borderWidth: 1,
     borderColor: '#FED7AA',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
   },
-  paymentMethodPillText: {
+  paymentMethodPillText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 12,
     fontWeight: '700',
-    color: '#C2410C',
+    color: design.accent,
   },
   slipInspectionWrap: {
     marginTop: 4,
   },
-  slipInspectionLabel: {
+  slipInspectionLabel: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: design.text,
     marginBottom: 8,
     letterSpacing: 0.2,
   },
   slipInspectionBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     borderRadius: 14,
     padding: 6,
     position: 'relative',
@@ -2215,7 +2106,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 180,
     borderRadius: 10,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
   },
   slipOverlayBar: {
     position: 'absolute',
@@ -2223,15 +2114,15 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: design.surface,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: design.line,
   },
-  slipOverlayText: {
-    color: '#FFFFFF',
+  slipOverlayText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.text,
     fontSize: 11.5,
     fontWeight: '700',
   },
@@ -2244,7 +2135,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
   },
-  advisoryNoticeText: {
+  advisoryNoticeText: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 12.5,
     color: '#0369A1',
     flex: 1,
@@ -2252,17 +2143,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   ledgerSectionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     borderTopWidth: 3,
     borderTopColor: '#F58220',
     ...Platform.select({
-      web: { boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0, shadowRadius: 4, elevation: 0 }
     }),
   },
   ledgerHeaderRow: {
@@ -2274,18 +2165,18 @@ const styles = StyleSheet.create({
     width: 3.5,
     height: 18,
     borderRadius: 2,
-    backgroundColor: '#0F172A',
+    backgroundColor: design.surface,
     marginRight: 8,
   },
-  ledgerTitleText: {
+  ledgerTitleText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: design.text,
     letterSpacing: -0.2,
   },
-  ledgerSubText: {
+  ledgerSubText: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 11.5,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 1,
   },
   feeInputsGrid: {
@@ -2296,18 +2187,18 @@ const styles = StyleSheet.create({
   feeInputCol: {
     flex: 1,
   },
-  feeFieldLabel: {
+  feeFieldLabel: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#334155',
+    color: design.text,
     marginBottom: 6,
   },
   feeInputFieldWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     borderRadius: 10,
     overflow: 'hidden',
   },
@@ -2316,20 +2207,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 9,
     borderRightWidth: 1,
-    borderRightColor: '#CBD5E1',
+    borderRightColor: design.line,
   },
-  currencyBadgeText: {
+  currencyBadgeText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 11,
     fontWeight: '800',
-    color: '#1E293B',
+    color: design.text,
   },
-  feeNumericInput: {
+  feeNumericInput: { fontFamily: FONTS.bold.fontFamily,
     flex: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: design.text,
   },
   statusSegmentWrap: {
     marginTop: 14,
@@ -2343,16 +2234,16 @@ const styles = StyleSheet.create({
   statusPillItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 8,
   },
   statusPillItemActive: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
+    backgroundColor: design.accent,
+    borderColor: design.line,
   },
   statusDot: {
     width: 6,
@@ -2360,10 +2251,10 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     marginRight: 6,
   },
-  statusPillLabel: {
+  statusPillLabel: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: design.muted,
   },
   statusPillLabelActive: {
     color: '#FFFFFF',
@@ -2373,7 +2264,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: design.accentSoft,
     borderWidth: 1.5,
     borderColor: '#FED7AA',
     borderRadius: 12,
@@ -2382,73 +2273,73 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   balanceLedgerBannerSettled: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: design.successSoft,
     borderColor: '#A7F3D0',
   },
   balanceMetaCol: {
     flex: 1,
     marginRight: 10,
   },
-  balanceLedgerLabel: {
+  balanceLedgerLabel: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10.5,
     fontWeight: '800',
     color: '#9A3412',
     letterSpacing: 0.6,
   },
-  balanceLedgerSub: {
+  balanceLedgerSub: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 11,
     color: '#7C2D12',
     marginTop: 2,
     fontWeight: '500',
   },
-  balanceLedgerAmount: {
+  balanceLedgerAmount: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 17,
     fontWeight: '900',
-    color: '#C2410C',
+    color: design.accent,
     letterSpacing: -0.2,
   },
   balanceLedgerAmountSettled: {
-    color: '#065F46',
+    color: design.success,
   },
-  noCoursesText: {
+  noCoursesText: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 12.5,
-    color: '#64748B',
+    color: design.muted,
     fontStyle: 'italic',
     paddingVertical: 8,
   },
   courseEnrollCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
   },
   courseEnrollCardActive: {
     borderColor: '#F58220',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: design.accentSoft,
   },
   enrollCheckbox: {
     width: 22,
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
   },
   enrollCheckboxActive: {
-    backgroundColor: '#F58220',
+    backgroundColor: design.accent,
     borderColor: '#F58220',
   },
-  enrollCourseTitle: {
+  enrollCourseTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#1E293B',
+    color: design.text,
   },
   enrollCourseTitleActive: {
     color: '#9A3412',
@@ -2465,15 +2356,15 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
   },
-  courseTagPillText: {
+  courseTagPillText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: design.muted,
   },
-  courseFeeText: {
+  courseFeeText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: design.muted,
   },
   reviewModalFooter: {
     flexDirection: 'row',
@@ -2481,12 +2372,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: design.line,
+    backgroundColor: design.surface,
   },
   /* HARDCOPY PAPER APPLICATION FORM STYLES */
   hardcopyFormSheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     paddingHorizontal: 4,
     paddingVertical: 4,
   },
@@ -2494,7 +2385,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     marginBottom: 16,
     borderBottomWidth: 2,
-    borderBottomColor: '#0F172A',
+    borderBottomColor: design.line,
   },
   formHeaderCrestRow: {
     flexDirection: 'row',
@@ -2502,28 +2393,28 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   formCrestBadge: {
-    backgroundColor: '#0F172A',
+    backgroundColor: design.surface,
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 6,
     marginRight: 10,
   },
-  formCrestBadgeText: {
+  formCrestBadgeText: { fontFamily: FONTS.regular.fontFamily,
     color: '#F58220',
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 1,
   },
-  formInstituteTitle: {
+  formInstituteTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 12,
     fontWeight: '800',
-    color: '#0F172A',
+    color: design.text,
     letterSpacing: 0.8,
   },
-  formDocumentTitle: {
+  formDocumentTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10,
     fontWeight: '700',
-    color: '#64748B',
+    color: design.muted,
     letterSpacing: 0.5,
     marginTop: 1,
   },
@@ -2531,45 +2422,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  formRefNoText: {
+  formRefNoText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: design.muted,
     letterSpacing: 0.5,
   },
   formStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: design.warningSoft,
     borderWidth: 1,
     borderColor: '#FDE68A',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
   },
-  formStatusPillText: {
+  formStatusPillText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10,
     fontWeight: '800',
-    color: '#92400E',
+    color: design.warning,
     letterSpacing: 0.4,
   },
   formSectionBanner: {
-    backgroundColor: '#1E293B',
+    backgroundColor: design.surface,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
     marginTop: 16,
     marginBottom: 10,
   },
-  formSectionBannerText: {
-    color: '#FFFFFF',
+  formSectionBannerText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.text,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -2579,7 +2470,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: design.line,
     marginBottom: 8,
   },
   formAvatarImg: {
@@ -2587,68 +2478,68 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     borderWidth: 1.5,
-    borderColor: '#0F172A',
+    borderColor: design.line,
     marginRight: 14,
   },
   formAvatarPlaceholder: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
   },
-  formApplicantFullName: {
+  formApplicantFullName: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: design.text,
     letterSpacing: -0.2,
   },
-  formApplicantEmail: {
+  formApplicantEmail: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 13,
-    color: '#475569',
+    color: design.muted,
     marginTop: 1,
     fontWeight: '500',
   },
   formOtpVerifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: design.successSoft,
     borderWidth: 1,
     borderColor: '#A7F3D0',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
   },
-  formOtpVerifiedText: {
+  formOtpVerifiedText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10,
     fontWeight: '800',
-    color: '#065F46',
+    color: design.success,
   },
   formOtpPendingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFBEB',
+    backgroundColor: design.warningSoft,
     borderWidth: 1,
     borderColor: '#FDE68A',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
   },
-  formOtpPendingText: {
+  formOtpPendingText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10,
     fontWeight: '800',
-    color: '#92400E',
+    color: design.warning,
   },
   formFieldRow: {
     flexDirection: 'row',
     gap: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: design.line,
   },
   formFieldCell: {
     flex: 1,
@@ -2656,19 +2547,19 @@ const styles = StyleSheet.create({
   formFieldFullRow: {
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: design.line,
   },
-  formCellLabel: {
+  formCellLabel: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#64748B',
+    color: design.muted,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
-  formCellValue: {
+  formCellValue: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#0F172A',
+    color: design.text,
     marginTop: 2,
   },
   formSlipInspectionBox: {
@@ -2676,26 +2567,26 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: '#1E293B',
+    backgroundColor: design.surface,
     marginTop: 6,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
   },
   rejectButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DC2626',
+    backgroundColor: design.accent,
     paddingVertical: 13,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)' },
-      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 6, elevation: 0 }
     }),
-  },
-  rejectButtonText: {
+  minHeight: 44, },
+  rejectButtonText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 13.5,
@@ -2705,16 +2596,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#059669',
+    backgroundColor: design.accent,
     paddingVertical: 13,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(5, 150, 105, 0.35)' },
-      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 6, elevation: 0 }
     }),
-  },
-  approveButtonText: {
+  minHeight: 44, },
+  approveButtonText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 13.5,
@@ -2738,30 +2629,30 @@ const styles = StyleSheet.create({
     height: '80%',
   },
   credentialsModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderRadius: 24,
     padding: 24,
     width: '88%',
     alignItems: 'center',
-    elevation: 5,
+    elevation: 0,
   },
   successIconCircle: {
     marginBottom: 14,
   },
-  credModalTitle: {
+  credModalTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: design.text,
   },
-  credModalSub: {
+  credModalSub: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 12,
-    color: '#6B7280',
+    color: design.muted,
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 16,
   },
   credentialsBox: {
-    backgroundColor: '#0F172A',
+    backgroundColor: design.surface,
     borderRadius: 16,
     padding: 16,
     width: '100%',
@@ -2773,90 +2664,90 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    borderBottomColor: design.line,
   },
-  credLabel: {
+  credLabel: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 12,
-    color: '#94A3B8',
+    color: design.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   credValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#10B981',
+    color: design.accent,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
-  credSubValue: {
+  credSubValue: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 13,
-    color: '#FFFFFF',
+    color: design.text,
     fontWeight: '500',
   },
   expiryNoticeBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: design.accentSoft,
     borderWidth: 1,
     borderColor: '#99F6E4',
     borderRadius: 12,
     padding: 12,
     marginBottom: 20,
   },
-  expiryNoticeText: {
+  expiryNoticeText: { fontFamily: FONTS.regular.fontFamily,
     flex: 1,
     fontSize: 12,
-    color: '#0F766E',
+    color: design.accent,
     lineHeight: 16,
   },
   closeCredModalBtn: {
-    backgroundColor: '#111827',
-    borderRadius: 24,
+    backgroundColor: design.accent,
+    borderRadius: 10,
     paddingVertical: 12,
     width: '100%',
     alignItems: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.25)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 6, elevation: 0 }
     }),
-  },
-  closeCredModalBtnText: {
+  minHeight: 44, },
+  closeCredModalBtnText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 14,
   },
   rejectedBadge: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: design.dangerSoft,
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: '#FCA5A5',
   },
-  rejectedBadgeText: {
+  rejectedBadgeText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#991B1B',
+    color: design.danger,
     textTransform: 'uppercase',
   },
   smallDeleteBtn: {
     paddingVertical: 7,
     paddingHorizontal: 14,
-    borderRadius: 6,
-    backgroundColor: '#DC2626',
+    borderRadius: 10,
+    backgroundColor: design.accent,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 70,
-  },
+  minHeight: 44, },
   whatsappHeaderBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#0F172A',
+    backgroundColor: design.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     height: 60,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: design.line,
     marginBottom: 8,
   },
   whatsappHeaderLeft: {
@@ -2864,10 +2755,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
-  whatsappHeaderTitle: {
+  whatsappHeaderTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: design.text,
   },
   whatsappHeaderActions: {
     flexDirection: 'row',
@@ -2881,7 +2772,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   whatsappSelectedCard: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: design.accentSoft,
     borderColor: '#BBF7D0',
     borderWidth: 1,
     borderLeftWidth: 4,
@@ -2897,83 +2788,83 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: design.line,
   },
   whatsappCheckBadgeActive: {
     backgroundColor: '#16A34A',
   },
   whatsappCheckBadgeInactive: {
-    backgroundColor: '#F8FAFC',
-    borderColor: '#CBD5E1',
+    backgroundColor: design.field,
+    borderColor: design.line,
   },
   rejectionNoticeBox: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: design.dangerSoft,
     borderWidth: 1,
     borderColor: '#FCA5A5',
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
   },
-  rejectionNoticeTitle: {
+  rejectionNoticeTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 13,
     fontWeight: '700',
-    color: '#991B1B',
+    color: design.danger,
     textTransform: 'uppercase',
   },
-  rejectionNoticeReason: {
+  rejectionNoticeReason: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13,
-    color: '#7F1D1D',
+    color: design.danger,
     lineHeight: 18,
   },
   rejectModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderRadius: 16,
     padding: 20,
     width: '90%',
     maxWidth: 500,
     ...Platform.select({
-      web: { boxShadow: '0px 10px 25px rgba(0, 0, 0, 0.25)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 15, elevation: 8 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0, shadowRadius: 15, elevation: 0 }
     }),
   },
   presetChip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
   },
   presetChipActive: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: design.dangerSoft,
     borderColor: '#FCA5A5',
   },
-  presetChipText: {
+  presetChipText: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 11.5,
-    color: '#475569',
+    color: design.muted,
     fontWeight: '500',
   },
   presetChipTextActive: {
-    color: '#991B1B',
+    color: design.danger,
     fontWeight: '700',
   },
-  rejectionTextInput: {
-    backgroundColor: '#F8FAFC',
+  rejectionTextInput: { fontFamily: FONTS.regular.fontFamily,
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     borderRadius: 8,
     padding: 10,
     fontSize: 13,
-    color: '#0F172A',
+    color: design.text,
     minHeight: 75,
     textAlignVertical: 'top',
   },
   modalBtn: {
-    borderRadius: 8,
+    borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
+  minHeight: 44, },
   // Custom Popup Dialog Modal Styles
   popupOverlay: {
     flex: 1,
@@ -2983,15 +2874,15 @@ const styles = StyleSheet.create({
     padding: 20
   },
   popupCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderRadius: 22,
     padding: 24,
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 10px 24px rgba(0, 0, 0, 0.25)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 10 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0, shadowRadius: 12, elevation: 0 }
     }),
   },
   popupIconCircle: {
@@ -3002,16 +2893,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16
   },
-  popupTitle: {
+  popupTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#0F172A',
+    color: design.text,
     textAlign: 'center',
     marginBottom: 8
   },
-  popupMessage: {
+  popupMessage: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 14,
-    color: '#475569',
+    color: design.muted,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 20
@@ -3023,34 +2914,34 @@ const styles = StyleSheet.create({
   },
   popupCancelBtn: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
-    minHeight: 48,
+    backgroundColor: design.field,
+    minHeight: 44,
     paddingVertical: 12,
-    borderRadius: 24,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#CBD5E1'
+    borderColor: design.line
   },
-  popupCancelText: {
-    color: '#475569',
+  popupCancelText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.muted,
     fontWeight: 'bold',
     fontSize: 14
   },
   popupConfirmBtn: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 44,
     paddingVertical: 12,
-    borderRadius: 24,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.2)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
   },
-  popupConfirmText: {
-    color: '#FFFFFF',
+  popupConfirmText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.text,
     fontWeight: 'bold',
     fontSize: 14
   },

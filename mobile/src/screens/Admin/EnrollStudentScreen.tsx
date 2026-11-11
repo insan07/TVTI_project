@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import api from '../../services/api';
+import { FONTS } from '../../config/theme';
+import ManagementDialog from '../../components/shared/ManagementDialog';
+import { usersSectionTheme } from '../../components/shared/usersSectionTheme';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenHeader from '../../components/shared/ScreenHeader';
@@ -11,6 +14,8 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 
 export default function EnrollStudentScreen() {
   const { isDark } = useTheme();
+  const design = usersSectionTheme(isDark);
+  const styles = useMemo(() => createStyles(usersSectionTheme(isDark)), [isDark]);
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { batchId, capacity, enrolled } = route.params;
@@ -21,6 +26,8 @@ export default function EnrollStudentScreen() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({ visible: false, title: '', message: '', type: 'info' });
+  const showMessage = (title: string, message: string) => setFeedback({ visible: true, title, message, type: title === 'Success' ? 'success' : title === 'Error' ? 'error' : 'info' });
 
   useEffect(() => {
     fetchData();
@@ -33,10 +40,10 @@ export default function EnrollStudentScreen() {
         api.get(`/admin/batches/${batchId}/students`),
         api.get('/admin/users?role=student&status=active')
       ]);
-      setEnrolledStudents(eRes.data.map((e:any) => e.student_id));
+      setEnrolledStudents(eRes.data.filter((e:any) => e.status !== 'dropped').map((e:any) => e.student_id));
       setActiveStudents(sRes.data);
     } catch (e) {
-      Alert.alert('Error', 'Failed to fetch data');
+      showMessage('Error', 'Failed to fetch data');
     } finally {
       setLoading(false);
     }
@@ -51,19 +58,19 @@ export default function EnrollStudentScreen() {
   };
 
   const handleEnroll = async () => {
-    if (selectedIds.length === 0) return Alert.alert('Error', 'Select at least one student');
-    if (enrolled + selectedIds.length > capacity) {
-      return Alert.alert('Error', 'Capacity exceeded');
+    if (selectedIds.length === 0) return showMessage('Error', 'Select at least one student');
+    if (enrolledStudents.length + selectedIds.length > capacity) {
+      return showMessage('Error', 'Capacity exceeded');
     }
 
     setSaving(true);
     try {
       await api.post(`/admin/batches/${batchId}/enroll`, { studentIds: selectedIds });
-      Alert.alert('Success', 'Students enrolled successfully');
+      showMessage('Success', 'Students enrolled successfully');
       setSelectedIds([]);
       fetchData();
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to enroll');
+      showMessage('Error', e.response?.data?.message || 'Failed to enroll');
     } finally {
       setSaving(false);
     }
@@ -73,51 +80,50 @@ export default function EnrollStudentScreen() {
   const availableStudents = activeStudents.filter(s => !enrolledIds.includes(s._id) && (s.name.toLowerCase().includes(search.toLowerCase()) || s.email.toLowerCase().includes(search.toLowerCase())));
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F3F4F6'}} edges={['top', 'bottom']}>
+    <SafeAreaView style={{flex: 1, backgroundColor: isDark ? design.surface : design.field}} edges={['top', 'bottom']}>
       <ScreenBackground />
       <KeyboardAvoidingView style={{flex: 1}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.container, isDark && { backgroundColor: 'transparent' }]}>
-          <ScreenHeader
+          <ScreenHeader plainBack
+
             title="Enroll Students"
             subtitle={`Capacity: ${enrolledStudents.length} / ${capacity} Enrolled`}
             showBack={true}
           />
 
           <TextInput
-            style={[styles.search, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', color: '#FFFFFF' }]}
+            style={[styles.search, isDark && { backgroundColor: design.surface, borderColor: design.line, color: design.text }]}
             placeholder="Search available students..."
-            placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
+            placeholderTextColor={design.muted}
             value={search}
             onChangeText={setSearch}
           />
 
-          {loading ? <ActivityIndicator size="large" color="#F97316" style={{marginTop: 50}} /> : (
+          {loading ? <ActivityIndicator size="large" color={design.accent} style={{marginTop: 50}} /> : (
             <FlatList
               data={availableStudents}
               keyExtractor={i => i._id}
-              getItemLayout={(data, index) => ({ length: 80, offset: 80 * index, index })}
               contentContainerStyle={{paddingBottom: 100}}
               renderItem={({item}) => (
-                <TouchableOpacity
-                  style={[styles.row, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}
+                <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel={`Select ${item.name}`} accessibilityState={{ checked: selectedIds.includes(item._id), disabled: saving }} disabled={saving} style={[styles.row, isDark && { backgroundColor: design.surface, borderColor: design.line, borderWidth: 1 }]}
                   onPress={() => toggleSelect(item._id)}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.checkbox, isDark && { borderColor: 'rgba(255, 255, 255, 0.2)' }, selectedIds.includes(item._id) && [styles.checkboxActive, { backgroundColor: '#F97316', borderColor: '#F97316' }]]} />
+                  <View style={[styles.checkbox, isDark && { borderColor: design.line }, selectedIds.includes(item._id) && [styles.checkboxActive, { backgroundColor: design.accent, borderColor: design.accent }]]} />
                   <View>
-                    <Text style={[styles.name, isDark && { color: '#FFFFFF' }]}>{item.name}</Text>
-                    <Text style={[styles.email, isDark && { color: '#94A3B8' }]}>{item.email}</Text>
+                    <Text style={[styles.name, isDark && { color: design.text }]}>{item.name}</Text>
+                    <Text style={[styles.email, isDark && { color: design.muted }]}>{item.email}</Text>
                   </View>
                 </TouchableOpacity>
               )}
-              ListEmptyComponent={<Text style={[{textAlign: 'center', marginTop: 20, color: '#6B7280'}, isDark && { color: '#64748B' }]}>No available students found.</Text>}
+              ListEmptyComponent={<Text style={[{textAlign: 'center', marginTop: 20, color: design.muted}, isDark && { color: design.muted }]}>No available students found.</Text>}
             />
           )}
 
           {selectedIds.length > 0 && (
-            <View style={[styles.footer, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
-              <Text style={[{fontWeight: 'bold', color: '#111827'}, isDark && { color: '#FFFFFF' }]}>{selectedIds.length} Selected</Text>
-              <TouchableOpacity style={[styles.btn, { backgroundColor: '#F97316' }]} onPress={handleEnroll} disabled={saving}>
+            <View style={[styles.footer, isDark && { backgroundColor: design.surface, borderColor: design.line }]}>
+              <Text style={[{fontWeight: 'bold', color: design.text}, isDark && { color: design.text }]}>{selectedIds.length} Selected</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Enroll selected students" style={[styles.btn, { backgroundColor: design.accent }]} onPress={handleEnroll} disabled={saving}>
                 {saving ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
@@ -131,35 +137,37 @@ export default function EnrollStudentScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+      <ManagementDialog visible={feedback.visible} title={feedback.title} message={feedback.message} type={feedback.type} onConfirm={() => setFeedback(prev => ({ ...prev, visible: false }))} />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  header: { padding: 20, backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 20, fontWeight: 'bold' },
-  stats: { color: '#059669', fontWeight: 'bold' },
-  search: { backgroundColor: '#fff', padding: 12, marginHorizontal: 20, marginTop: 14, marginBottom: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, marginHorizontal: 20, marginBottom: 14, borderRadius: 12 },
-  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#D1D5DB', marginRight: 12 },
-  checkboxActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
-  name: { fontWeight: 'bold', fontSize: 16 },
-  email: { color: '#6B7280' },
-  footer: { padding: 20, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+const createStyles = (design: ReturnType<typeof usersSectionTheme>) => StyleSheet.create({
+  container: { flex: 1, width: '100%', maxWidth: 1100, alignSelf: 'center', backgroundColor: 'transparent' },
+  header: { padding: 20, backgroundColor: design.surface, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  title: { fontFamily: FONTS.bold.fontFamily,  fontSize: 20, fontWeight: 'bold' },
+  stats: { color: design.success, fontWeight: 'bold' },
+  search: { backgroundColor: design.surface, padding: 12, marginHorizontal: 20, marginTop: 14, marginBottom: 14, borderRadius: 12, borderWidth: 1, borderColor: design.line , minHeight: 44, },
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: design.surface, padding: 16, marginHorizontal: 20, marginBottom: 10, borderRadius: 16, borderWidth: 1, borderColor: design.line },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: design.line, marginRight: 12 },
+  checkboxActive: { backgroundColor: design.accent, borderColor: design.accent },
+  name: { fontFamily: FONTS.bold.fontFamily,  fontWeight: 'bold', fontSize: 16 },
+  email: { color: design.muted },
+  footer: { padding: 20, backgroundColor: design.surface, borderTopWidth: 1, borderColor: design.line, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   btn: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: design.accent,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 20,
+    borderRadius: 10,
+    minHeight: 44,
     minWidth: 130,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 0,
   },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 }
+  btnText: { fontFamily: FONTS.bold.fontFamily,  color: '#fff', fontWeight: 'bold', fontSize: 14 }
 });

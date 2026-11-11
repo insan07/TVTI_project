@@ -11,8 +11,10 @@ import Application from '../models/Application';
 import Announcement from '../models/Announcement';
 import PaymentSlip from '../models/PaymentSlip';
 import bcrypt from 'bcryptjs';
+import { createManualStudent, approveRegisteredStudent, reactivateStudent } from '../services/studentAdmissions';
+import { PracticalError } from '../services/practicalScheduling';
 import { generateUniqueIndexNumber } from './applicationController';
-import { sendApprovalCredentialsEmail, sendDeactivationEmail } from '../services/emailService';
+import { sendApprovalCredentialsEmail, sendDeactivationEmail, sendApprovalEmail } from '../services/emailService';
 import { sendNotification } from '../services/notificationService';
 
 const formatTimeAgo = (date: any): string => {
@@ -302,97 +304,39 @@ export const getUserDetails = async (req: Request, res: Response): Promise<void>
 };
 
 // PUT /api/admin/users/:id/approve
+async function deliverAdmissionEmail(result: any) {
+  let sent = false;
+  try {
+    const mail = await sendApprovalEmail({ to: result.student.email, name: result.student.name, registrationNumber: result.credentials.registration_number, temporaryPassword: result.credentials.temp_password });
+    sent = !!mail.success;
+  } catch { /* Account creation remains successful when email delivery fails. */ }
+  if (result.application) await Application.findByIdAndUpdate(result.application._id, { approval_email_sent: sent, approval_email_sent_at: sent ? new Date() : undefined, approval_email_error: sent ? '' : 'Email delivery failed.' });
+  return { email_sent: sent };
+}
+function admissionError(error: any, res: Response) {
+  res.status(error instanceof PracticalError ? error.status : error.code === 11000 ? 409 : 500).json({ message: error instanceof PracticalError ? error.message : error.code === 11000 ? 'An account with these details already exists.' : 'The student could not be saved. Please try again.' });
+}
 export const approveUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
+    const result = await approveRegisteredStudent(String(req.params.id), req.body);
+    const delivery = await deliverAdmissionEmail(result);
+    res.json({ message: 'Student approved and batches assigned.', credentials: result.credentials, assigned_batch_ids: result.batches.map(batch => batch._id), ...delivery });
+  } catch (error) { admissionError(error, res); }
+};
 
-    user.is_active = true;
+export const createStudent = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await createManualStudent(req.body);
+    const delivery = await deliverAdmissionEmail(result);
+    res.status(201).json({ message: 'Student created and batches assigned.', _id: result.student._id, credentials: result.credentials, assigned_batch_ids: result.batches.map(batch => batch._id), ...delivery });
+  } catch (error) { admissionError(error, res); }
+};
 
-    // If user doesn't have an index number yet, generate one
-    if (!user.index_number) {
-      user.index_number = await generateUniqueIndexNumber();
-    }
-
-    // Generate random 7-day temporary password e.g. TVTI#4829
-    const randomDigits = Math.floor(1000 + Math.random() * 9000);
-    const tempPassword = `TVTI#${randomDigits}`;
-    const salt = await bcrypt.genSalt(10);
-    user.password_hash = await bcrypt.hash(tempPassword, salt);
-    user.must_change_password = true;
-    user.temp_password_expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    // If there is an associated application, sync details and mark as approved
-    const appFilter: any[] = [{ email: user.email.toLowerCase() }];
-    if (user.nic) appFilter.push({ nic_number: user.nic });
-
-    const application = await Application.findOne({ $or: appFilter }).sort({ createdAt: -1 });
-    if (application) {
-      application.status = 'approved';
-      application.generated_index_number = user.index_number;
-      await application.save();
-
-      if (!user.date_of_birth && application.date_of_birth) user.date_of_birth = application.date_of_birth;
-      if (!user.gender && application.gender) user.gender = application.gender;
-      if (!user.address && application.address) user.address = application.address;
-      if (!user.guardian && application.guardian) user.guardian = application.guardian;
-      if (!user.educational_qualification && application.educational_qualification) {
-        user.educational_qualification = application.educational_qualification;
-      }
-      if (!user.profile_photo && application.student_photo) user.profile_photo = application.student_photo;
-      if (!user.payment_info || !user.payment_info.payment_method) {
-        user.payment_info = {
-          total_fee: application.total_course_fee || 0,
-          amount_paid: application.amount_paid || 0,
-          payment_status: application.payment_status || 'pending',
-          payment_method: application.payment_method || 'physical_pay',
-          payment_slip: application.payment_slip || '',
-          receipt_number: `REC-${Date.now().toString().slice(-6)}`,
-          last_updated: new Date()
-        };
-      }
-    }
-
-    await user.save();
-
-    // Send official credentials email to approved user
-    try {
-      await sendApprovalCredentialsEmail({
-        to: user.email,
-        studentName: user.name,
-        indexNumber: user.index_number,
-        tempPassword: tempPassword
-      });
-    } catch (emailErr) {
-      console.warn('Warning: Failed to send approval credentials email:', emailErr);
-    }
-
-    await sendNotification({
-      userIds: [String(user._id)],
-      title: 'Account Approved 🎉',
-      message: `Welcome to TVTI! Your account (${user.index_number}) is now active.`,
-      type: 'application_update',
-      relatedId: user._id,
-      link: '/profile'
-    });
-
-    res.json({
-      message: 'User approved successfully',
-      user,
-      credentials: {
-        index_number: user.index_number,
-        temp_password: tempPassword,
-        email: user.email,
-        student_id: user._id
-      }
-    });
-  } catch (error) {
-    console.error('Error approving user:', error);
-    res.status(500).json({ message: 'Server error during user approval' });
-  }
+export const reactivateUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const student = await reactivateStudent(String(req.params.id));
+    res.json({ message: 'Student reactivated.', user: { _id: student._id, is_active: student.is_active, status: student.status, is_graduated: student.is_graduated } });
+  } catch (error) { admissionError(error, res); }
 };
 
 // PUT /api/admin/users/:id/reject
@@ -418,7 +362,8 @@ export const deactivateUser = async (req: Request, res: Response): Promise<void>
       res.status(404).json({ message: 'User not found' });
       return;
     }
-    user.is_active = !user.is_active; // Toggle active status
+    if (req.body?.is_active !== undefined && typeof req.body.is_active !== 'boolean') { res.status(400).json({ message: 'Active status must be true or false.' }); return; }
+    user.is_active = req.body?.is_active ?? !user.is_active;
     await user.save();
 
     if (!user.is_active && user.role === 'student') {
@@ -463,6 +408,7 @@ export const markUserCompleted = async (req: Request, res: Response): Promise<vo
       res.status(404).json({ message: 'User not found' });
       return;
     }
+    if (user.role !== 'student') { res.status(400).json({ message: 'Only students can be marked completed.' }); return; }
     user.status = 'completed';
     user.is_graduated = true;
     await user.save();

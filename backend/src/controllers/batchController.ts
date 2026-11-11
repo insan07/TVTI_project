@@ -7,6 +7,8 @@ import PracticeSlot from '../models/PracticeSlot';
 import SlotBooking from '../models/SlotBooking';
 import User from '../models/User';
 import { sendBatchAssignmentEmail } from '../services/emailService';
+import { assignStudentsToBatch } from '../services/studentAdmissions';
+import { PracticalError } from '../services/practicalScheduling';
 import { sendNotification } from '../services/notificationService';
 export const getAdminBatches = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -17,6 +19,7 @@ export const getAdminBatches = async (req: Request, res: Response): Promise<void
       .lean();
 
     const enrollmentsCount = await Enrollment.aggregate([
+      { $match: { status: { $ne: 'dropped' } } },
       { $group: { _id: '$batch_id', count: { $sum: 1 } } }
     ]);
 
@@ -157,45 +160,14 @@ export const getBatchStudents = async (req: Request, res: Response): Promise<voi
 
 export const enrollStudents = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { studentIds } = req.body;
-    const batch_id = req.params.id;
-
-    const batch = await Batch.findById(batch_id);
-    if (!batch) {
-      res.status(404).json({ message: 'Batch not found' });
-      return;
-    }
-
-    const currentEnrollments = await Enrollment.countDocuments({ batch_id });
-    if (currentEnrollments + studentIds.length > batch.capacity) {
-      res.status(400).json({ message: 'Batch capacity exceeded' });
-      return;
-    }
-
-    // Find existing enrollments for this batch to prevent duplicates
-    const existingEnrollments = await Enrollment.find({ batch_id });
-    const existingStudentIds = new Set(existingEnrollments.map(e => e.student_id.toString()));
-
-    const newStudentIds = studentIds.filter((id: string) => !existingStudentIds.has(id.toString()));
-
-    if (newStudentIds.length === 0) {
-      res.json({ message: 'All selected students are already enrolled in this batch' });
-      return;
-    }
-
-    const enrollmentsToCreate = newStudentIds.map((id: string) => ({
-      student_id: id,
-      batch_id,
-      enrolled_date: new Date(),
-      status: 'active'
-    }));
-
-    const createdEnrollments = await Enrollment.insertMany(enrollmentsToCreate);
+    const { batch, enrollments: createdEnrollments, newStudentIds } = await assignStudentsToBatch(String(req.params.id), req.body.studentIds);
+    if (newStudentIds.length === 0) { res.json({ message: 'All selected students are already enrolled in this batch' }); return; }
 
     const Course = (await import('../models/Course')).default;
     const course = await Course.findById(batch.course_id);
 
     for (const enrollment of createdEnrollments) {
+      if (!enrollment) continue;
       const student = await User.findById(enrollment.student_id);
       if (student && course) {
         try {
@@ -243,7 +215,7 @@ export const enrollStudents = async (req: Request, res: Response): Promise<void>
     }
 
     res.json({ message: 'Students enrolled successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (error: any) {
+    res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Enrollment failed. Please try again.' });
   }
 };

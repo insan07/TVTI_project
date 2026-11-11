@@ -11,7 +11,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     const studentId = (req as any).user?._id;
     const { amount, payment_method, notes, slip_url } = req.body;
 
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+    if (!amount || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
       res.status(400).json({ message: 'Valid payment amount is required' });
       return;
     }
@@ -86,7 +86,7 @@ export const getMyPaymentSlips = async (req: Request, res: Response): Promise<vo
 
     const slips = await PaymentSlip.find({ student_id: studentId }).sort({ createdAt: -1 });
 
-    const totalFee = student.payment_info?.total_fee || 25000;
+    const totalFee = student.payment_info?.total_fee ?? 25000;
     const amountPaid = student.payment_info?.amount_paid || 0;
     const balance = Math.max(0, totalFee - amountPaid);
     const paymentStatus = student.payment_info?.payment_status || (amountPaid >= totalFee ? 'paid' : amountPaid > 0 ? 'partially_paid' : 'pending');
@@ -116,7 +116,7 @@ export const getAdminPaymentList = async (req: Request, res: Response): Promise<
 
     const formattedList = await Promise.all(
       students.map(async (s: any) => {
-        const totalFee = s.payment_info?.total_fee || 25000;
+        const totalFee = s.payment_info?.total_fee ?? 25000;
         const amountPaid = s.payment_info?.amount_paid || 0;
         const remaining = Math.max(0, totalFee - amountPaid);
 
@@ -136,7 +136,7 @@ export const getAdminPaymentList = async (req: Request, res: Response): Promise<
           profile_photo: s.profile_photo,
           total_fee: totalFee,
           amount_paid: amountPaid,
-          remaining_balance: remaining,
+          remaining_balance: isFullySettled ? 0 : remaining,
           payment_status: isFullySettled ? 'paid' : amountPaid > 0 ? 'partially_paid' : 'pending',
           payment_method: s.payment_info?.payment_method || 'bank_transfer',
           has_registration_slip: Boolean(s.payment_info?.payment_slip),
@@ -173,10 +173,10 @@ export const getStudentPaymentDossier = async (req: Request, res: Response): Pro
     // Check if initial registration application has a slip
     let registrationApp: any = null;
     if (student.email) {
-      registrationApp = await Application.findOne({ email: student.email }).select('payment_method payment_slip payment_status createdAt').lean();
+      registrationApp = await Application.findOne({ email: student.email }).sort({ createdAt: -1 }).select('payment_method payment_slip payment_status createdAt').lean();
     }
 
-    const totalFee = student.payment_info?.total_fee || 25000;
+    const totalFee = student.payment_info?.total_fee ?? 25000;
     const amountPaid = student.payment_info?.amount_paid || 0;
     const remainingBalance = Math.max(0, totalFee - amountPaid);
     const isFullySettled = amountPaid >= totalFee || student.payment_info?.payment_status === 'paid' || student.payment_info?.payment_status === 'waived';
@@ -195,7 +195,7 @@ export const getStudentPaymentDossier = async (req: Request, res: Response): Pro
       summary: {
         total_fee: totalFee,
         amount_paid: amountPaid,
-        remaining_balance: remainingBalance,
+        remaining_balance: isFullySettled ? 0 : remainingBalance,
         payment_status: isFullySettled ? 'paid' : amountPaid > 0 ? 'partially_paid' : 'pending',
         category: isFullySettled ? 'completed' : 'pending',
       },
@@ -245,7 +245,7 @@ export const verifyPaymentSlip = async (req: Request, res: Response): Promise<vo
       }
 
       const newAmountPaid = (student.payment_info.amount_paid || 0) + slip.amount;
-      const totalFee = student.payment_info.total_fee || 25000;
+      const totalFee = student.payment_info.total_fee ?? 25000;
       const newStatus = newAmountPaid >= totalFee ? 'paid' : 'partially_paid';
 
       student.payment_info.amount_paid = newAmountPaid;
@@ -325,7 +325,7 @@ export const recordManualPayment = async (req: Request, res: Response): Promise<
     const { studentId } = req.params;
     const { amount, payment_method, notes } = req.body;
 
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+    if (!amount || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
       res.status(400).json({ message: 'Valid payment amount is required' });
       return;
     }
@@ -351,7 +351,7 @@ export const recordManualPayment = async (req: Request, res: Response): Promise<
     }
 
     const newAmountPaid = (student.payment_info.amount_paid || 0) + Number(amount);
-    const totalFee = student.payment_info.total_fee || 25000;
+    const totalFee = student.payment_info.total_fee ?? 25000;
     const newStatus = newAmountPaid >= totalFee ? 'paid' : 'partially_paid';
 
     student.payment_info.amount_paid = newAmountPaid;
