@@ -8,18 +8,17 @@ import { usersSectionTheme } from './usersSectionTheme';
 type Props = {
   visible: boolean; title: string; message: string;
   type?: 'success' | 'error' | 'danger' | 'warning' | 'lock' | 'info';
-  confirmText?: string; cancelText?: string; onConfirm: () => void; onCancel?: () => void; busy?: boolean;
+  confirmText?: string; cancelText?: string; onConfirm: () => void; onCancel?: () => void; busy?: boolean; inline?: boolean;
 };
 
 /** The centered acknowledgement/confirmation structure used by the schedule. */
-export default function ManagementDialog({ visible, title, message, type = 'info', confirmText = 'OK', cancelText = 'Cancel', onConfirm, onCancel, busy = false }: Props) {
+export default function ManagementDialog({ visible, title, message, type = 'info', confirmText = 'OK', cancelText = 'Cancel', onConfirm, onCancel, busy = false, inline = false }: Props) {
   const { isDark } = useTheme();
   const theme = usersSectionTheme(isDark);
   const danger = type === 'danger' || type === 'error';
   const color = COLORS.secondary;
   const icon = danger ? 'alert-circle-outline' : type === 'success' ? 'checkmark-circle-outline' : type === 'lock' ? 'lock-closed-outline' : type === 'warning' ? 'warning-outline' : 'information-circle-outline';
-  return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!busy) (onCancel || onConfirm)(); }}>
-    <View style={styles.overlay}>
+  const content = <View style={[styles.overlay, inline && StyleSheet.absoluteFill, inline && { zIndex: 10 }]}>
       <View accessibilityViewIsModal style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
         <View style={[styles.icon, { backgroundColor: theme.accentSoft }]}><Icon name={icon} size={28} color={color} /></View>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{title}</Text>
@@ -33,8 +32,9 @@ export default function ManagementDialog({ visible, title, message, type = 'info
           </TouchableOpacity>
         </View>
       </View>
-    </View>
-  </Modal>;
+    </View>;
+  if (inline) return visible ? content : null;
+  return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!busy) (onCancel || onConfirm)(); }}>{content}</Modal>;
 }
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },

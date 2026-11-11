@@ -11,6 +11,7 @@ import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import NotificationBellIcon from '../../components/shared/NotificationBellIcon';
 import StudentHomeCard from '../../components/student/StudentHomeCard';
+import { floatingTabBarClearance } from '../../components/navigation/floatingTabBarLayout';
 import AnnouncementRow, { Announcement } from '../../components/student/AnnouncementRow';
 import { communicationTheme } from '../../components/shared/communicationTheme';
 import { isPracticalExpired, practicalInstant } from '../../utils/practicalTime';
@@ -110,7 +111,7 @@ export default function InstructorHomeScreen() {
       </View>
     </LinearGradient>
 
-    <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentStyle} showsVerticalScrollIndicator={false}
+    <ScrollView style={styles.scrollContent} contentContainerStyle={[styles.scrollContentStyle, { paddingBottom: floatingTabBarClearance(insets.bottom) + 8 }]} showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void fetchDashboard(); }} colors={[COLORS.secondary]} tintColor={COLORS.secondary} />}>
       <View style={styles.mainContent}>
         {!!error && <View style={[styles.errorBanner, { backgroundColor: theme.surface, borderColor: theme.line }]}>
@@ -118,7 +119,7 @@ export default function InstructorHomeScreen() {
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry home page" style={styles.headerAction} onPress={() => { setRefreshing(true); void fetchDashboard(); }}><Text style={styles.link}>Retry</Text></TouchableOpacity>
         </View>}
 
-        <StudentHomeCard title="Quick Actions" variant="communication" style={styles.quickActionsSurface}>
+        <StudentHomeCard compact title="Quick Actions" variant="communication" style={styles.quickActionsSurface}>
           <View style={styles.actionsRow}>
             {QUICK_ACTIONS.map((action, index) => <TouchableOpacity key={action.screen} accessibilityRole="button" accessibilityLabel={action.title}
               onPress={() => navigation.navigate(action.screen)} activeOpacity={0.65}
@@ -129,7 +130,7 @@ export default function InstructorHomeScreen() {
           </View>
         </StudentHomeCard>
 
-        <StudentHomeCard title="Open Practice Slots" headerAction={viewAll('View all practice slots', () => navigation.navigate('Practice'))}>
+        <StudentHomeCard compact title="Open Practice Slots" headerAction={viewAll('View all practice slots', () => navigation.navigate('Practice'))}>
           {slots.length === 0 ? empty('No open practice slots.', 'Create a slot', () => navigation.navigate('Practice')) : slots.map((slot, index) => {
             const time = practicalInstant(slot, 'start');
             const date = Number.isFinite(time) ? new Date(time) : null;
@@ -160,7 +161,7 @@ export default function InstructorHomeScreen() {
           })}
         </StudentHomeCard>
 
-        <StudentHomeCard title="Recent Uploads" variant="communication" headerAction={viewAll('View all uploads', () => navigation.navigate('Uploads', { tab: 'my_videos' }))}>
+        <StudentHomeCard compact title="Recent Uploads" variant="communication" headerAction={viewAll('View all uploads', () => navigation.navigate('Uploads', { tab: 'my_videos' }))}>
           {stats.recentVideos.length === 0 ? empty('No uploads yet.', 'Upload content', () => navigation.navigate('Uploads', { tab: 'upload' })) : stats.recentVideos.slice(0, 3).map((upload, index) => {
             const thumbnail = thumbnailFor(upload);
             return <TouchableOpacity key={upload._id} accessibilityRole="button" accessibilityLabel={`Open upload: ${upload.title}`} activeOpacity={0.65}
@@ -178,9 +179,9 @@ export default function InstructorHomeScreen() {
           })}
         </StudentHomeCard>
 
-        <StudentHomeCard title="Announcements" variant="communication" headerAction={viewAll('View all announcements', () => navigation.navigate('PostAnnouncement'))}>
+        <StudentHomeCard compact title="Announcements" variant="communication" headerAction={viewAll('View all announcements', () => navigation.navigate('PostAnnouncement'))}>
           {stats.recentAnnouncements.length === 0 ? empty('No announcements yet.', 'Post an announcement', () => navigation.navigate('PostAnnouncement')) : stats.recentAnnouncements.slice(0, 3).map((announcement, index) =>
-            <AnnouncementRow key={announcement._id} announcement={announcement} dateLabel={formatDate(announcement.createdAt)} divided={index > 0} onPress={() => setSelectedAnnouncement(announcement)} />)}
+            <AnnouncementRow compact key={announcement._id} announcement={announcement} dateLabel={formatDate(announcement.createdAt)} divided={index > 0} onPress={() => setSelectedAnnouncement(announcement)} />)}
         </StudentHomeCard>
       </View>
     </ScrollView>
@@ -218,25 +219,25 @@ const styles = StyleSheet.create({
   glowOrbOrange: { position: 'absolute', top: -60, right: -40, width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(249, 115, 22, 0.16)' },
   glowOrbBlue: { position: 'absolute', bottom: -50, left: -40, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(14, 165, 233, 0.12)' },
   scrollContent: { flex: 1 }, scrollContentStyle: { paddingBottom: 110 },
-  mainContent: { paddingHorizontal: 20, paddingTop: 20, maxWidth: 1100, width: '100%', alignSelf: 'center' },
+  mainContent: { paddingHorizontal: 20, paddingTop: 12, maxWidth: 1100, width: '100%', alignSelf: 'center' },
   headerAction: { minHeight: 44, justifyContent: 'center' }, link: { ...FONTS.semiBold, fontSize: 12, color: COLORS.secondary },
   quickActionsSurface: { paddingHorizontal: 0 },
-  actionsRow: { flexDirection: 'row', paddingVertical: 18 }, actionButton: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 2, gap: 10 },
+  actionsRow: { flexDirection: 'row', paddingVertical: 12 }, actionButton: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 2, gap: 6 },
   actionIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, actionLabel: { ...FONTS.semiBold, fontSize: 11, lineHeight: 18, textAlign: 'center', width: '100%', flexShrink: 1 },
-  empty: { paddingVertical: 18 }, emptyText: { ...FONTS.regular, fontSize: 13, lineHeight: 20 }, emptyAction: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  practicalRow: { paddingVertical: 16 }, practicalTop: { flexDirection: 'row', alignItems: 'center' },
+  empty: { paddingVertical: 12 }, emptyText: { ...FONTS.regular, fontSize: 13, lineHeight: 20 }, emptyAction: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  practicalRow: { paddingVertical: 12 }, practicalTop: { flexDirection: 'row', alignItems: 'center' },
   dateBadge: { width: 56, height: 56, borderRadius: 18, backgroundColor: '#FFEBDD', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   dateBadgeDark: { backgroundColor: 'rgba(249, 115, 22, 0.15)', borderWidth: 1, borderColor: 'rgba(249, 115, 22, 0.35)' },
   dateMonth: { ...FONTS.extraBold, fontSize: 11, color: '#C2410C', letterSpacing: 0.5 }, dateDay: { ...FONTS.extraBold, fontSize: 20, color: '#7C2D12', marginTop: -1 },
   rowContent: { flex: 1, minWidth: 0 }, practicalTitle: { ...FONTS.extraBold, fontSize: 16, lineHeight: 23 }, detail: { ...FONTS.regular, fontSize: 12, lineHeight: 19 },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4, flexWrap: 'wrap' },
-  practicalBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginTop: 16, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth },
+  practicalBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
   capacityInfo: { flex: 1, minWidth: 0 }, progressTrack: { height: 4, borderRadius: 2, marginTop: 7, overflow: 'hidden' }, progressFill: { height: 4, backgroundColor: COLORS.secondary, borderRadius: 2 },
   managePill: { borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 }, manageText: { ...FONTS.bold, fontSize: 13 },
-  uploadRow: { paddingVertical: 22, flexDirection: 'row', alignItems: 'center', gap: 12 }, thumbnail: { width: 72, height: 48, borderRadius: 6, overflow: 'hidden', backgroundColor: COLORS.primary },
+  uploadRow: { paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }, thumbnail: { width: 72, height: 48, borderRadius: 6, overflow: 'hidden', backgroundColor: COLORS.primary },
   thumbnailOverlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0, 0, 0, 0.16)', alignItems: 'center', justifyContent: 'center' },
   uploadMetadata: { ...FONTS.regular, fontSize: 11, lineHeight: 16, marginBottom: 6 }, uploadTitle: { ...FONTS.semiBold, fontSize: 15, lineHeight: 22, letterSpacing: -0.2 },
-  errorBanner: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 }, errorText: { ...FONTS.regular, fontSize: 13, lineHeight: 20, flex: 1 },
+  errorBanner: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }, errorText: { ...FONTS.regular, fontSize: 13, lineHeight: 20, flex: 1 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   noticeDialog: { borderRadius: 22, borderWidth: 1, width: '100%', maxWidth: 600, maxHeight: '85%', overflow: 'hidden' },
   noticeDialogHeader: { paddingLeft: 24, paddingRight: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth },

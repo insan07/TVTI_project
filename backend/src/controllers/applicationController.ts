@@ -239,6 +239,7 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
       application.status = status;
       if (status === 'rejected') application.rejection_reason = String(req.body.rejection_reason || '').trim() || 'Application details did not meet entry requirements.';
       await application.save({ session });
+      if (status === 'rejected') await User.updateOne({ email: application.email.toLowerCase().trim(), role: 'student' }, { $set: { status: 'rejected', is_active: false } }, { session });
       return { application };
     });
     const application = result.application;

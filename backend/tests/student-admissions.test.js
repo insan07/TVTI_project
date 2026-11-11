@@ -9,18 +9,19 @@ const admissions=require('../dist/services/studentAdmissions');
 const controller=require('../dist/controllers/applicationController');
 const admin=require('../dist/controllers/adminController');
 const payments=require('../dist/controllers/paymentController');
+const PaymentSlip=require('../dist/models/PaymentSlip').default;
 const email=require('../dist/services/emailService'),notification=require('../dist/services/notificationService');
 let replica,courses,batches;
-const originals={approval:email.sendApprovalEmail,rejection:email.sendRejectionEmail,notification:notification.sendNotification};
+const originals={approval:email.sendApprovalEmail,rejection:email.sendRejectionEmail,raw:email.sendRawEmail,notification:notification.sendNotification};
 before(async()=>{
  replica=await MongoMemoryReplSet.create({replSet:{count:1,storageEngine:'wiredTiger',spawn:{windowsHide:true}}});
  await mongoose.connect(replica.getUri('student_admission_tests'));
  await Promise.all([User.init(),Application.init(),Batch.init(),Course.init(),Enrollment.init()]);
- email.sendApprovalEmail=async()=>({success:true});email.sendRejectionEmail=async()=>({success:true});notification.sendNotification=async()=>[];
+ email.sendApprovalEmail=async()=>({success:true});email.sendRejectionEmail=async()=>({success:true});email.sendRawEmail=async()=>({success:true});notification.sendNotification=async()=>[];
 },{timeout:120000});
-after(async()=>{email.sendApprovalEmail=originals.approval;email.sendRejectionEmail=originals.rejection;notification.sendNotification=originals.notification;await mongoose.disconnect();if(replica)await replica.stop()});
+after(async()=>{email.sendApprovalEmail=originals.approval;email.sendRejectionEmail=originals.rejection;email.sendRawEmail=originals.raw;notification.sendNotification=originals.notification;await mongoose.disconnect();if(replica)await replica.stop()});
 beforeEach(async()=>{
- for(const model of[Enrollment,Application,Batch,Course,User])await model.deleteMany({});
+ for(const model of[PaymentSlip,Enrollment,Application,Batch,Course,User])await model.deleteMany({});
  courses=await Course.insertMany(['Electrical','Plumbing'].map(title=>({title,description:title,fee:1000,duration_weeks:12})));
  batches=await Batch.insertMany(courses.map((course,i)=>({name:'Batch '+i,course_id:course._id,start_date:new Date(),end_date:new Date('2099-01-01'),capacity:20,status:'active'})));
 });
@@ -160,4 +161,37 @@ test('add payment rejects invalid amounts before creating or crediting a payment
    const res=response();await payments.recordManualPayment({params:{studentId:String(result.student._id)},body:{amount}},res);assert.equal(res.statusCode,400);
  }
  assert.equal((await User.findById(result.student._id)).payment_info.amount_paid,0);
+});
+
+test('rejection removes a student from the directory and reapproval restores the same account',async()=>{
+ const application=await app();const first=await admissions.approveStudentApplication(String(application._id),input([0]));
+ const rejected=response();await controller.updateApplicationStatus({params:{id:String(application._id)},body:{status:'rejected',rejection_reason:'Withdrawn'}},rejected);assert.equal(rejected.statusCode,200);
+ const list=response();await admin.getUsers({query:{role:'student'}},list);assert.equal(list.body.length,0);assert.equal((await User.findById(first.student._id)).is_active,false);assert.equal(await Enrollment.countDocuments({student_id:first.student._id}),1);
+ await admissions.approveStudentApplication(String(application._id),input([0]));const restored=response();await admin.getUsers({query:{role:'student'}},restored);assert.equal(restored.body.length,1);assert.equal(String(restored.body[0]._id),String(first.student._id));assert.equal(await User.countDocuments(),1);
+});
+
+test('legacy rejected applications are excluded without hiding instructors or a later reapproval',async()=>{
+ const result=await admissions.createManualStudent(manual());await Application.updateOne({_id:result.application._id},{status:'rejected'});
+ const instructor=await User.create({name:'Teacher',email:'teacher@test.invalid',role:'instructor',password_hash:'fixture'});
+ const list=response();await admin.getUsers({query:{}},list);assert.equal(list.body.length,1);assert.equal(String(list.body[0]._id),String(instructor._id));
+ await admissions.approveStudentApplication(String(result.application._id),input([0]));const restored=response();await admin.getUsers({query:{role:'student'}},restored);assert.equal(restored.body.length,1);
+});
+
+test('student payment updates enter Review and approval credits once then removes them from Review',async()=>{
+ const result=await admissions.createManualStudent(manual());const studentId=String(result.student._id);const upload=response();
+ await payments.uploadPaymentSlip({user:{_id:result.student._id},body:{amount:300,payment_method:'bank_transfer',slip_url:'fixture-receipt.png'}},upload);assert.equal(upload.statusCode,201);assert.equal((await User.findById(studentId)).payment_info.amount_paid,0);
+ const list=response();await payments.getAdminPaymentList({},list);assert.equal(list.body[0].pending_slips_count,1);
+ const replies=[response(),response()];await Promise.all(replies.map(res=>payments.verifyPaymentSlip({params:{slipId:String(upload.body.slip._id)},user:{}},res)));
+ assert.deepEqual(replies.map(res=>res.statusCode).sort(),[200,409]);assert.equal((await User.findById(studentId)).payment_info.amount_paid,300);
+ const reviewed=response();await payments.getAdminPaymentList({},reviewed);assert.equal(reviewed.body[0].pending_slips_count,0);assert.equal(reviewed.body[0].remaining_balance,700);
+ const rejectVerified=response();await payments.rejectPaymentSlip({params:{slipId:String(upload.body.slip._id)},body:{reason:'Late rejection'},user:{}},rejectVerified);assert.equal(rejectVerified.statusCode,409);assert.equal((await User.findById(studentId)).payment_info.amount_paid,300);
+});
+
+test('rejecting a payment clears Review without crediting it, and manual payments preserve concurrent credits',async()=>{
+ const result=await admissions.createManualStudent(manual());const slip=await PaymentSlip.create({student_id:result.student._id,amount:200,status:'pending'});
+ const rejected=response();await payments.rejectPaymentSlip({params:{slipId:String(slip._id)},body:{reason:'Receipt unclear'},user:{}},rejected);assert.equal(rejected.statusCode,200);assert.equal((await User.findById(result.student._id)).payment_info.amount_paid,0);
+ const list=response();await payments.getAdminPaymentList({},list);assert.equal(list.body[0].pending_slips_count,0);
+ const second=await PaymentSlip.create({student_id:result.student._id,amount:200,status:'pending'});const verify=response(),manualPay=response();
+ await Promise.all([payments.verifyPaymentSlip({params:{slipId:String(second._id)},user:{}},verify),payments.recordManualPayment({params:{studentId:String(result.student._id)},body:{amount:100,payment_method:'physical_cash'},user:{}},manualPay)]);
+ assert.equal(verify.statusCode,200);assert.equal(manualPay.statusCode,201);assert.equal((await User.findById(result.student._id)).payment_info.amount_paid,300);
 });

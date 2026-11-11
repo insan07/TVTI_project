@@ -27,6 +27,7 @@ import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import NotificationBellIcon from '../../components/shared/NotificationBellIcon';
 import StudentHomeCard from '../../components/student/StudentHomeCard';
+import { floatingTabBarClearance } from '../../components/navigation/floatingTabBarLayout';
 import { communicationTheme } from '../../components/shared/communicationTheme';
 
 export default function AdminDashboardScreen() {
@@ -459,7 +460,7 @@ export default function AdminDashboardScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 }}
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: floatingTabBarClearance(insets.bottom) + 8 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} tintColor={COLORS.secondary} />} showsVerticalScrollIndicator={false}>
         <View style={styles.homeContent}>
           {loading ? <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 40 }} /> : <>
@@ -468,7 +469,7 @@ export default function AdminDashboardScreen() {
               <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry home page" style={styles.homeHeaderAction} onPress={onRefresh}><Text style={styles.homeLink}>Retry</Text></TouchableOpacity>
             </View>}
 
-            <StudentHomeCard title="Quick Actions" variant="communication">
+            <StudentHomeCard compact title="Quick Actions" variant="communication">
               <View style={styles.homeActions}>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Announcements" style={styles.homeActionButton} activeOpacity={0.65} onPress={() => navigation.navigate('PostAnnouncement')}>
                   <View style={[styles.homeActionIcon, { backgroundColor: isDark ? '#30251B' : '#FFF1E5' }]}><Icon name="megaphone-outline" size={22} color={COLORS.secondary} /></View>
@@ -481,7 +482,7 @@ export default function AdminDashboardScreen() {
               </View>
             </StudentHomeCard>
 
-            <StudentHomeCard title="Pending Approvals" variant="communication" headerAction={
+            <StudentHomeCard compact title="Pending Approvals" variant="communication" headerAction={
               <TouchableOpacity accessibilityRole="button" accessibilityLabel="View all pending approvals" style={styles.homeHeaderAction} onPress={() => navigation.navigate('Users', { initialTab: 'pending' })}><Text style={styles.homeLink}>View all</Text></TouchableOpacity>
             }>
               {stats.pendingUsers.length === 0 ? <View style={styles.homeEmpty}><Text style={[styles.homeEmptyText, { color: theme.muted }]}>{homeError ? 'Pending approvals are unavailable. Refresh to try again.' : 'All caught up. No pending approvals.'}</Text></View> : stats.pendingUsers.map((user, index) =>
@@ -502,7 +503,7 @@ export default function AdminDashboardScreen() {
                 </View>)}
             </StudentHomeCard>
 
-            <StudentHomeCard title="Recent Activities" variant="communication" headerAction={
+            <StudentHomeCard compact title="Recent Activities" variant="communication" headerAction={
               <TouchableOpacity accessibilityRole="button" accessibilityLabel="View all activities" style={styles.homeHeaderAction} onPress={handleOpenAllActivities}><Text style={styles.homeLink}>View all</Text></TouchableOpacity>
             }>
               {stats.recentActivities.length === 0 ? <View style={styles.homeEmpty}><Text style={[styles.homeEmptyText, { color: theme.muted }]}>No recent activities recorded.</Text></View> : stats.recentActivities.map((activity, index) =>
@@ -515,7 +516,7 @@ export default function AdminDashboardScreen() {
                 </View>)}
             </StudentHomeCard>
 
-            <StudentHomeCard title="Institution Overview" variant="communication" headerAction={
+            <StudentHomeCard compact title="Institution Overview" variant="communication" headerAction={
               <TouchableOpacity accessibilityRole="button" accessibilityLabel="Toggle institution overview" accessibilityState={{ expanded: overviewExpanded }} style={styles.homeOverviewToggle} onPress={() => setOverviewExpanded(value => !value)}>
                 <Text style={styles.homeLink}>{overviewExpanded ? 'Hide' : 'Show'}</Text><Icon name={overviewExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.secondary} />
               </TouchableOpacity>
@@ -1325,22 +1326,22 @@ export default function AdminDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  homeContent: { paddingHorizontal: 20, paddingTop: 20, maxWidth: 1100, width: '100%', alignSelf: 'center' },
+  homeContent: { paddingHorizontal: 20, paddingTop: 12, maxWidth: 1100, width: '100%', alignSelf: 'center' },
   homeHeaderAction: { minHeight: 44, justifyContent: 'center' }, homeLink: { ...FONTS.semiBold, fontSize: 12, color: COLORS.secondary },
-  homeActions: { flexDirection: 'row', paddingVertical: 18 }, homeActionButton: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 8, gap: 10 },
+  homeActions: { flexDirection: 'row', paddingVertical: 12 }, homeActionButton: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 8, gap: 6 },
   homeActionIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, homeActionLabel: { ...FONTS.semiBold, fontSize: 12, lineHeight: 18, textAlign: 'center', width: '100%', flexShrink: 1 },
-  homeEmpty: { paddingVertical: 18 }, homeEmptyText: { ...FONTS.regular, fontSize: 13, lineHeight: 20 },
-  homeUserRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 12, paddingVertical: 22 },
+  homeEmpty: { paddingVertical: 12 }, homeEmptyText: { ...FONTS.regular, fontSize: 13, lineHeight: 20 },
+  homeUserRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 8, paddingVertical: 12 },
   homeAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }, homeAvatarText: { ...FONTS.semiBold, color: COLORS.secondary, fontSize: 12 },
   homeUserInfo: { flex: 1, minWidth: 100 }, homeRowTitle: { ...FONTS.semiBold, fontSize: 15, lineHeight: 22, letterSpacing: -0.2 },
   homeMetadata: { ...FONTS.regular, fontSize: 11, lineHeight: 16, marginTop: 4 },
   homeApprovalActions: { flexDirection: 'row', gap: 8, marginLeft: 'auto' }, homeApprovalButton: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  homeActivityRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingVertical: 22 },
+  homeActivityRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 12 },
   homeActivityIcon: { width: 36, height: 36, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
   homeActivityContent: { flex: 1, minWidth: 0 }, homeActivityText: { ...FONTS.medium, fontSize: 15, lineHeight: 23, marginTop: 5, letterSpacing: -0.2 },
   homeOverviewToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
-  homeMetricRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 18 }, homeMetricLabel: { ...FONTS.medium, flex: 1, fontSize: 14, lineHeight: 22 }, homeMetricValue: { ...FONTS.semiBold, fontSize: 20 },
-  homeError: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 }, homeErrorText: { ...FONTS.regular, fontSize: 13, lineHeight: 20, flex: 1 },
+  homeMetricRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }, homeMetricLabel: { ...FONTS.medium, flex: 1, fontSize: 14, lineHeight: 22 }, homeMetricValue: { ...FONTS.semiBold, fontSize: 20 },
+  homeError: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }, homeErrorText: { ...FONTS.regular, fontSize: 13, lineHeight: 20, flex: 1 },
   homeConfirmOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   homeConfirmCard: { width: '100%', maxWidth: 380, borderWidth: 1, borderRadius: 22, padding: 24, gap: 14 }, homeConfirmTitle: { ...FONTS.semiBold, fontSize: 20, lineHeight: 28 },
   homeConfirmActions: { flexDirection: 'row', gap: 10, marginTop: 8 }, homeConfirmButton: { flex: 1, minHeight: 44, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
