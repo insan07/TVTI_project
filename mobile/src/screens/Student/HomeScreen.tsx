@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,19 +20,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
-import EnrolledCoursesCard from '../../components/student/EnrolledCoursesCard';
-import { storage } from '../../utils/storage';
+import NotificationBellIcon from '../../components/shared/NotificationBellIcon';
+import StudentHomeCard, { studentHomeCardStyles } from '../../components/student/StudentHomeCard';
+import AnnouncementRow from '../../components/student/AnnouncementRow';
+import { communicationTheme } from '../../components/shared/communicationTheme';
+import { migrateLegacyLessonPins } from '../../services/theoryLessonPins';
+import { showToast } from '../../components/shared/Toast';
 
 export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadCount?: number }) {
   const { user } = useContext(AuthContext) as any;
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { isDark } = useTheme();
+  const communication = communicationTheme(isDark);
   const [data, setData] = useState<any>(null);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [localUnreadCount, setLocalUnreadCount] = useState<number | null>(null);
-  const [bookmarkedLessons, setBookmarkedLessons] = useState<{ [key: string]: boolean }>({});
+  const [pinningLessonId, setPinningLessonId] = useState<string | null>(null);
+  const pinRequestRef = useRef(false);
+  const lessonRevisionRef = useRef(0);
   const [instructorModalVisible, setInstructorModalVisible] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any | null>(null);
   const [allAnnouncementsModalVisible, setAllAnnouncementsModalVisible] = useState(false);
@@ -41,17 +48,21 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
   useFocusEffect(
     React.useCallback(() => {
       fetchDashboard();
-    }, [])
+    }, [user?._id])
   );
 
   const fetchDashboard = async () => {
     try {
+      await migrateLegacyLessonPins(user?._id).catch(error => console.warn('Unable to migrate lesson pins:', error));
+      const lessonRevision = lessonRevisionRef.current;
       const [res, notifRes, annRes] = await Promise.all([
         api.get('/students/home'),
         api.get('/notifications/unread-count').catch(() => null),
         api.get('/students/announcements').catch(() => null),
       ]);
-      setData(res.data);
+      setData((previous: any) => lessonRevision === lessonRevisionRef.current
+        ? res.data
+        : { ...res.data, theory_lessons: previous?.theory_lessons || [] });
       const fetchedAnnouncements = annRes?.data || res.data?.announcements || [];
       setAnnouncements(fetchedAnnouncements);
       if (notifRes?.data && typeof notifRes.data.unread_count === 'number') {
@@ -85,24 +96,21 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const bookmarkStorageKey = `pinned_lessons_${user?._id || 'default'}`;
-
-  useEffect(() => {
-    storage.getItem(bookmarkStorageKey).then((saved) => {
-      if (saved) {
-        try {
-          setBookmarkedLessons(JSON.parse(saved));
-        } catch {}
-      }
-    });
-  }, [bookmarkStorageKey]);
-
-  const toggleBookmark = (lessonId: string) => {
-    setBookmarkedLessons(prev => {
-      const next = { ...prev, [lessonId]: !prev[lessonId] };
-      storage.setItem(bookmarkStorageKey, JSON.stringify(next)).catch(() => {});
-      return next;
-    });
+  const toggleBookmark = async (lesson: any) => {
+    if (pinRequestRef.current) return;
+    pinRequestRef.current = true;
+    lessonRevisionRef.current += 1;
+    setPinningLessonId(lesson._id);
+    try {
+      const response = await api.patch(`/students/videos/${lesson._id}/pin`, { pinned: !lesson.is_pinned });
+      lessonRevisionRef.current += 1;
+      setData((previous: any) => ({ ...previous, theory_lessons: response.data.theory_lessons }));
+    } catch (error: any) {
+      showToast(error.response?.data?.message || 'Unable to save your pinned video. Please try again.', 'error');
+    } finally {
+      pinRequestRef.current = false;
+      setPinningLessonId(null);
+    }
   };
 
   if (loading) {
@@ -127,9 +135,6 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
     !!data?.next_class ||
     !!data?.next_practice
   );
-  const enrolledBatches = data?.assigned_batches?.length
-    ? data.assigned_batches
-    : data?.next_class ? [data.next_class] : [];
 
   // Upcoming Practical Details
   const nextPractice = data?.next_practice || data?.next_available_practice;
@@ -175,15 +180,10 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
     }
   }
 
-  // Fetch real theory lessons from backend and sort pinned lessons to the very top
-  const rawTheoryLessons = data?.theory_lessons || [];
-  const theoryLessons = [...rawTheoryLessons].sort((a: any, b: any) => {
-    const aPinned = !!bookmarkedLessons[a._id];
-    const bPinned = !!bookmarkedLessons[b._id];
-    if (aPinned && !bPinned) return -1;
-    if (!aPinned && bPinned) return 1;
-    return 0;
-  });
+  // The server reserves top slots for saved pins and fills the rest by last access.
+  const theoryLessons = (data?.theory_lessons || [])
+    .filter((lesson: any) => lesson.content_type === 'video')
+    .slice(0, 3);
 
   return (
     <View style={{ flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F8FAFC' }}>
@@ -216,7 +216,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
               style={styles.bellBtn}
               onPress={() => navigation.navigate('Notifications')}
             >
-              <Icon name="notifications-outline" size={20} color="#FFF" />
+              <NotificationBellIcon size={22} color="#FFF" />
               {unreadCount > 0 && <View style={styles.badgeDot} />}
             </TouchableOpacity>
           </View>
@@ -231,24 +231,12 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
       >
         <View style={styles.mainContent}>
         {/* ========================================================================= */}
-        {/* ENROLLED COURSES */}
-        {/* ========================================================================= */}
-        <EnrolledCoursesCard
-          batches={enrolledBatches}
-          hasAssignedBatch={!!hasAssignedBatch}
-        />
-
-        {/* ========================================================================= */}
         {/* SECTION 1: UPCOMING PRACTICAL (Conditionally Rendered) */}
         {/* ========================================================================= */}
         {hasAssignedBatch && nextPractice && (
-          <View>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Upcoming Practical</Text>
-            </View>
-
+          <StudentHomeCard title="Upcoming Practical">
             <TouchableOpacity
-              style={[styles.upcomingCard, isDark && styles.upcomingCardDark]}
+              style={styles.upcomingCard}
               activeOpacity={0.9}
               onPress={() => navigation.navigate('Schedule')}
             >
@@ -299,25 +287,24 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
-          </View>
+          </StudentHomeCard>
         )}
 
         {/* ========================================================================= */}
         {/* SECTION 2: RECENT THEORY LESSONS */}
         {/* ========================================================================= */}
-        {hasAssignedBatch && theoryLessons.length > 0 && (
-          <>
-            <View style={[styles.sectionHeaderRow, { marginTop: 28 }]}>
-              <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Recent Theory Lessons</Text>
-            </View>
-
-            <View style={styles.lessonsListContainer}>
-              {theoryLessons.map((lesson: any) => {
-                const isBookmarked = !!bookmarkedLessons[lesson._id];
+        {hasAssignedBatch && (
+          <StudentHomeCard
+            title="Recent Theory Lessons"
+            variant="communication"
+          >
+            {theoryLessons.length > 0 ? <View>
+              {theoryLessons.map((lesson: any, index: number) => {
+                const isBookmarked = lesson.is_pinned === true;
                 let thumbUrl = lesson.thumbnail || null;
                 if (!thumbUrl && lesson.cloudinary_url) {
                   if (lesson.cloudinary_url.includes('youtube.com') || lesson.cloudinary_url.includes('youtu.be')) {
-                    const match = lesson.cloudinary_url.match(/[?&]v=([^&]+)/) || lesson.cloudinary_url.match(/youtu\.be\/([^?]+)/);
+                    const match = lesson.cloudinary_url.match(/(?:[?&]v=|youtu\.be\/|youtube\.com\/(?:embed|shorts)\/)([\w-]{11})/);
                     if (match && match[1]) {
                       thumbUrl = `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
                     }
@@ -329,206 +316,137 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
                 return (
                   <TouchableOpacity
                     key={lesson._id}
-                    style={[styles.lessonCard, isDark && styles.lessonCardDark]}
-                    activeOpacity={0.85}
-                    onPress={() => navigation.navigate('Videos')}
+                    style={[styles.lessonRow, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: communication.line }]}
+                    activeOpacity={0.65}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open video: ${lesson.title}`}
+                    onPress={() => navigation.navigate('VideoPlayer', {
+                      videoId: lesson._id,
+                      batchId: lesson.batch_id?._id || lesson.batch_id,
+                    })}
                   >
-                    {/* Thumbnail image with play button overlay */}
                     <View style={styles.thumbnailWrapper}>
-                      {thumbUrl ? (
-                        <Image source={{ uri: thumbUrl }} style={styles.thumbnailImg} />
-                      ) : (
-                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                          <Icon name={lesson.content_type === 'material' ? 'document-text' : 'videocam'} size={32} color={isDark ? '#64748B' : '#9CA3AF'} />
-                        </View>
-                      )}
-                      {lesson.content_type !== 'material' && (
-                        <View style={styles.playOverlayCircle}>
-                          <Icon name="play" size={14} color="#FFFFFF" style={{ marginLeft: 2 }} />
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Lesson Info */}
-                    <View style={styles.lessonContentColumn}>
-                      <View style={styles.tagDurationRow}>
-                        <View style={[styles.tagBadgePill, isDark && styles.tagBadgePillDark]}>
-                          <Text style={[styles.tagBadgeText, isDark && { color: '#CBD5E1' }]}>{(lesson.topic || 'General').toUpperCase()}</Text>
-                        </View>
-                        {isBookmarked && (
-                          <View style={[styles.pinnedBadgePill, isDark && styles.pinnedBadgePillDark]}>
-                            <Icon name="pin" size={10} color="#F58220" style={{ marginRight: 3 }} />
-                            <Text style={styles.pinnedBadgeText}>PINNED</Text>
-                          </View>
-                        )}
-                        <Text style={[styles.durationText, isDark && { color: '#94A3B8' }]}>{lesson.duration || '--:--'}</Text>
+                      {thumbUrl && <Image source={{ uri: thumbUrl }} style={styles.thumbnailImg} />}
+                      <View style={styles.lessonPlayOverlay}>
+                        <Icon name="play" size={16} color={COLORS.secondary} />
                       </View>
-
-                      <Text style={[styles.lessonTitleText, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
+                    </View>
+                    <View style={styles.lessonContentColumn}>
+                      {!!(lesson.topic || lesson.duration) && (
+                        <View style={styles.lessonMetadata}>
+                          {lesson.topic && <Text style={[styles.lessonTopic, { color: communication.muted }]} numberOfLines={1}>{lesson.topic}</Text>}
+                          {!!lesson.duration && <Text style={[styles.lessonDuration, { color: communication.muted }]}>{lesson.duration}</Text>}
+                        </View>
+                      )}
+                      <Text style={[styles.lessonTitleText, { color: communication.text }]} numberOfLines={2}>
                         {lesson.title}
                       </Text>
                     </View>
 
-                    {/* Bookmark Icon */}
+                    {/* Persistent pin control */}
                     <TouchableOpacity
                       style={styles.bookmarkTouch}
-                      onPress={() => toggleBookmark(lesson._id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${isBookmarked ? 'Unpin' : 'Pin'} video: ${lesson.title}`}
+                      accessibilityState={{ disabled: pinningLessonId !== null, busy: pinningLessonId === lesson._id }}
+                      disabled={pinningLessonId !== null}
+                      onPress={event => {
+                        event.stopPropagation();
+                        void toggleBookmark(lesson);
+                      }}
                     >
-                      <Icon
+                      {pinningLessonId === lesson._id ? <ActivityIndicator size="small" color={COLORS.secondary} /> : <Icon
                         name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
                         size={20}
-                        color={isBookmarked ? '#F58220' : isDark ? '#64748B' : '#A1A1AA'}
-                      />
+                        color={isBookmarked ? COLORS.secondary : isDark ? '#64748B' : '#A1A1AA'}
+                      />}
                     </TouchableOpacity>
                   </TouchableOpacity>
                 );
               })}
-            </View>
-          </>
+            </View> : (
+              <View style={styles.recentLessonsEmpty}>
+                <Text style={[styles.recentLessonsEmptyText, { color: communication.muted }]}>
+                  Recently opened videos appear here.
+                </Text>
+                <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('Videos')} style={styles.browseVideosButton}>
+                  <Text style={styles.browseVideosText}>Browse videos</Text>
+                  <Icon name="arrow-forward" size={16} color={COLORS.secondary} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </StudentHomeCard>
         )}
 
         {/* ========================================================================= */}
         {/* SECTION 3: RECENT ANNOUNCEMENTS */}
         {/* ========================================================================= */}
-        <View style={[styles.sectionHeaderRow, { marginTop: 28 }]}>
-          <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Announcements</Text>
-          {announcements.length > 0 && (
-            <TouchableOpacity onPress={() => setAllAnnouncementsModalVisible(true)} activeOpacity={0.7}>
-              <Text style={styles.watchHistoryText}>View All ({announcements.length})</Text>
+        <StudentHomeCard
+          title="Announcements"
+          variant="communication"
+          headerAction={announcements.length > 0 ? (
+            <TouchableOpacity
+              onPress={() => setAllAnnouncementsModalVisible(true)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="View all announcements"
+              style={styles.viewAllButton}
+            >
+              <Text style={styles.watchHistoryText}>View all</Text>
             </TouchableOpacity>
-          )}
-        </View>
+          ) : undefined}
+        >
 
         {announcements.length === 0 ? (
-          <View style={[styles.emptyAnnouncementCard, isDark && styles.lessonCardDark]}>
-            <Icon name="megaphone-outline" size={30} color={isDark ? '#64748B' : '#9CA3AF'} />
-            <Text style={[styles.emptyAnnouncementText, isDark && { color: '#94A3B8' }]}>
-              No announcements posted for your batch yet.
-            </Text>
+          <View style={styles.emptyAnnouncementCard}>
+            <Text style={[styles.emptyAnnouncementText, { color: communication.muted }]}>No announcements yet.</Text>
           </View>
-        ) : (
-          <View style={styles.announcementsList}>
-            {announcements.slice(0, 3).map((ann: any) => (
-              <TouchableOpacity
-                key={ann._id}
-                style={[styles.announcementCard, isDark && styles.lessonCardDark]}
-                activeOpacity={0.85}
-                onPress={() => setSelectedAnnouncement(ann)}
-              >
-                <View style={[styles.announcementIconBox, isDark && { backgroundColor: 'rgba(245, 130, 32, 0.16)' }]}>
-                  <Icon name="megaphone-outline" size={20} color="#F58220" />
-                </View>
-                <View style={styles.announcementContentCol}>
-                  <View style={styles.announcementTopMetaRow}>
-                    <View
-                      style={[
-                        styles.announcementBatchBadge,
-                        isDark && { backgroundColor: 'rgba(255,255,255,0.08)' },
-                      ]}
-                    >
-                      <Text style={[styles.announcementBatchBadgeText, isDark && { color: '#FED7AA' }]}>
-                        {ann.batch_id?.name || 'All Students'}
-                      </Text>
-                    </View>
-                    <Text style={[styles.announcementDateText, isDark && { color: '#64748B' }]}>
-                      {formatAnnouncementDate(ann.createdAt)}
-                    </Text>
-                  </View>
-                  <Text style={[styles.announcementTitleText, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
-                    {ann.title}
-                  </Text>
-                  <Text style={[styles.announcementMsgPreview, isDark && { color: '#94A3B8' }]} numberOfLines={2}>
-                    {ann.message}
-                  </Text>
-                  {ann.posted_by?.name && (
-                    <Text style={[styles.announcementAuthorText, isDark && { color: '#64748B' }]}>
-                      Posted by {ann.posted_by.name} ({ann.posted_by.role === 'admin' ? 'Admin' : 'Instructor'})
-                    </Text>
-                  )}
-                </View>
-                <Icon name="chevron-forward" size={18} color={isDark ? '#64748B' : '#9CA3AF'} />
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+        ) : announcements.slice(0, 3).map((announcement: any, index: number) => (
+          <AnnouncementRow
+            key={announcement._id}
+            announcement={announcement}
+            dateLabel={formatAnnouncementDate(announcement.createdAt)}
+            divided={index > 0}
+            onPress={() => setSelectedAnnouncement(announcement)}
+          />
+        ))}
+        </StudentHomeCard>
         </View>
       </ScrollView>
 
-      {/* Single Announcement Detail Modal */}
+      {/* Announcement reading view */}
       <Modal
         visible={!!selectedAnnouncement}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => setSelectedAnnouncement(null)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxWidth: 460 }, isDark && styles.modalContentDark]}>
-            <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                <View style={[styles.announcementIconBox, { width: 36, height: 36, marginRight: 0 }]}>
-                  <Icon name="megaphone" size={18} color="#F58220" />
-                </View>
-                <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
-                  Announcement Details
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setSelectedAnnouncement(null)}>
-                <Icon name="close" size={24} color={isDark ? '#94A3B8' : '#4B5563'} />
+          <View style={[styles.noticeDialog, { backgroundColor: communication.surface, borderColor: communication.line }]}>
+            <View style={[styles.noticeDialogHeader, { borderBottomColor: communication.line }]}>
+              <Text style={[styles.noticeDialogLabel, { color: communication.text }]}>Announcement</Text>
+              <TouchableOpacity
+                onPress={() => setSelectedAnnouncement(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Close announcement"
+                style={styles.noticeClose}
+              >
+                <Icon name="close" size={22} color={communication.text} />
               </TouchableOpacity>
             </View>
-
             {selectedAnnouncement && (
-              <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ padding: 20 }}>
-                <View style={[styles.announcementTopMetaRow, { marginBottom: 10 }]}>
-                  <View
-                    style={[
-                      styles.announcementBatchBadge,
-                      isDark && { backgroundColor: 'rgba(245, 130, 32, 0.18)' },
-                    ]}
-                  >
-                    <Text style={[styles.announcementBatchBadgeText, isDark && { color: '#FED7AA' }]}>
-                      {selectedAnnouncement.batch_id?.name || 'All Students'}
-                    </Text>
-                  </View>
-                  <Text style={[styles.announcementDateText, isDark && { color: '#94A3B8' }]}>
-                    {formatAnnouncementDate(selectedAnnouncement.createdAt)}
-                  </Text>
+              <ScrollView style={styles.noticeDialogScroll} contentContainerStyle={styles.noticeBody}>
+                <View style={styles.noticeMetadata}>
+                  <Text style={[styles.noticeMetadataText, { color: communication.muted }]}>{formatAnnouncementDate(selectedAnnouncement.createdAt)}</Text>
+                  {selectedAnnouncement.batch_id?.name && (
+                    <Text style={[styles.noticeMetadataText, { color: communication.muted }]}>{selectedAnnouncement.batch_id.name}</Text>
+                  )}
                 </View>
-
-                <Text
-                  style={[
-                    styles.announcementTitleText,
-                    { fontSize: 18, marginBottom: 10 },
-                    isDark && { color: '#FFFFFF' },
-                  ]}
-                >
-                  {selectedAnnouncement.title}
-                </Text>
-
-                <View
-                  style={[
-                    styles.modalInfoBox,
-                    { marginBottom: 14 },
-                    isDark && styles.modalInfoBoxDark,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.announcementFullMessage,
-                      isDark && { color: '#E2E8F0' },
-                    ]}
-                  >
-                    {selectedAnnouncement.message}
-                  </Text>
-                </View>
-
+                <Text style={[styles.noticeTitle, { color: communication.text }]}>{selectedAnnouncement.title}</Text>
+                <Text style={[styles.noticeMessage, { color: communication.text }]} selectable>{selectedAnnouncement.message}</Text>
                 {selectedAnnouncement.posted_by?.name && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Icon name="person-circle-outline" size={18} color="#F58220" />
-                    <Text style={[styles.announcementAuthorText, { marginTop: 0 }, isDark && { color: '#94A3B8' }]}>
-                      Posted by {selectedAnnouncement.posted_by.name} (
-                      {selectedAnnouncement.posted_by.role === 'admin' ? 'Admin' : 'Instructor'})
-                    </Text>
+                  <View style={[styles.noticeByline, { borderTopColor: communication.line }]}>
+                    <Text style={[styles.noticeMetadataText, { color: communication.muted }]}>{selectedAnnouncement.posted_by.name}</Text>
                   </View>
                 )}
               </ScrollView>
@@ -537,61 +455,38 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
         </View>
       </Modal>
 
-      {/* All Announcements Modal */}
+      {/* Announcement archive */}
       <Modal
         visible={allAnnouncementsModalVisible}
-        transparent={true}
+        transparent
         animationType="slide"
         onRequestClose={() => setAllAnnouncementsModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxWidth: 500, maxHeight: '82%' }, isDark && styles.modalContentDark]}>
-            <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
-              <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>
-                All Announcements ({announcements.length})
-              </Text>
-              <TouchableOpacity onPress={() => setAllAnnouncementsModalVisible(false)}>
-                <Icon name="close" size={24} color={isDark ? '#94A3B8' : '#4B5563'} />
+          <View style={[styles.noticeDialog, { backgroundColor: communication.surface, borderColor: communication.line }]}>
+            <View style={[styles.noticeDialogHeader, { borderBottomColor: communication.line }]}>
+              <Text style={[styles.noticeDialogLabel, { color: communication.text }]}>Announcements</Text>
+              <TouchableOpacity
+                onPress={() => setAllAnnouncementsModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close announcements"
+                style={styles.noticeClose}
+              >
+                <Icon name="close" size={22} color={communication.text} />
               </TouchableOpacity>
             </View>
-            <ScrollView contentContainerStyle={{ padding: 16, gap: 10 }}>
-              {announcements.map((ann: any) => (
-                <TouchableOpacity
-                  key={ann._id}
-                  style={[styles.announcementCard, isDark && styles.lessonCardDark]}
-                  activeOpacity={0.85}
+            <ScrollView style={styles.noticeDialogScroll} contentContainerStyle={styles.noticeArchive}>
+              {announcements.map((announcement: any, index: number) => (
+                <AnnouncementRow
+                  key={announcement._id}
+                  announcement={announcement}
+                  dateLabel={formatAnnouncementDate(announcement.createdAt)}
+                  divided={index > 0}
                   onPress={() => {
                     setAllAnnouncementsModalVisible(false);
-                    setSelectedAnnouncement(ann);
+                    setSelectedAnnouncement(announcement);
                   }}
-                >
-                  <View style={[styles.announcementIconBox, isDark && { backgroundColor: 'rgba(245, 130, 32, 0.16)' }]}>
-                    <Icon name="megaphone-outline" size={20} color="#F58220" />
-                  </View>
-                  <View style={styles.announcementContentCol}>
-                    <View style={styles.announcementTopMetaRow}>
-                      <View
-                        style={[
-                          styles.announcementBatchBadge,
-                          isDark && { backgroundColor: 'rgba(255,255,255,0.08)' },
-                        ]}
-                      >
-                        <Text style={[styles.announcementBatchBadgeText, isDark && { color: '#FED7AA' }]}>
-                          {ann.batch_id?.name || 'All Students'}
-                        </Text>
-                      </View>
-                      <Text style={[styles.announcementDateText, isDark && { color: '#64748B' }]}>
-                        {formatAnnouncementDate(ann.createdAt)}
-                      </Text>
-                    </View>
-                    <Text style={[styles.announcementTitleText, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
-                      {ann.title}
-                    </Text>
-                    <Text style={[styles.announcementMsgPreview, isDark && { color: '#94A3B8' }]} numberOfLines={2}>
-                      {ann.message}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                />
               ))}
             </ScrollView>
           </View>
@@ -741,17 +636,6 @@ const styles = StyleSheet.create({
   },
 
   /* SECTION HEADER ROW */
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    ...FONTS.extraBold,
-    color: '#18181B',
-  },
   campusBadge: {
     backgroundColor: '#E5E7EB',
     paddingHorizontal: 12,
@@ -764,22 +648,24 @@ const styles = StyleSheet.create({
     color: '#4B5563',
   },
   watchHistoryText: {
-    fontSize: 14,
-    ...FONTS.bold,
-    color: '#C2410C',
+    fontSize: 12,
+    ...FONTS.semiBold,
+    color: COLORS.secondary,
   },
 
-  /* UPCOMING PRACTICAL CARD (EXACT MATCH TO DESIGN SCREENSHOT) */
+  /* UPCOMING PRACTICAL CONTENT */
+  viewAllButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  lessonRow: {
+    paddingVertical: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   upcomingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    ...Platform.select({
-      web: { boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.05)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 },
-    }),
+    paddingVertical: 16,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -811,6 +697,7 @@ const styles = StyleSheet.create({
   },
   cardDetailsColumn: {
     flex: 1,
+    minWidth: 0,
   },
   practicalTitle: {
     fontSize: 16,
@@ -829,6 +716,8 @@ const styles = StyleSheet.create({
   },
   cardBottomRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 14,
@@ -836,6 +725,8 @@ const styles = StyleSheet.create({
   instructorInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexGrow: 1,
+    flexBasis: 160,
   },
   instructorAvatar: {
     width: 38,
@@ -845,6 +736,8 @@ const styles = StyleSheet.create({
   },
   instructorTextColumn: {
     justifyContent: 'center',
+    flex: 1,
+    minWidth: 0,
   },
   instructorName: {
     fontSize: 13,
@@ -868,198 +761,105 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
 
-  /* RECENT THEORY LESSONS CARDS (EXACT MATCH TO DESIGN SCREENSHOT) */
-  lessonsListContainer: {
-    gap: 12,
-  },
-  lessonCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    ...Platform.select({
-      web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
-    }),
-  },
+  /* RECENT THEORY LESSONS */
   thumbnailWrapper: {
-    width: 76,
-    height: 76,
-    borderRadius: 16,
+    width: 72,
+    height: 48,
+    borderRadius: 6,
     overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: '#1E1E22',
+    backgroundColor: COLORS.primary,
   },
   thumbnailImg: {
     width: '100%',
     height: '100%',
   },
-  playOverlayCircle: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginTop: -14,
-    marginLeft: -14,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#F58220', // Signature orange play button overlay
-    justifyContent: 'center',
+  lessonPlayOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.16)',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   lessonContentColumn: {
     flex: 1,
-    marginLeft: 12,
-    marginRight: 8,
+    minWidth: 0,
   },
-  tagDurationRow: {
+  lessonMetadata: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
   },
-  tagBadgePill: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  tagBadgeText: {
-    fontSize: 10.5,
-    ...FONTS.extraBold,
-    color: '#374151',
-    letterSpacing: 0.5,
-  },
-  pinnedBadgePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 130, 32, 0.35)',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    marginRight: 8,
-  },
-  pinnedBadgePillDark: {
-    backgroundColor: 'rgba(245, 130, 32, 0.15)',
-    borderColor: 'rgba(245, 130, 32, 0.4)',
-  },
-  pinnedBadgeText: {
-    fontSize: 9.5,
-    ...FONTS.bold,
-    color: '#EA580C',
-    letterSpacing: 0.5,
-  },
-  durationText: {
-    fontSize: 12,
-    color: '#6B7280',
-    ...FONTS.medium,
-  },
+  lessonTopic: { ...FONTS.regular, fontSize: 11, lineHeight: 16, flexShrink: 1 },
+  lessonDuration: { ...FONTS.regular, fontSize: 11, lineHeight: 16 },
   lessonTitleText: {
-    fontSize: 15.5,
-    ...FONTS.extraBold,
-    color: '#18181B',
-    marginTop: 4,
+    ...FONTS.semiBold,
+    fontSize: 15,
+    lineHeight: 22,
+    letterSpacing: -0.2,
   },
   bookmarkTouch: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  announcementsList: {
-    gap: 12,
-  },
-  announcementCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    ...Platform.select({
-      web: { boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
-    }),
-  },
-  announcementIconBox: {
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: '#FFF7ED',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    justifyContent: 'center',
+    marginRight: -8,
   },
-  announcementContentCol: {
-    flex: 1,
-    marginRight: 8,
+  recentLessonsEmpty: {
+    paddingVertical: 18,
   },
-  announcementTopMetaRow: {
+  recentLessonsEmptyText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#64748B',
+  },
+  browseVideosButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  browseVideosText: {
+    ...FONTS.semiBold,
+    fontSize: 13,
+    color: COLORS.secondary,
+  },
+  emptyAnnouncementCard: {
+    paddingVertical: 24,
+  },
+  emptyAnnouncementText: {
+    ...FONTS.regular,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  noticeDialog: {
+    width: '100%',
+    maxWidth: 620,
+    maxHeight: '85%',
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  noticeDialogHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    paddingLeft: 24,
+    paddingRight: 12,
+    minHeight: 64,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  announcementBatchBadge: {
-    backgroundColor: '#FFF7ED',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  announcementBatchBadgeText: {
-    fontSize: 10.5,
-    ...FONTS.bold,
-    color: '#EA580C',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  announcementDateText: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    ...FONTS.medium,
-  },
-  announcementTitleText: {
-    fontSize: 15,
-    ...FONTS.extraBold,
-    color: '#18181B',
-  },
-  announcementMsgPreview: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 3,
-    lineHeight: 18,
-    ...FONTS.regular,
-  },
-  announcementFullMessage: {
-    fontSize: 14.5,
-    color: '#374151',
-    lineHeight: 22,
-    ...FONTS.regular,
-  },
-  announcementAuthorText: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginTop: 5,
-    ...FONTS.medium,
-  },
-  emptyAnnouncementCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  emptyAnnouncementText: {
-    marginTop: 8,
-    fontSize: 13.5,
-    color: '#9CA3AF',
-    ...FONTS.medium,
-  },
+  noticeDialogLabel: { ...FONTS.semiBold, fontSize: 14 },
+  noticeClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  noticeDialogScroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
+  noticeBody: { padding: 24 },
+  noticeArchive: { paddingHorizontal: 24 },
+  noticeMetadata: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 14 },
+  noticeMetadataText: { ...FONTS.regular, fontSize: 12, lineHeight: 18 },
+  noticeTitle: { ...FONTS.semiBold, fontSize: 24, lineHeight: 33, letterSpacing: -0.5 },
+  noticeMessage: { ...FONTS.regular, fontSize: 15, lineHeight: 25, marginTop: 20 },
+  noticeByline: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 18, marginTop: 26 },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1068,11 +868,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    ...studentHomeCardStyles.surface,
     width: '100%',
     maxWidth: 400,
-    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1152,25 +950,6 @@ const styles = StyleSheet.create({
   },
 
   /* Dark Mode Variants */
-  upcomingCardDark: {
-    backgroundColor: '#141B26',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderLeftWidth: 4,
-    borderLeftColor: '#F97316',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.08)',
-      },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 3,
-      },
-    }),
-  },
   dateBadgeBoxDark: {
     backgroundColor: 'rgba(249, 115, 22, 0.15)',
     borderWidth: 1,
@@ -1179,23 +958,8 @@ const styles = StyleSheet.create({
   viewSlotBtnDark: {
     backgroundColor: '#FF5E14',
   },
-  lessonCardDark: {
-    backgroundColor: '#141B26',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.08)',
-      },
-    }),
-  },
-  tagBadgePillDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
   modalContentDark: {
-    backgroundColor: '#141B26',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
+    ...studentHomeCardStyles.surfaceDark,
   },
   modalInfoBoxDark: {
     backgroundColor: 'rgba(15, 23, 42, 0.65)',

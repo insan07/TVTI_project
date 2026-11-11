@@ -23,6 +23,8 @@ import { useNavigation } from '@react-navigation/native';
 import ScreenHeader from '../../components/shared/ScreenHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
+import { isPracticalExpired, practicalBookingClosed } from '../../utils/practicalTime';
+import usePracticalClock from '../../hooks/usePracticalClock';
 
 const parseUTCDate = (dateStr: string) => {
   const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -47,13 +49,7 @@ const getSlotActualDate = (weekStartDateStr: string, dayOfWeek: string) => {
 };
 
 const isSlotExpired = (slot: any) => {
-  if (!slot) return false;
-  if (slot.is_expired) return true;
-  const actualDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
-  const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
-  const slotEnd = new Date(actualDate);
-  slotEnd.setHours(h, m, 0, 0);
-  return slotEnd.getTime() < Date.now();
+  return isPracticalExpired(slot);
 };
 
 export default function PracticeSessionsScreen() {
@@ -64,6 +60,7 @@ export default function PracticeSessionsScreen() {
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
   const [slots, setSlots] = useState<any[]>([]);
   const [myBookings, setMyBookings] = useState<any[]>([]);
+  usePracticalClock([...slots, ...myBookings.map(booking => booking.slot_id).filter(Boolean)]);
   const [loading, setLoading] = useState(false);
 
   const [batches, setBatches] = useState<any[]>([]);
@@ -157,7 +154,7 @@ export default function PracticeSessionsScreen() {
         onPress: async () => {
           try {
             await cancelPracticeBooking(slotId);
-            Alert.alert('Success', 'Booking cancelled');
+            Alert.alert('Success', 'Cancellation requested. Your booking remains active until your instructor approves it.');
             if (activeTab === 'my_sessions') fetchMyBookings();
             else fetchOpenSlots();
           } catch (e) {
@@ -182,7 +179,7 @@ export default function PracticeSessionsScreen() {
           <View style={[styles.infoBanner, isDark && { backgroundColor: 'rgba(217, 119, 6, 0.12)', borderColor: 'rgba(245, 158, 11, 0.25)' }]}>
             <Icon name="information-circle-outline" size={20} color="#F59E0B" style={{ marginRight: 10 }} />
             <Text style={[styles.infoBannerText, isDark && { color: '#FCD34D' }]}>
-              One booking per week allowed to ensure fair access for all students.
+              One booking per batch per week. Sessions in different courses cannot overlap.
             </Text>
           </View>
 
@@ -254,7 +251,7 @@ export default function PracticeSessionsScreen() {
                 slots.map((slot) => {
                   const isFull = slot.seats_available <= 0;
                   const isExpired = isSlotExpired(slot);
-                  const disabled = isExpired || isFull || (hasBookedThisWeek && !slot.already_booked);
+                  const disabled = isExpired || isFull || slot.can_book === false || practicalBookingClosed(slot) || (hasBookedThisWeek && !slot.already_booked);
                   const actualSlotDate = getSlotActualDate(slot.week_start_date, slot.day_of_week);
                   const dateString = actualSlotDate.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -310,7 +307,7 @@ export default function PracticeSessionsScreen() {
                             onPress={() => handleBookSlot(slot._id)}
                           >
                             <Text style={[styles.bookSolidButtonText, disabled && isDark && { color: '#64748B' }]}>
-                              {isExpired ? 'Slot Expired' : isFull ? 'Full' : hasBookedThisWeek ? 'Already booked this week' : 'Book Session'}
+                              {isExpired ? 'Slot Expired' : isFull ? 'Full' : hasBookedThisWeek ? 'Already booked this week' : disabled ? slot.booking_block_reason || 'Booking closed' : 'Book Session'}
                             </Text>
                           </TouchableOpacity>
                         )}

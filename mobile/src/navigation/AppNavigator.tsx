@@ -34,6 +34,7 @@ import NotificationsScreen from '../screens/Shared/NotificationsScreen';
 import PostAnnouncementScreen from '../screens/Instructor/PostAnnouncementScreen';
 import ResultsScreen from '../screens/Student/ResultsScreen';
 import MyStudentsScreen from '../screens/Instructor/MyStudentsScreen';
+import MyBatchesScreen from '../screens/Instructor/MyBatchesScreen';
 import ForceChangePasswordScreen from '../screens/Auth/ForceChangePasswordScreen';
 import AdminSlotManagementScreen from '../screens/Admin/AdminSlotManagementScreen';
 import ApplicationsManagementScreen from '../screens/Admin/ApplicationsManagementScreen';
@@ -148,7 +149,7 @@ const AdminTabs = ({ insets }: { insets: any }) => (
     <Tab.Screen name="Home" component={AdminDashboardScreen} options={{ tabBarLabel: 'Dashboard' }} />
     <Tab.Screen name="Users" component={UserManagementScreen} options={{ tabBarLabel: 'Users' }} />
     <Tab.Screen name="Courses" component={AdminCoursesStack} options={{ tabBarLabel: 'Courses' }} />
-    <Tab.Screen name="Practice" component={AdminSlotManagementScreen} options={{ tabBarLabel: 'Slots' }} />
+    <Tab.Screen name="Practice" component={AdminSlotManagementScreen} options={{ tabBarLabel: 'Schedule' }} />
     <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
   </TabGlassBackdropProvider>
@@ -203,6 +204,8 @@ const linking: LinkingOptions<any> = {
       },
       VideoPlayer: 'video-player',
       Notifications: 'notifications',
+      MyBatches: 'instructor/batches',
+      MyStudents: 'instructor/students',
       Results: 'results',
       PdfViewer: 'pdf-viewer',
     },
@@ -303,6 +306,7 @@ export const AppNavigator = () => {
                   {props => <InstructorTabs {...props} insets={insets} />}
                 </Stack.Screen>
                 <Stack.Screen name="MyStudents" component={MyStudentsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="MyBatches" component={MyBatchesScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>

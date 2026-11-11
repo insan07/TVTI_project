@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
-  TextInput, TouchableOpacity, RefreshControl, Modal, SafeAreaView,
+  TextInput, TouchableOpacity, RefreshControl, Modal,
   Animated, NativeSyntheticEvent, NativeScrollEvent
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useRoute, useFocusEffect, useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../services/api';
 import { COLORS, FONTS } from '../../config/theme';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -14,14 +15,20 @@ import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function MyStudentsScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const batchId = typeof route.params?.batchId === 'string' ? route.params.batchId.toLowerCase() : undefined;
+  const batchName = typeof route.params?.batchName === 'string' ? route.params.batchName : '';
+  const courseTitle = typeof route.params?.courseTitle === 'string' ? route.params.courseTitle : '';
   const { isDark } = useTheme();
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('all');
-  const [batches, setBatches] = useState<string[]>([]);
+  const [batches, setBatches] = useState<{ id: string; name: string }[]>([]);
+  const request = useRef(0);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const headerAnim = useRef(new Animated.Value(1)).current;
   const isHeaderVisibleRef = useRef(true);
@@ -76,37 +83,37 @@ export default function MyStudentsScreen() {
     message: '',
   });
 
-  const showAlert = (title: string, msg: string, onOk?: () => void, type: 'success' | 'error' | 'info' = 'info') => {
-    setAlertModal({
-      visible: true,
-      title,
-      message: msg,
-      type,
-      onOk
-    });
-  };
-
-  useEffect(() => {
-    fetchStudents();
-  }, []);
-
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
+    const current = ++request.current;
+    setLoadError('');
     try {
-      const res = await api.get('/instructors/my-students');
-      setStudents(res.data);
-      // Extract unique batch names
-      const batchNames: string[] = Array.from(
-        new Set(res.data.map((s: any) => s.batch_id?.name).filter(Boolean))
-      );
-      setBatches(batchNames);
-    } catch (e) {
+      const res = await api.get('/instructors/my-students', { params: batchId ? { batch_id: batchId } : undefined });
+      if (current !== request.current) return;
+      const entries = [...(res.data || [])].sort((a, b) => String(a.student_id?.name || '').localeCompare(String(b.student_id?.name || '')));
+      setStudents(entries);
+      const byId = new Map<string, { id: string; name: string }>();
+      entries.forEach((entry: any) => {
+        if (entry.batch_id?._id) byId.set(entry.batch_id._id, { id: entry.batch_id._id, name: entry.batch_id.name });
+      });
+      setBatches([...byId.values()]);
+    } catch (e: any) {
+      if (current !== request.current) return;
+      setStudents([]); setBatches([]);
       console.warn('Failed to load students', e);
-      showAlert('Error', 'Failed to load students. Please try again.', undefined, 'error');
+      const message = e.response?.data?.message || 'Failed to load students. Please try again.';
+      setLoadError(message);
+      setAlertModal({ visible: true, title: 'Unable to load students', message, type: 'error' });
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (current === request.current) { setLoading(false); setRefreshing(false); }
     }
-  };
+  }, [batchId]);
+
+  useFocusEffect(useCallback(() => {
+    setLoading(true); setSearch(''); setSelectedBatch('all');
+    headerAnim.setValue(1); isHeaderVisibleRef.current = true; lastScrollY.current = 0;
+    void fetchStudents();
+    return () => { request.current += 1; };
+  }, [fetchStudents, headerAnim]));
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -114,12 +121,13 @@ export default function MyStudentsScreen() {
   };
 
   const filteredStudents = students.filter(s => {
-    const term = search.toLowerCase();
+    const term = search.trim().toLowerCase();
     const nameMatch = s.student_id?.name?.toLowerCase().includes(term);
     const emailMatch = s.student_id?.email?.toLowerCase().includes(term);
     const batchMatch = s.batch_id?.name?.toLowerCase().includes(term);
-    const matchesSearch = !term || nameMatch || emailMatch || batchMatch;
-    const matchesBatch = selectedBatch === 'all' || s.batch_id?.name === selectedBatch;
+    const registrationMatch = String(s.student_id?.index_number || s.student_id?.registration_number || s.student_id?.nic || '').toLowerCase().includes(term);
+    const matchesSearch = !term || nameMatch || emailMatch || batchMatch || registrationMatch;
+    const matchesBatch = batchId ? String(s.batch_id?._id) === batchId : selectedBatch === 'all' || s.batch_id?._id === selectedBatch;
     return matchesSearch && matchesBatch;
   });
 
@@ -137,16 +145,22 @@ export default function MyStudentsScreen() {
     <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0F0B08' }]}>
       <ScreenBackground />
       <ScreenHeader
-        title="My Students"
+        title={batchId ? 'Batch Students' : 'My Students'}
         subtitle="Manage & view your assigned batches"
+        showBack plainBack
+        onBackPress={() => navigation.canGoBack() ? navigation.goBack() : batchId ? navigation.navigate('MyBatches') : navigation.navigate('InstructorApp', { screen: 'Home' })}
       />
+      {!!batchId && <View style={styles.selectedBatchInfo}>
+        {!!courseTitle && <Text style={[styles.selectedCourseTitle, isDark && { color: '#94A3B8' }]}>{courseTitle}</Text>}
+        <Text style={[styles.selectedBatchTitle, isDark && { color: '#FFFFFF' }]}>{batchName || 'Selected batch'}</Text>
+      </View>}
 
       {/* Search Bar & Batch Filter Pills with Smooth Animation */}
       <Animated.View
         style={{
           maxHeight: headerAnim.interpolate({
             inputRange: [0, 1],
-            outputRange: [0, batches.length > 1 ? 120 : 64],
+            outputRange: [0, !batchId && batches.length > 1 ? 120 : 64],
           }),
           opacity: headerAnim,
           transform: [
@@ -176,7 +190,8 @@ export default function MyStudentsScreen() {
           />
           <TextInput
             style={[styles.searchInput, isDark && { color: '#FFFFFF' }]}
-            placeholder="Search by name, email or batch..."
+            accessibilityLabel="Search students"
+            placeholder={batchId ? 'Search name, email or registration...' : 'Search name, email, registration or batch...'}
             value={search}
             onChangeText={setSearch}
             placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'}
@@ -191,31 +206,31 @@ export default function MyStudentsScreen() {
         </View>
 
         {/* Batch Filter Pills */}
-        {batches.length > 1 && (
+        {!batchId && batches.length > 1 && (
           <View style={styles.filterRow}>
             <FlatList
               horizontal
               showsHorizontalScrollIndicator={false}
-              data={['all', ...batches]}
-              keyExtractor={item => item}
+              data={[{ id: 'all', name: 'All Batches' }, ...batches]}
+              keyExtractor={item => item.id}
               contentContainerStyle={{ paddingHorizontal: 15 }}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[
                     styles.filterPill,
                     isDark && styles.filterPillDark,
-                    selectedBatch === item && styles.filterPillActive,
+                    selectedBatch === item.id && styles.filterPillActive,
                   ]}
-                  onPress={() => setSelectedBatch(item)}
+                  onPress={() => setSelectedBatch(item.id)}
                 >
                   <Text
                     style={[
                       styles.filterPillText,
                       isDark && { color: '#A89F93' },
-                      selectedBatch === item && styles.filterPillTextActive,
+                      selectedBatch === item.id && styles.filterPillTextActive,
                     ]}
                   >
-                    {item === 'all' ? 'All Batches' : item}
+                    {item.name}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -227,11 +242,12 @@ export default function MyStudentsScreen() {
       {/* Stats Bar */}
       <View style={styles.statsBar}>
         <Text style={[styles.statsText, isDark && { color: '#A89F93' }]}>
-          {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''} found
+          {loadError ? 'Students unavailable' : `${filteredStudents.length} student${filteredStudents.length !== 1 ? 's' : ''} found`}
         </Text>
       </View>
 
       <FlatList
+        key={batchId || 'all'}
         data={filteredStudents}
         keyExtractor={item => item._id}
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 90 }}
@@ -240,15 +256,16 @@ export default function MyStudentsScreen() {
         scrollEventThrottle={16}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="people-outline" size={64} color={isDark ? '#524A42' : '#D1D5DB'} />
+            <Icon name={loadError ? 'cloud-offline-outline' : 'people-outline'} size={64} color={isDark ? '#524A42' : '#D1D5DB'} />
             <Text style={[styles.emptyTitle, isDark && { color: '#FFFFFF' }]}>
-              {search || selectedBatch !== 'all' ? 'No matching students' : 'No students assigned'}
+              {loadError ? 'Unable to load students' : search || selectedBatch !== 'all' ? 'No matching students' : batchId ? 'No students in this batch yet' : 'No students assigned'}
             </Text>
             <Text style={[styles.emptySubtitle, isDark && { color: '#8A7D71' }]}>
-              {search || selectedBatch !== 'all'
+              {loadError || (search || selectedBatch !== 'all'
                 ? 'Try changing your search or filter'
-                : 'Students enrolled in your batches will appear here'}
+                : batchId ? 'Students enrolled in this batch will appear here' : 'Students enrolled in your batches will appear here')}
             </Text>
+            {!!loadError && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading students" style={styles.retryButton} onPress={() => { setLoading(true); void fetchStudents(); }}><Text style={styles.retryText}>Try again</Text></TouchableOpacity>}
           </View>
         }
         renderItem={({ item }) => (
@@ -262,27 +279,27 @@ export default function MyStudentsScreen() {
               <View style={styles.info}>
                 <Text style={[styles.name, isDark && { color: '#FFFFFF' }]}>{item.student_id?.name || 'Unknown Student'}</Text>
                 <Text style={{ fontSize: 13, fontWeight: 'bold', color: isDark ? '#34D399' : '#059669', marginTop: 2 }}>
-                  Reg No: {item.student_id?.index_number || item.student_id?.nic || 'N/A'}
+                  Reg No: {item.student_id?.index_number || item.student_id?.registration_number || item.student_id?.nic || 'N/A'}
                 </Text>
                 <Text style={[styles.email, isDark && { color: '#CBD5E1' }]}>{item.student_id?.email || 'No email'}</Text>
                 {item.student_id?.phone ? (
-                  <Text style={[styles.phone, isDark && { color: '#D4CAC0' }]}>📱 {item.student_id.phone}</Text>
+                  <Text style={[styles.phone, isDark && { color: '#D4CAC0' }]}>{item.student_id.phone}</Text>
                 ) : null}
               </View>
               <View
                 style={[
                   styles.statusBadge,
                   isDark
-                    ? { backgroundColor: item.status === 'active' ? 'rgba(16, 185, 129, 0.20)' : 'rgba(239, 68, 68, 0.20)' }
-                    : { backgroundColor: item.status === 'active' ? '#D1FAE5' : '#FEE2E2' },
+                    ? { backgroundColor: item.status === 'active' ? 'rgba(16, 185, 129, 0.20)' : item.status === 'completed' ? '#263244' : 'rgba(239, 68, 68, 0.20)' }
+                    : { backgroundColor: item.status === 'active' ? '#D1FAE5' : item.status === 'completed' ? '#F1F5F9' : '#FEE2E2' },
                 ]}
               >
                 <Text
                   style={[
                     styles.statusText,
                     isDark
-                      ? { color: item.status === 'active' ? '#34D399' : '#F87171' }
-                      : { color: item.status === 'active' ? '#065F46' : '#991B1B' },
+                      ? { color: item.status === 'active' ? '#34D399' : item.status === 'completed' ? '#CBD5E1' : '#F87171' }
+                      : { color: item.status === 'active' ? '#065F46' : item.status === 'completed' ? '#475569' : '#991B1B' },
                   ]}
                 >
                   {item.status || 'active'}
@@ -299,11 +316,11 @@ export default function MyStudentsScreen() {
                 <Icon name="layers-outline" size={12} color={isDark ? '#CBD5E1' : '#6B7280'} style={{ marginRight: 4 }} />
                 <Text style={[styles.batchName, isDark && { color: '#E2E8F0' }]}>{item.batch_id?.name || 'Unknown Batch'}</Text>
               </View>
-              {item.enrolledAt || item.createdAt ? (
+              {item.enrolled_date || item.enrolledAt || item.createdAt ? (
                 <View style={styles.batchDetail}>
                   <Icon name="calendar-outline" size={12} color={isDark ? '#8A7D71' : '#6B7280'} style={{ marginRight: 4 }} />
                   <Text style={[styles.batchName, isDark && { color: '#8A7D71' }]}>
-                    Enrolled: {new Date(item.enrolledAt || item.createdAt).toLocaleDateString()}
+                    Enrolled: {new Date(item.enrolled_date || item.enrolledAt || item.createdAt).toLocaleDateString('en-GB', { timeZone: 'Asia/Colombo' })}
                   </Text>
                 </View>
               ) : null}
@@ -348,6 +365,8 @@ export default function MyStudentsScreen() {
             <Text style={[styles.popupTitle, isDark && { color: '#FFFFFF' }]}>{alertModal.title}</Text>
             <Text style={[styles.popupMessage, isDark && { color: '#A89F93' }]}>{alertModal.message}</Text>
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss student error"
               style={[
                 styles.popupSingleBtn,
                 { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#FF5E14' }
@@ -380,6 +399,11 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6' },
   loadingText: { marginTop: 12, color: '#9CA3AF', fontSize: 14 },
   container: { flex: 1, backgroundColor: '#F8FAFC' },
+  selectedBatchInfo: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 2 },
+  selectedCourseTitle: { ...FONTS.regular, fontSize: 12, color: '#64748B', lineHeight: 18 },
+  selectedBatchTitle: { ...FONTS.semiBold, fontSize: 16, color: '#0F172A', lineHeight: 24, marginTop: 3 },
+  retryButton: { minHeight: 44, justifyContent: 'center', marginTop: 12, paddingHorizontal: 18 },
+  retryText: { ...FONTS.semiBold, fontSize: 13, color: '#F58220' },
   topHeaderBar: {
     flexDirection: 'row',
     alignItems: 'center',

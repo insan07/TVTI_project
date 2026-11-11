@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   Platform,
@@ -20,6 +19,13 @@ import {
   Share
 } from 'react-native';
 import api from '../../services/api';
+import { FONTS } from '../../config/theme';
+import StudentAdmissionModal, { AdmissionTarget } from '../../components/shared/StudentAdmissionModal';
+import ManagementDialog from '../../components/shared/ManagementDialog';
+import ManagementFilterBar from '../../components/shared/ManagementFilterBar';
+import ManagementSheet from '../../components/shared/ManagementSheet';
+import { PaymentListCard, PaymentDetails, AddPayment } from '../../components/shared/PaymentManagement';
+import { usersSectionTheme } from '../../components/shared/usersSectionTheme';
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -61,7 +67,12 @@ const EXPORT_AVAILABLE_FIELDS = [
 
 export default function UserManagementScreen() {
   const { isDark } = useTheme();
+  const design = usersSectionTheme(isDark);
+  const styles = useMemo(() => createStyles(usersSectionTheme(isDark)), [isDark]);
   const route = useRoute<any>();
+  const navigation = useNavigation<any>();
+  const [admissionTarget, setAdmissionTarget] = useState<AdmissionTarget | null>(null);
+  useEffect(() => { if (route.params?.approveStudentId) { setAdmissionTarget({ kind: 'approve', id: route.params.approveStudentId, name: route.params.approveStudentName || 'Student' }); navigation.setParams?.({ approveStudentId: undefined, approveStudentName: undefined }); } }, [route.params?.approveStudentId]);
 
   let initialMode: ModeType = 'applications';
   let initialView: 'hub' | 'detail' = 'hub';
@@ -181,79 +192,6 @@ export default function UserManagementScreen() {
   const [instructorForm, setInstructorForm] = useState({ name: '', email: '', phone: '', nic: '' });
   const [creatingInstructor, setCreatingInstructor] = useState(false);
 
-  // Liquid FAB Animation State
-  const wave1Anim = React.useRef(new Animated.Value(0)).current;
-  const wave2Anim = React.useRef(new Animated.Value(0)).current;
-  const buttonScaleAnim = React.useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    let animation: Animated.CompositeAnimation | null = null;
-    if (activeMode === 'instructors') {
-      wave1Anim.setValue(0);
-      wave2Anim.setValue(0);
-
-      animation = Animated.loop(
-        Animated.parallel([
-          Animated.timing(wave1Anim, {
-            toValue: 1,
-            duration: 2200,
-            useNativeDriver: true,
-          }),
-          Animated.sequence([
-            Animated.delay(900),
-            Animated.timing(wave2Anim, {
-              toValue: 1,
-              duration: 2200,
-              useNativeDriver: true,
-            }),
-          ]),
-        ])
-      );
-      animation.start();
-    }
-    return () => {
-      if (animation) animation.stop();
-    };
-  }, [activeMode]);
-
-  const handleFabPressIn = () => {
-    Animated.spring(buttonScaleAnim, {
-      toValue: 0.9,
-      useNativeDriver: true,
-      friction: 5,
-      tension: 100,
-    }).start();
-  };
-
-  const handleFabPressOut = () => {
-    Animated.spring(buttonScaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      friction: 4,
-      tension: 80,
-    }).start();
-  };
-
-  const wave1Scale = wave1Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.55],
-  });
-
-  const wave1Opacity = wave1Anim.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: [0.45, 0.25, 0],
-  });
-
-  const wave2Scale = wave2Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.4],
-  });
-
-  const wave2Opacity = wave2Anim.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: [0.35, 0.18, 0],
-  });
-
   // Assign Batch Modal
   const [assignModalVisible, setAssignModalVisible] = useState(false);
   const [assignStudentId, setAssignStudentId] = useState<string | null>(null);
@@ -273,6 +211,7 @@ export default function UserManagementScreen() {
     type?: 'danger' | 'warning' | 'info' | 'lock';
     confirmText?: string;
     cancelText?: string;
+    onCancel?: () => void;
     onConfirm: () => void;
   }>({
     visible: false,
@@ -365,12 +304,14 @@ export default function UserManagementScreen() {
   };
 
   useEffect(() => {
+    setSearch(''); setSelectedUserIds([]); setIsSelectMode(false);
     fetchUsers();
   }, [activeMode]);
 
   const handleOpenPaymentDossier = async (studentId: string) => {
     setPaymentDossierModalVisible(true);
     setLoadingDossier(true);
+    setPaymentDossierData(null);
     try {
       const res = await api.get(`/admin/payments/${studentId}/dossier`);
       setPaymentDossierData(res.data);
@@ -392,6 +333,7 @@ export default function UserManagementScreen() {
       }
       fetchAllDashboardData();
     } catch (e: any) {
+      setPaymentDossierModalVisible(true);
       showAlert('Error', e.response?.data?.message || 'Verification failed', undefined, 'error');
     } finally {
       setVerifyingSlipId(null);
@@ -410,6 +352,7 @@ export default function UserManagementScreen() {
       type: 'info',
       confirmText: 'Approve & Credit',
       cancelText: 'Cancel',
+      onCancel: () => setPaymentDossierModalVisible(true),
       onConfirm: () => {
         handleVerifySlip(slip._id);
       }
@@ -428,6 +371,7 @@ export default function UserManagementScreen() {
       type: 'danger',
       confirmText: 'Reject Slip',
       cancelText: 'Cancel',
+      onCancel: () => setPaymentDossierModalVisible(true),
       onConfirm: () => {
         setRejectSlipForm({ slipId: slip._id, reason: '' });
         setRejectSlipModalVisible(true);
@@ -456,8 +400,8 @@ export default function UserManagementScreen() {
 
   const handleRecordManualPaySubmit = async () => {
     if (!paymentDossierData?.student?._id) return;
-    if (!manualPayForm.amount || isNaN(Number(manualPayForm.amount)) || Number(manualPayForm.amount) <= 0) {
-      return showAlert('Error', 'Please enter a valid cash amount', undefined, 'error');
+    if (!manualPayForm.amount || !Number.isFinite(Number(manualPayForm.amount)) || Number(manualPayForm.amount) <= 0) {
+      return showAlert('Error', 'Please enter a valid payment amount', undefined, 'error');
     }
     setRecordingManualPay(true);
     try {
@@ -490,32 +434,16 @@ export default function UserManagementScreen() {
   };
 
   const handleApprove = (id: string, userName?: string) => {
-    if (detailsModalVisible) {
-      setDetailsModalVisible(false);
-    }
-    setConfirmModal({
-      visible: true,
-      title: 'Approve Application',
-      message: `Are you sure you want to approve registration for ${userName || 'this applicant'}?\n\nAn official student index number and credentials will be generated and dispatched via email.`,
-      type: 'info',
-      confirmText: 'Approve',
-      cancelText: 'Cancel',
-      onConfirm: async () => {
-        try {
-          const res = await api.put(`/admin/users/${id}/approve`);
-          if (res.data.credentials) {
-            setApprovedCredentials(res.data.credentials);
-            setCredentialsModalVisible(true);
-          } else {
-            showAlert('Approved', 'User application approved successfully.', undefined, 'success');
-          }
-          fetchUsers();
-        } catch (e: any) {
-          const msg = e.response?.data?.message || 'Approval failed';
-          showAlert('Error', msg, undefined, 'error');
-        }
-      }
-    });
+    setDetailsModalVisible(false);
+    setAdmissionTarget({ kind: 'approve', id, name: userName || 'Student' });
+  };
+
+  const handleReactivateStudent = (id: string, name?: string) => {
+    setDetailsModalVisible(false);
+    setConfirmModal({ visible: true, title: 'Reactivate student?', message: `Return ${name || 'this student'} to Active students? Their password and historical enrollments will be preserved.`, type: 'info', confirmText: 'Reactivate', cancelText: 'Cancel', onConfirm: async () => {
+      try { await api.put(`/admin/users/${id}/reactivate`); fetchUsers(); showAlert('Student reactivated', 'The student is active again. You can assign a new batch when needed.', undefined, 'success'); }
+      catch (error: any) { showAlert('Unable to reactivate', error.response?.data?.message || 'Please try again.', undefined, 'error'); }
+    } });
   };
 
   const handleReject = (id: string, userName?: string) => {
@@ -576,7 +504,7 @@ export default function UserManagementScreen() {
       cancelText: 'Cancel',
       onConfirm: async () => {
         try {
-          await api.put(`/admin/users/${id}/deactivate`);
+          await api.put(`/admin/users/${id}/deactivate`, { is_active: !currentStatus });
           fetchUsers();
           showAlert(
             'Success',
@@ -614,36 +542,6 @@ export default function UserManagementScreen() {
     });
   };
 
-  const handleResendCredentials = (id: string, studentName?: string) => {
-    if (detailsModalVisible) {
-      setDetailsModalVisible(false);
-    }
-    setConfirmModal({
-      visible: true,
-      title: 'Resend Credentials',
-      message: `Are you sure you want to resend login credentials to ${studentName || 'this student'}?\n\nA fresh temporary password will be generated and dispatched to their email address.`,
-      type: 'info',
-      confirmText: 'Resend Credentials',
-      cancelText: 'Cancel',
-      onConfirm: async () => {
-        try {
-          setLoading(true);
-          const res = await api.put(`/admin/users/${id}/resend-credentials`);
-          if (res.data.credentials) {
-            setApprovedCredentials(res.data.credentials);
-            setCredentialsModalVisible(true);
-          } else {
-            showAlert('Credentials Resent', `Official login credentials email resent to ${studentName || 'student'}.`, undefined, 'success');
-          }
-        } catch (e: any) {
-          showAlert('Error', e.response?.data?.message || 'Failed to resend credentials email', undefined, 'error');
-        } finally {
-          setLoading(false);
-        }
-      }
-    });
-  };
-
   const handleDeleteCompletely = (id: string, userName?: string, role?: string) => {
     if (detailsModalVisible) {
       setDetailsModalVisible(false);
@@ -651,18 +549,18 @@ export default function UserManagementScreen() {
     setUserDetails(null);
     setConfirmModal({
       visible: true,
-      title: '⚠️ Permanently Delete',
-      message: `This will PERMANENTLY delete ${userName || 'this user'} and ALL their related data (enrollments, results, bookings, uploads, etc.).\n\nThis action CANNOT be undone. Are you absolutely sure?`,
+      title: role === 'application' ? 'Delete application?' : 'Permanently delete user?',
+      message: role === 'application' ? `Permanently delete the application for ${userName || 'this applicant'}? This cannot be undone.` : `This will permanently delete ${userName || 'this user'} and all their related data (enrollments, results, bookings and uploads). This cannot be undone.`,
       type: 'danger',
       confirmText: 'Delete Forever',
       cancelText: 'Cancel',
       onConfirm: async () => {
         try {
-          await api.delete(`/admin/users/${id}/delete`);
+          await api.delete(role === 'application' ? `/admin/applications/${id}` : `/admin/users/${id}/delete`);
           fetchUsers();
           showAlert(
             'Deleted',
-            `${userName || 'User'} and all related data have been permanently removed.`,
+            role === 'application' ? 'Application permanently deleted.' : `${userName || 'User'} and all related data have been permanently removed.`,
             undefined,
             'success'
           );
@@ -720,8 +618,8 @@ export default function UserManagementScreen() {
 
   const studentsMetrics = {
     all: (studentsList || []).length,
-    active: (studentsList || []).filter(s => s.is_active === true).length,
-    deactive: (studentsList || []).filter(s => s.is_active === false).length,
+    active: (studentsList || []).filter(s => s.is_active === true && s.status !== 'completed' && !s.is_graduated).length,
+    deactive: (studentsList || []).filter(s => s.is_active === false && s.status !== 'completed' && !s.is_graduated).length,
     completed: (studentsList || []).filter(s => s.status === 'completed' || s.is_graduated).length,
   };
 
@@ -736,15 +634,13 @@ export default function UserManagementScreen() {
       payment_status: s.payment_info?.payment_status || 'pending',
       payment_method: s.payment_info?.payment_method || 'bank_transfer',
       amount_paid: s.payment_info?.amount_paid || 0,
-      total_fee: s.payment_info?.total_fee || 25000,
-      category: (s.payment_info?.amount_paid || 0) >= (s.payment_info?.total_fee || 25000) ? 'completed' : 'pending',
+      total_fee: s.payment_info?.total_fee ?? 25000,
+      category: (s.payment_info?.amount_paid || 0) >= (s.payment_info?.total_fee ?? 25000) ? 'completed' : 'pending',
     })),
   ];
 
-  const paymentsMetrics = {
-    pending: sourcePayments.filter((p: any) => p.category === 'pending' || p.amount_paid < p.total_fee || (p.payment_status !== 'paid' && p.payment_status !== 'waived')).length,
-    completed: sourcePayments.filter((p: any) => p.category === 'completed' || p.amount_paid >= p.total_fee || p.payment_status === 'paid' || p.payment_status === 'waived').length,
-  };
+  const isPaymentSettled = (payment: any) => payment.category === 'completed' || Number(payment.amount_paid ?? 0) >= Number(payment.total_fee ?? 0) || payment.payment_status === 'paid' || payment.payment_status === 'waived';
+  const paymentsMetrics = { pending: sourcePayments.filter(payment => !isPaymentSettled(payment)).length, completed: sourcePayments.filter(isPaymentSettled).length };
 
   const instructorsMetrics = {
     active: (instructorsList || []).filter(i => i.is_active !== false).length,
@@ -786,8 +682,8 @@ export default function UserManagementScreen() {
           (s?.index_number || '').toLowerCase().includes(term) ||
           (s?.nic || '').toLowerCase().includes(term);
 
-        if (studentsSubFilter === 'active') return matchesSearch && s.is_active === true;
-        if (studentsSubFilter === 'deactive') return matchesSearch && s.is_active === false;
+        if (studentsSubFilter === 'active') return matchesSearch && s.is_active === true && s.status !== 'completed' && !s.is_graduated;
+        if (studentsSubFilter === 'deactive') return matchesSearch && s.is_active === false && s.status !== 'completed' && !s.is_graduated;
         if (studentsSubFilter === 'completed') return matchesSearch && (s.status === 'completed' || s.is_graduated);
         return matchesSearch;
       });
@@ -802,7 +698,7 @@ export default function UserManagementScreen() {
           (p?.index_number || '').toLowerCase().includes(term) ||
           (p?.nic || '').toLowerCase().includes(term);
 
-        const isCompleted = p.category === 'completed' || p.amount_paid >= p.total_fee || p.payment_status === 'paid' || p.payment_status === 'waived';
+        const isCompleted = isPaymentSettled(p);
 
         if (paymentsSubFilter === 'completed') {
           return matchesSearch && isCompleted;
@@ -910,27 +806,33 @@ export default function UserManagementScreen() {
 
   const handleBulkDelete = () => {
     if (selectedUserIds.length === 0) return;
+    // A payment row represents a student's account, not a deletable payment.
+    if (activeMode === 'payments') { showAlert('Payment records', 'Open a payment dossier to review or update its payments. Student accounts can be managed from Students.'); return; }
+    const applications = activeMode === 'applications';
     setConfirmModal({
       visible: true,
-      title: '⚠️ Bulk Delete Users',
-      message: `Are you sure you want to PERMANENTLY delete ${selectedUserIds.length} selected user(s) and ALL their data?\n\nThis action CANNOT be undone.`,
+      title: applications ? 'Delete selected applications?' : 'Delete selected users?',
+      message: applications ? `Permanently delete ${selectedUserIds.length} selected applications? This cannot be undone.` : `Permanently delete ${selectedUserIds.length} selected users and all their data? This cannot be undone.`,
       type: 'danger',
-      confirmText: `Delete ${selectedUserIds.length} Users`,
+      confirmText: applications ? 'Delete applications' : 'Delete users',
       cancelText: 'Cancel',
       onConfirm: async () => {
         try {
           setLoading(true);
+          const failed: string[] = [];
           for (const id of selectedUserIds) {
             try {
-              await api.delete(`/admin/users/${id}/delete`);
+              await api.delete(applications ? `/admin/applications/${id}` : `/admin/users/${id}/delete`);
             } catch (err) {
+              failed.push(id);
               console.warn(`Failed to delete user ${id}`, err);
             }
           }
-          setSelectedUserIds([]);
-          setIsSelectMode(false);
+          setSelectedUserIds(failed);
+          setIsSelectMode(failed.length > 0);
           fetchUsers();
-          showAlert('Deleted', `Permanently deleted ${selectedUserIds.length} selected user(s).`, undefined, 'success');
+          const deleted = selectedUserIds.length - failed.length;
+          showAlert(failed.length ? 'Some records could not be deleted' : 'Deleted', `${deleted} record${deleted === 1 ? '' : 's'} deleted.${failed.length ? ` ${failed.length} remain selected. Please try again.` : ''}`, undefined, failed.length ? 'error' : 'success');
         } catch (e: any) {
           showAlert('Error', 'Bulk deletion failed', undefined, 'error');
         } finally {
@@ -947,14 +849,7 @@ export default function UserManagementScreen() {
     return name.substring(0, 2).toUpperCase();
   }, []);
 
-  const getGradeColor = useCallback((grade: string) => {
-    if (!grade) return '#6B7280';
-    const g = grade.toUpperCase();
-    if (g.startsWith('A')) return '#10B981';
-    if (g.startsWith('B')) return '#3B82F6';
-    if (g.startsWith('C')) return '#F59E0B';
-    return '#EF4444';
-  }, []);
+  const getGradeColor = useCallback((_grade: string) => '#F58220', []);
 
   const renderPendingItem = ({ item }: { item: any }) => {
     const isSelected = selectedUserIds.includes(item._id);
@@ -964,10 +859,9 @@ export default function UserManagementScreen() {
     const photo = item.student_photo || item.profile_photo;
 
     return (
-      <TouchableOpacity
-        style={[
+      <TouchableOpacity accessibilityRole={Platform.OS === 'web' ? undefined : 'button'} role={Platform.OS === 'web' ? 'group' : undefined} accessibilityLabel={`View application ${name}`}         style={[
           styles.card,
-          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
+          isDark && { backgroundColor: design.surface, borderColor: design.line },
           isMenuOpen && { zIndex: 9999, elevation: 25 },
           isSelectMode && isSelected && styles.whatsappSelectedCard,
         ]}
@@ -976,8 +870,6 @@ export default function UserManagementScreen() {
             toggleUserSelection(item._id);
           } else if (activeMenuUserId) {
             setActiveMenuUserId(null);
-          } else if (item.user_id) {
-            handleOpenDetails(item.user_id);
           } else {
             setSelectedAppForReview(item);
           }
@@ -996,7 +888,7 @@ export default function UserManagementScreen() {
             {photo ? (
               <Image source={{ uri: photo }} style={styles.avatarImg} />
             ) : (
-              <View style={[styles.avatar, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+              <View style={[styles.avatar, isDark && { backgroundColor: design.surface, borderColor: design.line }]}>
                 <Icon name="person" size={24} color={isDark ? "#94A3B8" : "#475569"} />
               </View>
             )}
@@ -1008,9 +900,9 @@ export default function UserManagementScreen() {
           </View>
 
           <View style={styles.headerDetails}>
-            <Text style={[styles.userName, isDark && { color: '#FFFFFF' }]}>{name}</Text>
-            <Text style={[styles.userEmail, isDark && { color: '#94A3B8' }]}>{item.email}</Text>
-            <Text style={[styles.userSubtext, isDark && { color: '#64748B' }]}>NIC / Reg: {item.nic_number || item.nic || item.index_number || 'N/A'}</Text>
+            <Text style={[styles.userName, isDark && { color: design.text }]}>{name}</Text>
+            <Text style={[styles.userEmail, isDark && { color: design.muted }]}>{item.email}</Text>
+            <Text style={[styles.userSubtext, isDark && { color: design.muted }]}>NIC / Reg: {item.nic_number || item.nic || item.index_number || 'N/A'}</Text>
           </View>
 
           <View style={styles.rightCardCol}>
@@ -1021,30 +913,23 @@ export default function UserManagementScreen() {
                     id: 'view_app',
                     label: 'View Application',
                     onPress: () => {
-                      if (item.user_id) handleOpenDetails(item.user_id);
-                      else setSelectedAppForReview(item);
+                      setSelectedAppForReview(item);
                     },
                   },
                   ...(status === 'pending' ? [
                     {
                       id: 'approve',
                       label: 'Approve',
-                      onPress: () => handleApprove(item.user_id || item._id),
+                      onPress: () => item.user_id ? handleApprove(item.user_id) : setSelectedAppForReview(item),
                     },
                     {
                       id: 'reject',
                       label: 'Reject',
                       destructive: true,
-                      onPress: () => handleReject(item.user_id || item._id, name),
+                      onPress: () => item.user_id ? handleReject(item.user_id, name) : setSelectedAppForReview(item),
                     }
                   ] : []),
-                  ...(status === 'approved' ? [
-                    {
-                      id: 'resend_creds',
-                      label: 'Resend Credentials',
-                      onPress: () => handleResendCredentials(item.user_id || item._id, name),
-                    }
-                  ] : []),
+                  ...(status === 'approved' ? [{ id: 'reject_approved', label: 'Reject Application', onPress: () => setSelectedAppForReview(item) }] : []),
                   {
                     id: 'delete',
                     label: 'Delete',
@@ -1055,8 +940,8 @@ export default function UserManagementScreen() {
               />
             )}
             {status !== 'rejected' && (
-              <View style={[styles.statusBadge, { backgroundColor: status === 'approved' ? '#D1FAE5' : '#FEF3C7', marginTop: 8 }]}>
-                <Text style={[styles.statusBadgeText, { color: status === 'approved' ? '#065F46' : '#D97706' }]}>
+              <View style={[styles.statusBadge, { backgroundColor: status === 'approved' ? design.successSoft : design.warningSoft, marginTop: 8 }]}>
+                <Text style={[styles.statusBadgeText, { color: status === 'approved' ? design.success : design.accent }]}>
                   {status === 'approved' ? 'Approved' : 'Pending'}
                 </Text>
               </View>
@@ -1066,8 +951,7 @@ export default function UserManagementScreen() {
 
         {!isSelectMode && status === 'pending' && (
           <View style={styles.cardActions}>
-            <TouchableOpacity
-              style={styles.viewProfileBtn}
+            <TouchableOpacity accessibilityRole="button"               style={styles.viewProfileBtn}
               onPress={() => {
                 if (item.user_id) handleOpenDetails(item.user_id);
                 else setSelectedAppForReview(item);
@@ -1076,16 +960,14 @@ export default function UserManagementScreen() {
               <Text style={styles.viewProfileText}>View Profile →</Text>
             </TouchableOpacity>
             <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-              <TouchableOpacity
-                style={styles.smallRejectBtn}
-                onPress={() => handleReject(item.user_id || item._id, name)}
+              <TouchableOpacity accessibilityRole="button"                 style={styles.smallRejectBtn}
+                onPress={() => item.user_id ? handleReject(item.user_id, name) : setSelectedAppForReview(item)}
                 activeOpacity={0.8}
               >
                 <Text style={styles.smallRejectBtnText}>Reject</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.smallApproveBtn}
-                onPress={() => handleApprove(item.user_id || item._id)}
+              <TouchableOpacity accessibilityRole="button"                 style={styles.smallApproveBtn}
+                onPress={() => item.user_id ? handleApprove(item.user_id) : setSelectedAppForReview(item)}
                 activeOpacity={0.8}
               >
                 <Text style={styles.smallApproveBtnText}>Approve</Text>
@@ -1098,126 +980,48 @@ export default function UserManagementScreen() {
   };
 
   const renderStudentItem = ({ item }: { item: any }) => {
-    const isMenuOpen = activeMenuUserId === item._id;
-    const isSelected = selectedUserIds.includes(item._id);
-    const isDeactivated = !item.is_active;
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.card,
-          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
-          isDeactivated && { opacity: 0.65 },
-          isMenuOpen && { zIndex: 9999, elevation: 25 },
-          isSelectMode && isSelected && styles.whatsappSelectedCard,
-        ]}
-        onPress={() => {
-          if (isSelectMode) {
-            toggleUserSelection(item._id);
-          } else if (activeMenuUserId) {
-            setActiveMenuUserId(null);
-          } else if (isDeactivated) {
-            handleToggleActive(item._id, false, item.name);
-          } else {
-            handleOpenDetails(item._id);
-          }
-        }}
-        onLongPress={() => {
-          if (!isSelectMode) {
-            setActiveMenuUserId(null);
-            setIsSelectMode(true);
-            toggleUserSelection(item._id);
-          }
-        }}
-        activeOpacity={0.75}
-      >
-        <View style={[styles.cardHeader, isMenuOpen && { zIndex: 9999 }]}>
-          <View style={{ position: 'relative' }}>
-            {item.profile_photo ? (
-              <Image source={{ uri: item.profile_photo }} style={styles.avatarImg} />
-            ) : (
-              <View style={[styles.avatar, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
-                <Icon name="person" size={24} color={isDark ? "#94A3B8" : "#475569"} />
-              </View>
-            )}
-            {isSelectMode && (
-              <View style={[styles.whatsappCheckBadge, isSelected ? styles.whatsappCheckBadgeActive : styles.whatsappCheckBadgeInactive]}>
-                <Icon name={isSelected ? "checkmark" : "add"} size={12} color={isSelected ? "#FFFFFF" : "#64748B"} />
-              </View>
-            )}
-          </View>
-
-          <View style={styles.headerDetails}>
-            <Text style={[styles.userName, isDark && { color: '#FFFFFF' }]}>{item.name}</Text>
-            <Text style={[styles.userEmail, isDark && { color: '#94A3B8' }]}>{item.email}</Text>
-            <Text style={[styles.userSubtext, isDark && { color: '#64748B' }]}>Reg No: {item.index_number || item.nic || 'N/A'}</Text>
-          </View>
-          <View style={styles.rightCardCol}>
-            {!isSelectMode && (
-              isDeactivated ? (
-                <TouchableOpacity
-                  style={{ padding: 6 }}
-                  onPress={() => handleToggleActive(item._id, false, item.name)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Icon name="ellipsis-vertical" size={18} color="#94A3B8" />
-                </TouchableOpacity>
-              ) : (
-                <WhatsAppOptionsMenu
-                  options={[
-                    {
-                      id: 'view_profile',
-                      label: 'View Profile',
-                      onPress: () => handleOpenDetails(item._id),
-                    },
-                    {
-                      id: 'assign_batch',
-                      label: 'Assign Batch',
-                      onPress: () => {
-                        setAssignStudentId(item._id);
-                        setAssignModalVisible(true);
-                      },
-                    },
-                    {
-                      id: 'mark_completed',
-                      label: 'Mark Completed',
-                      onPress: () => handleMarkCompleted(item._id, item.name),
-                    },
-                    {
-                      id: 'toggle_active',
-                      label: 'Deactivate',
-                      destructive: true,
-                      onPress: () => handleToggleActive(item._id, true, item.name),
-                    },
-                    {
-                      id: 'delete',
-                      label: 'Delete',
-                      destructive: true,
-                      onPress: () => handleDeleteCompletely(item._id, item.name, item.role),
-                    },
-                  ]}
-                />
-              )
-            )}
-            <View style={[styles.statusBadge, { backgroundColor: item.is_active ? '#D1FAE5' : '#FEE2E2', marginTop: 8 }]}>
-              <Text style={[styles.statusBadgeText, { color: item.is_active ? '#065F46' : '#991B1B' }]}>
-                {item.is_active ? 'Active' : 'Deactivated'}
-              </Text>
-            </View>
-          </View>
+    const selected = selectedUserIds.includes(item._id), completed = item.status === 'completed' || item.is_graduated;
+    const active = item.is_active && !completed;
+    return <TouchableOpacity accessibilityRole={Platform.OS === 'web' ? undefined : 'button'} role={Platform.OS === 'web' ? 'group' : undefined} accessibilityLabel={`Open student ${item.name}`}
+      style={[styles.card, selected && isSelectMode && styles.whatsappSelectedCard]} activeOpacity={0.75}
+      onPress={() => isSelectMode ? toggleUserSelection(item._id) : handleOpenDetails(item._id)} onLongPress={() => { setIsSelectMode(true); toggleUserSelection(item._id); }}>
+      <View style={styles.cardHeader}>
+        <View style={styles.avatar}><Icon name={selected && isSelectMode ? 'checkmark' : 'person-outline'} size={22} color={design.accent} /></View>
+        <View style={styles.headerDetails}><Text style={styles.userName}>{item.name}</Text><Text style={styles.userEmail}>{item.email}</Text><Text style={styles.userSubtext}>Reg No: {item.index_number || item.registration_number || item.nic || 'N/A'}</Text></View>
+        <View style={styles.rightCardCol}>
+          {!isSelectMode && <WhatsAppOptionsMenu accessibilityLabel={`Student options for ${item.name}`} options={[
+            { id: 'view', label: 'View Profile', onPress: () => handleOpenDetails(item._id) },
+            ...(active ? [
+              { id: 'batch', label: 'Assign Batch', onPress: () => { setAssignStudentId(item._id); setAssignModalVisible(true); } },
+              { id: 'complete', label: 'Mark Completed', onPress: () => handleMarkCompleted(item._id, item.name) },
+              { id: 'deactivate', label: 'Deactivate', onPress: () => handleToggleActive(item._id, true, item.name) },
+            ] : [{ id: 'reactivate', label: 'Reactivate', onPress: () => handleReactivateStudent(item._id, item.name) }]),
+            { id: 'delete', label: 'Delete', destructive: true, onPress: () => handleDeleteCompletely(item._id, item.name, 'student') },
+          ]} />}
+          <View style={[styles.statusBadge, { backgroundColor: active ? design.accentSoft : design.field }]}><Text style={[styles.statusBadgeText, { color: active ? design.accent : design.muted }]}>{completed ? 'Completed' : active ? 'Active' : 'Deactivated'}</Text></View>
         </View>
-      </TouchableOpacity>
-    );
+      </View>
+    </TouchableOpacity>;
+  };
+
+  const renderStudentActions = (student: any) => {
+    const completed = student.status === 'completed' || student.is_graduated, active = student.is_active && !completed;
+    const actions = [
+      ...(active ? [{ title: 'Assign Batch', primary: true, action: () => { setDetailsModalVisible(false); setAssignStudentId(student._id); setAssignModalVisible(true); } }] : [{ title: 'Reactivate', primary: true, action: () => handleReactivateStudent(student._id, student.name) }]),
+      { title: 'Payments', primary: false, action: () => { setDetailsModalVisible(false); void handleOpenPaymentDossier(student._id); } },
+      ...(active ? [{ title: 'Mark Completed', primary: false, action: () => handleMarkCompleted(student._id, student.name) }, { title: 'Deactivate', primary: false, action: () => handleToggleActive(student._id, true, student.name) }] : []),
+    ];
+    return <View style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{actions.map(action => <TouchableOpacity key={action.title} accessibilityRole="button" accessibilityLabel={`Student action ${action.title}`} onPress={action.action}
+      style={{ flexGrow: 1, flexBasis: '45%', minHeight: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: action.primary ? design.accent : design.line, backgroundColor: action.primary ? design.accent : design.field }}><Text style={{ ...FONTS.semiBold, fontSize: 13, color: action.primary ? '#FFFFFF' : design.text }}>{action.title}</Text></TouchableOpacity>)}</View>;
   };
 
   const renderInstructorItem = ({ item }: { item: any }) => {
     const isMenuOpen = activeMenuUserId === item._id;
     const isSelected = selectedUserIds.includes(item._id);
     return (
-      <TouchableOpacity
-        style={[
+      <TouchableOpacity accessibilityRole={Platform.OS === 'web' ? undefined : 'button'} role={Platform.OS === 'web' ? 'group' : undefined} accessibilityLabel={`Open instructor ${item.name}`}         style={[
           styles.card,
-          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
+          isDark && { backgroundColor: design.surface, borderColor: design.line },
           !item.is_active && { opacity: 0.65 },
           isMenuOpen && { zIndex: 9999, elevation: 25 },
           isSelectMode && isSelected && styles.whatsappSelectedCard,
@@ -1245,7 +1049,7 @@ export default function UserManagementScreen() {
             {item.profile_photo ? (
               <Image source={{ uri: item.profile_photo }} style={styles.avatarImg} />
             ) : (
-              <View style={[styles.avatar, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+              <View style={[styles.avatar, isDark && { backgroundColor: design.surface, borderColor: design.line }]}>
                 <Icon name="person" size={24} color={isDark ? "#94A3B8" : "#475569"} />
               </View>
             )}
@@ -1256,9 +1060,9 @@ export default function UserManagementScreen() {
             )}
           </View>
           <View style={styles.headerDetails}>
-            <Text style={[styles.userName, isDark && { color: '#FFFFFF' }]}>{item.name}</Text>
-            <Text style={[styles.userEmail, isDark && { color: '#94A3B8' }]}>{item.email}</Text>
-            {item.phone ? <Text style={[styles.userSubtext, isDark && { color: '#64748B' }]}>{item.phone}</Text> : null}
+            <Text style={[styles.userName, isDark && { color: design.text }]}>{item.name}</Text>
+            <Text style={[styles.userEmail, isDark && { color: design.muted }]}>{item.email}</Text>
+            {item.phone ? <Text style={[styles.userSubtext, isDark && { color: design.muted }]}>{item.phone}</Text> : null}
           </View>
           <View style={styles.rightCardCol}>
             {!isSelectMode && (
@@ -1290,85 +1094,9 @@ export default function UserManagementScreen() {
     );
   };
 
-  const renderPaymentItem = ({ item }: { item: any }) => {
-    const isPaid = item.category === 'completed' || item.amount_paid >= item.total_fee || item.payment_status === 'paid' || item.payment_status === 'waived';
-    const amountPaid = item.amount_paid || 0;
-    const totalFee = item.total_fee || 25000;
-    const hasPendingSlips = (item.pending_slips_count || 0) > 0;
-    const isSelected = selectedUserIds.includes(item._id);
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.card,
-          isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' },
-          isSelectMode && isSelected && styles.whatsappSelectedCard,
-        ]}
-        onPress={() => {
-          if (isSelectMode) {
-            toggleUserSelection(item._id);
-          } else {
-            handleOpenPaymentDossier(item._id);
-          }
-        }}
-        onLongPress={() => {
-          if (!isSelectMode) {
-            setActiveMenuUserId(null);
-            setIsSelectMode(true);
-            toggleUserSelection(item._id);
-          }
-        }}
-        activeOpacity={0.75}
-      >
-        <View style={styles.cardHeader}>
-          <View style={{ position: 'relative' }}>
-            <View style={[styles.avatar, isDark ? { backgroundColor: 'rgba(249, 115, 22, 0.15)', borderColor: 'rgba(249, 115, 22, 0.3)' } : { backgroundColor: '#FEF3C7' }]}>
-              <Icon name="wallet" size={24} color="#F59E0B" />
-            </View>
-            {isSelectMode && (
-              <View style={[styles.whatsappCheckBadge, isSelected ? styles.whatsappCheckBadgeActive : styles.whatsappCheckBadgeInactive]}>
-                <Icon name={isSelected ? "checkmark" : "add"} size={12} color={isSelected ? "#FFFFFF" : "#64748B"} />
-              </View>
-            )}
-          </View>
-
-          <View style={styles.headerDetails}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <Text style={[styles.userName, isDark && { color: '#FFFFFF' }]}>{item.name}</Text>
-              {hasPendingSlips && (
-                <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#D97706' }}>NEW SLIP</Text>
-                </View>
-              )}
-            </View>
-            <Text style={[styles.userEmail, isDark && { color: '#94A3B8' }]}>{item.email}</Text>
-            <Text style={[styles.userSubtext, isDark && { color: '#64748B' }]}>
-              Reg/Index: {item.index_number || item.nic || 'N/A'} • {item.payment_method === 'bank_transfer' ? 'Bank Deposit' : 'Cash Deposit'}
-            </Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: isPaid ? '#D1FAE5' : amountPaid > 0 ? '#FFEDD5' : '#FEE2E2' }]}>
-            <Text style={[styles.statusBadgeText, { color: isPaid ? '#065F46' : amountPaid > 0 ? '#C2410C' : '#991B1B' }]}>
-              {isPaid ? 'Fully Paid' : amountPaid > 0 ? 'Partially Paid' : 'Pending'}
-            </Text>
-          </View>
-        </View>
-
-        <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: '#475569' }}>
-            Paid: LKR {amountPaid.toLocaleString()} / {totalFee.toLocaleString()}
-          </Text>
-          {!isSelectMode && (
-            <TouchableOpacity
-              style={styles.viewProfileBtn}
-              onPress={() => handleOpenPaymentDossier(item._id)}
-            >
-              <Text style={styles.viewProfileText}>Open Dossier →</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const renderPaymentItem = ({ item }: { item: any }) => <PaymentListCard item={item} selected={selectedUserIds.includes(item._id)} selecting={isSelectMode}
+    onPress={() => isSelectMode ? toggleUserSelection(item._id) : handleOpenPaymentDossier(item._id)}
+    onLongPress={() => { if (!isSelectMode) { setActiveMenuUserId(null); setIsSelectMode(true); toggleUserSelection(item._id); } }} />;
 
   if (selectedAppForReview) {
     return (
@@ -1476,8 +1204,7 @@ export default function UserManagementScreen() {
       }
     } catch (e) {
       console.warn('Failed to print PDF', e);
-      if (Platform.OS === 'web') window.alert('Failed to generate PDF document.');
-      else Alert.alert('Error', 'Failed to generate PDF document.');
+      showAlert('Error', 'Failed to generate PDF document.', undefined, 'error');
     }
   };
 
@@ -1563,11 +1290,10 @@ export default function UserManagementScreen() {
 
 
   return (
-    <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, isDark && { backgroundColor: design.surface }]} edges={['top']}>
       <ScreenBackground />
       {activeMenuUserId && (
-        <TouchableOpacity
-          activeOpacity={1}
+        <TouchableOpacity accessibilityRole="button"           activeOpacity={1}
           onPress={() => setActiveMenuUserId(null)}
           style={{
             position: 'absolute',
@@ -1582,7 +1308,8 @@ export default function UserManagementScreen() {
       )}
       {currentView === 'hub' ? (
         <>
-          <ScreenHeader
+          <ScreenHeader plainBack
+
             title="User Management"
             subtitle="Choose a category to manage"
             showBack={true}
@@ -1593,16 +1320,15 @@ export default function UserManagementScreen() {
               paddingHorizontal: 20,
               paddingTop: 14,
               paddingBottom: 100,
-              maxWidth: 960,
+              maxWidth: 1100,
               width: '100%',
               alignSelf: 'center',
             }}
           >
-            <Text style={[styles.hubSectionHeaderTitle, isDark && { color: '#FFFFFF' }]}>Choose Activity</Text>
+            <Text style={[styles.hubSectionHeaderTitle, isDark && { color: design.text }]}>Choose Activity</Text>
 
             {/* 1. Applications Card */}
-            <TouchableOpacity
-              style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Manage applications"               style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
               onPress={() => {
                 setActiveMode('applications');
                 setApplicationsSubFilter('pending');
@@ -1610,19 +1336,18 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.18)' : '#FEF3C7' }]}>
-                <Icon name="document-text-outline" size={24} color="#D97706" />
+              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.18)' : design.warningSoft }]}>
+                <Icon name="document-text-outline" size={24} color={design.accent} />
               </View>
               <View style={styles.hubVerticalTextCol}>
-                <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Applications</Text>
-                <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{appMetrics.pending} Pending Applications</Text>
+                <Text style={[styles.hubVerticalTitle, isDark && { color: design.text }]}>Applications</Text>
+                <Text style={[styles.hubVerticalSub, isDark && { color: design.muted }]}>{appMetrics.pending} Pending Applications</Text>
               </View>
               <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#94A3B8"} />
             </TouchableOpacity>
 
             {/* 2. Students Card */}
-            <TouchableOpacity
-              style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Manage students"               style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
               onPress={() => {
                 setActiveMode('students');
                 setStudentsSubFilter('all');
@@ -1630,19 +1355,18 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.18)' : '#EFF6FF' }]}>
-                <Icon name="people-outline" size={24} color="#2563EB" />
+              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? design.accentSoft : design.accentSoft }]}>
+                <Icon name="people-outline" size={24} color={design.accent} />
               </View>
               <View style={styles.hubVerticalTextCol}>
-                <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Students</Text>
-                <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{studentsMetrics.all} Enrolled Students</Text>
+                <Text style={[styles.hubVerticalTitle, isDark && { color: design.text }]}>Students</Text>
+                <Text style={[styles.hubVerticalSub, isDark && { color: design.muted }]}>{studentsMetrics.all} Enrolled Students</Text>
               </View>
               <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#94A3B8"} />
             </TouchableOpacity>
 
             {/* 3. Payments Card */}
-            <TouchableOpacity
-              style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Manage payments"               style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
               onPress={() => {
                 setActiveMode('payments');
                 setPaymentsSubFilter('pending');
@@ -1650,19 +1374,18 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.18)' : '#ECFDF5' }]}>
-                <Icon name="wallet-outline" size={24} color="#059669" />
+              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? design.accentSoft : design.successSoft }]}>
+                <Icon name="wallet-outline" size={24} color={design.accent} />
               </View>
               <View style={styles.hubVerticalTextCol}>
-                <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Payments</Text>
-                <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{paymentsMetrics.pending} Pending Slips</Text>
+                <Text style={[styles.hubVerticalTitle, isDark && { color: design.text }]}>Payments</Text>
+                <Text style={[styles.hubVerticalSub, isDark && { color: design.muted }]}>{paymentsMetrics.pending} Outstanding Payments</Text>
               </View>
               <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#94A3B8"} />
             </TouchableOpacity>
 
             {/* 4. Instructors Card */}
-            <TouchableOpacity
-              style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Manage instructors"               style={[styles.hubVerticalCard, isDark && styles.hubVerticalCardDark]}
               onPress={() => {
                 setActiveMode('instructors');
                 setInstructorsSubFilter('active');
@@ -1670,12 +1393,12 @@ export default function UserManagementScreen() {
               }}
               activeOpacity={0.75}
             >
-              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? 'rgba(249, 115, 22, 0.18)' : '#FFF7ED' }]}>
-                <Icon name="school-outline" size={24} color="#EA580C" />
+              <View style={[styles.hubVerticalIconBox, { backgroundColor: isDark ? 'rgba(249, 115, 22, 0.18)' : design.accentSoft }]}>
+                <Icon name="school-outline" size={24} color={design.accent} />
               </View>
               <View style={styles.hubVerticalTextCol}>
-                <Text style={[styles.hubVerticalTitle, isDark && { color: '#FFFFFF' }]}>Instructors</Text>
-                <Text style={[styles.hubVerticalSub, isDark && { color: '#94A3B8' }]}>{instructorsMetrics.active} Active Staff</Text>
+                <Text style={[styles.hubVerticalTitle, isDark && { color: design.text }]}>Instructors</Text>
+                <Text style={[styles.hubVerticalSub, isDark && { color: design.muted }]}>{instructorsMetrics.active} Active Staff</Text>
               </View>
               <Icon name="chevron-forward" size={18} color={isDark ? "#64748B" : "#94A3B8"} />
             </TouchableOpacity>
@@ -1684,7 +1407,7 @@ export default function UserManagementScreen() {
       ) : (
         <>
           {isSelectMode ? (
-            <WhatsAppSelectionHeader
+            <WhatsAppSelectionHeader neutral
               visible={isSelectMode}
               selectedCount={selectedUserIds.length}
               onClearSelection={() => {
@@ -1713,14 +1436,15 @@ export default function UserManagementScreen() {
                 {
                   id: 'bulk_delete',
                   icon: 'trash-outline',
-                  disabled: selectedUserIds.length === 0,
-                  color: selectedUserIds.length > 0 ? '#EF4444' : '#FFFFFF',
+                  disabled: activeMode === 'payments' || selectedUserIds.length === 0,
+                  color: selectedUserIds.length > 0 ? design.accent : '#FFFFFF',
                   onPress: handleBulkDelete,
                 },
               ]}
             />
           ) : (
-            <ScreenHeader
+            <ScreenHeader plainBack
+
               title={
                 activeMode === 'applications'
                   ? 'Applications'
@@ -1748,129 +1472,23 @@ export default function UserManagementScreen() {
             />
           )}
 
-          {/* Sub-Filter Pill Bar */}
-          <View style={[styles.subFilterBarSection, isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subFilterBarScroll}>
-              {activeMode === 'applications' && (
-                <>
-                  <TouchableOpacity
-                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, applicationsSubFilter === 'pending' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
-                    onPress={() => setApplicationsSubFilter('pending')}
-                  >
-                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, applicationsSubFilter === 'pending' && styles.subFilterPillTextActive]}>
-                      Pending ({appMetrics.pending})
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, applicationsSubFilter === 'approved' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
-                    onPress={() => setApplicationsSubFilter('approved')}
-                  >
-                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, applicationsSubFilter === 'approved' && styles.subFilterPillTextActive]}>
-                      Approved ({appMetrics.approved})
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, applicationsSubFilter === 'rejected' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
-                    onPress={() => setApplicationsSubFilter('rejected')}
-                  >
-                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, applicationsSubFilter === 'rejected' && styles.subFilterPillTextActive]}>
-                      Rejected ({appMetrics.rejected})
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {activeMode === 'students' && (
-                <>
-                  <TouchableOpacity
-                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, studentsSubFilter === 'all' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
-                    onPress={() => setStudentsSubFilter('all')}
-                  >
-                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, studentsSubFilter === 'all' && styles.subFilterPillTextActive]}>
-                      All ({studentsMetrics.all})
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, studentsSubFilter === 'active' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
-                    onPress={() => setStudentsSubFilter('active')}
-                  >
-                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, studentsSubFilter === 'active' && styles.subFilterPillTextActive]}>
-                      Active ({studentsMetrics.active})
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, studentsSubFilter === 'deactive' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
-                    onPress={() => setStudentsSubFilter('deactive')}
-                  >
-                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, studentsSubFilter === 'deactive' && styles.subFilterPillTextActive]}>
-                      Deactive ({studentsMetrics.deactive})
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, studentsSubFilter === 'completed' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
-                    onPress={() => setStudentsSubFilter('completed')}
-                  >
-                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, studentsSubFilter === 'completed' && styles.subFilterPillTextActive]}>
-                      Completed ({studentsMetrics.completed})
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {activeMode === 'payments' && (
-                <>
-                  <TouchableOpacity
-                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, paymentsSubFilter === 'pending' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
-                    onPress={() => setPaymentsSubFilter('pending')}
-                  >
-                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, paymentsSubFilter === 'pending' && styles.subFilterPillTextActive]}>
-                      Pending Slips ({paymentsMetrics.pending})
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, paymentsSubFilter === 'completed' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
-                    onPress={() => setPaymentsSubFilter('completed')}
-                  >
-                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, paymentsSubFilter === 'completed' && styles.subFilterPillTextActive]}>
-                      Completed ({paymentsMetrics.completed})
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {activeMode === 'instructors' && (
-                <>
-                  <TouchableOpacity
-                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, instructorsSubFilter === 'active' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
-                    onPress={() => setInstructorsSubFilter('active')}
-                  >
-                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, instructorsSubFilter === 'active' && styles.subFilterPillTextActive]}>
-                      Active Staff ({instructorsMetrics.active})
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.subFilterPill, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, instructorsSubFilter === 'deactive' && [styles.subFilterPillActive, isDark && { backgroundColor: '#F97316', borderColor: '#F97316' }]]}
-                    onPress={() => setInstructorsSubFilter('deactive')}
-                  >
-                    <Text style={[styles.subFilterPillText, isDark && { color: '#94A3B8' }, instructorsSubFilter === 'deactive' && styles.subFilterPillTextActive]}>
-                      Deactivated ({instructorsMetrics.deactive})
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </ScrollView>
+          <View style={{ width: '100%', maxWidth: 1100, alignSelf: 'center' }}>
+            {activeMode === 'applications' && <ManagementFilterBar value={applicationsSubFilter} onChange={setApplicationsSubFilter} items={[{ value: 'pending', label: 'Pending', count: appMetrics.pending }, { value: 'approved', label: 'Approved', count: appMetrics.approved }, { value: 'rejected', label: 'Rejected', count: appMetrics.rejected }]} />}
+            {activeMode === 'students' && <ManagementFilterBar value={studentsSubFilter} onChange={setStudentsSubFilter} items={[{ value: 'all', label: 'All', count: studentsMetrics.all }, { value: 'active', label: 'Active', count: studentsMetrics.active }, { value: 'deactive', label: 'Deactive', count: studentsMetrics.deactive }, { value: 'completed', label: 'Completed', count: studentsMetrics.completed }]} />}
+            {activeMode === 'payments' && <ManagementFilterBar value={paymentsSubFilter} onChange={setPaymentsSubFilter} items={[{ value: 'pending', label: 'Outstanding', count: paymentsMetrics.pending }, { value: 'completed', label: 'Settled', count: paymentsMetrics.completed }]} />}
+            {activeMode === 'instructors' && <ManagementFilterBar value={instructorsSubFilter} onChange={setInstructorsSubFilter} items={[{ value: 'active', label: 'Active Staff', count: instructorsMetrics.active }, { value: 'deactive', label: 'Deactivated', count: instructorsMetrics.deactive }]} />}
           </View>
 
           {/* Main Content Area */}
           <>
             {/* Search Box */}
             <View style={styles.searchFilterRow}>
-              <View style={[styles.searchBox, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+              <View style={[styles.searchBox, isDark && { backgroundColor: design.surface, borderColor: design.line }]}>
                 <Icon name="search-outline" size={18} color={isDark ? "#94A3B8" : "#9CA3AF"} style={{ marginRight: 8 }} />
                 <TextInput
-                  style={[styles.searchInput, isDark && { color: '#FFFFFF' }]}
-                  placeholder="Search by name, email, reg no, or NIC..."
-                  placeholderTextColor={isDark ? "#64748B" : "#9CA3AF"}
+                  style={[styles.searchInput, isDark && { color: design.text }]}
+                  accessibilityLabel="Search users" placeholder="Search by name, email, reg no, or NIC..."
+                  placeholderTextColor={design.muted}
                   value={search}
                   onChangeText={setSearch}
                   onFocus={() => setIsSearchFocused(true)}
@@ -1884,6 +1502,7 @@ export default function UserManagementScreen() {
               <ActivityIndicator size="large" color="#F58220" style={{ marginTop: 40 }} />
             ) : (
               <FlatList
+                style={{ width: '100%', maxWidth: 1100, alignSelf: 'center' }}
                 data={filteredUsers}
                 keyExtractor={item => item._id}
                 onScroll={handleScroll}
@@ -1920,58 +1539,11 @@ export default function UserManagementScreen() {
         </>
       )}
 
-      {/* Floating Add Instructor Liquid FAB Button */}
-      {currentView === 'detail' && activeMode === 'instructors' && !isSelectMode && (
-        <View style={styles.liquidFabContainer} pointerEvents="box-none">
-          {/* Outer Liquid Ripple Wave Layer 1 */}
-          <Animated.View
-            style={[
-              styles.liquidWaveRing,
-              {
-                transform: [{ scale: wave1Scale }],
-                opacity: wave1Opacity,
-              },
-            ]}
-          />
-
-          {/* Outer Liquid Ripple Wave Layer 2 */}
-          <Animated.View
-            style={[
-              styles.liquidWaveRingSecond,
-              {
-                transform: [{ scale: wave2Scale }],
-                opacity: wave2Opacity,
-              },
-            ]}
-          />
-
-          {/* Main Liquid Glass FAB Button */}
-          <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
-            <TouchableOpacity
-              style={styles.liquidFabButton}
-              onPress={() => setInstructorModalVisible(true)}
-              onPressIn={handleFabPressIn}
-              onPressOut={handleFabPressOut}
-              activeOpacity={0.9}
-            >
-              {/* Glass Sheen Reflection Arc */}
-              <View style={styles.liquidGlassSheen} />
-
-              {/* Glossy Core Icon */}
-              <View style={styles.liquidInnerCore}>
-                <Icon name="add" size={32} color="#FFFFFF" style={styles.liquidPlusIcon} />
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      )}
-
-
-
-
+      {currentView === 'detail' && activeMode !== 'payments' && !isSelectMode && <TouchableOpacity accessibilityRole="button" accessibilityLabel={activeMode === 'instructors' ? 'Create instructor' : 'Add student manually'} onPress={() => activeMode === 'instructors' ? setInstructorModalVisible(true) : setAdmissionTarget({ kind: 'create' })}
+        style={{ position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: design.accent, alignItems: 'center', justifyContent: 'center', zIndex: 20 }}><Icon name="add" size={28} color="#FFFFFF" /></TouchableOpacity>}
 
       {/* Add Instructor Modal */}
-      <Modal visible={instructorModalVisible} animationType="slide" transparent={true}>
+      <Modal visible={instructorModalVisible} animationType="slide" transparent={true} onRequestClose={() => setInstructorModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Add Instructor</Text>
@@ -1979,7 +1551,7 @@ export default function UserManagementScreen() {
             <TextInput
               style={styles.input}
               placeholder="e.g. Inst. Miller"
-              value={instructorForm.name}
+              accessibilityLabel="Instructor name" value={instructorForm.name}
               onChangeText={v => setInstructorForm({ ...instructorForm, name: v })}
             />
 
@@ -1987,7 +1559,7 @@ export default function UserManagementScreen() {
             <TextInput
               style={styles.input}
               placeholder="e.g. miller@gmail.com"
-              value={instructorForm.email}
+              accessibilityLabel="Instructor email" value={instructorForm.email}
               onChangeText={v => setInstructorForm({ ...instructorForm, email: v })}
               autoCapitalize="none"
               keyboardType="email-address"
@@ -1997,7 +1569,7 @@ export default function UserManagementScreen() {
             <TextInput
               style={styles.input}
               placeholder="e.g. 199912345678 or 991234567V"
-              value={instructorForm.nic}
+              accessibilityLabel="Instructor nic" value={instructorForm.nic}
               onChangeText={v => setInstructorForm({ ...instructorForm, nic: v })}
               autoCapitalize="characters"
             />
@@ -2006,20 +1578,18 @@ export default function UserManagementScreen() {
             <TextInput
               style={styles.input}
               placeholder="e.g. +94 77 123 4567"
-              value={instructorForm.phone}
+              accessibilityLabel="Instructor phone" value={instructorForm.phone}
               onChangeText={v => setInstructorForm({ ...instructorForm, phone: v })}
               keyboardType="phone-pad"
             />
 
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelModalBtn}
+              <TouchableOpacity accessibilityRole="button"                 style={styles.cancelModalBtn}
                 onPress={() => setInstructorModalVisible(false)}
               >
                 <Text style={styles.cancelModalText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.submitModalBtn}
+              <TouchableOpacity accessibilityRole="button"                 style={styles.submitModalBtn}
                 onPress={handleCreateInstructor}
                 disabled={creatingInstructor}
               >
@@ -2035,11 +1605,11 @@ export default function UserManagementScreen() {
       </Modal>
 
       {/* Assign Batch Modal */}
-      <Modal visible={assignModalVisible} animationType="fade" transparent={true}>
+      <Modal visible={assignModalVisible} animationType="fade" transparent={true} onRequestClose={() => setAssignModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Assign to Batch</Text>
-            <CustomDropdown
+            <CustomDropdown appearance="management"
               label="Select Batch"
               placeholder="Choose a batch..."
               iconName="layers-outline"
@@ -2053,11 +1623,10 @@ export default function UserManagementScreen() {
             />
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setAssignModalVisible(false)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.cancelModalBtn} onPress={() => setAssignModalVisible(false)}>
                 <Text style={styles.cancelModalText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.submitModalBtn}
+              <TouchableOpacity accessibilityRole="button"                 style={styles.submitModalBtn}
                 onPress={handleAssignBatch}
                 disabled={assigning}
               >
@@ -2073,161 +1642,58 @@ export default function UserManagementScreen() {
       </Modal>
 
       {/* Generated Credentials Modal */}
-      <Modal visible={credentialsModalVisible} animationType="slide" transparent={true}>
+      <Modal visible={credentialsModalVisible} animationType="slide" transparent={true} onRequestClose={() => setCredentialsModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { alignItems: 'center' }]}>
             <View style={{ marginBottom: 12 }}>
-              <Icon name="checkmark-circle-outline" size={50} color="#10B981" />
+              <Icon name="checkmark-circle-outline" size={50} color={design.accent} />
             </View>
-            <Text style={styles.modalTitle}>User Account Approved</Text>
-            <Text style={{ fontSize: 13, color: '#6B7280', textAlign: 'center', marginBottom: 16 }}>
-              Student account created & registration number generated successfully.
+            <Text style={styles.modalTitle}>Student Account Ready</Text>
+            <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted, textAlign: 'center', marginBottom: 16 }}>
+              Student account saved and selected batches assigned.
             </Text>
 
             {approvedCredentials && (
-              <View style={{ backgroundColor: '#111827', borderRadius: 12, padding: 16, width: '100%', marginBottom: 14 }}>
+              <View style={{ backgroundColor: design.surface, borderRadius: 12, padding: 16, width: '100%', marginBottom: 14 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Registration No:</Text>
-                  <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#10B981' }}>{approvedCredentials.index_number}</Text>
+                  <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted }}>Index No:</Text>
+                  <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 17, fontWeight: 'bold', color: design.accent }}>{approvedCredentials.index_number}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Temp Password:</Text>
-                  <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#10B981' }}>{approvedCredentials.temp_password}</Text>
+                  <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted }}>Temp Password:</Text>
+                  <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 17, fontWeight: 'bold', color: design.accent }}>{approvedCredentials.temp_password}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Student Email:</Text>
-                  <Text style={{ fontSize: 13, color: '#FFFFFF', fontWeight: '500' }}>{approvedCredentials.email}</Text>
+                  <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted }}>Student Email:</Text>
+                  <Text style={{ fontFamily: FONTS.medium.fontFamily,  fontSize: 13, color: design.text, fontWeight: '500' }}>{approvedCredentials.email}</Text>
                 </View>
               </View>
             )}
 
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#F0FDFA', borderRadius: 8, padding: 10, marginBottom: 18 }}>
-              <Icon name="shield-checkmark-outline" size={18} color="#0F766E" style={{ marginRight: 8 }} />
-              <Text style={{ flex: 1, fontSize: 12, color: '#0F766E', lineHeight: 16 }}>
-                Temporary password expires in 7 days. Official portal credentials have been dispatched to the student's email.
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: design.accentSoft, borderRadius: 8, padding: 10, marginBottom: 18 }}>
+              <Icon name="shield-checkmark-outline" size={18} color={design.accent} style={{ marginRight: 8 }} />
+              <Text style={{ fontFamily: FONTS.regular.fontFamily,  flex: 1, fontSize: 12, color: design.accent, lineHeight: 16 }}>
+                Temporary password expires in 7 days. Save these initial login details before closing.
               </Text>
             </View>
 
-            <TouchableOpacity
-              style={{ backgroundColor: '#000000', borderRadius: 10, paddingVertical: 12, width: '100%', alignItems: 'center' }}
-              onPress={() => setCredentialsModalVisible(false)}
+            <TouchableOpacity accessibilityRole="button"               style={{ backgroundColor: design.accent, borderRadius: 10, paddingVertical: 12, width: '100%', alignItems: 'center' }}
+              onPress={() => setCredentialsModalVisible(false)} accessibilityLabel="Close credentials"
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 }}>Close & Return</Text>
+              <Text style={{ fontFamily: FONTS.bold.fontFamily,  color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 }}>Close & Return</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
       {/* CUSTOM IN-APP CONFIRMATION POPUP MODAL */}
-      <Modal
-        visible={confirmModal.visible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
-      >
-        <View style={styles.popupOverlay}>
-          <View style={styles.popupCard}>
-            <View style={[
-              styles.popupIconCircle,
-              { backgroundColor: confirmModal.type === 'danger' ? '#FEE2E2' : confirmModal.type === 'lock' ? '#FEF3C7' : '#EFF6FF' }
-            ]}>
-              <Icon
-                name={
-                  confirmModal.type === 'danger'
-                    ? 'alert-circle-outline'
-                    : confirmModal.type === 'lock'
-                      ? 'lock-closed-outline'
-                      : 'information-circle-outline'
-                }
-                size={28}
-                color={
-                  confirmModal.type === 'danger'
-                    ? '#DC2626'
-                    : confirmModal.type === 'lock'
-                      ? '#D97706'
-                      : '#2563EB'
-                }
-              />
-            </View>
-            <Text style={styles.popupTitle}>{confirmModal.title}</Text>
-            <Text style={styles.popupMessage}>{confirmModal.message}</Text>
-            <View style={styles.popupBtnRow}>
-              <TouchableOpacity
-                style={styles.popupCancelBtn}
-                onPress={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
-              >
-                <Text style={styles.popupCancelText}>{confirmModal.cancelText || 'Cancel'}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.popupConfirmBtn,
-                  { backgroundColor: confirmModal.type === 'danger' ? '#DC2626' : confirmModal.type === 'lock' ? '#D97706' : '#2563EB' }
-                ]}
-                onPress={() => {
-                  const action = confirmModal.onConfirm;
-                  setConfirmModal(prev => ({ ...prev, visible: false }));
-                  if (action) action();
-                }}
-              >
-                <Text style={styles.popupConfirmText}>{confirmModal.confirmText || 'Confirm'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+
 
       {/* CUSTOM IN-APP ALERT POPUP MODAL */}
-      <Modal
-        visible={alertModal.visible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setAlertModal(prev => ({ ...prev, visible: false }))}
-      >
-        <View style={styles.popupOverlay}>
-          <View style={styles.popupCard}>
-            <View style={[
-              styles.popupIconCircle,
-              { backgroundColor: alertModal.type === 'success' ? '#DCFCE7' : alertModal.type === 'error' ? '#FEE2E2' : '#EFF6FF' }
-            ]}>
-              <Icon
-                name={
-                  alertModal.type === 'success'
-                    ? 'checkmark-circle-outline'
-                    : alertModal.type === 'error'
-                      ? 'close-circle-outline'
-                      : 'information-circle-outline'
-                }
-                size={28}
-                color={
-                  alertModal.type === 'success'
-                    ? '#16A34A'
-                    : alertModal.type === 'error'
-                      ? '#DC2626'
-                      : '#2563EB'
-                }
-              />
-            </View>
-            <Text style={styles.popupTitle}>{alertModal.title}</Text>
-            <Text style={styles.popupMessage}>{alertModal.message}</Text>
-            <TouchableOpacity
-              style={[
-                styles.popupSingleBtn,
-                { backgroundColor: alertModal.type === 'error' ? '#DC2626' : alertModal.type === 'success' ? '#16A34A' : '#000000' }
-              ]}
-              onPress={() => {
-                const action = alertModal.onOk;
-                setAlertModal(prev => ({ ...prev, visible: false }));
-                if (action) action();
-              }}
-            >
-              <Text style={styles.popupSingleBtnText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+
 
       {/* EXPORT SETTINGS MODAL */}
-      <Modal visible={exportModalVisible} animationType="slide" transparent={true}>
+      <Modal visible={exportModalVisible} animationType="slide" transparent={true} onRequestClose={() => setExportModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.exportModalCard}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -2235,8 +1701,8 @@ export default function UserManagementScreen() {
                 <Icon name="document-text-outline" size={24} color="#0F172A" style={{ marginRight: 8 }} />
                 <Text style={styles.exportModalTitle}>Excel Export Settings</Text>
               </View>
-              <TouchableOpacity onPress={() => setExportModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Icon name="close" size={22} color="#64748B" />
+              <TouchableOpacity accessibilityRole="button" onPress={() => setExportModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Icon name="close" size={22} color={design.muted} />
               </TouchableOpacity>
             </View>
 
@@ -2246,14 +1712,12 @@ export default function UserManagementScreen() {
 
             {/* Quick Actions */}
             <View style={{ flexDirection: 'row', gap: 10, marginVertical: 10 }}>
-              <TouchableOpacity
-                style={styles.fieldQuickBtn}
+              <TouchableOpacity accessibilityRole="button"                 style={styles.fieldQuickBtn}
                 onPress={() => setSelectedExportFields(EXPORT_AVAILABLE_FIELDS.map(f => f.key))}
               >
                 <Text style={styles.fieldQuickBtnText}>Select All Fields</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.fieldQuickBtn}
+              <TouchableOpacity accessibilityRole="button"                 style={styles.fieldQuickBtn}
                 onPress={() => setSelectedExportFields(['name', 'email', 'index_number', 'nic', 'phone'])}
               >
                 <Text style={styles.fieldQuickBtnText}>Reset Defaults</Text>
@@ -2265,8 +1729,7 @@ export default function UserManagementScreen() {
               {EXPORT_AVAILABLE_FIELDS.map(field => {
                 const isChecked = selectedExportFields.includes(field.key);
                 return (
-                  <TouchableOpacity
-                    key={field.key}
+                  <TouchableOpacity accessibilityRole="button"                     key={field.key}
                     style={[styles.fieldCheckboxRow, isChecked && styles.fieldCheckboxRowActive]}
                     onPress={() => toggleExportField(field.key)}
                     activeOpacity={0.7}
@@ -2284,15 +1747,13 @@ export default function UserManagementScreen() {
 
             {/* Modal Buttons */}
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-              <TouchableOpacity
-                style={styles.cancelExportBtn}
+              <TouchableOpacity accessibilityRole="button"                 style={styles.cancelExportBtn}
                 onPress={() => setExportModalVisible(false)}
               >
                 <Text style={styles.cancelExportBtnText}>Cancel</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.confirmExportBtn}
+              <TouchableOpacity accessibilityRole="button"                 style={styles.confirmExportBtn}
                 onPress={handleExecuteExport}
               >
                 <Icon name="download-outline" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -2318,15 +1779,14 @@ export default function UserManagementScreen() {
             {loadingDetails || !userDetails ? (
               <View style={styles.modalLoadingContainer}>
                 <View style={{ width: '100%', paddingHorizontal: 16, paddingTop: 16, alignItems: 'flex-end' }}>
-                  <TouchableOpacity
-                    onPress={() => {
+                  <TouchableOpacity accessibilityRole="button"                     onPress={() => {
                       setDetailsModalVisible(false);
                       setUserDetails(null);
                     }}
                     activeOpacity={0.7}
-                    style={{ padding: 4 }}
+                    style={{ padding: 4 }} accessibilityLabel="Close user profile"
                   >
-                    <Icon name="close" size={22} color="#4B5563" />
+                    <Icon name="close" size={22} color={design.muted} />
                   </TouchableOpacity>
                 </View>
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -2335,7 +1795,7 @@ export default function UserManagementScreen() {
                 </View>
               </View>
             ) : (
-              <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+              <View style={{ flex: 1, backgroundColor: design.surface }}>
                 {/* Dossier Header matching Batch viewing modal */}
                 <View style={styles.detailsHeader}>
                   <View style={{ flex: 1 }}>
@@ -2345,32 +1805,29 @@ export default function UserManagementScreen() {
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <TouchableOpacity
-                      style={styles.closeModalIconBtn}
+                    <TouchableOpacity accessibilityRole="button"                       style={styles.closeModalIconBtn}
                       onPress={handleSaveUserPdf}
                       activeOpacity={0.7}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Icon name="document-text-outline" size={20} color="#4B5563" />
+                      <Icon name="document-text-outline" size={20} color={design.muted} />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.closeModalIconBtn}
+                    <TouchableOpacity accessibilityRole="button"                       style={styles.closeModalIconBtn}
                       onPress={handleShareUserPdf}
                       activeOpacity={0.7}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Icon name="share-social-outline" size={20} color="#4B5563" />
+                      <Icon name="share-social-outline" size={20} color={design.muted} />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.closeModalIconBtn}
+                    <TouchableOpacity accessibilityRole="button"                       style={styles.closeModalIconBtn}
                       onPress={() => {
                         setDetailsModalVisible(false);
                         setUserDetails(null);
                       }}
                       activeOpacity={0.7}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Close user profile"
                     >
-                      <Icon name="close" size={22} color="#4B5563" />
+                      <Icon name="close" size={22} color={design.muted} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -2391,8 +1848,8 @@ export default function UserManagementScreen() {
                         <Text style={styles.infoStudentName}>{userDetails.user.name}</Text>
                         <Text style={styles.infoStudentEmail}>{userDetails.user.email}</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 }}>
-                          <View style={[styles.statusBadge, { backgroundColor: userDetails.user.is_active ? '#D1FAE5' : '#FEE2E2' }]}>
-                            <Text style={[styles.statusBadgeText, { color: userDetails.user.is_active ? '#065F46' : '#991B1B' }]}>
+                          <View style={[styles.statusBadge, { backgroundColor: userDetails.user.is_active ? design.successSoft : design.dangerSoft }]}>
+                            <Text style={[styles.statusBadgeText, { color: userDetails.user.is_active ? design.success : design.danger }]}>
                               {userDetails.user.is_active ? 'Active' : 'Deactivated'}
                             </Text>
                           </View>
@@ -2490,7 +1947,7 @@ export default function UserManagementScreen() {
                       </View>
                       <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Payment Status:</Text>
-                        <Text style={[styles.infoVal, { fontWeight: 'bold', color: userDetails.user.payment_info.payment_status === 'paid' ? '#059669' : '#D97706' }]}>
+                        <Text style={[styles.infoVal, { fontWeight: 'bold', color: userDetails.user.payment_info.payment_status === 'paid' ? design.success : design.accent }]}>
                           {userDetails.user.payment_info.payment_status ? userDetails.user.payment_info.payment_status.toUpperCase() : 'PENDING'}
                         </Text>
                       </View>
@@ -2500,7 +1957,7 @@ export default function UserManagementScreen() {
                       </View>
                       <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Amount Paid:</Text>
-                        <Text style={[styles.infoVal, { color: '#059669', fontWeight: 'bold' }]}>LKR {userDetails.user.payment_info.amount_paid ? userDetails.user.payment_info.amount_paid.toLocaleString() : '0'}</Text>
+                        <Text style={[styles.infoVal, { color: design.success, fontWeight: 'bold' }]}>LKR {userDetails.user.payment_info.amount_paid ? userDetails.user.payment_info.amount_paid.toLocaleString() : '0'}</Text>
                       </View>
                     </View>
                   )}
@@ -2512,15 +1969,15 @@ export default function UserManagementScreen() {
                       <View style={styles.infoDivider} />
                       <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Overall Average Marks:</Text>
-                        <Text style={[styles.infoVal, { color: '#2563EB', fontWeight: 'bold' }]}>{userDetails.averageMark}%</Text>
+                        <Text style={[styles.infoVal, { color: design.accent, fontWeight: 'bold' }]}>{userDetails.averageMark}%</Text>
                       </View>
                       {(!userDetails.enrollments || userDetails.enrollments.length === 0) ? (
-                        <Text style={{ fontSize: 13, color: '#64748B', marginTop: 4, fontStyle: 'italic' }}>No active batch enrollments yet.</Text>
+                        <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted, marginTop: 4, fontStyle: 'italic' }}>No active batch enrollments yet.</Text>
                       ) : (
                         userDetails.enrollments.map((e: any) => (
-                          <View key={e._id} style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
-                            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0F172A' }}>{e.batch_id?.course_id?.title || 'Course'}</Text>
-                            <Text style={{ fontSize: 12.5, color: '#64748B', marginTop: 2 }}>Batch: {e.batch_id?.name || 'Batch'} · {e.batch_id?.course_id?.duration_weeks} Weeks</Text>
+                          <View key={e._id} style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: design.line }}>
+                            <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 14, fontWeight: 'bold', color: design.text }}>{e.batch_id?.course_id?.title || 'Course'}</Text>
+                            <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 12.5, color: design.muted, marginTop: 2 }}>Batch: {e.batch_id?.name || 'Batch'} · {e.batch_id?.course_id?.duration_weeks} Weeks</Text>
                           </View>
                         ))
                       )}
@@ -2548,63 +2005,11 @@ export default function UserManagementScreen() {
 
                 {/* Stable Bottom Actions matching Batch dossier */}
                 <View style={styles.detailsFooter}>
-                  {userDetails.user.role === 'applicant' ? (
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                      {userDetails.user.status === 'approved' ? (
-                        <TouchableOpacity
-                          style={[styles.footerActionBtn, { backgroundColor: '#0D9488' }]}
-                          onPress={() => {
-                            setDetailsModalVisible(false);
-                            handleResendCredentials(userDetails.user._id, userDetails.user.name || userDetails.user.full_name);
-                          }}
-                          activeOpacity={0.8}
-                        >
-                          <Icon name="mail-unread-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
-                          <Text style={styles.footerActionText}>Resend Credentials</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <>
-                          <TouchableOpacity
-                            style={[styles.footerActionBtn, { backgroundColor: '#E2E8F0' }]}
-                            onPress={() => {
-                              setDetailsModalVisible(false);
-                              handleReject(userDetails.user._id, userDetails.user.name || userDetails.user.full_name);
-                            }}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={[styles.footerActionText, { color: '#1E293B' }]}>Reject</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.footerActionBtn, { backgroundColor: '#F58220' }]}
-                            onPress={() => {
-                              setDetailsModalVisible(false);
-                              handleApprove(userDetails.user._id, userDetails.user.name || userDetails.user.full_name);
-                            }}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.footerActionText}>Approve</Text>
-                          </TouchableOpacity>
-                        </>
-                      )}
-                    </View>
-                  ) : (
+                  {userDetails.user.role === 'applicant' ? <TouchableOpacity accessibilityRole="button" style={[styles.footerActionBtn, { backgroundColor: design.accent }]} onPress={() => { setDetailsModalVisible(false); setSelectedAppForReview({ ...userDetails.user, full_name: userDetails.user.full_name || userDetails.user.name }); }}><Text style={styles.footerActionText}>Review Application</Text></TouchableOpacity> : (
                     <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      {userDetails.user.role === 'student' ? (
+                      {userDetails.user.role === 'student' ? renderStudentActions(userDetails.user) : (
                         <>
-                          <TouchableOpacity
-                            style={[styles.footerActionBtn, { backgroundColor: '#2563EB' }]}
-                            onPress={() => {
-                              setDetailsModalVisible(false);
-                              setAssignStudentId(userDetails.user._id);
-                              setAssignModalVisible(true);
-                            }}
-                            activeOpacity={0.8}
-                          >
-                            <Icon name="library-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
-                            <Text style={styles.footerActionText}>Assign Batch</Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
+                          <TouchableOpacity accessibilityRole="button"
                             style={[styles.footerActionBtn, { backgroundColor: userDetails.user.is_active ? '#D97706' : '#10B981' }]}
                             onPress={() => {
                               setDetailsModalVisible(false);
@@ -2617,47 +2022,7 @@ export default function UserManagementScreen() {
                               {userDetails.user.is_active ? 'Deactivate' : 'Activate'}
                             </Text>
                           </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={[styles.footerActionBtn, { backgroundColor: '#F58220' }]}
-                            onPress={() => {
-                              setDetailsModalVisible(false);
-                              handleMarkCompleted(userDetails.user._id, userDetails.user.name || userDetails.user.full_name);
-                            }}
-                            activeOpacity={0.8}
-                          >
-                            <Icon name="checkmark-done-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
-                            <Text style={styles.footerActionText}>Completed</Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={[styles.footerActionBtn, { backgroundColor: '#0D9488' }]}
-                            onPress={() => {
-                              setDetailsModalVisible(false);
-                              handleResendCredentials(userDetails.user._id, userDetails.user.name || userDetails.user.full_name);
-                            }}
-                            activeOpacity={0.8}
-                          >
-                            <Icon name="mail-unread-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
-                            <Text style={styles.footerActionText}>Resend Credentials</Text>
-                          </TouchableOpacity>
-                        </>
-                      ) : (
-                        <>
-                          <TouchableOpacity
-                            style={[styles.footerActionBtn, { backgroundColor: userDetails.user.is_active ? '#D97706' : '#10B981' }]}
-                            onPress={() => {
-                              setDetailsModalVisible(false);
-                              handleToggleActive(userDetails.user._id, userDetails.user.is_active, userDetails.user.name || userDetails.user.full_name);
-                            }}
-                            activeOpacity={0.8}
-                          >
-                            <Icon name={userDetails.user.is_active ? "pause-circle" : "play-circle"} size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
-                            <Text style={styles.footerActionText}>
-                              {userDetails.user.is_active ? 'Deactivate' : 'Activate'}
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
+                          <TouchableOpacity accessibilityRole="button"
                             style={[styles.footerActionBtn, { backgroundColor: '#7F1D1D' }]}
                             onPress={() => {
                               setDetailsModalVisible(false);
@@ -2679,359 +2044,31 @@ export default function UserManagementScreen() {
         </View>
       </Modal>
 
-      {/* ========================================================================= */}
-      {/* STUDENT PAYMENT DOSSIER MODAL (ADMIN VIEW) */}
-      {/* ========================================================================= */}
-      <Modal visible={paymentDossierModalVisible} animationType="slide" transparent={true}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.65)', justifyContent: 'flex-end' }}>
-          <View style={{ height: '92%', backgroundColor: '#F8FAFC', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' }}>
-            {/* Modal Header Bar */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
-              <TouchableOpacity
-                onPress={() => setPaymentDossierModalVisible(false)}
-                style={{ padding: 4 }}
-              >
-                <Icon name="close" size={24} color="#0F172A" />
-              </TouchableOpacity>
-              <Text style={{ fontSize: 17, fontWeight: '700', color: '#0F172A' }}>Student Payment Dossier</Text>
-              <TouchableOpacity
-                style={{ backgroundColor: '#0F172A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                onPress={() => {
-                  setPaymentDossierModalVisible(false);
-                  setManualPayModalVisible(true);
-                }}
-              >
-                <Icon name="add-circle-outline" size={16} color="#FFFFFF" />
-                <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 12 }}>+ Cash Pay</Text>
-              </TouchableOpacity>
-            </View>
-
-            {loadingDossier ? (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#F59E0B" />
-                <Text style={{ marginTop: 10, color: '#64748B', fontSize: 13 }}>Loading payment dossier...</Text>
-              </View>
-            ) : paymentDossierData ? (
-              <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }}>
-                {/* 1. Student Profile Banner Card */}
-                <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', flexDirection: 'row', alignItems: 'center' }}>
-                  {paymentDossierData.student?.profile_photo ? (
-                    <Image source={{ uri: paymentDossierData.student.profile_photo }} style={{ width: 54, height: 54, borderRadius: 27, marginRight: 14, backgroundColor: '#F1F5F9' }} />
-                  ) : (
-                    <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
-                      <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 18 }}>{getInitials(paymentDossierData.student?.name)}</Text>
-                    </View>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 17, fontWeight: '700', color: '#0F172A' }}>{paymentDossierData.student?.name}</Text>
-                    <Text style={{ fontSize: 12.5, color: '#64748B', marginTop: 1 }}>{paymentDossierData.student?.email}</Text>
-                    <Text style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
-                      Reg No: {paymentDossierData.student?.index_number || paymentDossierData.student?.nic || 'N/A'} • {paymentDossierData.student?.phone || 'No Phone'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* 2. Financial Totals & Progress Bar */}
-                <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', marginBottom: 12 }}>Fee Breakdown & Settlement</Text>
-
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <View>
-                      <Text style={{ fontSize: 12, color: '#64748B' }}>Total Fee</Text>
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A' }}>
-                        LKR {(paymentDossierData.summary?.total_fee || 25000).toLocaleString()}
-                      </Text>
-                    </View>
-                    <View>
-                      <Text style={{ fontSize: 12, color: '#64748B' }}>Settled Amount</Text>
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#10B981' }}>
-                        LKR {(paymentDossierData.summary?.amount_paid || 0).toLocaleString()}
-                      </Text>
-                    </View>
-                    <View>
-                      <Text style={{ fontSize: 12, color: '#64748B' }}>Balance Due</Text>
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: (paymentDossierData.summary?.remaining_balance || 0) > 0 ? '#EF4444' : '#10B981' }}>
-                        LKR {(paymentDossierData.summary?.remaining_balance || 0).toLocaleString()}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Progress Bar */}
-                  <View style={{ height: 8, backgroundColor: '#E2E8F0', borderRadius: 4, overflow: 'hidden', marginVertical: 8 }}>
-                    <View
-                      style={{
-                        height: '100%',
-                        backgroundColor: (paymentDossierData.summary?.remaining_balance || 0) === 0 ? '#10B981' : '#F59E0B',
-                        width: `${Math.min(100, Math.round(((paymentDossierData.summary?.amount_paid || 0) / (paymentDossierData.summary?.total_fee || 25000)) * 100))}%`,
-                      }}
-                    />
-                  </View>
-
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                    <Text style={{ fontSize: 12, color: '#64748B' }}>
-                      Settlement Rate: {Math.min(100, Math.round(((paymentDossierData.summary?.amount_paid || 0) / (paymentDossierData.summary?.total_fee || 25000)) * 100))}%
-                    </Text>
-                    <View style={{ backgroundColor: paymentDossierData.summary?.category === 'completed' ? '#D1FAE5' : '#FEF3C7', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 }}>
-                      <Text style={{ fontSize: 11.5, fontWeight: '700', color: paymentDossierData.summary?.category === 'completed' ? '#065F46' : '#D97706' }}>
-                        {paymentDossierData.summary?.category === 'completed' ? 'COMPLETED' : 'PENDING'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* 3. Initial Registration Payment Slip Info (if present) */}
-                {paymentDossierData.registration_info && (
-                  <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E2E8F0' }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 6 }}>Initial Registration Payment</Text>
-                    <Text style={{ fontSize: 12.5, color: '#64748B' }}>
-                      Method: {paymentDossierData.registration_info.payment_method === 'bank_transfer' ? 'Bank Deposit Slip' : 'Physical Cash at Counter'}
-                    </Text>
-                    {paymentDossierData.registration_info.payment_slip ? (
-                      <TouchableOpacity
-                        style={{ marginTop: 8, height: 90, borderRadius: 8, overflow: 'hidden', backgroundColor: '#F1F5F9' }}
-                        onPress={() => setDossierZoomImage(paymentDossierData.registration_info.payment_slip)}
-                      >
-                        <Image source={{ uri: paymentDossierData.registration_info.payment_slip }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                )}
-
-                {/* 4. Submitted Payment Slips Timeline */}
-                <View>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', marginBottom: 10 }}>
-                    Payment Slips History ({paymentDossierData.slips?.length || 0})
-                  </Text>
-
-                  {(!paymentDossierData.slips || paymentDossierData.slips.length === 0) ? (
-                    <View style={{ backgroundColor: '#FFFFFF', padding: 20, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' }}>
-                      <Icon name="document-text-outline" size={30} color="#94A3B8" />
-                      <Text style={{ color: '#64748B', fontSize: 13, marginTop: 6 }}>No payment slips uploaded yet.</Text>
-                    </View>
-                  ) : (
-                    paymentDossierData.slips.map((slip: any, index: number) => {
-                      const isVerified = slip.status === 'verified';
-                      const isRejected = slip.status === 'rejected';
-                      const isPending = slip.status === 'pending';
-
-                      return (
-                        <View
-                          key={slip._id || index}
-                          style={{
-                            backgroundColor: '#FFFFFF',
-                            borderRadius: 14,
-                            padding: 14,
-                            marginBottom: 12,
-                            borderWidth: 1,
-                            borderColor: isVerified ? '#BBF7D0' : isRejected ? '#FECDD3' : '#FDE68A',
-                          }}
-                        >
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A' }}>
-                              LKR {(slip.amount || 0).toLocaleString()}
-                            </Text>
-                            <View style={{ backgroundColor: isVerified ? '#D1FAE5' : isRejected ? '#FFE4E6' : '#FEF3C7', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 }}>
-                              <Text style={{ fontSize: 11.5, fontWeight: '700', color: isVerified ? '#065F46' : isRejected ? '#BE123C' : '#D97706' }}>
-                                {isVerified ? 'VERIFIED' : isRejected ? 'REJECTED' : 'PENDING VERIFICATION'}
-                              </Text>
-                            </View>
-                          </View>
-
-                          <Text style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
-                            Method: {slip.payment_method === 'bank_transfer' ? 'Bank Deposit' : slip.payment_method === 'online_transfer' ? 'Online Bank Transfer' : 'Cash'} • Date: {slip.createdAt ? new Date(slip.createdAt).toLocaleString() : 'N/A'}
-                          </Text>
-
-                          {slip.notes ? <Text style={{ fontSize: 12, color: '#475569', fontStyle: 'italic', marginTop: 2 }}>Notes: {slip.notes}</Text> : null}
-                          {isRejected && slip.rejection_reason ? <Text style={{ fontSize: 12, color: '#BE123C', fontWeight: '600', marginTop: 4 }}>Rejection Reason: {slip.rejection_reason}</Text> : null}
-
-                          {slip.slip_url ? (
-                            <TouchableOpacity
-                              style={{ marginTop: 10, height: 110, borderRadius: 8, overflow: 'hidden', backgroundColor: '#F1F5F9', position: 'relative' }}
-                              onPress={() => setDossierZoomImage(slip.slip_url)}
-                              activeOpacity={0.8}
-                            >
-                              <Image source={{ uri: slip.slip_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                              <View style={{ position: 'absolute', bottom: 6, right: 6, backgroundColor: 'rgba(15, 23, 42, 0.8)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                <Icon name="expand" size={12} color="#FFFFFF" />
-                                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '600' }}>Tap to Zoom</Text>
-                              </View>
-                            </TouchableOpacity>
-                          ) : null}
-
-                          {/* Admin Action Buttons on Pending Slip */}
-                          {isPending && (
-                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                              <TouchableOpacity
-                                style={{ flex: 1, backgroundColor: '#10B981', paddingVertical: 9, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}
-                                onPress={() => handlePromptVerifySlip(slip)}
-                                disabled={verifyingSlipId === slip._id}
-                              >
-                                {verifyingSlipId === slip._id ? (
-                                  <ActivityIndicator size="small" color="#FFFFFF" />
-                                ) : (
-                                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12.5 }}>Approve & Credit LKR {slip.amount?.toLocaleString()}</Text>
-                                )}
-                              </TouchableOpacity>
-
-                              <TouchableOpacity
-                                style={{ backgroundColor: '#EF4444', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}
-                                onPress={() => handlePromptRejectSlip(slip)}
-                              >
-                                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12.5 }}>Reject</Text>
-                              </TouchableOpacity>
-                            </View>
-                          )}
-                        </View>
-                      );
-                    })
-                  )}
-                </View>
-              </ScrollView>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
-
-      {/* ========================================================================= */}
-      {/* RECORD MANUAL CASH PAYMENT MODAL */}
-      {/* ========================================================================= */}
-      <Modal visible={manualPayModalVisible} animationType="fade" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Record Manual Payment</Text>
-              <TouchableOpacity onPress={() => setManualPayModalVisible(false)}>
-                <Icon name="close" size={22} color="#4B5563" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inputLabel}>Cash Amount (LKR) *</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={manualPayForm.amount}
-              onChangeText={t => setManualPayForm({ ...manualPayForm, amount: t })}
-              placeholder="e.g. 15000"
-              keyboardType="numeric"
-              placeholderTextColor="#9CA3AF"
-            />
-
-            <Text style={styles.inputLabel}>Payment Method</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-              {[
-                { id: 'physical_cash', label: 'Cash at Counter' },
-                { id: 'bank_transfer', label: 'Direct Bank Deposit' },
-              ].map(m => (
-                <TouchableOpacity
-                  key={m.id}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 9,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: manualPayForm.payment_method === m.id ? '#0F172A' : '#E2E8F0',
-                    backgroundColor: manualPayForm.payment_method === m.id ? '#0F172A' : '#FFFFFF',
-                    alignItems: 'center',
-                  }}
-                  onPress={() => setManualPayForm({ ...manualPayForm, payment_method: m.id })}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: manualPayForm.payment_method === m.id ? '#FFFFFF' : '#475569' }}>
-                    {m.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.inputLabel}>Notes / Counter Receipt Reference</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={manualPayForm.notes}
-              onChangeText={t => setManualPayForm({ ...manualPayForm, notes: t })}
-              placeholder="Receipt # or admin remark"
-              placeholderTextColor="#9CA3AF"
-            />
-
-            <View style={styles.modalFooterBtns}>
-              <TouchableOpacity
-                style={styles.cancelModalBtn}
-                onPress={() => setManualPayModalVisible(false)}
-                disabled={recordingManualPay}
-              >
-                <Text style={styles.cancelModalBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveModalBtn, recordingManualPay && { opacity: 0.6 }]}
-                onPress={handleRecordManualPaySubmit}
-                disabled={recordingManualPay}
-              >
-                {recordingManualPay ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.saveModalBtnText}>Record Payment</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <PaymentDetails visible={paymentDossierModalVisible} loading={loadingDossier} data={paymentDossierData} onClose={() => setPaymentDossierModalVisible(false)}
+        onAdd={() => { setPaymentDossierModalVisible(false); setManualPayForm({ amount: '', payment_method: 'physical_cash', notes: '' }); setManualPayModalVisible(true); }} onImage={setDossierZoomImage} onApprove={handlePromptVerifySlip} onReject={handlePromptRejectSlip} verifyingId={verifyingSlipId} />
+      <AddPayment visible={manualPayModalVisible} data={paymentDossierData} form={manualPayForm} onChange={setManualPayForm} saving={recordingManualPay} onSubmit={handleRecordManualPaySubmit}
+        onClose={() => { if (!recordingManualPay) { setManualPayModalVisible(false); setPaymentDossierModalVisible(true); } }} />
 
       {/* ========================================================================= */}
       {/* REJECT SLIP REASON MODAL */}
       {/* ========================================================================= */}
-      <Modal visible={rejectSlipModalVisible} animationType="fade" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Reject Payment Slip</Text>
-              <TouchableOpacity onPress={() => setRejectSlipModalVisible(false)}>
-                <Icon name="close" size={22} color="#4B5563" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 12 }}>
-              Specify the reason for rejecting this payment slip. The student will be notified via email and in-app message.
-            </Text>
-
-            <Text style={styles.inputLabel}>Rejection Reason *</Text>
-            <TextInput
-              style={[styles.modalInput, { height: 74, textAlignVertical: 'top' }]}
-              multiline
-              numberOfLines={3}
-              value={rejectSlipForm.reason}
-              onChangeText={t => setRejectSlipForm({ ...rejectSlipForm, reason: t })}
-              placeholder="e.g. Image blur or transaction reference not matching"
-              placeholderTextColor="#9CA3AF"
-            />
-
-            <View style={styles.modalFooterBtns}>
-              <TouchableOpacity
-                style={styles.cancelModalBtn}
-                onPress={() => setRejectSlipModalVisible(false)}
-                disabled={rejectingSlip}
-              >
-                <Text style={styles.cancelModalBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[{ flex: 1.5, backgroundColor: '#EF4444', paddingVertical: 11, borderRadius: 8, alignItems: 'center' }, rejectingSlip && { opacity: 0.6 }]}
-                onPress={handleRejectSlipSubmit}
-                disabled={rejectingSlip}
-              >
-                {rejectingSlip ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13.5 }}>Reject Slip</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ManagementSheet visible={rejectSlipModalVisible} title="Reject Payment Slip" backLabel="Cancel payment rejection" busy={rejectingSlip}
+        onClose={() => { if (!rejectingSlip) { setRejectSlipModalVisible(false); setPaymentDossierModalVisible(true); } }}
+        footer={<View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cancel payment rejection" disabled={rejectingSlip} style={styles.cancelModalBtn} onPress={() => { setRejectSlipModalVisible(false); setPaymentDossierModalVisible(true); }}><Text style={styles.cancelModalBtnText}>Cancel</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Reject Slip" disabled={rejectingSlip} style={[styles.saveModalBtn, { backgroundColor: design.accent }]} onPress={handleRejectSlipSubmit}>{rejectingSlip ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveModalBtnText}>Reject slip</Text>}</TouchableOpacity>
+        </View>}>
+        <Text style={{ ...FONTS.regular, fontSize: 13, lineHeight: 20, color: design.muted }}>Explain why this payment could not be verified. The student will receive the reason.</Text>
+        <Text style={styles.inputLabel}>Rejection reason</Text>
+        <TextInput accessibilityLabel="Payment rejection reason" editable={!rejectingSlip} multiline numberOfLines={4} value={rejectSlipForm.reason} onChangeText={reason => setRejectSlipForm(current => ({ ...current, reason }))} placeholder="Receipt unclear or transaction reference does not match" placeholderTextColor={design.muted} style={[styles.modalInput, { minHeight: 100, textAlignVertical: 'top' }]} />
+      </ManagementSheet>
 
       {/* ========================================================================= */}
       {/* DOSSIER FULL-SCREEN IMAGE ZOOM MODAL */}
       {/* ========================================================================= */}
       <Modal visible={Boolean(dossierZoomImage)} transparent animationType="fade">
         <View style={styles.zoomModalOverlay}>
-          <TouchableOpacity style={styles.zoomCloseBtn} onPress={() => setDossierZoomImage(null)}>
+          <TouchableOpacity accessibilityRole="button" style={styles.zoomCloseBtn} onPress={() => setDossierZoomImage(null)}>
             <Icon name="close" size={26} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.zoomImageContainer}>
@@ -3041,14 +2078,21 @@ export default function UserManagementScreen() {
           </View>
         </View>
       </Modal>
+      <ManagementDialog visible={confirmModal.visible} title={confirmModal.title} message={confirmModal.message} type={confirmModal.type} confirmText={confirmModal.confirmText || 'Confirm'} cancelText={confirmModal.cancelText || 'Cancel'} onCancel={() => { const action = confirmModal.onCancel; setConfirmModal(prev => ({ ...prev, visible: false })); action?.(); }} onConfirm={() => { const action = confirmModal.onConfirm; setConfirmModal(prev => ({ ...prev, visible: false })); action?.(); }} />
+      <ManagementDialog visible={alertModal.visible} title={alertModal.title} message={alertModal.message} type={alertModal.type} onConfirm={() => { const action = alertModal.onOk; setAlertModal(prev => ({ ...prev, visible: false })); action?.(); }} />
+      {admissionTarget && <StudentAdmissionModal target={admissionTarget} onClose={() => setAdmissionTarget(null)} onSaved={data => {
+        setAdmissionTarget(null); fetchUsers();
+        if (data.credentials) { setApprovedCredentials(data.credentials); setCredentialsModalVisible(true); }
+        else showAlert('Student saved', data.message || 'Student saved and batches assigned.', undefined, 'success');
+      }} />}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (design: ReturnType<typeof usersSectionTheme>) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: design.field,
   },
   dossierBackHeaderRow: {
     flexDirection: 'row',
@@ -3060,12 +2104,12 @@ const styles = StyleSheet.create({
   savePdfBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: design.accent,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
-  },
-  savePdfBtnText: {
+  minHeight: 44, },
+  savePdfBtnText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
     color: '#FFFFFF',
@@ -3074,22 +2118,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     marginTop: 16,
     marginBottom: 40,
     width: '100%',
-  },
+  flexWrap: 'wrap', },
   smallRejectBtn: {
     paddingHorizontal: 22,
     paddingVertical: 10,
-    borderRadius: 24,
-    backgroundColor: '#E2E8F0',
+    borderRadius: 10,
+    backgroundColor: design.field,
     minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  smallRejectBtnText: {
-    color: '#1E293B',
+  minHeight: 44, borderWidth: 1, borderColor: design.line, },
+  smallRejectBtnText: { fontFamily: FONTS.semiBold.fontFamily,
+    color: design.text,
     fontSize: 13.5,
     fontWeight: '600',
     textAlign: 'center',
@@ -3097,19 +2141,19 @@ const styles = StyleSheet.create({
   smallApproveBtn: {
     paddingHorizontal: 22,
     paddingVertical: 10,
-    borderRadius: 24,
-    backgroundColor: '#F58220',
+    borderRadius: 10,
+    backgroundColor: design.accent,
     minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  smallApproveBtnText: {
+  minHeight: 44, },
+  smallApproveBtnText: { fontFamily: FONTS.semiBold.fontFamily,
     color: '#FFFFFF',
     fontSize: 13.5,
     fontWeight: '600',
     textAlign: 'center',
   },
-  smallBtnText: {
+  smallBtnText: { fontFamily: FONTS.semiBold.fontFamily,
     color: '#FFFFFF',
     fontSize: 13.5,
     fontWeight: '600',
@@ -3121,7 +2165,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: design.line,
     marginBottom: 8,
   },
   plainAvatarImg: {
@@ -3135,44 +2179,44 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: design.field,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
   },
-  plainNameText: {
+  plainNameText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 19,
     fontWeight: 'bold',
-    color: '#000000',
+    color: design.text,
   },
-  plainSubText: {
+  plainSubText: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13,
-    color: '#4B5563',
+    color: design.muted,
     marginTop: 2,
   },
-  plainSectionTitle: {
+  plainSectionTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#000000',
+    color: design.text,
     marginTop: 20,
     marginBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: design.line,
     paddingBottom: 4,
   },
   plainRow: {
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: design.line,
   },
-  plainLabel: {
+  plainLabel: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: design.text,
   },
-  plainValue: {
+  plainValue: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 14,
-    color: '#000000',
+    color: design.text,
     marginTop: 2,
   },
   embeddedActionContainer: {
@@ -3183,14 +2227,14 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginTop: 16,
     gap: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
   },
   /* HARDCOPY PAPER APPLICATION FORM STYLES */
   hardcopyFormSheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     paddingHorizontal: 4,
     paddingVertical: 4,
   },
@@ -3198,7 +2242,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     marginBottom: 16,
     borderBottomWidth: 2,
-    borderBottomColor: '#0F172A',
+    borderBottomColor: design.line,
   },
   formHeaderCrestRow: {
     flexDirection: 'row',
@@ -3206,28 +2250,28 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   formCrestBadge: {
-    backgroundColor: '#0F172A',
+    backgroundColor: design.surface,
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 6,
     marginRight: 10,
   },
-  formCrestBadgeText: {
+  formCrestBadgeText: { fontFamily: FONTS.regular.fontFamily,
     color: '#F58220',
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 1,
   },
-  formInstituteTitle: {
+  formInstituteTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 12,
     fontWeight: '800',
-    color: '#0F172A',
+    color: design.text,
     letterSpacing: 0.8,
   },
-  formDocumentTitle: {
+  formDocumentTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10,
     fontWeight: '700',
-    color: '#64748B',
+    color: design.muted,
     letterSpacing: 0.5,
     marginTop: 1,
   },
@@ -3235,52 +2279,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  formRefNoText: {
+  formRefNoText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: design.muted,
     letterSpacing: 0.5,
   },
   formStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: design.warningSoft,
     borderWidth: 1,
     borderColor: '#FDE68A',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
   },
-  formStatusPillText: {
+  formStatusPillText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10,
     fontWeight: '800',
-    color: '#92400E',
+    color: design.warning,
     letterSpacing: 0.4,
   },
   pendingDotIndicator: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#F59E0B',
+    backgroundColor: design.accent,
     marginRight: 5,
   },
   formSectionBanner: {
-    backgroundColor: '#1E293B',
+    backgroundColor: design.surface,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
     marginTop: 16,
     marginBottom: 10,
   },
-  formSectionBannerText: {
-    color: '#FFFFFF',
+  formSectionBannerText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.text,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -3290,7 +2334,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: design.line,
     marginBottom: 8,
   },
   formAvatarImg: {
@@ -3298,53 +2342,53 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     borderWidth: 1.5,
-    borderColor: '#0F172A',
+    borderColor: design.line,
     marginRight: 14,
   },
   formAvatarPlaceholder: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
   },
-  formApplicantFullName: {
+  formApplicantFullName: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: design.text,
     letterSpacing: -0.2,
   },
-  formApplicantEmail: {
+  formApplicantEmail: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 13,
-    color: '#475569',
+    color: design.muted,
     marginTop: 1,
     fontWeight: '500',
   },
   formOtpVerifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
   },
-  formOtpVerifiedText: {
+  formOtpVerifiedText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10,
     fontWeight: '800',
-    color: '#334155',
+    color: design.text,
   },
   formFieldRow: {
     flexDirection: 'row',
     gap: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: design.line,
   },
   formFieldCell: {
     flex: 1,
@@ -3352,34 +2396,34 @@ const styles = StyleSheet.create({
   formFieldFullRow: {
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: design.line,
   },
-  formCellLabel: {
+  formCellLabel: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#64748B',
+    color: design.muted,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
-  formCellValue: {
+  formCellValue: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#0F172A',
+    color: design.text,
     marginTop: 2,
   },
   formBatchItemRow: {
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: design.line,
   },
-  formBatchItemTitle: {
+  formBatchItemTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#0F172A',
+    color: design.text,
   },
-  formBatchItemSub: {
+  formBatchItemSub: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 12,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 2,
   },
   /* EXECUTIVE PROFESSIONAL BUTTONS */
@@ -3388,82 +2432,82 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DC2626',
+    backgroundColor: design.accent,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 12,
+    borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(220, 38, 38, 0.28)' },
-      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 6, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 6, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   profApproveBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#059669',
+    backgroundColor: design.accent,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 12,
+    borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)' },
-      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 6, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   profAssignBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: design.accent,
     paddingVertical: 11,
     paddingHorizontal: 16,
     borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 3px 10px rgba(37, 99, 235, 0.28)' },
-      default: { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.28, shadowRadius: 5, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   profDeactivateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#D97706',
+    backgroundColor: design.accent,
     paddingVertical: 11,
     paddingHorizontal: 16,
     borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 3px 10px rgba(217, 119, 6, 0.28)' },
-      default: { shadowColor: '#D97706', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.28, shadowRadius: 5, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#D97706', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   profActivateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#059669',
+    backgroundColor: design.accent,
     paddingVertical: 11,
     paddingHorizontal: 16,
     borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 3px 10px rgba(5, 150, 105, 0.28)' },
-      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.28, shadowRadius: 5, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   profDeleteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DC2626',
+    backgroundColor: design.accent,
     paddingVertical: 11,
     paddingHorizontal: 16,
     borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 3px 10px rgba(220, 38, 38, 0.28)' },
-      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.28, shadowRadius: 5, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
-  profBtnText: {
+  minHeight: 44, },
+  profBtnText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
@@ -3474,14 +2518,14 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
-  title: {
+  title: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#000000',
+    color: design.text,
   },
-  subtitle: {
+  subtitle: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 14,
-    color: '#6B7280',
+    color: design.muted,
     marginTop: 4,
   },
   actionButtonRow: {
@@ -3489,19 +2533,19 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   addInstructorBtn: {
-    backgroundColor: '#F58220',
-    borderRadius: 26,
+    backgroundColor: design.accent,
+    borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.12)' },
-      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 6, elevation: 0 }
     }),
-  },
-  addInstructorBtnText: {
+  minHeight: 44, },
+  addInstructorBtnText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 15,
@@ -3510,65 +2554,65 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 20,
     marginBottom: 0,
-    marginTop: 14,
-  },
+    marginTop: 10,
+  width: '100%', maxWidth: 1100, alignSelf: 'center', marginHorizontal: 0, },
   searchBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: design.surface,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 24,
+    borderColor: design.line,
+    borderRadius: 12,
     paddingHorizontal: 14,
     height: 40,
     marginRight: 10,
-  },
-  searchInput: {
+  minHeight: 44, },
+  searchInput: { fontFamily: FONTS.regular.fontFamily,
     flex: 1,
     fontSize: 13.5,
-    color: '#1F2937',
+    color: design.text,
   },
   filterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 24,
+    borderColor: design.line,
+    borderRadius: 10,
     paddingHorizontal: 14,
     height: 40,
     ...Platform.select({
-      web: { boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0, shadowRadius: 4, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   filterBtnActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
+    backgroundColor: design.accent,
+    borderColor: design.line,
   },
-  filterBtnText: {
+  filterBtnText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#374151',
+    color: design.text,
   },
   segmentedTrackContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: design.line,
   },
   segmentedTrack: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.line,
     borderRadius: 26,
     padding: 4,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     ...Platform.select({
-      web: { boxShadow: 'inset 0px 1px 3px rgba(0, 0, 0, 0.04)' },
+      web: { boxShadow: 'none' },
       default: {}
     }),
   },
@@ -3582,22 +2626,22 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   segmentedTabActive: {
-    backgroundColor: '#0F172A',
+    backgroundColor: design.accent,
     ...Platform.select({
-      web: { boxShadow: '0px 4px 12px rgba(15, 23, 42, 0.22)' },
+      web: { boxShadow: 'none' },
       default: {
         shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.22,
+        shadowOpacity: 0,
         shadowRadius: 6,
-        elevation: 4,
+        elevation: 0,
       }
     }),
   },
-  segmentedTabText: {
+  segmentedTabText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#64748B',
+    color: design.muted,
   },
   segmentedTabTextActive: {
     color: '#FFFFFF',
@@ -3606,8 +2650,8 @@ const styles = StyleSheet.create({
   tabsContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: design.line,
+    backgroundColor: design.surface,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -3619,42 +2663,42 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   activeTabItem: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: design.accentSoft,
     borderWidth: 1,
     borderColor: '#FDBA74',
   },
-  tabText: {
+  tabText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 14,
     fontWeight: '600',
-    color: '#4B5563',
+    color: design.muted,
   },
   activeTabText: {
-    color: '#D97706',
+    color: design.accent,
     fontWeight: '700',
   },
   tabBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: design.warningSoft,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
     marginLeft: 6,
   },
-  tabBadgeText: {
+  tabBadgeText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#D97706',
+    color: design.accent,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 14,
+    backgroundColor: design.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: design.line,
     overflow: 'visible',
     ...Platform.select({
-      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.05)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0, shadowRadius: 6, elevation: 0 }
     }),
   },
   cardHeader: {
@@ -3666,9 +2710,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -3679,29 +2723,29 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
   },
   headerDetails: {
     flex: 1,
     marginRight: 8,
-  },
-  userName: {
-    fontSize: 16,
+  minWidth: 0, },
+  userName: { fontFamily: FONTS.bold.fontFamily,
+    fontSize: 16.5,
     fontWeight: 'bold',
-    color: '#111827',
-  },
-  userEmail: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  userSubtext: {
+    color: design.text,
+  lineHeight: 23, },
+  userEmail: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 12,
-    color: '#9CA3AF',
+    color: design.muted,
     marginTop: 2,
-  },
+  lineHeight: 18, },
+  userSubtext: { fontFamily: FONTS.regular.fontFamily,
+    fontSize: 12,
+    color: design.muted,
+    marginTop: 2,
+  lineHeight: 18, },
   newBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: design.warningSoft,
     borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -3709,12 +2753,12 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     marginLeft: 4,
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: design.line,
   },
-  newBadgeText: {
+  newBadgeText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 12,
     fontWeight: '600',
-    color: '#D97706',
+    color: design.accent,
   },
   statusBadge: {
     borderRadius: 16,
@@ -3724,7 +2768,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     marginLeft: 4,
   },
-  statusBadgeText: {
+  statusBadgeText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -3740,44 +2784,44 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   viewProfileBtn: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: design.accentSoft,
     borderWidth: 1,
     borderColor: '#FED7AA',
-    borderRadius: 20,
+    borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 14,
-  },
-  viewProfileText: {
+  minHeight: 44, },
+  viewProfileText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 12.5,
     fontWeight: 'bold',
-    color: '#F97316',
+    color: design.accent,
   },
   rejectOutlineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 22,
+    borderColor: design.line,
+    borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  rejectOutlineText: {
+    backgroundColor: design.surface,
+  minHeight: 44, },
+  rejectOutlineText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 12,
     fontWeight: '700',
-    color: '#DC2626',
+    color: design.accent,
   },
   approveDarkBtn: {
-    backgroundColor: '#000000',
-    borderRadius: 22,
+    backgroundColor: design.accent,
+    borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
     ...Platform.select({
-      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.22)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 5, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
-  approveDarkText: {
+  minHeight: 44, },
+  approveDarkText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
@@ -3785,50 +2829,50 @@ const styles = StyleSheet.create({
   deactivateBtn: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 22,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
-  },
-  deactivateBtnText: {
+    backgroundColor: design.dangerSoft,
+  minHeight: 44, },
+  deactivateBtnText: { fontFamily: FONTS.bold.fontFamily,
     fontWeight: '700',
     fontSize: 12,
   },
   activateBtn: {
     borderColor: '#A7F3D0',
-    backgroundColor: '#ECFDF5',
-  },
+    backgroundColor: design.successSoft,
+  borderRadius: 10, minHeight: 44, },
   activateBtnText: {
-    color: '#059669',
+    color: design.success,
   },
   deletePermanentBtn: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 22,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#991B1B',
-    backgroundColor: '#7F1D1D',
+    borderColor: design.accent,
+    backgroundColor: '#1A1A1A',
     ...Platform.select({
-      web: { boxShadow: '0px 3px 8px rgba(127, 29, 29, 0.3)' },
-      default: { shadowColor: '#7F1D1D', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#7F1D1D', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 4, elevation: 0 }
     }),
-  },
-  deletePermanentBtnText: {
+  minHeight: 44, },
+  deletePermanentBtnText: { fontFamily: FONTS.semiBold.fontFamily,
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 13,
   },
   filterOptionsPanel: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: design.line,
   },
-  filterPanelTitle: {
+  filterPanelTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#6B7280',
+    color: design.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -3836,41 +2880,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 22,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: design.line,
   },
   filterChipActive: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
+    backgroundColor: design.accent,
+    borderColor: design.line,
   },
-  filterChipText: {
+  filterChipText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 12,
     fontWeight: '600',
-    color: '#4B5563',
+    color: design.muted,
   },
   filterChipTextActive: {
     color: '#FFFFFF',
     fontWeight: 'bold',
   },
   assignBatchBtn: {
-    backgroundColor: '#10B981',
-    borderRadius: 22,
+    backgroundColor: design.accent,
+    borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
     ...Platform.select({
-      web: { boxShadow: '0px 3px 10px rgba(16, 185, 129, 0.3)' },
-      default: { shadowColor: '#10B981', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#10B981', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
-  assignBatchText: {
-    color: '#FFFFFF',
+  minHeight: 44, },
+  assignBatchText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.text,
     fontWeight: '700',
     fontSize: 12,
   },
-  emptyListText: {
+  emptyListText: { fontFamily: FONTS.regular.fontFamily,
     textAlign: 'center',
-    color: '#9CA3AF',
+    color: design.muted,
     marginTop: 40,
     fontSize: 15,
   },
@@ -3881,9 +2925,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalLoadingText: {
+  modalLoadingText: { fontFamily: FONTS.regular.fontFamily,
     marginTop: 12,
-    color: '#6B7280',
+    color: design.muted,
     fontSize: 14,
   },
   detailsHeader: {
@@ -3891,17 +2935,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: design.field,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: design.line,
   },
   detailsAvatar: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -3912,41 +2956,41 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
   },
-  detailsName: {
+  detailsName: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: design.text,
   },
-  detailsEmail: {
+  detailsEmail: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13,
-    color: '#6B7280',
+    color: design.muted,
     marginTop: 1,
   },
   roleTag: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: design.field,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  roleTagText: {
+  roleTagText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#374151',
+    color: design.text,
   },
   closeModalIconBtn: {
     padding: 6,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: design.field,
   },
   detailSectionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderRadius: 16,
-    padding: 14,
-    marginBottom: 14,
+    padding: 16,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: design.line,
   },
   detailSectionHeader: {
     flexDirection: 'row',
@@ -3957,27 +3001,27 @@ const styles = StyleSheet.create({
     width: 3.5,
     height: 16,
     borderRadius: 2,
-    backgroundColor: '#F58220',
+    backgroundColor: design.accent,
     marginRight: 8,
   },
-  detailSectionTitle: {
+  detailSectionTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: design.text,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  detailLabel: {
+  detailLabel: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13,
-    color: '#6B7280',
+    color: design.muted,
   },
-  detailValue: {
+  detailValue: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: design.text,
   },
   summaryBanner: {
     backgroundColor: '#1E3A8A',
@@ -3987,7 +3031,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   summaryBannerInstructor: {
-    backgroundColor: '#111827',
+    backgroundColor: design.surface,
     borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
@@ -3995,43 +3039,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
-  summaryBannerTitle: {
+  summaryBannerTitle: { fontFamily: FONTS.semiBold.fontFamily,
     color: '#BFDBFE',
     fontSize: 12,
     fontWeight: '600',
   },
-  summaryBannerValue: {
-    color: '#FFFFFF',
+  summaryBannerValue: { fontFamily: FONTS.bold.fontFamily,
+    color: design.text,
     fontSize: 26,
     fontWeight: 'bold',
     marginTop: 2,
   },
-  emptyDetailText: {
+  emptyDetailText: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13,
-    color: '#9CA3AF',
+    color: design.muted,
     fontStyle: 'italic',
   },
   itemSubCard: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: design.field,
     borderRadius: 10,
     padding: 10,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: design.line,
   },
-  itemSubTitle: {
+  itemSubTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: design.text,
   },
-  itemSubDesc: {
+  itemSubDesc: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 12,
-    color: '#4B5563',
+    color: design.muted,
     marginTop: 2,
   },
-  itemSubMeta: {
+  itemSubMeta: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: design.muted,
     marginTop: 4,
   },
   resultItemRow: {
@@ -4040,22 +3084,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: design.line,
   },
-  resultName: {
+  resultName: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: design.text,
   },
-  resultBatch: {
+  resultBatch: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 11,
-    color: '#6B7280',
+    color: design.muted,
     marginTop: 1,
   },
-  resultScore: {
+  resultScore: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#111827',
+    color: design.text,
   },
   gradeChip: {
     paddingHorizontal: 8,
@@ -4063,30 +3107,30 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 2,
   },
-  gradeChipText: {
-    color: '#FFFFFF',
+  gradeChipText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.text,
     fontSize: 10,
     fontWeight: 'bold',
   },
   detailsFooter: {
     padding: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: design.line,
   },
   footerActionBtn: {
     flex: 1,
-    borderRadius: 24,
+    borderRadius: 10,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.2)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 6, elevation: 0 }
     }),
-  },
-  footerActionText: {
+  minHeight: 44, minWidth: 90, },
+  footerActionText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 14,
@@ -4098,70 +3142,70 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
+  padding: 20, },
   modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: design.surface,
+    borderRadius: 18,
     padding: 20,
-    width: '88%',
-    elevation: 6,
-  },
-  modalTitle: {
-    fontSize: 20,
+    width: '92%',
+    elevation: 0,
+  borderWidth: 1, borderColor: design.line, maxWidth: 650, maxHeight: '90%', },
+  modalTitle: { fontFamily: FONTS.bold.fontFamily,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: design.text,
     marginBottom: 16,
   },
-  label: {
+  label: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: design.text,
     marginBottom: 6,
     marginTop: 10,
   },
-  input: {
-    backgroundColor: '#F9FAFB',
+  input: { fontFamily: FONTS.regular.fontFamily,
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: design.line,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#1F2937',
-  },
+    color: design.text,
+  minHeight: 44, },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: design.line,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: design.field,
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 24,
-  },
+  flexWrap: 'wrap', gap: 10, },
   cancelModalBtn: {
     paddingVertical: 10,
     paddingHorizontal: 18,
     marginRight: 8,
-    borderRadius: 24,
-    backgroundColor: '#F3F4F6',
-  },
+    borderRadius: 10,
+    backgroundColor: design.field,
+  minHeight: 44, borderWidth: 1, borderColor: design.line, },
   cancelModalText: {
-    color: '#4B5563',
+    color: design.muted,
     fontWeight: '600',
   },
   submitModalBtn: {
-    backgroundColor: '#000000',
-    borderRadius: 24,
+    backgroundColor: design.accent,
+    borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 20,
     ...Platform.select({
-      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.25)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 5, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   submitModalText: {
     color: '#FFFFFF',
     fontWeight: '600',
@@ -4176,15 +3220,15 @@ const styles = StyleSheet.create({
     padding: 20
   },
   popupCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderRadius: 22,
     padding: 24,
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 10px 24px rgba(0, 0, 0, 0.25)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 10 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0, shadowRadius: 12, elevation: 0 }
     }),
   },
   popupIconCircle: {
@@ -4195,16 +3239,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16
   },
-  popupTitle: {
+  popupTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#0F172A',
+    color: design.text,
     textAlign: 'center',
     marginBottom: 8
   },
-  popupMessage: {
+  popupMessage: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 14,
-    color: '#475569',
+    color: design.muted,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 20
@@ -4216,50 +3260,50 @@ const styles = StyleSheet.create({
   },
   popupCancelBtn: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
-    minHeight: 48,
+    backgroundColor: design.field,
+    minHeight: 44,
     paddingVertical: 12,
-    borderRadius: 24,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#CBD5E1'
+    borderColor: design.line
   },
-  popupCancelText: {
-    color: '#475569',
+  popupCancelText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.muted,
     fontWeight: 'bold',
     fontSize: 14
   },
   popupConfirmBtn: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 44,
     paddingVertical: 12,
-    borderRadius: 24,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.2)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
   },
-  popupConfirmText: {
-    color: '#FFFFFF',
+  popupConfirmText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.text,
     fontWeight: 'bold',
     fontSize: 14
   },
   popupSingleBtn: {
     width: '100%',
-    minHeight: 48,
+    minHeight: 44,
     paddingVertical: 12,
-    borderRadius: 24,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.2)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
   },
-  popupSingleBtnText: {
+  popupSingleBtnText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 15
@@ -4273,36 +3317,36 @@ const styles = StyleSheet.create({
   },
   threeDotsBtn: {
     padding: 4,
-  },
+  borderRadius: 10, minHeight: 44, },
 
   /* INLINE WHATSAPP 3-DOTS DROPDOWN MENU STYLES */
   whatsappMenuContainer: {
     position: 'absolute',
     top: 28,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderRadius: 12,
     paddingVertical: 4,
     paddingHorizontal: 4,
     width: 140,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: design.line,
     zIndex: 99999,
     ...Platform.select({
-      web: { boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.22)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.22, shadowRadius: 10, elevation: 25 },
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0, shadowRadius: 10, elevation: 0 },
     }),
   },
   whatsappMenuItem: {
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: design.line,
   },
-  whatsappMenuText: {
+  whatsappMenuText: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 13.5,
     fontWeight: '500',
-    color: '#1E293B',
+    color: design.text,
   },
 
   /* LIQUID FAB STYLES */
@@ -4338,16 +3382,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: design.line,
     overflow: 'hidden',
     ...Platform.select({
-      web: { boxShadow: '0px 8px 26px rgba(255, 107, 0, 0.55), inset 0px 2px 4px rgba(255, 255, 255, 0.4)' },
+      web: { boxShadow: 'none' },
       default: {
         shadowColor: '#FF6B00',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.55,
+        shadowOpacity: 0,
         shadowRadius: 12,
-        elevation: 10,
+        elevation: 0,
       },
     }),
   },
@@ -4369,7 +3413,7 @@ const styles = StyleSheet.create({
   liquidPlusIcon: {
     ...Platform.select({
       web: { filter: 'drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2))' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0, shadowRadius: 3 },
     }),
   },
 
@@ -4379,121 +3423,121 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DC2626',
+    backgroundColor: design.accent,
     paddingVertical: 13,
     paddingHorizontal: 16,
     borderRadius: 10,
     minWidth: 140,
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)' },
-      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 6, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   coloredApproveBtn: {
     flex: 1.2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#059669',
+    backgroundColor: design.accent,
     paddingVertical: 13,
     paddingHorizontal: 16,
     borderRadius: 10,
     minWidth: 140,
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(5, 150, 105, 0.35)' },
-      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 6, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   coloredAssignBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: design.accent,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' },
-      default: { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   coloredDeactivateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#D97706',
+    backgroundColor: design.accent,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)' },
-      default: { shadowColor: '#D97706', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#D97706', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   coloredActivateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#059669',
+    backgroundColor: design.accent,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)' },
-      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#059669', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
+  minHeight: 44, },
   coloredDeleteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DC2626',
+    backgroundColor: design.accent,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)' },
-      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#DC2626', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0, shadowRadius: 5, elevation: 0 }
     }),
-  },
-  coloredBtnText: {
+  minHeight: 44, },
+  coloredBtnText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13.5,
   },
 
   /* VERTICAL CATEGORY HUB STYLES (MATCHING USER REFERENCE IMAGE) */
-  hubSectionHeaderTitle: {
-    fontSize: 20,
+  hubSectionHeaderTitle: { fontFamily: FONTS.bold.fontFamily,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
+    color: design.text,
     marginBottom: 16,
     letterSpacing: -0.3,
   },
   hubVerticalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 18,
     paddingHorizontal: 20,
-    borderRadius: 20,
-    marginBottom: 14,
+    borderRadius: 16,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     ...Platform.select({
-      web: { boxShadow: '0 4px 20px rgba(15, 23, 42, 0.07)' },
-      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 10, elevation: 0 }
     }),
-  },
+  padding: 16, },
   hubVerticalCardDark: {
-    backgroundColor: '#141B26',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: design.surface,
+    borderColor: design.line,
   },
   hubVerticalIconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -4502,14 +3546,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  hubVerticalTitle: {
-    fontSize: 18,
+  hubVerticalTitle: { fontFamily: FONTS.bold.fontFamily,
+    fontSize: 16.5,
     fontWeight: '700',
-    color: '#1E293B',
+    color: design.text,
   },
-  hubVerticalSub: {
+  hubVerticalSub: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 13,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 3,
     fontWeight: '500',
   },
@@ -4517,9 +3561,9 @@ const styles = StyleSheet.create({
   /* 4 MODE CARDS DASHBOARD STYLES */
   modeCardsSection: {
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: design.line,
   },
   modeCardsScroll: {
     paddingHorizontal: 16,
@@ -4527,16 +3571,16 @@ const styles = StyleSheet.create({
   },
   modeCardItem: {
     width: 170,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     borderLeftWidth: 4,
     borderLeftColor: '#64748B',
     ...Platform.select({
-      web: { boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' },
-      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0, shadowRadius: 4, elevation: 0 }
     }),
   },
   modeCardItemActive: {
@@ -4544,8 +3588,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     backgroundColor: '#FAFAF9',
     ...Platform.select({
-      web: { boxShadow: '0 6px 16px rgba(245, 130, 32, 0.15)' },
-      default: { shadowColor: '#F58220', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#F58220', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 8, elevation: 0 }
     }),
   },
   modeCardHeaderRow: {
@@ -4562,81 +3606,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modeCardCountBadge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 10,
   },
-  modeCardCountText: {
+  modeCardCountText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#475569',
+    color: design.muted,
   },
-  modeCardTitleText: {
+  modeCardTitleText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: design.text,
   },
-  modeCardSubtext: {
+  modeCardSubtext: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 11,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 2,
-  },
-
-  /* SUB-FILTER PILL BAR STYLES */
-  subFilterBarSection: {
-    backgroundColor: '#F8FAFC',
-    paddingTop: 14,
-    paddingBottom: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  subFilterBarScroll: {
-    paddingHorizontal: 20,
-    gap: 10,
-  },
-  subFilterPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  subFilterPillActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
-  },
-  subFilterPillText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  subFilterPillTextActive: {
-    color: '#FFFFFF',
   },
 
   /* STRUCTURED CARD STYLES */
   infoSectionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 14,
+    marginBottom: 10,
     ...Platform.select({
-      web: { boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' },
-      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0, shadowRadius: 4, elevation: 0 }
     }),
   },
-  sectionCardHeaderTitle: {
+  sectionCardHeaderTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#0F172A',
+    color: design.text,
   },
   infoDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.line,
     marginVertical: 12,
   },
   infoRow: {
@@ -4644,41 +3655,41 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
-  },
-  infoLabel: {
+  flexWrap: 'wrap', columnGap: 12, rowGap: 6, },
+  infoLabel: { fontFamily: FONTS.medium.fontFamily,
     fontSize: 13,
-    color: '#64748B',
+    color: design.muted,
     fontWeight: '500',
-  },
-  infoVal: {
+  flexShrink: 1, },
+  infoVal: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#0F172A',
+    color: design.text,
     maxWidth: '65%',
     textAlign: 'right',
-  },
+  flexShrink: 1, },
   modalAvatarImg: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
   },
   infoAvatarCircle: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#0F172A',
+    backgroundColor: design.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  infoStudentName: {
+  infoStudentName: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 17,
     fontWeight: 'bold',
-    color: '#0F172A',
+    color: design.text,
   },
-  infoStudentEmail: {
+  infoStudentEmail: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 1,
   },
   /* HEADER DROPDOWN MENU STYLES */
@@ -4687,15 +3698,15 @@ const styles = StyleSheet.create({
     top: 36,
     right: 0,
     width: 200,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: design.line,
     paddingVertical: 4,
     zIndex: 99999,
     ...Platform.select({
-      web: { boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)' },
-      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 12 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 10, elevation: 0 }
     }),
   },
   headerDropdownItem: {
@@ -4704,21 +3715,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 11,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: design.line,
   },
-  headerDropdownText: {
+  headerDropdownText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#0F172A',
+    color: design.text,
   },
   /* SELECT MODE BANNER STYLES */
   selectModeBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: design.field,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: design.line,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
@@ -4728,32 +3739,32 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 6,
   },
-  selectModePillText: {
+  selectModePillText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 12,
     fontWeight: '600',
-    color: '#0F172A',
+    color: design.text,
   },
-  selectCountText: {
+  selectCountText: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: design.text,
   },
   selectActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 6,
-  },
-  selectActionText: {
-    color: '#FFFFFF',
+    borderRadius: 10,
+  minHeight: 44, },
+  selectActionText: { fontFamily: FONTS.semiBold.fontFamily,
+    color: design.text,
     fontSize: 12,
     fontWeight: '600',
   },
   closeSelectBtn: {
     padding: 4,
     marginLeft: 4,
-  },
+  borderRadius: 10, minHeight: 44, },
   /* CHECKBOX & SELECTION STYLES */
   selectCheckboxCircle: {
     width: 22,
@@ -4764,14 +3775,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
   },
   selectCheckboxCircleActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+    backgroundColor: design.accent,
+    borderColor: design.accent,
   },
   selectedCardHighlight: {
-    borderColor: '#3B82F6',
+    borderColor: design.accent,
     borderWidth: 1.5,
     backgroundColor: '#F0F9FF',
   },
@@ -4779,36 +3790,36 @@ const styles = StyleSheet.create({
   exportModalCard: {
     width: '92%',
     maxWidth: 440,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: design.surface,
+    borderRadius: 18,
     padding: 20,
     ...Platform.select({
-      web: { boxShadow: '0 12px 32px rgba(15, 23, 42, 0.2)' },
-      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 16 }
+      web: { boxShadow: 'none' },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0, shadowRadius: 16, elevation: 0 }
     }),
-  },
-  exportModalTitle: {
+  borderWidth: 1, borderColor: design.line, maxHeight: '88%', },
+  exportModalTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 17,
     fontWeight: 'bold',
-    color: '#0F172A',
+    color: design.text,
   },
-  exportModalSub: {
+  exportModalSub: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 12.5,
-    color: '#64748B',
+    color: design.muted,
     marginTop: 2,
   },
   fieldQuickBtn: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: design.field,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  fieldQuickBtnText: {
+    borderColor: design.line,
+  minHeight: 44, },
+  fieldQuickBtnText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
+    color: design.text,
   },
   fieldCheckboxRow: {
     flexDirection: 'row',
@@ -4821,8 +3832,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   fieldCheckboxRowActive: {
-    backgroundColor: '#F8FAFC',
-    borderColor: '#E2E8F0',
+    backgroundColor: design.field,
+    borderColor: design.line,
   },
   fieldBox: {
     width: 18,
@@ -4833,32 +3844,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: design.surface,
   },
   fieldBoxActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
+    backgroundColor: design.accent,
+    borderColor: design.line,
   },
-  fieldRowLabel: {
+  fieldRowLabel: { fontFamily: FONTS.regular.fontFamily,
     fontSize: 13.5,
-    color: '#475569',
+    color: design.muted,
   },
   fieldRowLabelActive: {
     fontWeight: '600',
-    color: '#0F172A',
+    color: design.text,
   },
   cancelExportBtn: {
     flex: 1,
     paddingVertical: 11,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    backgroundColor: design.field,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  cancelExportBtnText: {
+  minHeight: 44, },
+  cancelExportBtnText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#475569',
+    color: design.muted,
   },
   confirmExportBtn: {
     flex: 1.6,
@@ -4866,10 +3877,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 11,
-    borderRadius: 8,
-    backgroundColor: '#0F172A',
-  },
-  confirmExportBtnText: {
+    borderRadius: 10,
+    backgroundColor: design.accent,
+  minHeight: 44, },
+  confirmExportBtnText: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13.5,
     fontWeight: '600',
     color: '#FFFFFF',
@@ -4879,22 +3890,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#0F172A',
+    backgroundColor: design.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     height: 60,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: design.line,
   },
   whatsappHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
   },
-  whatsappHeaderTitle: {
+  whatsappHeaderTitle: { fontFamily: FONTS.bold.fontFamily,
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: design.text,
   },
   whatsappHeaderActions: {
     flexDirection: 'row',
@@ -4908,7 +3919,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   whatsappSelectedCard: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: design.accentSoft,
     borderColor: '#BBF7D0',
     borderWidth: 1,
     borderLeftWidth: 4,
@@ -4924,14 +3935,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: design.line,
   },
   whatsappCheckBadgeActive: {
     backgroundColor: '#16A34A',
   },
   whatsappCheckBadgeInactive: {
-    backgroundColor: '#F8FAFC',
-    borderColor: '#CBD5E1',
+    backgroundColor: design.field,
+    borderColor: design.line,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -4939,43 +3950,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  inputLabel: {
+  inputLabel: { fontFamily: FONTS.semiBold.fontFamily,
     fontSize: 13,
     fontWeight: '600',
-    color: '#475569',
+    color: design.muted,
     marginBottom: 6,
     marginTop: 10,
   },
-  modalInput: {
-    backgroundColor: '#F8FAFC',
+  modalInput: { fontFamily: FONTS.regular.fontFamily,
+    backgroundColor: design.field,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
+    borderColor: design.line,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 14,
-    color: '#0F172A',
-  },
+    color: design.text,
+  minHeight: 44, },
   modalFooterBtns: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 20,
     gap: 10,
-  },
-  cancelModalBtnText: {
-    color: '#64748B',
+  flexWrap: 'wrap', },
+  cancelModalBtnText: { fontFamily: FONTS.bold.fontFamily,
+    color: design.muted,
     fontWeight: 'bold',
     fontSize: 13.5,
   },
   saveModalBtn: {
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: '#0F172A',
+    borderRadius: 10,
+    backgroundColor: design.accent,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  saveModalBtnText: {
+  minHeight: 44, },
+  saveModalBtnText: { fontFamily: FONTS.bold.fontFamily,
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 13.5,

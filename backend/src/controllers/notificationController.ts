@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import Notification from '../models/Notification';
 import { AuthRequest } from '../middleware/authMiddleware';
 
@@ -24,11 +25,17 @@ export const getUnreadCount = async (req: AuthRequest, res: Response): Promise<v
 
 export const markAsRead = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    await Notification.findOneAndUpdate(
+    if (!mongoose.isValidObjectId(req.params.id)) { res.status(400).json({ message: 'Invalid notification.' }); return; }
+    const requested = req.body?.is_read;
+    if (requested !== undefined && typeof requested !== 'boolean') { res.status(400).json({ message: 'Read status must be true or false.' }); return; }
+    const isRead = requested ?? true;
+    const notification = await Notification.findOneAndUpdate(
       { _id: req.params.id, user_id: req.user._id },
-      { is_read: true }
+      { is_read: isRead },
+      { new: true }
     );
-    res.json({ message: 'Marked as read' });
+    if (!notification) { res.status(404).json({ message: 'Notification not found' }); return; }
+    res.json({ message: isRead ? 'Marked as read' : 'Marked as unread', is_read: isRead });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -68,6 +75,20 @@ export const clearAllNotifications = async (req: AuthRequest, res: Response): Pr
     res.json({ message: 'All notifications cleared' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const deleteSelectedNotifications = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const ids = req.body?.ids;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.some(id => typeof id !== 'string' || !/^[a-f\d]{24}$/i.test(id))) {
+      res.status(400).json({ message: 'Select valid notifications to delete.' });
+      return;
+    }
+    const result = await Notification.deleteMany({ user_id: req.user._id, _id: { $in: [...new Set(ids)] } });
+    res.json({ message: 'Selected notifications deleted', deleted_count: result.deletedCount });
+  } catch (error) {
+    res.status(500).json({ message: 'Notifications could not be deleted. Please try again.' });
   }
 };
 

@@ -163,6 +163,7 @@ export interface DatePickerModalProps {
   onSelectDate: (date: Date) => void;
   selectedDate?: Date;
   minDate?: Date;
+  allowPastDates?: boolean;
   isDark?: boolean;
   title?: string;
 }
@@ -173,6 +174,7 @@ export function DatePickerModal({
   onSelectDate,
   selectedDate = new Date(),
   minDate,
+  allowPastDates = false,
   isDark = false,
   title = 'Pick Practical Date',
 }: DatePickerModalProps) {
@@ -224,7 +226,8 @@ export function DatePickerModal({
     const cellDate = new Date(currentYear, currentMonth, d);
     cellDate.setHours(0, 0, 0, 0);
 
-    const isPast = minDate ? cellDate.getTime() < minDate.getTime() : cellDate.getTime() < today.getTime();
+    const minimumDay = minDate ? new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()) : today;
+    const isPast = minDate || !allowPastDates ? cellDate.getTime() < minimumDay.getTime() : false;
     const isToday = cellDate.getTime() === today.getTime();
     const isSelected =
       cellDate.getDate() === activeDate.getDate() &&

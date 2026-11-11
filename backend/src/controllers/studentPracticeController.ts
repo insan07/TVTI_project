@@ -1,204 +1,79 @@
 import { Response } from 'express';
+import mongoose from 'mongoose';
 import PracticeSlot from '../models/PracticeSlot';
 import SlotBooking from '../models/SlotBooking';
 import Enrollment from '../models/Enrollment';
 import { AuthRequest } from '../middleware/authMiddleware';
-import { sendNotification } from '../services/notificationService';
+import { ACTIVE_BOOKINGS, bookPracticalSlot, requestPracticalCancellation, bookingBlockReason, PracticalError,
+  slotTiming, slotTimes } from '../services/practicalScheduling';
+import { weekDate } from '../utils/practicalTime';
+import { practicalFailure, practicalNotification } from './practicalResponses';
 
-const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-const isPracticeSlotExpired = (slot: any): boolean => {
-  if (!slot?.week_start_date) return false;
-  const dayIdx = DAYS_LIST.indexOf(slot.day_of_week);
-  const slotActualDate = new Date(slot.week_start_date);
-  if (dayIdx !== -1) {
-    slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
-  }
-  const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
-  const slotEndDateTime = new Date(
-    slotActualDate.getUTCFullYear(),
-    slotActualDate.getUTCMonth(),
-    slotActualDate.getUTCDate(),
-    h,
-    m,
-    0,
-    0
-  );
-  return slotEndDateTime.getTime() < Date.now();
-};
-
-// GET /api/student/practice-slots?batchId=&weekStart=
 export const getOpenSlots = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { batchId, weekStart } = req.query;
-
-    const enrolled = await Enrollment.findOne({ student_id: req.user?._id, batch_id: batchId, status: 'active' });
-    if (!enrolled) { res.status(403).json({ message: 'Not enrolled in this batch' }); return; }
-
+    if (!mongoose.isValidObjectId(batchId)) throw new PracticalError(400, 'Choose a valid batch.');
+    const enrolled = await Enrollment.findOne({ student_id: req.user._id, batch_id: batchId, status: 'active' });
+    if (!enrolled) throw new PracticalError(403, 'Not enrolled in this batch.');
     const query: any = { batch_id: batchId };
     if (weekStart) {
-      const normalized = new Date(weekStart as string);
-      normalized.setUTCHours(0, 0, 0, 0);
-      query.week_start_date = normalized;
+      try {
+        const week = weekDate(weekStart);
+        query.week_start_date = { $gte: week, $lt: new Date(week.getTime() + 86_400_000) };
+      } catch (error: any) { throw new PracticalError(400, error.message); }
     }
-
-    const allBatchSlots = await PracticeSlot.find(query)
-      .populate('instructor_id', 'name')
-      .sort({ day_of_week: 1, start_time: 1 });
-
-    const allSlotIds = allBatchSlots.map(s => s._id);
-    const [counts, myBookings] = await Promise.all([
-      SlotBooking.aggregate([
-        { $match: { slot_id: { $in: allSlotIds }, status: { $in: ['confirmed', 'cancellation_requested'] } } },
-        { $group: { _id: '$slot_id', count: { $sum: 1 } } }
-      ]),
-      SlotBooking.find({ slot_id: { $in: allSlotIds }, student_id: req.user?._id, status: { $in: ['confirmed', 'cancellation_requested'] } }).select('slot_id status')
+    const all = await PracticeSlot.find(query).populate('instructor_id', 'name')
+      .populate({ path: 'batch_id', select: 'name course_id status', populate: { path: 'course_id', select: 'title' } });
+    const myBookings = await SlotBooking.find({ student_id: req.user._id, status: { $in: ACTIVE_BOOKINGS } }).populate('slot_id');
+    const mine = new Map(myBookings.filter(b => b.slot_id).map(b => [String((b.slot_id as any)._id), b.status]));
+    const counts = await SlotBooking.aggregate([
+      { $match: { slot_id: { $in: all.map(s => s._id) }, status: { $in: ACTIVE_BOOKINGS } } },
+      { $group: { _id: '$slot_id', count: { $sum: 1 } } },
     ]);
-
-    const myBookedSlotMap = new Map(myBookings.map(b => [String(b.slot_id), b.status]));
-
-    // Include open slots AND any locked slot that this student has already booked
-    const slots = allBatchSlots.filter(s => s.is_open || myBookedSlotMap.has(String(s._id)));
-
-    const result = slots.map(s => {
-      const booked = counts.find(x => String(x._id) === String(s._id))?.count || 0;
-      const expired = isPracticeSlotExpired(s);
-      return {
-        ...s.toObject(),
-        seats_taken: booked,
-        seats_available: s.max_students - booked,
-        already_booked: myBookedSlotMap.has(String(s._id)),
-        booking_status: myBookedSlotMap.get(String(s._id)) || null,
-        is_expired: expired,
-      };
-    });
-
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
+    const slots = all.filter(slot => slot.is_open || mine.has(String(slot._id)));
+    slots.sort((a, b) => slotTimes(b).start - slotTimes(a).start);
+    res.json(slots.map(slot => {
+      const count = counts.find(value => String(value._id) === String(slot._id))?.count || 0;
+      const reason = (slot.batch_id as any)?.status !== 'active' ? 'This batch is no longer active.'
+        : bookingBlockReason(slot, myBookings) || (count >= slot.max_students ? 'This practical slot is full.' : null);
+      return { ...slot.toObject(), ...slotTiming(slot), seats_taken: count, seats_available: Math.max(0, slot.max_students - count),
+        already_booked: mine.has(String(slot._id)), booking_status: mine.get(String(slot._id)) || null,
+        can_book: !reason, booking_block_reason: reason };
+    }));
+  } catch (error) { practicalFailure(res, error); }
 };
 
-// POST /api/student/practice-slots/:slotId/book
 export const bookSlot = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const slot = await PracticeSlot.findById(req.params.slotId);
-    if (!slot || !slot.is_open) { res.status(404).json({ message: 'Slot not available' }); return; }
-
-    if (isPracticeSlotExpired(slot)) {
-      res.status(400).json({ message: 'This practical slot has expired and can no longer be booked.' });
-      return;
-    }
-
-    const confirmed = await SlotBooking.countDocuments({ slot_id: slot._id, status: { $in: ['confirmed', 'cancellation_requested'] } });
-    if (confirmed >= slot.max_students) { res.status(400).json({ message: 'This slot is full' }); return; }
-
-    // One booking per week per batch rule
-    const weekSlots = await PracticeSlot.find({ batch_id: slot.batch_id, week_start_date: slot.week_start_date }).select('_id');
-    const weekSlotIds = weekSlots.map(s => s._id);
-    const alreadyBooked = await SlotBooking.findOne({
-      slot_id: { $in: weekSlotIds },
-      student_id: req.user?._id,
-      status: { $in: ['confirmed', 'cancellation_requested'] }
-    });
-    if (alreadyBooked) {
-      res.status(400).json({ message: 'You already have a session booked this week for this batch' });
-      return;
-    }
-
-    // Clean up any old cancelled record for this student+slot before creating a new booking
-    await SlotBooking.deleteMany({ slot_id: slot._id, student_id: req.user?._id, status: 'cancelled' });
-
-    const booking = await SlotBooking.create({ slot_id: slot._id, student_id: req.user?._id });
-
-    // Notify instructor
-    if (slot.instructor_id) {
-      await sendNotification({
-        userIds: [slot.instructor_id.toString()],
-        title: 'New Session Booking',
-        message: `${req.user?.name || 'A student'} booked your ${slot.day_of_week} slot (${slot.start_time} - ${slot.end_time}).`,
-        type: 'session_booked',
-        relatedId: slot._id,
-        link: '/instructor/slots'
-      });
-    }
-
-    // Notify student of booking confirmation
-    if (req.user?._id) {
-      await sendNotification({
-        userIds: [req.user._id.toString()],
-        title: 'Practical Slot Booked ✅',
-        message: `Your practical session for ${slot.day_of_week} (${slot.start_time} - ${slot.end_time})${slot.location ? ` at ${slot.location}` : ''} is confirmed.`,
-        type: 'booking_confirmed',
-        relatedId: slot._id,
-        link: '/schedule'
-      });
-    }
-
+    const { slot, booking } = await bookPracticalSlot(req.user, req.params.slotId);
+    await practicalNotification({ userIds: [String(slot.instructor_id)], title: 'New Session Booking',
+      message: `${req.user.name || 'A student'} booked ${slot.day_of_week} (${slot.start_time}–${slot.end_time}).`,
+      type: 'session_booked', relatedId: slot._id, link: '/instructor/slots' });
+    await practicalNotification({ userIds: [String(booking.student_id)], title: 'Practical Slot Booked',
+      message: `Your session on ${slot.day_of_week} (${slot.start_time}–${slot.end_time}) is confirmed.`,
+      type: 'booking_confirmed', relatedId: slot._id, link: '/schedule' });
     res.status(201).json(booking);
-  } catch (error: any) {
-    if (error.code === 11000) { res.status(400).json({ message: 'Already booked this slot' }); return; }
-    res.status(500).json({ message: 'Server error' });
-  }
+  } catch (error) { practicalFailure(res, error); }
 };
 
-// DELETE /api/student/practice-slots/:slotId/book
-// Body: { reason?: string }
 export const cancelBooking = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const slot = await PracticeSlot.findById(req.params.slotId);
-    if (slot && isPracticeSlotExpired(slot)) {
-      res.status(400).json({ message: 'Cannot cancel a booking for an expired practical slot.' });
-      return;
-    }
-    if (slot && !slot.is_open) {
-      res.status(400).json({ message: 'Cannot cancel a booking for a locked practical slot. Please contact your instructor.' });
-      return;
-    }
-
-    const { reason } = req.body || {};
-    const result = await SlotBooking.findOneAndUpdate(
-      { slot_id: req.params.slotId, student_id: req.user?._id, $or: [{ status: 'confirmed' }, { status: { $exists: false } }] },
-      { status: 'cancellation_requested', cancellation_reason: reason || '' },
-      { new: true }
-    );
-    if (!result) { res.status(404).json({ message: 'Booking not found or already pending cancellation' }); return; }
-
-    if (slot && slot.instructor_id) {
-      await sendNotification({
-        userIds: [slot.instructor_id.toString()],
-        title: 'Booking Cancellation Requested',
-        message: `${req.user?.name || 'A student'} requested to cancel their booking for ${slot.day_of_week} (${slot.start_time} - ${slot.end_time}).`,
-        type: 'booking_cancelled',
-        relatedId: slot._id,
-        link: '/instructor/slots'
-      });
-    }
-
+    const { slot } = await requestPracticalCancellation(req.user, req.params.slotId, req.body?.reason);
+    await practicalNotification({ userIds: [String(slot.instructor_id)], title: 'Booking Cancellation Requested',
+      message: `${req.user.name || 'A student'} requested cancellation for ${slot.day_of_week} (${slot.start_time}–${slot.end_time}).`,
+      type: 'booking_cancelled', relatedId: slot._id, link: '/instructor/slots' });
     res.json({ message: 'Cancellation requested' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
+  } catch (error) { practicalFailure(res, error); }
 };
 
-// GET /api/student/my-practice-bookings
 export const getMyBookings = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const bookings = await SlotBooking.find({ student_id: req.user?._id, status: { $in: ['confirmed', 'cancellation_requested'] } })
-      .populate({
-        path: 'slot_id',
-        populate: [
-          {
-            path: 'batch_id',
-            select: 'course_id',
-            populate: { path: 'course_id', select: 'title' }
-          },
-          { path: 'instructor_id', select: 'name' }
-        ]
-      })
-      .sort({ createdAt: -1 });
-    res.json(bookings);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
+    const bookings = await SlotBooking.find({ student_id: req.user._id, status: { $in: ACTIVE_BOOKINGS } })
+      .populate({ path: 'slot_id', populate: [
+        { path: 'batch_id', select: 'name course_id', populate: { path: 'course_id', select: 'title' } },
+        { path: 'instructor_id', select: 'name' },
+      ] });
+    res.json(bookings.filter(booking => booking.slot_id).sort((a, b) => slotTimes(b.slot_id).start - slotTimes(a.slot_id).start)
+      .map(booking => ({ ...booking.toObject(), slot_id: { ...(booking.slot_id as any).toObject(), ...slotTiming(booking.slot_id) } })));
+  } catch (error) { practicalFailure(res, error); }
 };

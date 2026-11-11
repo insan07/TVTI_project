@@ -6,6 +6,7 @@ import {
   markAllAsRead,
   deleteNotification,
   clearAllNotifications,
+  deleteSelectedNotifications,
   sendCustomNotification,
 } from '../controllers/notificationController';
 import { protect } from '../middleware/authMiddleware';
@@ -20,6 +21,7 @@ router.put('/mark-all-read', markAllAsRead);
 router.put('/:id/read', markAsRead);
 router.delete('/clear-all', clearAllNotifications);
 router.delete('/:id', deleteNotification);
+router.post('/delete-selected', deleteSelectedNotifications);
 router.post('/send', sendCustomNotification);
 
 export default router;

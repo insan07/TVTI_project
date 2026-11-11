@@ -10,6 +10,7 @@ export interface ScreenHeaderProps {
   title: string;
   subtitle?: string;
   showBack?: boolean;
+  plainBack?: boolean;
   onBackPress?: () => void;
   rightElement?: React.ReactNode;
   options?: MenuOption[];
@@ -22,6 +23,7 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
   title,
   subtitle,
   showBack,
+  plainBack = false,
   onBackPress,
   rightElement,
   options,
@@ -59,9 +61,12 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
       <View style={styles.headerLeftGroup}>
         {canGoBack ? (
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
             style={[
               styles.normalBackNav,
               isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' },
+              plainBack && { backgroundColor: 'transparent', borderRadius: 0 },
             ]}
             onPress={handleBack}
             activeOpacity={0.65}
