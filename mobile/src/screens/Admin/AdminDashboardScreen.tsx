@@ -26,6 +26,7 @@ import { FONTS } from '../../config/theme';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
+import NotificationBellIcon from '../../components/shared/NotificationBellIcon';
 
 export default function AdminDashboardScreen() {
   const context = useContext(AuthContext);
@@ -493,7 +494,7 @@ export default function AdminDashboardScreen() {
                 activeOpacity={0.8}
                 accessibilityLabel="View notifications"
               >
-                <Icon name="notifications-outline" size={20} color="#FFF" />
+                <NotificationBellIcon size={22} color="#FFF" />
                 {unreadCount > 0 && <View style={styles.badgeDot} />}
               </TouchableOpacity>
             </View>

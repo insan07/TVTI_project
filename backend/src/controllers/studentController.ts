@@ -7,6 +7,7 @@ import PracticeSlot from '../models/PracticeSlot';
 import { getRecentTheoryLessons } from '../services/studentVideoActivity';
 import Announcement from '../models/Announcement';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { ACTIVE_BOOKINGS, bookingBlockReason, slotTimes } from '../services/practicalScheduling';
 
 export const getMySchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -24,44 +25,12 @@ export const getMySchedule = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
-const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
 const getSlotEndTimestamp = (slot: any): number => {
-  if (!slot?.week_start_date) return 0;
-  const dayIdx = DAYS_LIST.indexOf(slot.day_of_week);
-  const slotActualDate = new Date(slot.week_start_date);
-  if (dayIdx !== -1) {
-    slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
-  }
-  const [h, m] = (slot.end_time || '23:59').split(':').map((v: string) => parseInt(v, 10) || 0);
-  return new Date(
-    slotActualDate.getUTCFullYear(),
-    slotActualDate.getUTCMonth(),
-    slotActualDate.getUTCDate(),
-    h,
-    m,
-    0,
-    0
-  ).getTime();
+  return slot?.week_start_date ? slotTimes(slot).end : 0;
 };
 
 const getSlotStartTimestamp = (slot: any): number => {
-  if (!slot?.week_start_date) return Number.MAX_SAFE_INTEGER;
-  const dayIdx = DAYS_LIST.indexOf(slot.day_of_week);
-  const slotActualDate = new Date(slot.week_start_date);
-  if (dayIdx !== -1) {
-    slotActualDate.setUTCDate(slotActualDate.getUTCDate() + dayIdx);
-  }
-  const [h, m] = (slot.start_time || '00:00').split(':').map((v: string) => parseInt(v, 10) || 0);
-  return new Date(
-    slotActualDate.getUTCFullYear(),
-    slotActualDate.getUTCMonth(),
-    slotActualDate.getUTCDate(),
-    h,
-    m,
-    0,
-    0
-  ).getTime();
+  return slot?.week_start_date ? slotTimes(slot).start : Number.MAX_SAFE_INTEGER;
 };
 
 export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -90,7 +59,7 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
         .populate('instructor_ids', 'name email phone profile_photo')
         .lean();
 
-      const confirmedBookings = await SlotBooking.find({ student_id: req.user._id, status: 'confirmed' })
+      const confirmedBookings = await SlotBooking.find({ student_id: req.user._id, status: { $in: ACTIVE_BOOKINGS } })
         .populate({
           path: 'slot_id',
           populate: [
@@ -101,7 +70,7 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
         .lean();
 
       const upcomingBookings = confirmedBookings
-        .filter((b: any) => b.slot_id && getSlotEndTimestamp(b.slot_id) >= nowMs)
+        .filter((b: any) => b.slot_id && getSlotEndTimestamp(b.slot_id) > nowMs)
         .sort((a: any, b: any) => getSlotStartTimestamp(a.slot_id) - getSlotStartTimestamp(b.slot_id));
 
       nextPracticeBooking = upcomingBookings[0] || null;
@@ -112,8 +81,14 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
           .populate('instructor_id', 'name email phone profile_photo')
           .lean();
 
+        const counts = await SlotBooking.aggregate([
+          { $match: { slot_id: { $in: openSlots.map(s => s._id) }, status: { $in: ACTIVE_BOOKINGS } } },
+          { $group: { _id: '$slot_id', count: { $sum: 1 } } },
+        ]);
+
         const upcomingOpenSlots = openSlots
-          .filter((s: any) => getSlotEndTimestamp(s) >= nowMs)
+          .filter((s: any) => !bookingBlockReason(s, confirmedBookings, nowMs)
+            && (counts.find(c => String(c._id) === String(s._id))?.count || 0) < s.max_students)
           .sort((a: any, b: any) => getSlotStartTimestamp(a) - getSlotStartTimestamp(b));
 
         nextAvailablePractice = upcomingOpenSlots[0] || null;

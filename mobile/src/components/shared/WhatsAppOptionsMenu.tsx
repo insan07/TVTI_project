@@ -24,6 +24,7 @@ export interface MenuOption {
 }
 
 export interface WhatsAppOptionsMenuProps {
+  accessibilityLabel?: string;
   options: MenuOption[];
   triggerIconColor?: string;
   triggerIconSize?: number;
@@ -37,6 +38,7 @@ export interface WhatsAppOptionsMenuProps {
 }
 
 export const WhatsAppOptionsMenu: React.FC<WhatsAppOptionsMenuProps> = ({
+  accessibilityLabel = 'Open options',
   options,
   triggerIconColor,
   triggerIconSize = 22,
@@ -147,6 +149,9 @@ export const WhatsAppOptionsMenu: React.FC<WhatsAppOptionsMenuProps> = ({
     <View ref={triggerRef} collapsable={false}>
       {!isControlled && (
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          accessibilityState={{ expanded: isVisible }}
           style={[
             styles.triggerBtn,
             isVisible && (isDark ? { backgroundColor: 'rgba(255, 255, 255, 0.1)' } : styles.triggerBtnActive),
@@ -187,6 +192,9 @@ export const WhatsAppOptionsMenu: React.FC<WhatsAppOptionsMenuProps> = ({
                 {options.map((option, index) => (
                   <Pressable
                     key={option.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={option.label}
+                    accessibilityState={{ disabled: !!option.disabled }}
                     style={({ pressed }) => [
                       styles.menuItem,
                       pressed && (isDark ? { backgroundColor: 'rgba(255, 255, 255, 0.08)' } : styles.menuItemPressed),

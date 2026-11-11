@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
+import NotificationBellIcon from '../../components/shared/NotificationBellIcon';
 import StudentHomeCard, { studentHomeCardStyles } from '../../components/student/StudentHomeCard';
 import AnnouncementRow from '../../components/student/AnnouncementRow';
 import { communicationTheme } from '../../components/shared/communicationTheme';
@@ -215,7 +216,7 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
               style={styles.bellBtn}
               onPress={() => navigation.navigate('Notifications')}
             >
-              <Icon name="notifications-outline" size={20} color="#FFF" />
+              <NotificationBellIcon size={22} color="#FFF" />
               {unreadCount > 0 && <View style={styles.badgeDot} />}
             </TouchableOpacity>
           </View>
