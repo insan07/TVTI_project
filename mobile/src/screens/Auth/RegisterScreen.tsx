@@ -1,19 +1,6 @@
+import { KeyboardScrollView as ScrollView, KeyboardAvoidingView } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
-  Linking,
-  Keyboard,
-  useWindowDimensions
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Platform, Image, Linking, Keyboard, useWindowDimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';

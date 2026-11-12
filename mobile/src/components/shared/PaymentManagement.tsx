@@ -1,5 +1,6 @@
+import { KeyboardTextInput as TextInput } from './KeyboardForm';
 import React from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { FONTS } from '../../config/theme';
 import { useTheme } from '../../context/ThemeContext';

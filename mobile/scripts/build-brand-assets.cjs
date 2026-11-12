@@ -10,10 +10,10 @@ async function launcher(name, size, backgroundColor) {
   fs.writeFileSync(path.join(projectRoot, 'assets', name), image);
 }
 (async () => {
-  await launcher('icon.png', 880, '#111111');
+  await launcher('icon.png', 880, '#FFFFFF');
   // The full crest (including the ribbon) stays within Android's 66/108 circular safe zone.
   await launcher('adaptive-icon.png', 520, '#00000000');
-  // Native splash uses the transparent original crest; no white box during launch.
+  // Keep the original transparent crest over the white native splash background.
   fs.copyFileSync(path.join(projectRoot, 'assets/logo.png'), path.join(projectRoot, 'assets/splash-icon.png'));
   console.log('Generated launcher, adaptive foreground, and native splash assets.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

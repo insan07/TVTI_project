@@ -1,17 +1,6 @@
+import { KeyboardAvoidingView } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  useWindowDimensions,
-  Keyboard,
-  Alert
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Platform, useWindowDimensions, Keyboard, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthGlassSurface, authGlassStyles } from '../../components/shared/AuthGlassSurface';

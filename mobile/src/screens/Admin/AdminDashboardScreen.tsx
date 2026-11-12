@@ -1,20 +1,6 @@
+import { KeyboardScrollView as ScrollView, KeyboardTextInput as TextInput, KeyboardAvoidingView } from '../../components/shared/KeyboardForm';
 import React, { useState, useContext, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Image,
-  Modal,
-  FlatList,
-  Platform,
-  TextInput,
-  Switch,
-  KeyboardAvoidingView,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, Image, Modal, FlatList, Platform, Switch } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1220,7 +1206,7 @@ export default function AdminDashboardScreen() {
             </ScrollView>
           )}
           {activeToolsTab !== 'settings' && !toolsComposer && <TouchableOpacity accessibilityRole="button" accessibilityLabel={activeToolsTab === 'news' ? 'Add website news' : 'Add gallery item'} onPress={() => { setToolsComposer(true); toolsControls.show(); }} style={[managementStyles.fab, { bottom: Math.max(16, insets.bottom + 12) }]}><Icon name="add" size={28} color="#FFFFFF" /></TouchableOpacity>}
-          <ManagementSheet visible={!!toolsDelete} title="Delete website content?" busy={toolsDeleting} onClose={() => setToolsDelete(null)} footer={<><ManagementButton title="Cancel" secondary disabled={toolsDeleting} onPress={() => setToolsDelete(null)} /><ManagementButton title="Delete" busy={toolsDeleting} onPress={async () => { if (!toolsDelete || toolsDeleting) return; setToolsDeleting(true); try { if (toolsDelete.type === 'news') await handleDeleteNews(toolsDelete.id); else await handleDeleteGallery(toolsDelete.id); } finally { setToolsDelete(null); setToolsDeleting(false); } }} /></>}><Text style={{ ...FONTS.regular, fontSize: 14, lineHeight: 22, color: theme.text }}>Remove “{toolsDelete?.title}” from the public website?</Text></ManagementSheet>
+          <ManagementSheet visible={!!toolsDelete} title="Delete website content?" busy={toolsDeleting} onClose={() => setToolsDelete(null)} footer={<><ManagementButton title="Cancel" secondary disabled={toolsDeleting} onPress={() => setToolsDelete(null)} /><ManagementButton title="Delete" busy={toolsDeleting} onPress={async () => { if (!toolsDelete || toolsDeleting) return; setToolsDeleting(true); try { if (toolsDelete.type === 'news') await handleDeleteNews(toolsDelete.id); else await handleDeleteGallery(toolsDelete.id); } finally { setToolsDelete(null); setToolsDeleting(false); } }} /></>}><Text style={{ ...FONTS.regular, fontSize: 14, lineHeight: 22, color: theme.text }}>Remove "{toolsDelete?.title}" from the public website?</Text></ManagementSheet>
           <ManagementSheet visible={toolsSearchOpen} title="Search website content" onClose={() => setToolsSearchOpen(false)} footer={<ManagementButton title="Done" onPress={() => setToolsSearchOpen(false)} />}>
             <ManagementSearch value={toolsSearch} onChangeText={setToolsSearch} placeholder="Search published items" />
           </ManagementSheet>

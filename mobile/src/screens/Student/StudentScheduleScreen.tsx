@@ -1,13 +1,7 @@
+import { KeyboardAvoidingView, KeyboardScrollView as ScrollView } from "../../components/shared/KeyboardForm";
+import { KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  TouchableWithoutFeedback,
-  TextInput,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getOpenPracticeSlots, bookPracticeSlot, cancelPracticeBooking } from '../../services/practiceService';
 import api from '../../services/api';
@@ -171,53 +165,57 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
         animationType="fade"
         onRequestClose={() => setCancelModalVisible(false)}
       >
+<KeyboardAvoidingView style={{ flex: 1 }}>
         <TouchableWithoutFeedback onPress={() => setCancelModalVisible(false)}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
-              <View style={[styles.modalContent, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }, { maxWidth: 400 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Cancel Booking</Text>
-                  <TouchableOpacity onPress={() => setCancelModalVisible(false)} style={{ padding: 6 }}>
-                    <Icon name="close" size={24} color={isDark ? '#94A3B8' : '#666'} />
-                  </TouchableOpacity>
-                </View>
+              <View style={[[styles.modalContent, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }, { maxWidth: 400 }], { maxHeight: '100%', flexShrink: 1 }]}>
+<ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Cancel Booking</Text>
+                    <TouchableOpacity onPress={() => setCancelModalVisible(false)} style={{ padding: 6 }}>
+                      <Icon name="close" size={24} color={isDark ? '#94A3B8' : '#666'} />
+                    </TouchableOpacity>
+                  </View>
 
-                <Text style={{ fontSize: 14, color: isDark ? '#94A3B8' : '#666', marginBottom: 15 }}>
-                  Are you sure you want to cancel this practice session? Please provide a reason for the instructor.
-                </Text>
+                  <Text style={{ fontSize: 14, color: isDark ? '#94A3B8' : '#666', marginBottom: 15 }}>
+                    Are you sure you want to cancel this practice session? Please provide a reason for the instructor.
+                  </Text>
 
-                <TextInput
-                  style={[
-                    { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, height: 80, textAlignVertical: 'top', padding: 12, fontSize: 14, color: '#1F2937' },
-                    isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.12)', color: '#FFFFFF' }
-                  ]}
-                  placeholder="Reason for cancellation (optional)"
-                  placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
-                  multiline
-                  numberOfLines={3}
-                  value={cancelReason}
-                  onChangeText={setCancelReason}
-                />
+                  <TextInput
+                    style={[
+                      { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, height: 80, textAlignVertical: 'top', padding: 12, fontSize: 14, color: '#1F2937' },
+                      isDark && { backgroundColor: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.12)', color: '#FFFFFF' }
+                    ]}
+                    placeholder="Reason for cancellation (optional)"
+                    placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                    multiline
+                    numberOfLines={3}
+                    value={cancelReason}
+                    onChangeText={setCancelReason}
+                  />
 
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
-                  <TouchableOpacity
-                    style={{ padding: 10, marginRight: 15 }}
-                    onPress={() => setCancelModalVisible(false)}
-                  >
-                    <Text style={{ color: isDark ? '#94A3B8' : '#666', ...FONTS.bold }}>Keep Booking</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={{ backgroundColor: '#F58220', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
-                    onPress={confirmCancelBooking}
-                  >
-                    <Text style={{ color: '#FFF', ...FONTS.bold }}>Submit Request</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
+                    <TouchableOpacity
+                      style={{ padding: 10, marginRight: 15 }}
+                      onPress={() => setCancelModalVisible(false)}
+                    >
+                      <Text style={{ color: isDark ? '#94A3B8' : '#666', ...FONTS.bold }}>Keep Booking</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#F58220', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+                      onPress={confirmCancelBooking}
+                    >
+                      <Text style={{ color: '#FFF', ...FONTS.bold }}>Submit Request</Text>
+                    </TouchableOpacity>
+                  </View>
+              </ScrollView>
+</View>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
-      </Modal>
+      </KeyboardAvoidingView>
+</Modal>
 
       {/* ALERT MODAL */}
       <Modal visible={alertModal.visible} animationType="fade" transparent>

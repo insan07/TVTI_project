@@ -1,9 +1,6 @@
+import { KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useState, useRef, useCallback } from 'react';
-import {
-  View, Text, StyleSheet, FlatList, ActivityIndicator,
-  TextInput, TouchableOpacity, RefreshControl, Modal,
-  Animated, NativeSyntheticEvent, NativeScrollEvent
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl, Modal, Animated, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useRoute, useFocusEffect, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../services/api';

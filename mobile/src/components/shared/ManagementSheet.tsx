@@ -1,5 +1,6 @@
+import { KeyboardAvoidingView, KeyboardScrollView as ScrollView } from './KeyboardForm';
 import React from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { FONTS } from '../../config/theme';
 import { useTheme } from '../../context/ThemeContext';

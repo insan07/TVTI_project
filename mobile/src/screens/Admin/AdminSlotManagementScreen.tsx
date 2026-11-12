@@ -1,23 +1,7 @@
+import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
+import { KeyboardScrollView as ScrollView, KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Modal,
-  FlatList,
-  RefreshControl,
-  Platform,
-  Animated,
-  LayoutAnimation,
-  UIManager,
-  NativeSyntheticEvent,
-  NativeScrollEvent
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal, FlatList, RefreshControl, Platform, Animated, LayoutAnimation, UIManager, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import {
   PickerField,
   DatePickerModal,
@@ -651,6 +635,7 @@ export default function AdminSlotManagementScreen() {
 
       {/* CREATE PRACTICAL SLOT POPUP MODAL */}
       <Modal visible={createModalVisible} animationType="slide" transparent onRequestClose={() => setCreateModalVisible(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }}>
         <View style={styles.createModalOverlay}>
           <View style={styles.createModalCard}>
             <View style={styles.modalHeaderRow}>
@@ -931,7 +916,8 @@ export default function AdminSlotManagementScreen() {
             </ScrollView>
           </View>
         </View>
-      </Modal>
+      </KeyboardAvoidingView>
+</Modal>
 
       {/* FILTERS MODAL */}
       <Modal visible={showFilter} animationType="slide" transparent>
@@ -1190,58 +1176,62 @@ export default function AdminSlotManagementScreen() {
 
       {/* EDIT SLOT MODAL */}
       <Modal visible={editModalVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView style={{ flex: 1 }}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Practical Slot</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <Icon name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.fieldLabel}>ASSIGNED INSTRUCTOR</Text>
-            <View style={styles.pillsWrap}>
-              {instructors.map(inst => (
-                <TouchableOpacity
-                  key={inst._id}
-                  style={[styles.selectPill, editInstructorId === inst._id && styles.selectPillActive]}
-                  onPress={() => setEditInstructorId(inst._id)}
-                >
-                  <Text style={editInstructorId === inst._id ? styles.selectPillTextActive : styles.selectPillText}>
-                    Inst. {inst.name}
-                  </Text>
+          <View style={[styles.modalContent, { maxHeight: '100%', flexShrink: 1 }]}>
+            <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Practical Slot</Text>
+                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                  <Icon name="close" size={24} color="#6B7280" />
                 </TouchableOpacity>
-              ))}
-            </View>
+              </View>
 
-            <Text style={styles.fieldLabel}>MAX CAPACITY (STUDENTS)</Text>
-            <TextInput
-              style={styles.textInputBox}
-              keyboardType="numeric"
-              value={editMaxStudents}
-              onChangeText={setEditMaxStudents}
-            />
+              <Text style={styles.fieldLabel}>ASSIGNED INSTRUCTOR</Text>
+              <View style={styles.pillsWrap}>
+                {instructors.map(inst => (
+                  <TouchableOpacity
+                    key={inst._id}
+                    style={[styles.selectPill, editInstructorId === inst._id && styles.selectPillActive]}
+                    onPress={() => setEditInstructorId(inst._id)}
+                  >
+                    <Text style={editInstructorId === inst._id ? styles.selectPillTextActive : styles.selectPillText}>
+                      Inst. {inst.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-            <Text style={styles.fieldLabel}>LOCATION</Text>
-            <TextInput
-              style={styles.textInputBox}
-              value={editLocation}
-              onChangeText={setEditLocation}
-            />
+              <Text style={styles.fieldLabel}>MAX CAPACITY (STUDENTS)</Text>
+              <TextInput
+                style={styles.textInputBox}
+                keyboardType="numeric"
+                value={editMaxStudents}
+                onChangeText={setEditMaxStudents}
+              />
 
-            <Text style={styles.fieldLabel}>EQUIPMENT NOTE</Text>
-            <TextInput
-              style={[styles.textInputBox, { marginBottom: 20 }]}
-              value={editEquipmentNote}
-              onChangeText={setEditEquipmentNote}
-            />
+              <Text style={styles.fieldLabel}>LOCATION</Text>
+              <TextInput
+                style={styles.textInputBox}
+                value={editLocation}
+                onChangeText={setEditLocation}
+              />
 
-            <TouchableOpacity style={[styles.submitCreateBtn, { flex: 0, width: '100%', minHeight: 48, marginTop: 12 }]} onPress={handleSaveEdit} disabled={editSaving}>
-              {editSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitCreateBtnText}>Save Changes</Text>}
-            </TouchableOpacity>
-          </View>
+              <Text style={styles.fieldLabel}>EQUIPMENT NOTE</Text>
+              <TextInput
+                style={[styles.textInputBox, { marginBottom: 20 }]}
+                value={editEquipmentNote}
+                onChangeText={setEditEquipmentNote}
+              />
+
+              <TouchableOpacity style={[styles.submitCreateBtn, { flex: 0, width: '100%', minHeight: 48, marginTop: 12 }]} onPress={handleSaveEdit} disabled={editSaving}>
+                {editSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitCreateBtnText}>Save Changes</Text>}
+              </TouchableOpacity>
+          </ScrollView>
+</View>
         </View>
-      </Modal>
+      </KeyboardAvoidingView>
+</Modal>
 
       {/* CUSTOM IN-APP CONFIRMATION POPUP MODAL */}
       <Modal
