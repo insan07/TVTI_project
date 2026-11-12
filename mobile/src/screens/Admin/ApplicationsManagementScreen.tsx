@@ -1,19 +1,7 @@
+import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
+import { KeyboardScrollView as ScrollView, KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useMemo, useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Modal,
-  ScrollView,
-  Platform,
-  TextInput,
-  Share,
-  Keyboard
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Platform, Share, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import api from '../../services/api';
 import { FONTS } from '../../config/theme';
@@ -666,7 +654,8 @@ export default function ApplicationsManagementScreen({
   const renderContentBody = () => {
     if (selectedAppForReview) {
       return (
-        <Modal visible transparent animationType="slide" onRequestClose={handleCloseApplicationFlow}><View style={{ flex: 1 }}>
+        <Modal visible transparent animationType="slide" onRequestClose={handleCloseApplicationFlow}>
+          <KeyboardAvoidingView style={{ flex: 1 }}><View style={{ flex: 1 }}>
           <View style={[StyleSheet.absoluteFill, { display: (Boolean(selectedAppForReview) && reviewModalVisible) ? 'flex' : 'none' }]}>
             <View style={styles.modalOverlay}>
               <View style={[styles.modalCard, { height: '88%', width: '92%', maxWidth: 650, padding: 0, overflow: 'hidden' }]}>
@@ -1011,87 +1000,90 @@ export default function ApplicationsManagementScreen({
           {/* REJECTION REASON INPUT MODAL */}
           <View style={[StyleSheet.absoluteFill, { display: (rejectReasonModalVisible) ? 'flex' : 'none' }]}>
             <View style={styles.modalOverlay}>
-              <View style={styles.rejectModalCard}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: design.dangerSoft, justifyContent: 'center', alignItems: 'center' }}>
-                      <Icon name="close-circle" size={20} color={design.accent} />
+              <View style={[styles.rejectModalCard, { maxHeight: '100%', flexShrink: 1 }]}>
+                <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: design.dangerSoft, justifyContent: 'center', alignItems: 'center' }}>
+                        <Icon name="close-circle" size={20} color={design.accent} />
+                      </View>
+                      <View>
+                        <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 18, fontWeight: '700', color: design.text }}>Reject Application</Text>
+                        <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 12, color: design.muted }}>{selectedAppForReview?.full_name}</Text>
+                      </View>
                     </View>
-                    <View>
-                      <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 18, fontWeight: '700', color: design.text }}>Reject Application</Text>
-                      <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 12, color: design.muted }}>{selectedAppForReview?.full_name}</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity accessibilityRole="button" onPress={() => { setRejectReasonModalVisible(false); setReviewModalVisible(true); }}>
-                    <Icon name="close" size={22} color={design.muted} />
-                  </TouchableOpacity>
-                </View>
-
-                <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted, marginBottom: 12, lineHeight: 18 }}>
-                  Please specify the reason for rejecting this application. This explanation will be sent directly to the applicant's email address.
-                </Text>
-
-                {/* Quick Reason Chips */}
-                <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 11.5, fontWeight: '700', color: design.muted, marginBottom: 8, textTransform: 'uppercase' }}>Quick Presets:</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-                  {[
-                    'Incomplete / Unclear Documents',
-                    'Invalid Payment Deposit Slip',
-                    'Does Not Meet Entry Criteria',
-                    'Duplicate Application Request'
-                  ].map(preset => (
-                    <TouchableOpacity accessibilityRole="button"                       key={preset}
-                      style={[
-                        styles.presetChip,
-                        rejectionReasonText === preset && styles.presetChipActive
-                      ]}
-                      onPress={() => setRejectionReasonText(preset)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.presetChipText, rejectionReasonText === preset && styles.presetChipTextActive]}>
-                        {preset}
-                      </Text>
+                    <TouchableOpacity accessibilityRole="button" onPress={() => { setRejectReasonModalVisible(false); setReviewModalVisible(true); }}>
+                      <Icon name="close" size={22} color={design.muted} />
                     </TouchableOpacity>
-                  ))}
-                </View>
+                  </View>
 
-                <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 11.5, fontWeight: '700', color: design.muted, marginBottom: 6, textTransform: 'uppercase' }}>Reason / Remarks:</Text>
-                <TextInput
-                  style={styles.rejectionTextInput}
-                  placeholder="Type specific rejection reason here..."
-                  placeholderTextColor={design.muted}
-                  accessibilityLabel="Application rejection reason" value={rejectionReasonText}
-                  onChangeText={setRejectionReasonText}
-                  multiline={true}
-                  numberOfLines={3}
-                />
+                  <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted, marginBottom: 12, lineHeight: 18 }}>
+                    Please specify the reason for rejecting this application. This explanation will be sent directly to the applicant's email address.
+                  </Text>
 
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
-                  <TouchableOpacity accessibilityRole="button"                     style={[styles.modalBtn, { backgroundColor: design.field, flex: 1 }]}
-                    onPress={() => { setRejectReasonModalVisible(false); setReviewModalVisible(true); }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={{ fontFamily: FONTS.semiBold.fontFamily,  color: design.muted, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
-                  </TouchableOpacity>
+                  {/* Quick Reason Chips */}
+                  <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 11.5, fontWeight: '700', color: design.muted, marginBottom: 8, textTransform: 'uppercase' }}>Quick Presets:</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                    {[
+                      'Incomplete / Unclear Documents',
+                      'Invalid Payment Deposit Slip',
+                      'Does Not Meet Entry Criteria',
+                      'Duplicate Application Request'
+                    ].map(preset => (
+                      <TouchableOpacity accessibilityRole="button"                       key={preset}
+                        style={[
+                          styles.presetChip,
+                          rejectionReasonText === preset && styles.presetChipActive
+                        ]}
+                        onPress={() => setRejectionReasonText(preset)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.presetChipText, rejectionReasonText === preset && styles.presetChipTextActive]}>
+                          {preset}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
 
-                  <TouchableOpacity accessibilityRole="button"                     style={[styles.modalBtn, { backgroundColor: design.accent, flex: 1.5 }]}
-                    onPress={() => processReject(selectedAppForReview?._id, rejectionReasonText)}
-                    disabled={rejectingId !== null}
-                    activeOpacity={0.85}
-                  >
-                    {rejectingId ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <Text style={{ fontFamily: FONTS.bold.fontFamily,  color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Send Rejection Email</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
+                  <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 11.5, fontWeight: '700', color: design.muted, marginBottom: 6, textTransform: 'uppercase' }}>Reason / Remarks:</Text>
+                  <TextInput
+                    style={styles.rejectionTextInput}
+                    placeholder="Type specific rejection reason here..."
+                    placeholderTextColor={design.muted}
+                    accessibilityLabel="Application rejection reason" value={rejectionReasonText}
+                    onChangeText={setRejectionReasonText}
+                    multiline={true}
+                    numberOfLines={3}
+                  />
+
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                    <TouchableOpacity accessibilityRole="button"                     style={[styles.modalBtn, { backgroundColor: design.field, flex: 1 }]}
+                      onPress={() => { setRejectReasonModalVisible(false); setReviewModalVisible(true); }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontFamily: FONTS.semiBold.fontFamily,  color: design.muted, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity accessibilityRole="button"                     style={[styles.modalBtn, { backgroundColor: design.accent, flex: 1.5 }]}
+                      onPress={() => processReject(selectedAppForReview?._id, rejectionReasonText)}
+                      disabled={rejectingId !== null}
+                      activeOpacity={0.85}
+                    >
+                      {rejectingId ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={{ fontFamily: FONTS.bold.fontFamily,  color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Send Rejection Email</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+              </ScrollView>
+</View>
             </View>
           </View>
 
           {renderFlowDialogs(true)}
-        </View></Modal>
+        </View></KeyboardAvoidingView>
+</Modal>
       );
     }
 

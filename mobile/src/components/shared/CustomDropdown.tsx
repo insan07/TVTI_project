@@ -1,14 +1,7 @@
+import { KeyboardAvoidingView } from "./KeyboardForm";
+import { KeyboardTextInput as TextInput } from './KeyboardForm';
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-  FlatList,
-  TextInput,
-  ViewStyle
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, ViewStyle } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, RADIUS, SPACING, SHADOW } from '../../config/theme';
 import { useTheme } from '../../context/ThemeContext';
@@ -112,6 +105,7 @@ export default function CustomDropdown({
       </TouchableOpacity>
 
       <Modal visible={modalVisible} animationType="fade" transparent={true} onRequestClose={() => setModalVisible(false)}>
+<KeyboardAvoidingView style={{ flex: 1 }}>
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
@@ -154,7 +148,7 @@ export default function CustomDropdown({
             ) : null}
 
             {/* Options List */}
-            <FlatList
+            <FlatList keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
               data={filteredItems}
               keyExtractor={item => item.value}
               style={{ maxHeight: 320 }}
@@ -205,7 +199,8 @@ export default function CustomDropdown({
             />
           </TouchableOpacity>
         </TouchableOpacity>
-      </Modal>
+      </KeyboardAvoidingView>
+</Modal>
     </View>
   );
 }
@@ -270,6 +265,8 @@ const defaultStyles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 420,
+    maxHeight: '100%',
+    flexShrink: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,

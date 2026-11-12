@@ -1,17 +1,7 @@
+import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
+import { KeyboardTextInput as TextInput, KeyboardScrollView as ScrollView } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  FlatList,
-  Alert,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  ScrollView,
-  Platform
-} from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, FlatList, Alert, TouchableOpacity, Modal, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import api from '../../services/api';
@@ -365,6 +355,7 @@ export default function ManageResultsScreen() {
       {/* STUDENT EVALUATION & ADD MARKS MODAL */}
       {/* ========================================================================= */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
+        <KeyboardAvoidingView style={{ flex: 1 }}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
             <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
@@ -468,7 +459,8 @@ export default function ManageResultsScreen() {
             </ScrollView>
           </View>
         </View>
-      </Modal>
+      </KeyboardAvoidingView>
+</Modal>
     </SafeAreaView>
   );
 }

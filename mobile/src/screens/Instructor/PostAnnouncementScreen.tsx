@@ -125,7 +125,7 @@ export default function PostAnnouncementScreen() {
       <ManagementField label="Message" value={form.message} onChangeText={message => setForm(previous => ({ ...previous, message }))} multiline placeholder="Write your announcement" />
       {!!formError && <Text accessibilityRole="alert" style={styles.error}>{formError}</Text>}
     </ManagementSheet>
-    <ManagementSheet visible={!!deleting} title="Delete announcement?" busy={busy} onClose={() => setDeleting(null)} footer={<><ManagementButton title="Cancel" secondary disabled={busy} onPress={() => setDeleting(null)} /><ManagementButton title="Delete" busy={busy} onPress={remove} /></>}><Text style={[styles.message, { color: theme.text }]}>Remove ì{deleting?.title}î from the selected studentsí announcements?</Text></ManagementSheet>
+    <ManagementSheet visible={!!deleting} title="Delete announcement?" busy={busy} onClose={() => setDeleting(null)} footer={<><ManagementButton title="Cancel" secondary disabled={busy} onPress={() => setDeleting(null)} /><ManagementButton title="Delete" busy={busy} onPress={remove} /></>}><Text style={[styles.message, { color: theme.text }]}>Remove ‚Äú{deleting?.title}‚Äù from the selected students‚Äô announcements?</Text></ManagementSheet>
     <ManagementSheet visible={!!feedback} title={feedback?.title || ''} onClose={() => setFeedback(null)} footer={<ManagementButton title="Done" onPress={() => setFeedback(null)} />}><Text style={[styles.message, { color: theme.text }]}>{feedback?.message}</Text></ManagementSheet>
   </View>;
 }

@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#111111"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
@@ -31,12 +31,12 @@
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#111111"
+        "backgroundColor": "#FFFFFF"
       },
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
-        "backgroundColor": "#111111"
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
@@ -76,9 +76,9 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#111111",
+          "backgroundColor": "#FFFFFF",
           "dark": {
-            "backgroundColor": "#111111",
+            "backgroundColor": "#FFFFFF",
             "image": "./assets/splash-icon.png"
           }
         }
@@ -96,6 +96,7 @@
       "eas": {
         "projectId": "d81fd55d-4476-433d-b4d2-2fd051c61361"
       }
-    }
+    },
+    "backgroundColor": "#FFFFFF"
   }
 }

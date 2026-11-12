@@ -1,8 +1,7 @@
+import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
+import { KeyboardScrollView as ScrollView, KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput,
-  ActivityIndicator, Modal, RefreshControl, Platform, Animated
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, RefreshControl, Platform, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -461,6 +460,7 @@ export default function PracticeSessionsScreen() {
 
       {/* POP-UP MODAL FOR CREATE SLOT */}
       <Modal visible={createModalVisible} animationType="slide" transparent={true}>
+        <KeyboardAvoidingView style={{ flex: 1 }}>
         <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
           <View style={[styles.modalCard, isDark && styles.modalCardDark]}>
             <View style={[styles.modalHeaderRow, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.10)' }]}>
@@ -469,7 +469,7 @@ export default function PracticeSessionsScreen() {
                 <Icon name="close" size={20} color={isDark ? '#FFFFFF' : '#4B5563'} />
               </TouchableOpacity>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 520 }}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }}>
               <Text style={[styles.createFormSubtitle, isDark && { color: '#A89F93' }]}>Add a new practical training session</Text>
 
               <View style={styles.formGroup}>
@@ -563,7 +563,8 @@ export default function PracticeSessionsScreen() {
             </ScrollView>
           </View>
         </View>
-      </Modal>
+      </KeyboardAvoidingView>
+</Modal>
 
       <Modal visible={showFilter} animationType="slide" transparent>
         <View style={styles.filterModalOverlay}>
@@ -599,27 +600,31 @@ export default function PracticeSessionsScreen() {
 
       {/* EDIT MODAL */}
       <Modal visible={editModalVisible} animationType="fade" transparent>
+        <KeyboardAvoidingView style={{ flex: 1 }}>
         <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
-          <View style={[styles.modalContent, isDark && styles.modalCardDark]}>
-            <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Edit Slot</Text>
-            <Text style={[styles.label, isDark && { color: '#D4CAC0' }]}>Capacity</Text>
-            <TextInput style={[styles.textInputBox, isDark && styles.textInputBoxDark]} value={editMaxStudents} onChangeText={setEditMaxStudents} keyboardType="numeric" placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
-            <Text style={[styles.label, { marginTop: 12 }, isDark && { color: '#D4CAC0' }]}>Location</Text>
-            <TextInput style={[styles.textInputBox, isDark && styles.textInputBoxDark]} value={editLocation} onChangeText={setEditLocation} placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
-            <Text style={[styles.label, { marginTop: 12 }, isDark && { color: '#D4CAC0' }]}>Notes</Text>
-            <TextInput style={[styles.textInputBox, { height: 80, textAlignVertical: 'top' }, isDark && styles.textInputBoxDark]} value={editEquipmentNote} onChangeText={setEditEquipmentNote} multiline placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
+          <View style={[[styles.modalContent, isDark && styles.modalCardDark], { maxHeight: '100%', flexShrink: 1 }]}>
+            <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
+              <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Edit Slot</Text>
+              <Text style={[styles.label, isDark && { color: '#D4CAC0' }]}>Capacity</Text>
+              <TextInput style={[styles.textInputBox, isDark && styles.textInputBoxDark]} value={editMaxStudents} onChangeText={setEditMaxStudents} keyboardType="numeric" placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
+              <Text style={[styles.label, { marginTop: 12 }, isDark && { color: '#D4CAC0' }]}>Location</Text>
+              <TextInput style={[styles.textInputBox, isDark && styles.textInputBoxDark]} value={editLocation} onChangeText={setEditLocation} placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
+              <Text style={[styles.label, { marginTop: 12 }, isDark && { color: '#D4CAC0' }]}>Notes</Text>
+              <TextInput style={[styles.textInputBox, { height: 80, textAlignVertical: 'top' }, isDark && styles.textInputBoxDark]} value={editEquipmentNote} onChangeText={setEditEquipmentNote} multiline placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.cancelBtn, isDark && styles.cancelBtnDark]} onPress={() => setEditModalVisible(false)}>
-                <Text style={[styles.cancelBtnText, isDark && { color: '#A89F93' }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.submitBtn, { backgroundColor: '#FF5E14' }]} onPress={saveEditSlot} disabled={editSaving}>
-                {editSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Save Changes</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={[styles.cancelBtn, isDark && styles.cancelBtnDark]} onPress={() => setEditModalVisible(false)}>
+                  <Text style={[styles.cancelBtnText, isDark && { color: '#A89F93' }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.submitBtn, { backgroundColor: '#FF5E14' }]} onPress={saveEditSlot} disabled={editSaving}>
+                  {editSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Save Changes</Text>}
+                </TouchableOpacity>
+              </View>
+          </ScrollView>
+</View>
         </View>
-      </Modal>
+      </KeyboardAvoidingView>
+</Modal>
 
       {/* BOOKINGS (STUDENTS) MODAL */}
       <Modal visible={bookingsModalVisible} animationType="fade" transparent>
@@ -759,6 +764,9 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalCard: {
+    maxHeight: '100%',
+    flexShrink: 1,
+    overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 20,

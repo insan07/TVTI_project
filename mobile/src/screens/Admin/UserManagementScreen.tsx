@@ -1,20 +1,7 @@
+import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
+import { KeyboardTextInput as TextInput, KeyboardScrollView as ScrollView } from '../../components/shared/KeyboardForm';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-  Platform,
-  Image,
-  LayoutAnimation,
-  UIManager,
-  Share
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Platform, Image, LayoutAnimation, UIManager, Share } from 'react-native';
 import api from '../../services/api';
 import useScrollAwareControls from '../../hooks/useScrollAwareControls';
 import ScrollAwareControls from '../../components/shared/ScrollAwareControls';
@@ -1490,65 +1477,69 @@ export default function UserManagementScreen() {
 
       {/* Add Instructor Modal */}
       <Modal visible={instructorModalVisible} animationType="slide" transparent={true} onRequestClose={() => setInstructorModalVisible(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Add Instructor</Text>
-            <Text style={styles.label}>Name *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Inst. Miller"
-              accessibilityLabel="Instructor name" value={instructorForm.name}
-              onChangeText={v => setInstructorForm({ ...instructorForm, name: v })}
-            />
+          <View style={[styles.modalCard, { maxHeight: '100%', flexShrink: 1 }]}>
+            <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
+              <Text style={styles.modalTitle}>Add Instructor</Text>
+              <Text style={styles.label}>Name *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Inst. Miller"
+                accessibilityLabel="Instructor name" value={instructorForm.name}
+                onChangeText={v => setInstructorForm({ ...instructorForm, name: v })}
+              />
 
-            <Text style={styles.label}>Email *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. miller@gmail.com"
-              accessibilityLabel="Instructor email" value={instructorForm.email}
-              onChangeText={v => setInstructorForm({ ...instructorForm, email: v })}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
+              <Text style={styles.label}>Email *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. miller@gmail.com"
+                accessibilityLabel="Instructor email" value={instructorForm.email}
+                onChangeText={v => setInstructorForm({ ...instructorForm, email: v })}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
 
-            <Text style={styles.label}>NIC Number *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 199912345678 or 991234567V"
-              accessibilityLabel="Instructor nic" value={instructorForm.nic}
-              onChangeText={v => setInstructorForm({ ...instructorForm, nic: v })}
-              autoCapitalize="characters"
-            />
+              <Text style={styles.label}>NIC Number *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 199912345678 or 991234567V"
+                accessibilityLabel="Instructor nic" value={instructorForm.nic}
+                onChangeText={v => setInstructorForm({ ...instructorForm, nic: v })}
+                autoCapitalize="characters"
+              />
 
-            <Text style={styles.label}>Phone</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. +94 77 123 4567"
-              accessibilityLabel="Instructor phone" value={instructorForm.phone}
-              onChangeText={v => setInstructorForm({ ...instructorForm, phone: v })}
-              keyboardType="phone-pad"
-            />
+              <Text style={styles.label}>Phone</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. +94 77 123 4567"
+                accessibilityLabel="Instructor phone" value={instructorForm.phone}
+                onChangeText={v => setInstructorForm({ ...instructorForm, phone: v })}
+                keyboardType="phone-pad"
+              />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity accessibilityRole="button"                 style={styles.cancelModalBtn}
-                onPress={() => setInstructorModalVisible(false)}
-              >
-                <Text style={styles.cancelModalText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button"                 style={styles.submitModalBtn}
-                onPress={handleCreateInstructor}
-                disabled={creatingInstructor}
-              >
-                {creatingInstructor ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.submitModalText}>Create Instructor</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+              <View style={styles.modalActions}>
+                <TouchableOpacity accessibilityRole="button"                 style={styles.cancelModalBtn}
+                  onPress={() => setInstructorModalVisible(false)}
+                >
+                  <Text style={styles.cancelModalText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button"                 style={styles.submitModalBtn}
+                  onPress={handleCreateInstructor}
+                  disabled={creatingInstructor}
+                >
+                  {creatingInstructor ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.submitModalText}>Create Instructor</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+          </ScrollView>
+</View>
         </View>
-      </Modal>
+      </KeyboardAvoidingView>
+</Modal>
 
       {/* Assign Batch Modal */}
       <Modal visible={assignModalVisible} animationType="fade" transparent={true} onRequestClose={() => setAssignModalVisible(false)}>

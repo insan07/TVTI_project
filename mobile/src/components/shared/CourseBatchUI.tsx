@@ -1,5 +1,6 @@
+import { KeyboardAvoidingView, KeyboardScrollView as ScrollView, KeyboardTextInput as TextInput } from './KeyboardForm';
 import React, { useContext, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { FONTS } from '../../config/theme';
@@ -110,7 +111,7 @@ export const managementStyles = StyleSheet.create({
   fab: { position: 'absolute', right: 22, width: 54, height: 54, borderRadius: 27, backgroundColor: '#F58220', alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: '#F58220', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   empty: { alignItems: 'center', padding: 24, gap: 12 }, emptyTitle: { ...FONTS.semiBold, fontSize: 16, textAlign: 'center' },
   fieldGroup: { marginBottom: 16 }, label: { ...FONTS.semiBold, fontSize: 13, marginBottom: 8 }, input: { ...FONTS.regular, minHeight: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, fontSize: 14 }, hint: { ...FONTS.regular, fontSize: 11, lineHeight: 17, marginTop: 6 },
-  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 12 }, sheet: { width: '100%', maxWidth: 680, maxHeight: '100%', alignSelf: 'center', borderWidth: 1, borderRadius: 22, overflow: 'hidden' },
+  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 12 }, sheet: { width: '100%', maxWidth: 680, maxHeight: '100%', flexShrink: 1, alignSelf: 'center', borderWidth: 1, borderRadius: 22, overflow: 'hidden' },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', paddingLeft: 20, paddingRight: 8, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth }, sheetTitle: { ...FONTS.bold, flex: 1, fontSize: 18 }, sheetContent: { padding: 20 }, footer: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth, gap: 10, flexDirection: 'row', justifyContent: 'flex-end' },
   choice: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
 });
