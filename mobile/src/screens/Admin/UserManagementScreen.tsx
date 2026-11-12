@@ -11,14 +11,13 @@ import {
   ScrollView,
   Platform,
   Image,
-  Animated,
   LayoutAnimation,
   UIManager,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
   Share
 } from 'react-native';
 import api from '../../services/api';
+import useScrollAwareControls from '../../hooks/useScrollAwareControls';
+import ScrollAwareControls from '../../components/shared/ScrollAwareControls';
 import { FONTS } from '../../config/theme';
 import StudentAdmissionModal, { AdmissionTarget } from '../../components/shared/StudentAdmissionModal';
 import ManagementDialog from '../../components/shared/ManagementDialog';
@@ -32,7 +31,7 @@ import { floatingTabBarClearance } from '../../components/navigation/floatingTab
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import ApplicationsManagementScreen from './ApplicationsManagementScreen';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
 import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
@@ -125,10 +124,7 @@ export default function UserManagementScreen() {
   const [search, setSearch] = useState('');
   const [showFilter, setShowFilter] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const headerAnim = useRef(new Animated.Value(1)).current;
-  const isHeaderVisibleRef = useRef(true);
-  const lastScrollY = useRef(0);
+  const scrollControls = useScrollAwareControls(`${currentView}:${activeMode}:${applicationsSubFilter}:${studentsSubFilter}:${paymentsSubFilter}:${instructorsSubFilter}:${search}`);
   const userCacheRef = useRef<any>({});
 
   // Top Header 3-Dots Menu, Select Mode & Export Modal States
@@ -145,47 +141,12 @@ export default function UserManagementScreen() {
     'phone'
   ]);
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (isSearchFocused) return;
-    const currentY = event.nativeEvent.contentOffset.y;
-    const diff = currentY - lastScrollY.current;
-
-    if (currentY <= 15) {
-      if (!isHeaderVisibleRef.current) {
-        isHeaderVisibleRef.current = true;
-        Animated.timing(headerAnim, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: false,
-        }).start();
-      }
-    } else if (diff > 8 && currentY > 35) {
-      if (isHeaderVisibleRef.current) {
-        isHeaderVisibleRef.current = false;
-        Animated.timing(headerAnim, {
-          toValue: 0,
-          duration: 220,
-          useNativeDriver: false,
-        }).start();
-      }
-    } else if (diff < -8) {
-      if (!isHeaderVisibleRef.current) {
-        isHeaderVisibleRef.current = true;
-        Animated.timing(headerAnim, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: false,
-        }).start();
-      }
-    }
-    lastScrollY.current = currentY;
-  };
-
   // User Details Modal State
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [userDetails, setUserDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [selectedAppForReview, setSelectedAppForReview] = useState<any>(null);
+  useEffect(() => { scrollControls.show(); }, [selectedAppForReview, scrollControls.show]);
 
   // Inline WhatsApp 3-Dots Options Menu State
   const [activeMenuUserId, setActiveMenuUserId] = useState<string | null>(null);
@@ -1290,11 +1251,11 @@ export default function UserManagementScreen() {
       )}
       {currentView === 'hub' ? (
         <>
-          <ScreenHeader plainBack
+          <MainPageHeader safeAreaHandled plainBack
 
             title="User Management"
             subtitle="Choose a category to manage"
-            showBack={true}
+            showBack={false}
           />
           <ScrollView
             style={{ flex: 1 }}
@@ -1425,7 +1386,7 @@ export default function UserManagementScreen() {
               ]}
             />
           ) : (
-            <ScreenHeader plainBack
+            <MainPageHeader safeAreaHandled plainBack
 
               title={
                 activeMode === 'applications'
@@ -1454,6 +1415,7 @@ export default function UserManagementScreen() {
             />
           )}
 
+          <ScrollAwareControls controls={scrollControls}>
           <View style={{ width: '100%', maxWidth: 1100, alignSelf: 'center' }}>
             {activeMode === 'applications' && <ManagementFilterBar value={applicationsSubFilter} onChange={setApplicationsSubFilter} items={[{ value: 'pending', label: 'Pending', count: appMetrics.pending }, { value: 'approved', label: 'Approved', count: appMetrics.approved }, { value: 'rejected', label: 'Rejected', count: appMetrics.rejected }]} />}
             {activeMode === 'students' && <ManagementFilterBar value={studentsSubFilter} onChange={setStudentsSubFilter} items={[{ value: 'all', label: 'All', count: studentsMetrics.all }, { value: 'active', label: 'Active', count: studentsMetrics.active }, { value: 'deactive', label: 'Deactive', count: studentsMetrics.deactive }, { value: 'completed', label: 'Completed', count: studentsMetrics.completed }]} />}
@@ -1461,8 +1423,6 @@ export default function UserManagementScreen() {
             {activeMode === 'instructors' && <ManagementFilterBar value={instructorsSubFilter} onChange={setInstructorsSubFilter} items={[{ value: 'active', label: 'Active Staff', count: instructorsMetrics.active }, { value: 'deactive', label: 'Deactivated', count: instructorsMetrics.deactive }]} />}
           </View>
 
-          {/* Main Content Area */}
-          <>
             {/* Search Box */}
             <View style={styles.searchFilterRow}>
               <View style={[styles.searchBox, isDark && { backgroundColor: design.surface, borderColor: design.line }]}>
@@ -1473,12 +1433,14 @@ export default function UserManagementScreen() {
                   placeholderTextColor={design.muted}
                   value={search}
                   onChangeText={setSearch}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setIsSearchFocused(false)}
+                  onFocus={scrollControls.onFocus}
+                  onBlur={scrollControls.onBlur}
                 />
               </View>
             </View>
 
+          </ScrollAwareControls>
+          <>
             {/* Content List */}
             {loading ? (
               <ActivityIndicator size="large" color="#F58220" style={{ marginTop: 40 }} />
@@ -1489,7 +1451,7 @@ export default function UserManagementScreen() {
                 refreshing={refreshing}
                 onRefresh={async () => { setRefreshing(true); try { await fetchAllDashboardData(true); } finally { setRefreshing(false); } }}
                 keyExtractor={item => item._id}
-                onScroll={handleScroll}
+                onScroll={scrollControls.onScroll}
                 scrollEventThrottle={16}
                 renderItem={
                   activeMode === 'applications'

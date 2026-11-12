@@ -1,173 +1,65 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
+import { Ionicons as Icon } from '@expo/vector-icons';
 import api from '../../services/api';
-import { FONTS } from '../../config/theme';
+import { useTheme } from '../../context/ThemeContext';
+import useScrollAwareControls from '../../hooks/useScrollAwareControls';
+import ScrollAwareControls from '../../components/shared/ScrollAwareControls';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import ManagementDialog from '../../components/shared/ManagementDialog';
 import { usersSectionTheme } from '../../components/shared/usersSectionTheme';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import ScreenHeader from '../../components/shared/ScreenHeader';
-import ScreenBackground from '../../components/shared/ScreenBackground';
-import { useTheme } from '../../context/ThemeContext';
-
-import { Ionicons as Icon } from '@expo/vector-icons';
+import { ManagementButton, ManagementCard, ManagementEmpty, ManagementSearch, managementStyles as s } from '../../components/shared/CourseBatchUI';
 
 export default function EnrollStudentScreen() {
-  const { isDark } = useTheme();
-  const design = usersSectionTheme(isDark);
-  const styles = useMemo(() => createStyles(usersSectionTheme(isDark)), [isDark]);
-  const route = useRoute<any>();
-  const navigation = useNavigation<any>();
-  const { batchId, capacity, enrolled } = route.params;
-
-  const [activeStudents, setActiveStudents] = useState<any[]>([]);
-  const [enrolledStudents, setEnrolledStudents] = useState<any[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({ visible: false, title: '', message: '', type: 'info' });
-  const showMessage = (title: string, message: string) => setFeedback({ visible: true, title, message, type: title === 'Success' ? 'success' : title === 'Error' ? 'error' : 'info' });
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
+  const { isDark } = useTheme(); const theme = usersSectionTheme(isDark); const batchId = useRoute<any>().params?.batchId;
+  const [batch, setBatch] = useState<any>(null), [students, setStudents] = useState<any[]>([]), [selected, setSelected] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true), [refreshing, setRefreshing] = useState(false), [saving, setSaving] = useState(false), [search, setSearch] = useState(''), [error, setError] = useState('');
+  const scrollControls = useScrollAwareControls(`${batchId}:${search}`);
+  const [notice, setNotice] = useState<{ title: string; message: string; type: 'success' | 'error' } | null>(null);
+  const request = useRef(0), inFlight = useRef(false);
+  const load = useCallback(async () => {
+    const current = ++request.current; setError('');
     try {
-      const [eRes, sRes] = await Promise.all([
-        api.get(`/admin/batches/${batchId}/students`),
-        api.get('/admin/users?role=student&status=active')
-      ]);
-      setEnrolledStudents(eRes.data.filter((e:any) => e.status !== 'dropped').map((e:any) => e.student_id));
-      setActiveStudents(sRes.data);
-    } catch (e) {
-      showMessage('Error', 'Failed to fetch data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleSelect = (id: string) => {
-    if (selectedIds.includes(id)) {
-      setSelectedIds(selectedIds.filter(i => i !== id));
-    } else {
-      setSelectedIds([...selectedIds, id]);
-    }
-  };
-
-  const handleEnroll = async () => {
-    if (selectedIds.length === 0) return showMessage('Error', 'Select at least one student');
-    if (enrolledStudents.length + selectedIds.length > capacity) {
-      return showMessage('Error', 'Capacity exceeded');
-    }
-
-    setSaving(true);
+      const [details, available] = await Promise.all([api.get(`/admin/batches/${batchId}/details`), api.get('/admin/users?role=student&status=active')]);
+      if (current !== request.current) return;
+      const assigned = new Set(details.data.enrollments.filter((entry: any) => entry.status !== 'dropped').map((entry: any) => entry.student_id?._id).filter(Boolean));
+      const candidates = available.data.filter((student: any) => student.is_active && !student.is_graduated && !['completed', 'rejected'].includes(student.status) && !assigned.has(student._id));
+      setBatch({ ...details.data.batch, enrolled_count: details.data.enrolled_count }); setStudents(candidates);
+      setSelected(previous => previous.filter(id => candidates.some((student: any) => student._id === id)));
+    } catch (failure: any) { if (current === request.current) setError(failure.response?.data?.message || 'Enrollment details could not be loaded.'); }
+    finally { if (current === request.current) { setLoading(false); setRefreshing(false); } }
+  }, [batchId]);
+  useFocusEffect(useCallback(() => { void load(); return () => { request.current++; }; }, [load]));
+  const remaining = Math.max(0, (batch?.capacity || 0) - (batch?.enrolled_count || 0));
+  const allowed = batch?.status === 'active' && batch?.course_id?.is_active !== false;
+  const enroll = async () => {
+    if (inFlight.current) return;
+    if (!selected.length || selected.length > remaining || !allowed || error) { setNotice({ title: 'Check selection', message: 'Select active students within the available capacity of an active batch and course.', type: 'error' }); return; }
+    inFlight.current = true; setSaving(true);
     try {
-      await api.post(`/admin/batches/${batchId}/enroll`, { studentIds: selectedIds });
-      showMessage('Success', 'Students enrolled successfully');
-      setSelectedIds([]);
-      fetchData();
-    } catch (e: any) {
-      showMessage('Error', e.response?.data?.message || 'Failed to enroll');
-    } finally {
-      setSaving(false);
-    }
+      const res = await api.post(`/admin/batches/${batchId}/enroll`, { studentIds: selected }); setSelected([]);
+      setNotice({ title: 'Students enrolled', message: res.data.notification_sent === false || res.data.email_sent === false ? 'The selected students are assigned. Some assignment messages could not be delivered.' : res.data.message || 'The selected students have been assigned to this batch.', type: 'success' }); await load();
+    } catch (failure: any) { setNotice({ title: 'Enrollment not completed', message: failure.response?.data?.message || 'Please try again.', type: 'error' }); await load(); }
+    finally { inFlight.current = false; setSaving(false); }
   };
-
-  const enrolledIds = enrolledStudents.map(s => s._id);
-  const availableStudents = activeStudents.filter(s => !enrolledIds.includes(s._id) && (s.name.toLowerCase().includes(search.toLowerCase()) || s.email.toLowerCase().includes(search.toLowerCase())));
-
-  return (
-    <SafeAreaView style={{flex: 1, backgroundColor: isDark ? design.surface : design.field}} edges={['top', 'bottom']}>
-      <ScreenBackground />
-      <KeyboardAvoidingView style={{flex: 1}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[styles.container, isDark && { backgroundColor: 'transparent' }]}>
-          <ScreenHeader plainBack
-
-            title="Enroll Students"
-            subtitle={`Capacity: ${enrolledStudents.length} / ${capacity} Enrolled`}
-            showBack={true}
-          />
-
-          <TextInput
-            style={[styles.search, isDark && { backgroundColor: design.surface, borderColor: design.line, color: design.text }]}
-            placeholder="Search available students..."
-            placeholderTextColor={design.muted}
-            value={search}
-            onChangeText={setSearch}
-          />
-
-          {loading ? <ActivityIndicator size="large" color={design.accent} style={{marginTop: 50}} /> : (
-            <FlatList
-              data={availableStudents}
-              keyExtractor={i => i._id}
-              contentContainerStyle={{paddingBottom: 100}}
-              renderItem={({item}) => (
-                <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel={`Select ${item.name}`} accessibilityState={{ checked: selectedIds.includes(item._id), disabled: saving }} disabled={saving} style={[styles.row, isDark && { backgroundColor: design.surface, borderColor: design.line, borderWidth: 1 }]}
-                  onPress={() => toggleSelect(item._id)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.checkbox, isDark && { borderColor: design.line }, selectedIds.includes(item._id) && [styles.checkboxActive, { backgroundColor: design.accent, borderColor: design.accent }]]} />
-                  <View>
-                    <Text style={[styles.name, isDark && { color: design.text }]}>{item.name}</Text>
-                    <Text style={[styles.email, isDark && { color: design.muted }]}>{item.email}</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={<Text style={[{textAlign: 'center', marginTop: 20, color: design.muted}, isDark && { color: design.muted }]}>No available students found.</Text>}
-            />
-          )}
-
-          {selectedIds.length > 0 && (
-            <View style={[styles.footer, isDark && { backgroundColor: design.surface, borderColor: design.line }]}>
-              <Text style={[{fontWeight: 'bold', color: design.text}, isDark && { color: design.text }]}>{selectedIds.length} Selected</Text>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Enroll selected students" style={[styles.btn, { backgroundColor: design.accent }]} onPress={handleEnroll} disabled={saving}>
-                {saving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="person-add-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.btnText}>Enroll Now</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </KeyboardAvoidingView>
-      <ManagementDialog visible={feedback.visible} title={feedback.title} message={feedback.message} type={feedback.type} onConfirm={() => setFeedback(prev => ({ ...prev, visible: false }))} />
-    </SafeAreaView>
-  );
+  const visible = students.filter(student => `${student.name} ${student.email} ${student.registration_number || student.index_number || ''}`.toLowerCase().includes(search.trim().toLowerCase()));
+  return <SafeAreaView edges={['top', 'bottom']} style={[s.page, { backgroundColor: theme.background }]}>
+    <MainPageHeader safeAreaHandled title="Enroll students" showBack plainBack containerStyle={{ maxWidth: 860 }} />
+    <ScrollAwareControls controls={scrollControls}><View style={[s.content, s.controls]}><ManagementSearch value={search} onChangeText={setSearch} placeholder="Search available students" /></View></ScrollAwareControls>
+    {loading ? <ActivityIndicator color={theme.accent} style={{ marginTop: 40 }} /> : <FlatList onScroll={scrollControls.onScroll} scrollEventThrottle={16} style={{ flex: 1 }} data={error ? [] : visible} keyExtractor={student => student._id} contentContainerStyle={[s.content, { flexGrow: 1, paddingBottom: 24 }]}
+      refreshControl={<RefreshControl refreshing={refreshing} enabled={!saving} onRefresh={() => { setRefreshing(true); void load(); }} colors={[theme.accent]} tintColor={theme.accent} />}
+      ListHeaderComponent={batch && <ManagementCard title={batch.name}><View style={s.recordContent}><Text style={[s.copy, { color: theme.accent }]}>{batch.course_id?.title}</Text><View style={[s.metrics, { paddingVertical: 0 }]}>{[['Enrolled', batch.enrolled_count], ['Seats left', remaining], ['Selected', selected.length]].map(([label, value]) => <View key={label} style={s.metric}><Text style={[s.metricValue, { color: theme.text }]}>{value}</Text><Text style={[s.metricLabel, { color: theme.muted }]}>{label}</Text></View>)}</View>{!allowed && <Text style={[s.copy, { color: theme.muted }]}>Enrollment is closed for this batch or course.</Text>}</View></ManagementCard>}
+      renderItem={({ item }) => {
+        const checked = selected.includes(item._id), disabled = saving || !allowed || (!checked && selected.length >= remaining);
+        return <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel={`Select ${item.name}`} aria-checked={checked} accessibilityState={{ checked, disabled }} disabled={disabled}
+          onPress={() => setSelected(previous => checked ? previous.filter(id => id !== item._id) : [...previous, item._id])}
+          style={[s.row, { flexWrap: 'nowrap', padding: 16, borderWidth: 1, borderRadius: 18, marginBottom: 10, backgroundColor: checked ? theme.accentSoft : theme.surface, borderColor: checked ? theme.accent : theme.line, opacity: disabled && !checked ? 0.5 : 1 }]}>
+          <Icon name={checked ? 'checkbox' : 'square-outline'} size={24} color={checked ? theme.accent : theme.muted} /><View style={s.grow}><Text style={[s.title, { color: theme.text }]}>{item.name}</Text><Text style={[s.copy, { color: theme.muted }]}>{item.registration_number || item.index_number || item.email}</Text></View>
+        </TouchableOpacity>;
+      }} ListEmptyComponent={<ManagementEmpty title={error ? 'Unable to load enrollment' : 'No available students'} message={error || 'All eligible students are assigned, or no students match your search.'} retry={error ? () => { setLoading(true); void load(); } : undefined} />} />}
+    <View style={[s.content, s.footer, { borderColor: theme.line, backgroundColor: theme.surface, alignItems: 'center' }]}><Text style={[s.copy, s.grow, { color: theme.text }]}>{selected.length} selected</Text><ManagementButton title="Enroll selected" busy={saving} disabled={loading || !!error || !allowed || !selected.length || selected.length > remaining} onPress={enroll} /></View>
+    <ManagementDialog visible={!!notice} title={notice?.title || ''} message={notice?.message || ''} type={notice?.type} confirmText="Done" onConfirm={() => setNotice(null)} />
+  </SafeAreaView>;
 }
-
-const createStyles = (design: ReturnType<typeof usersSectionTheme>) => StyleSheet.create({
-  container: { flex: 1, width: '100%', maxWidth: 1100, alignSelf: 'center', backgroundColor: 'transparent' },
-  header: { padding: 20, backgroundColor: design.surface, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontFamily: FONTS.bold.fontFamily,  fontSize: 20, fontWeight: 'bold' },
-  stats: { color: design.success, fontWeight: 'bold' },
-  search: { backgroundColor: design.surface, padding: 12, marginHorizontal: 20, marginTop: 14, marginBottom: 14, borderRadius: 12, borderWidth: 1, borderColor: design.line , minHeight: 44, },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: design.surface, padding: 16, marginHorizontal: 20, marginBottom: 10, borderRadius: 16, borderWidth: 1, borderColor: design.line },
-  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: design.line, marginRight: 12 },
-  checkboxActive: { backgroundColor: design.accent, borderColor: design.accent },
-  name: { fontFamily: FONTS.bold.fontFamily,  fontWeight: 'bold', fontSize: 16 },
-  email: { color: design.muted },
-  footer: { padding: 20, backgroundColor: design.surface, borderTopWidth: 1, borderColor: design.line, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  btn: {
-    backgroundColor: design.accent,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    minHeight: 44,
-    minWidth: 130,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0,
-    shadowRadius: 4,
-    elevation: 0,
-  },
-  btnText: { fontFamily: FONTS.bold.fontFamily,  color: '#fff', fontWeight: 'bold', fontSize: 14 }
-});

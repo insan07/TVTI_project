@@ -196,6 +196,7 @@ export async function assignStudentsToBatch(batchId: string, studentValues: unkn
   return practicalMutation(async session => {
     const batch = await Batch.findById(batchId).session(session);
     if (!batch || batch.status !== 'active') throw new PracticalError(400, 'Select an active batch.');
+    if (!await Course.exists({ _id: batch.course_id, is_active: true }).session(session)) throw new PracticalError(400, 'This course is archived. Restore it before enrolling students.');
     const students = await User.find({ _id: { $in: studentIds }, role: 'student', is_active: true, is_graduated: { $ne: true }, status: { $ne: 'completed' } }).session(session);
     if (students.length !== studentIds.length) throw new PracticalError(400, 'Select active students. Reactivate completed students before assigning them.');
     const existing = await Enrollment.find({ batch_id: batchId, student_id: { $in: studentIds } }).session(session);
@@ -204,7 +205,7 @@ export async function assignStudentsToBatch(batchId: string, studentValues: unkn
     if (count + needed.length > batch.capacity) throw new PracticalError(409, 'Batch capacity exceeded.');
     const enrollments = [];
     for (const student of students) {
-      if (!existing.some(entry => id(entry.student_id) === id(student) && entry.status === 'active')) {
+      if (needed.includes(id(student))) {
         await enrollAdmissionStudent(student._id, [batch], session);
         enrollments.push(await Enrollment.findOne({ student_id: student._id, batch_id: batchId }).session(session));
       }

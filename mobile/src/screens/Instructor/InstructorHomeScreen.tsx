@@ -2,7 +2,6 @@ import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Image, Linking, Platform, Modal } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../services/api';
 import { API_URL } from '../../config/constants';
@@ -10,8 +9,10 @@ import { COLORS, FONTS } from '../../config/theme';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import NotificationBellIcon from '../../components/shared/NotificationBellIcon';
+import { LinearGradient } from 'expo-linear-gradient';
 import StudentHomeCard from '../../components/student/StudentHomeCard';
 import { floatingTabBarClearance } from '../../components/navigation/floatingTabBarLayout';
+import { uploadDocumentUrl } from '../../utils/uploadLibrary';
 import AnnouncementRow, { Announcement } from '../../components/student/AnnouncementRow';
 import { communicationTheme } from '../../components/shared/communicationTheme';
 import { isPracticalExpired, practicalInstant } from '../../utils/practicalTime';
@@ -70,13 +71,11 @@ export default function InstructorHomeScreen() {
   }, [fetchDashboard]));
 
   const openUpload = async (upload: any) => {
+    if (upload.content_type !== 'material') { navigation.navigate('VideoPlayer', { videoId: upload._id, instructor: true }); return; }
     let url = upload.cloudinary_url || upload.youtube_url;
     if (!url) { navigation.navigate('Uploads', { tab: 'my_videos' }); return; }
     if (url.startsWith('/uploads/') || url.startsWith('/api/files/')) url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
-    try {
-      if (Platform.OS === 'web') window.open(url, '_blank', 'noopener,noreferrer');
-      else await Linking.openURL(url);
-    } catch { setError('This upload could not be opened. Please try again from Uploads.'); }
+    navigation.navigate('PdfViewer', { pdfUrl: uploadDocumentUrl(url, API_URL), title: upload.title });
   };
   const viewAll = (label: string, onPress: () => void) => <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} style={styles.headerAction} onPress={onPress}>
     <Text style={styles.link}>View all</Text>

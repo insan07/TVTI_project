@@ -18,7 +18,6 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import { COLORS, FONTS } from '../../config/theme';
@@ -26,9 +25,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import NotificationBellIcon from '../../components/shared/NotificationBellIcon';
+import { LinearGradient } from 'expo-linear-gradient';
 import StudentHomeCard from '../../components/student/StudentHomeCard';
 import { floatingTabBarClearance } from '../../components/navigation/floatingTabBarLayout';
 import { communicationTheme } from '../../components/shared/communicationTheme';
+import MainPageHeader from '../../components/shared/MainPageHeader';
+import CustomDropdown from '../../components/shared/CustomDropdown';
+import ScrollAwareControls from '../../components/shared/ScrollAwareControls';
+import useScrollAwareControls from '../../hooks/useScrollAwareControls';
+import WhatsAppOptionsMenu from '../../components/shared/WhatsAppOptionsMenu';
+import { ManagementButton, ManagementSearch, ManagementSheet, managementStyles } from '../../components/shared/CourseBatchUI';
 
 export default function AdminDashboardScreen() {
   const context = useContext(AuthContext);
@@ -87,6 +93,13 @@ export default function AdminDashboardScreen() {
   // Website Tools Modal state
   const [websiteToolsVisible, setWebsiteToolsVisible] = useState(false);
   const [activeToolsTab, setActiveToolsTab] = useState<'settings' | 'news' | 'gallery'>('settings');
+  const [toolsDelete, setToolsDelete] = useState<{ id: string; title: string; type: 'news' | 'gallery' } | null>(null);
+  const [toolsDeleting, setToolsDeleting] = useState(false);
+  const [toolsErrors, setToolsErrors] = useState({ settings: '', news: '', gallery: '' });
+  const [toolsComposer, setToolsComposer] = useState(false);
+  const [toolsSearch, setToolsSearch] = useState('');
+  const [toolsSearchOpen, setToolsSearchOpen] = useState(false);
+  const toolsControls = useScrollAwareControls(`${websiteToolsVisible}:${activeToolsTab}:${toolsComposer}:${toolsSearch}`);
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [siteSettings, setSiteSettings] = useState({
@@ -202,13 +215,14 @@ export default function AdminDashboardScreen() {
     try {
       const res = await api.get('/admin/settings');
       if (res.data) {
+        setToolsErrors(previous => ({ ...previous, settings: '' }));
         setSiteSettings(prev => ({
           ...prev,
           ...res.data,
         }));
       }
     } catch (e) {
-      console.log('Failed to fetch site settings:', e);
+      setToolsErrors(previous => ({ ...previous, settings: 'Could not load website settings.' }));
     } finally {
       setLoadingSettings(false);
     }
@@ -219,8 +233,9 @@ export default function AdminDashboardScreen() {
     try {
       const res = await api.get('/news');
       setNewsList(res.data || []);
+      setToolsErrors(previous => ({ ...previous, news: '' }));
     } catch (e) {
-      console.log('Failed to fetch news list:', e);
+      setToolsErrors(previous => ({ ...previous, news: 'Could not load website news.' }));
     } finally {
       setLoadingNews(false);
     }
@@ -246,6 +261,7 @@ export default function AdminDashboardScreen() {
         'success'
       );
       setNewNews({ title: '', category: 'ADMISSIONS', summary: '', message: '', image_url: '' });
+      setToolsComposer(false);
       fetchNewsList();
     } catch (e: any) {
       showAck('Publish Error', e.response?.data?.message || 'Failed to post news article', 'danger');
@@ -269,8 +285,9 @@ export default function AdminDashboardScreen() {
     try {
       const res = await api.get('/gallery');
       setGalleryList(res.data || []);
+      setToolsErrors(previous => ({ ...previous, gallery: '' }));
     } catch (e) {
-      console.log('Failed to fetch gallery list:', e);
+      setToolsErrors(previous => ({ ...previous, gallery: 'Could not load the website gallery.' }));
     } finally {
       setLoadingGallery(false);
     }
@@ -290,6 +307,7 @@ export default function AdminDashboardScreen() {
         'success'
       );
       setNewGallery({ title: '', category: 'Workshops & Labs', type: 'photo', url: '', description: '', youtubeId: '' });
+      setToolsComposer(false);
       fetchGalleryList();
     } catch (e: any) {
       showAck('Upload Error', e.response?.data?.message || 'Failed to add gallery item', 'danger');
@@ -443,6 +461,18 @@ export default function AdminDashboardScreen() {
   const handleApprove = (id: string, name: string) => navigation.navigate('Users', { initialActivity: 'applications', approveStudentId: id, approveStudentName: name });
   const handleReject = (id: string, name: string) => setRejectUser({ id, name });
 
+  const toolsStyles = {
+    ...styles,
+    settingsCardSection: { backgroundColor: theme.surface, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: theme.line },
+    settingsCardHeader: { ...styles.settingsCardHeader, gap: 0 },
+    settingsSectionTitle: { ...styles.settingsSectionTitle, color: theme.text, flexShrink: 1 },
+    switchRow: { ...styles.switchRow, borderBottomColor: theme.line },
+    switchLabel: { ...styles.switchLabel, color: theme.text },
+    switchSub: { ...styles.switchSub, color: theme.muted, lineHeight: 18 },
+    formInputLabel: { ...styles.formInputLabel, color: theme.text },
+    formTextInput: { ...styles.formTextInput, minHeight: 46, backgroundColor: theme.surface, color: theme.text, borderColor: theme.line, borderRadius: 12 },
+    saveSettingsBtn: { ...styles.saveSettingsBtn, boxShadow: 'none', shadowOpacity: 0, elevation: 0, minHeight: 46 },
+  };
   return (
     <View style={{ flex: 1, backgroundColor: isDark ? '#0B0F19' : '#F8FAFC' }}>
       <ScreenBackground />
@@ -618,92 +648,62 @@ export default function AdminDashboardScreen() {
       <Modal
         visible={websiteToolsVisible}
         animationType="slide"
-        presentationStyle="pageSheet"
+        presentationStyle="fullScreen"
         onRequestClose={() => setWebsiteToolsVisible(false)}
       >
         <KeyboardAvoidingView
-          style={[styles.modalContainer, isDark && { backgroundColor: '#141B26' }, { paddingTop: Platform.OS === 'ios' ? insets.top : 16 }]}
+          style={{ flex: 1, backgroundColor: theme.background }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
-            <View>
-              <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Website Tools & Settings</Text>
-              <Text style={[styles.modalSub, isDark && { color: '#94A3B8' }]}>Manage website content, banners, news & gallery</Text>
+          <ScreenBackground />
+          <MainPageHeader title="Website Tools" subtitle="Manage your public website" showBack plainBack onBackPress={() => setWebsiteToolsVisible(false)} />
+          <ScrollAwareControls controls={toolsControls}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 10, width: '100%', maxWidth: 1100, alignSelf: 'center' }}>
+              <CustomDropdown appearance="management" placeholder="Website section" iconName="globe-outline" selectedValue={activeToolsTab}
+                items={[{ label: 'Site settings', value: 'settings' }, { label: 'Website news', value: 'news' }, { label: 'Photo & video gallery', value: 'gallery' }]}
+                onValueChange={value => { setActiveToolsTab(value as 'settings' | 'news' | 'gallery'); setToolsComposer(false); setToolsSearch(''); }} containerStyle={{ flex: 1 }} />
+              {activeToolsTab !== 'settings' && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search website content" onPress={() => setToolsSearchOpen(true)} style={{ width: 44, height: 44, borderWidth: 1, borderRadius: 22, borderColor: theme.line, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center' }}><Icon name="search-outline" size={20} color={toolsSearch ? COLORS.secondary : theme.text} /></TouchableOpacity>}
             </View>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Close website tools"
-              style={[styles.modalCloseBtn, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
-              onPress={() => setWebsiteToolsVisible(false)}
-            >
-              <Icon name="close" size={22} color={isDark ? '#FFFFFF' : '#1F2937'} />
-            </TouchableOpacity>
-          </View>
-
-          {/* WEBSITE TOOLS TAB SELECTOR */}
-          <View style={{ flexDirection: 'row', backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : '#F1F5F9', padding: 4, marginHorizontal: 18, marginTop: 12, borderRadius: 12 }}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Website site configuration"
-              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'settings' ? (isDark ? '#1E293B' : '#FFFFFF') : 'transparent' }}
-              onPress={() => setActiveToolsTab('settings')}
-            >
-              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'settings' ? '#F58220' : (isDark ? '#94A3B8' : '#64748B') }}>Site Config</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Website news"
-              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'news' ? (isDark ? '#1E293B' : '#FFFFFF') : 'transparent' }}
-              onPress={() => setActiveToolsTab('news')}
-            >
-              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'news' ? '#F58220' : (isDark ? '#94A3B8' : '#64748B') }}>Update News</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Website gallery"
-              style={{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9, backgroundColor: activeToolsTab === 'gallery' ? (isDark ? '#1E293B' : '#FFFFFF') : 'transparent' }}
-              onPress={() => setActiveToolsTab('gallery')}
-            >
-              <Text style={{ fontSize: 12, ...FONTS.bold, color: activeToolsTab === 'gallery' ? '#F58220' : (isDark ? '#94A3B8' : '#64748B') }}>Update Gallery</Text>
-            </TouchableOpacity>
-          </View>
-
+          </ScrollAwareControls>
+          {toolsComposer && <View style={{ paddingHorizontal: 20, paddingBottom: 10, width: '100%', maxWidth: 1100, alignSelf: 'center' }}><ManagementButton title="Back to published items" secondary disabled={savingNews || savingGallery} onPress={() => setToolsComposer(false)} /></View>}
+          {!!toolsErrors[activeToolsTab] && <View style={{ padding: 20, gap: 10 }}><Text accessibilityRole="alert" style={{ ...FONTS.regular, color: theme.text }}>{toolsErrors[activeToolsTab]}</Text><ManagementButton title="Try again" secondary onPress={() => { if (activeToolsTab === 'settings') void fetchSiteSettings(); else if (activeToolsTab === 'news') void fetchNewsList(); else void fetchGalleryList(); }} /></View>}
           {loadingSettings ? (
-            <View style={styles.modalCenter}>
+            <View style={toolsStyles.modalCenter}>
               <ActivityIndicator size="large" color="#F58220" />
-              <Text style={{ marginTop: 12, color: '#64748B', fontSize: 13 }}>Loading website settings...</Text>
+              <Text style={{ marginTop: 12, color: theme.muted, fontSize: 13 }}>Loading website settings...</Text>
             </View>
           ) : (
             <ScrollView
-              contentContainerStyle={{ padding: 18, paddingBottom: 60 }}
+              onScroll={toolsControls.onScroll} scrollEventThrottle={16}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 0, paddingBottom: Math.max(24, insets.bottom) + 90, width: '100%', maxWidth: 1100, alignSelf: 'center' }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {activeToolsTab === 'settings' && (
+              {activeToolsTab === 'settings' && !toolsErrors.settings && (
                 <>
                   {/* SECTION 2: ANNOUNCEMENT BANNER & TICKER */}
-                  <View style={styles.settingsCardSection}>
-                    <View style={styles.settingsCardHeader}>
+                  <View style={toolsStyles.settingsCardSection}>
+                    <View style={toolsStyles.settingsCardHeader}>
                       <Icon name="megaphone-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
-                      <Text style={styles.settingsSectionTitle}>Announcement Banner & Ticker</Text>
+                      <Text style={toolsStyles.settingsSectionTitle}>Announcement Banner & Ticker</Text>
                     </View>
 
-                    <View style={styles.switchRow}>
+                    <View style={toolsStyles.switchRow}>
                       <View style={{ flex: 1, marginRight: 12 }}>
-                        <Text style={styles.switchLabel}>Show Banner Ticker on Website</Text>
-                        <Text style={styles.switchSub}>Displays top alert message banner for all website visitors</Text>
+                        <Text style={toolsStyles.switchLabel}>Show Banner Ticker on Website</Text>
+                        <Text style={toolsStyles.switchSub}>Displays top alert message banner for all website visitors</Text>
                       </View>
-                      <Switch
+                      <Switch {...(Platform.OS === 'web' ? { activeThumbColor: COLORS.secondary, activeTrackColor: '#FED7AA' } : {})}
                         value={siteSettings.show_announcement}
                         onValueChange={val => setSiteSettings({ ...siteSettings, show_announcement: val })}
-                        trackColor={{ false: '#E2E8F0', true: '#FED7AA' }}
-                        thumbColor={siteSettings.show_announcement ? '#F58220' : '#94A3B8'}
+                        trackColor={{ false: theme.line, true: '#FED7AA' }}
+                        thumbColor={siteSettings.show_announcement ? '#F58220' : theme.muted}
                       />
                     </View>
 
-                    <Text style={styles.formInputLabel}>Announcement Banner Text</Text>
+                    <Text style={toolsStyles.formInputLabel}>Announcement Banner Text</Text>
                     <TextInput
-                      style={[styles.formTextInput, { height: 75, textAlignVertical: 'top' }]}
+                      style={[toolsStyles.formTextInput, { height: 75, textAlignVertical: 'top' }]}
                       multiline
                       value={siteSettings.announcement_banner}
                       onChangeText={t => setSiteSettings({ ...siteSettings, announcement_banner: t })}
@@ -713,24 +713,24 @@ export default function AdminDashboardScreen() {
                   </View>
 
                   {/* SECTION 3: PUBLIC CONTACT & HOTLINE DETAILS */}
-                  <View style={styles.settingsCardSection}>
-                    <View style={styles.settingsCardHeader}>
+                  <View style={toolsStyles.settingsCardSection}>
+                    <View style={toolsStyles.settingsCardHeader}>
                       <Icon name="call-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
-                      <Text style={styles.settingsSectionTitle}>Website Contact & Support Details</Text>
+                      <Text style={toolsStyles.settingsSectionTitle}>Website Contact & Support Details</Text>
                     </View>
 
-                    <Text style={styles.formInputLabel}>Official Support Phone Number</Text>
+                    <Text style={toolsStyles.formInputLabel}>Official Support Phone Number</Text>
                     <TextInput
-                      style={styles.formTextInput}
+                      style={toolsStyles.formTextInput}
                       value={siteSettings.contact_phone}
                       onChangeText={t => setSiteSettings({ ...siteSettings, contact_phone: t })}
                       placeholder="+94 77 123 4567"
                       placeholderTextColor="#9CA3AF"
                     />
 
-                    <Text style={styles.formInputLabel}>Support Email Address</Text>
+                    <Text style={toolsStyles.formInputLabel}>Support Email Address</Text>
                     <TextInput
-                      style={styles.formTextInput}
+                      style={toolsStyles.formTextInput}
                       value={siteSettings.contact_email}
                       onChangeText={t => setSiteSettings({ ...siteSettings, contact_email: t })}
                       placeholder="info@twintec.edu.lk"
@@ -739,18 +739,18 @@ export default function AdminDashboardScreen() {
                       placeholderTextColor="#9CA3AF"
                     />
 
-                    <Text style={styles.formInputLabel}>WhatsApp Hotline Number</Text>
+                    <Text style={toolsStyles.formInputLabel}>WhatsApp Hotline Number</Text>
                     <TextInput
-                      style={styles.formTextInput}
+                      style={toolsStyles.formTextInput}
                       value={siteSettings.whatsapp_number}
                       onChangeText={t => setSiteSettings({ ...siteSettings, whatsapp_number: t })}
                       placeholder="+94771234567"
                       placeholderTextColor="#9CA3AF"
                     />
 
-                    <Text style={styles.formInputLabel}>Physical Campus Address</Text>
+                    <Text style={toolsStyles.formInputLabel}>Physical Campus Address</Text>
                     <TextInput
-                      style={[styles.formTextInput, { height: 60, textAlignVertical: 'top' }]}
+                      style={[toolsStyles.formTextInput, { height: 60, textAlignVertical: 'top' }]}
                       multiline
                       value={siteSettings.address}
                       onChangeText={t => setSiteSettings({ ...siteSettings, address: t })}
@@ -760,43 +760,43 @@ export default function AdminDashboardScreen() {
                   </View>
 
                   {/* SECTION 4: REGISTRATION & MAINTENANCE MODE */}
-                  <View style={styles.settingsCardSection}>
-                    <View style={styles.settingsCardHeader}>
+                  <View style={toolsStyles.settingsCardSection}>
+                    <View style={toolsStyles.settingsCardHeader}>
                       <Icon name="shield-outline" size={18} color="#EF4444" style={{ marginRight: 8 }} />
-                      <Text style={styles.settingsSectionTitle}>Registration & Maintenance Settings</Text>
+                      <Text style={toolsStyles.settingsSectionTitle}>Registration & Maintenance Settings</Text>
                     </View>
 
-                    <View style={styles.switchRow}>
+                    <View style={toolsStyles.switchRow}>
                       <View style={{ flex: 1, marginRight: 12 }}>
-                        <Text style={styles.switchLabel}>Public Student Registration</Text>
-                        <Text style={styles.switchSub}>Allow new students to submit registration applications online</Text>
+                        <Text style={toolsStyles.switchLabel}>Public Student Registration</Text>
+                        <Text style={toolsStyles.switchSub}>Allow new students to submit registration applications online</Text>
                       </View>
-                      <Switch
+                      <Switch {...(Platform.OS === 'web' ? { activeThumbColor: COLORS.secondary, activeTrackColor: '#FED7AA' } : {})}
                         value={siteSettings.registration_open}
                         onValueChange={val => setSiteSettings({ ...siteSettings, registration_open: val })}
-                        trackColor={{ false: '#E2E8F0', true: '#BBF7D0' }}
-                        thumbColor={siteSettings.registration_open ? '#10B981' : '#94A3B8'}
+                        trackColor={{ false: theme.line, true: '#FED7AA' }}
+                        thumbColor={siteSettings.registration_open ? '#F58220' : theme.muted}
                       />
                     </View>
 
-                    <View style={[styles.switchRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                    <View style={[toolsStyles.switchRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
                       <View style={{ flex: 1, marginRight: 12 }}>
-                        <Text style={styles.switchLabel}>Enable Website Maintenance Mode</Text>
-                        <Text style={styles.switchSub}>Show maintenance alert notice to visitors</Text>
+                        <Text style={toolsStyles.switchLabel}>Enable Website Maintenance Mode</Text>
+                        <Text style={toolsStyles.switchSub}>Show maintenance alert notice to visitors</Text>
                       </View>
-                      <Switch
+                      <Switch {...(Platform.OS === 'web' ? { activeThumbColor: COLORS.secondary, activeTrackColor: '#FED7AA' } : {})}
                         value={siteSettings.maintenance_mode}
                         onValueChange={val => setSiteSettings({ ...siteSettings, maintenance_mode: val })}
-                        trackColor={{ false: '#E2E8F0', true: '#FECDD3' }}
-                        thumbColor={siteSettings.maintenance_mode ? '#EF4444' : '#94A3B8'}
+                        trackColor={{ false: theme.line, true: '#FECDD3' }}
+                        thumbColor={siteSettings.maintenance_mode ? '#EF4444' : theme.muted}
                       />
                     </View>
 
                     {siteSettings.maintenance_mode && (
                       <View style={{ marginTop: 14 }}>
-                        <Text style={styles.formInputLabel}>Maintenance Notice Message</Text>
+                        <Text style={toolsStyles.formInputLabel}>Maintenance Notice Message</Text>
                         <TextInput
-                          style={[styles.formTextInput, { height: 65, textAlignVertical: 'top' }]}
+                          style={[toolsStyles.formTextInput, { height: 65, textAlignVertical: 'top' }]}
                           multiline
                           value={siteSettings.maintenance_message}
                           onChangeText={t => setSiteSettings({ ...siteSettings, maintenance_message: t })}
@@ -809,7 +809,7 @@ export default function AdminDashboardScreen() {
 
                   {/* SAVE SETTINGS BUTTON */}
                   <TouchableOpacity
-                    style={styles.saveSettingsBtn}
+                    style={toolsStyles.saveSettingsBtn}
                     onPress={handleSaveWebsiteSettings}
                     disabled={savingSettings}
                     activeOpacity={0.85}
@@ -819,7 +819,7 @@ export default function AdminDashboardScreen() {
                     ) : (
                       <>
                         <Icon name="checkmark-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                        <Text style={styles.saveSettingsBtnText}>Save Website Settings</Text>
+                        <Text style={toolsStyles.saveSettingsBtnText}>Save Website Settings</Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -829,22 +829,22 @@ export default function AdminDashboardScreen() {
               {/* TAB 2: UPDATE NEWS & ANNOUNCEMENTS */}
               {activeToolsTab === 'news' && (
                 <View>
-                  <View style={styles.settingsCardSection}>
-                    <View style={styles.settingsCardHeader}>
+                  {toolsComposer && <View style={toolsStyles.settingsCardSection}>
+                    <View style={toolsStyles.settingsCardHeader}>
                       <Icon name="newspaper-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
-                      <Text style={styles.settingsSectionTitle}>Post New Website News & Article</Text>
+                      <Text style={toolsStyles.settingsSectionTitle}>Post New Website News & Article</Text>
                     </View>
 
-                    <Text style={styles.formInputLabel}>News Title *</Text>
+                    <Text style={toolsStyles.formInputLabel}>News Title *</Text>
                     <TextInput
-                      style={styles.formTextInput}
+                      style={toolsStyles.formTextInput}
                       value={newNews.title}
                       onChangeText={t => setNewNews({ ...newNews, title: t })}
                       placeholder="e.g. 2026 Batch Admissions Open"
                       placeholderTextColor="#9CA3AF"
                     />
 
-                    <Text style={styles.formInputLabel}>Category</Text>
+                    <Text style={toolsStyles.formInputLabel}>Category</Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                       {['ADMISSIONS', 'GRADUATION', 'FACILITIES', 'NEWS'].map((cat) => (
                         <TouchableOpacity
@@ -854,26 +854,26 @@ export default function AdminDashboardScreen() {
                             paddingHorizontal: 12,
                             paddingVertical: 6,
                             borderRadius: 8,
-                            backgroundColor: newNews.category === cat ? '#F58220' : '#E2E8F0',
+                            backgroundColor: newNews.category === cat ? '#F58220' : theme.line,
                           }}
                         >
-                          <Text style={{ fontSize: 11, ...FONTS.bold, color: newNews.category === cat ? '#FFFFFF' : '#475569' }}>
+                          <Text style={{ fontSize: 11, ...FONTS.bold, color: newNews.category === cat ? '#FFFFFF' : theme.text }}>
                             {cat}
                           </Text>
                         </TouchableOpacity>
                       ))}
                     </View>
 
-                    <Text style={styles.formInputLabel}>News Cover Photo</Text>
+                    <Text style={toolsStyles.formInputLabel}>News Cover Photo</Text>
                     <View style={{ marginBottom: 12 }}>
                       <TouchableOpacity
                         style={{
                           flexDirection: 'row',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          backgroundColor: '#FFF7ED',
+                          backgroundColor: theme.surface,
                           borderWidth: 1.5,
-                          borderColor: '#FFEDD5',
+                          borderColor: theme.line,
                           borderStyle: 'dashed',
                           paddingVertical: 12,
                           paddingHorizontal: 16,
@@ -896,7 +896,7 @@ export default function AdminDashboardScreen() {
                       </TouchableOpacity>
 
                       {newNews.image_url ? (
-                        <View style={{ position: 'relative', marginTop: 6, borderRadius: 10, overflow: 'hidden', height: 110, backgroundColor: '#F1F5F9' }}>
+                        <View style={{ position: 'relative', marginTop: 6, borderRadius: 10, overflow: 'hidden', height: 110, backgroundColor: theme.surface }}>
                           <Image
                             source={{ uri: getFullImageUrl(newNews.image_url) }}
                             style={{ width: '100%', height: '100%' }}
@@ -911,7 +911,7 @@ export default function AdminDashboardScreen() {
                         </View>
                       ) : (
                         <TextInput
-                          style={styles.formTextInput}
+                          style={toolsStyles.formTextInput}
                           value={newNews.image_url}
                           onChangeText={t => setNewNews({ ...newNews, image_url: t })}
                           placeholder="Or paste photo web link URL..."
@@ -920,18 +920,18 @@ export default function AdminDashboardScreen() {
                       )}
                     </View>
 
-                    <Text style={styles.formInputLabel}>Short Summary</Text>
+                    <Text style={toolsStyles.formInputLabel}>Short Summary</Text>
                     <TextInput
-                      style={styles.formTextInput}
+                      style={toolsStyles.formTextInput}
                       value={newNews.summary}
                       onChangeText={t => setNewNews({ ...newNews, summary: t })}
                       placeholder="Brief 1-sentence summary"
                       placeholderTextColor="#9CA3AF"
                     />
 
-                    <Text style={styles.formInputLabel}>Detailed Message / Content *</Text>
+                    <Text style={toolsStyles.formInputLabel}>Detailed Message / Content *</Text>
                     <TextInput
-                      style={[styles.formTextInput, { height: 80, textAlignVertical: 'top' }]}
+                      style={[toolsStyles.formTextInput, { height: 80, textAlignVertical: 'top' }]}
                       multiline
                       value={newNews.message}
                       onChangeText={t => setNewNews({ ...newNews, message: t })}
@@ -940,7 +940,7 @@ export default function AdminDashboardScreen() {
                     />
 
                     <TouchableOpacity
-                      style={[styles.saveSettingsBtn, { backgroundColor: '#F58220' }]}
+                      style={[toolsStyles.saveSettingsBtn, { backgroundColor: '#F58220' }]}
                       onPress={handleCreateNews}
                       disabled={savingNews}
                     >
@@ -949,42 +949,40 @@ export default function AdminDashboardScreen() {
                       ) : (
                         <>
                           <Icon name="paper-plane-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                          <Text style={styles.saveSettingsBtnText}>Publish News to Website</Text>
+                          <Text style={toolsStyles.saveSettingsBtnText}>Publish News to Website</Text>
                         </>
                       )}
                     </TouchableOpacity>
-                  </View>
+                  </View>}
 
                   {/* CURRENT NEWS LIST */}
-                  <View style={styles.settingsCardSection}>
-                    <Text style={[styles.settingsSectionTitle, { marginBottom: 12 }]}>Live Website News ({newsList.length})</Text>
+                  <View style={toolsStyles.settingsCardSection}>
+                    <Text style={[toolsStyles.settingsSectionTitle, { marginBottom: 12 }]}>Live Website News ({newsList.length})</Text>
                     {loadingNews ? (
                       <ActivityIndicator size="small" color="#F58220" />
-                    ) : newsList.length === 0 ? (
-                      <Text style={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>No news published yet.</Text>
+                    ) : newsList.filter(item => `${item.title} ${item.summary || item.content || ''}`.toLowerCase().includes(toolsSearch.toLowerCase().trim())).length === 0 ? (
+                      <Text style={{ fontSize: 12, color: theme.muted, fontStyle: 'italic' }}>{toolsSearch ? 'No news matches your search.' : 'No news published yet.'}</Text>
                     ) : (
-                      newsList.map((item) => (
-                        <View key={item._id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
+                      newsList.filter(item => `${item.title} ${item.summary || item.content || ''}`.toLowerCase().includes(toolsSearch.toLowerCase().trim())).map((item) => (
+                        <View key={item._id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderWidth: 1, borderColor: theme.line, borderRadius: 14, paddingHorizontal: 12, marginBottom: 10 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
                             {item.image_url ? (
                               <Image
                                 source={{ uri: getFullImageUrl(item.image_url) }}
-                                style={{ width: 42, height: 42, borderRadius: 8, marginRight: 10, backgroundColor: '#F1F5F9' }}
+                                style={{ width: 42, height: 42, borderRadius: 8, marginRight: 10, backgroundColor: theme.surface }}
                                 resizeMode="cover"
                               />
                             ) : (
-                              <View style={{ width: 42, height: 42, borderRadius: 8, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                              <View style={{ width: 42, height: 42, borderRadius: 8, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                                 <Icon name="newspaper-outline" size={20} color="#F58220" />
                               </View>
                             )}
                             <View style={{ flex: 1 }}>
-                              <Text style={{ fontSize: 14, ...FONTS.bold, color: '#0F172A' }}>{item.title}</Text>
-                              <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }} numberOfLines={1}>{item.summary || item.content || item.message}</Text>
+                              <Text style={{ fontSize: 14, ...FONTS.bold, color: theme.text }}>{item.title}</Text>
+                              <Text style={{ fontSize: 11, color: theme.muted, marginTop: 2 }} numberOfLines={1}>{item.summary || item.content || item.message}</Text>
                             </View>
                           </View>
-                          <TouchableOpacity onPress={() => handleDeleteNews(item._id)} style={{ padding: 6 }}>
-                            <Icon name="trash-outline" size={18} color="#EF4444" />
-                          </TouchableOpacity>
+                          <WhatsAppOptionsMenu accessibilityLabel={`Options for ${item.title}`} options={[{ id: 'delete', label: 'Delete news', destructive: true, onPress: () => setToolsDelete({ id: item._id, title: item.title, type: 'news' }) }]} />
                         </View>
                       ))
                     )}
@@ -995,13 +993,13 @@ export default function AdminDashboardScreen() {
               {/* TAB 3: UPDATE GALLERY (PHOTOS & VIDEOS) */}
               {activeToolsTab === 'gallery' && (
                 <View>
-                  <View style={styles.settingsCardSection}>
-                    <View style={styles.settingsCardHeader}>
+                  {toolsComposer && <View style={toolsStyles.settingsCardSection}>
+                    <View style={toolsStyles.settingsCardHeader}>
                       <Icon name="images-outline" size={18} color="#F58220" style={{ marginRight: 8 }} />
-                      <Text style={styles.settingsSectionTitle}>Add Gallery Item (Photo or Video)</Text>
+                      <Text style={toolsStyles.settingsSectionTitle}>Add Gallery Item (Photo or Video)</Text>
                     </View>
 
-                    <Text style={styles.formInputLabel}>Media Type</Text>
+                    <Text style={toolsStyles.formInputLabel}>Media Type</Text>
                     <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
                       <TouchableOpacity
                         onPress={() => setNewGallery({ ...newGallery, type: 'photo' })}
@@ -1010,13 +1008,13 @@ export default function AdminDashboardScreen() {
                           paddingVertical: 10,
                           alignItems: 'center',
                           borderRadius: 8,
-                          backgroundColor: newGallery.type === 'photo' ? '#F58220' : '#E2E8F0',
+                          backgroundColor: newGallery.type === 'photo' ? '#F58220' : theme.line,
                           flexDirection: 'row',
                           justifyContent: 'center',
                         }}
                       >
-                        <Icon name="image-outline" size={16} color={newGallery.type === 'photo' ? '#FFFFFF' : '#475569'} style={{ marginRight: 6 }} />
-                        <Text style={{ fontSize: 12, ...FONTS.bold, color: newGallery.type === 'photo' ? '#FFFFFF' : '#475569' }}>
+                        <Icon name="image-outline" size={16} color={newGallery.type === 'photo' ? '#FFFFFF' : theme.text} style={{ marginRight: 6 }} />
+                        <Text style={{ fontSize: 12, ...FONTS.bold, color: newGallery.type === 'photo' ? '#FFFFFF' : theme.text }}>
                           Upload Photo
                         </Text>
                       </TouchableOpacity>
@@ -1027,30 +1025,30 @@ export default function AdminDashboardScreen() {
                           paddingVertical: 10,
                           alignItems: 'center',
                           borderRadius: 8,
-                          backgroundColor: newGallery.type === 'video' ? '#0F172A' : '#E2E8F0',
+                          backgroundColor: newGallery.type === 'video' ? theme.text : theme.line,
                           flexDirection: 'row',
                           justifyContent: 'center',
                         }}
                       >
-                        <Icon name="logo-youtube" size={16} color={newGallery.type === 'video' ? '#FFFFFF' : '#475569'} style={{ marginRight: 6 }} />
-                        <Text style={{ fontSize: 12, ...FONTS.bold, color: newGallery.type === 'video' ? '#FFFFFF' : '#475569' }}>
+                        <Icon name="logo-youtube" size={16} color={newGallery.type === 'video' ? '#FFFFFF' : theme.text} style={{ marginRight: 6 }} />
+                        <Text style={{ fontSize: 12, ...FONTS.bold, color: newGallery.type === 'video' ? '#FFFFFF' : theme.text }}>
                           YouTube Video
                         </Text>
                       </TouchableOpacity>
                     </View>
 
-                    <Text style={styles.formInputLabel}>Title *</Text>
+                    <Text style={toolsStyles.formInputLabel}>Title *</Text>
                     <TextInput
-                      style={styles.formTextInput}
+                      style={toolsStyles.formTextInput}
                       value={newGallery.title}
                       onChangeText={t => setNewGallery({ ...newGallery, title: t })}
                       placeholder={newGallery.type === 'photo' ? "e.g. Micro-soldering Workshop" : "e.g. Domestic Wiring Demonstration"}
                       placeholderTextColor="#9CA3AF"
                     />
 
-                    <Text style={styles.formInputLabel}>Category</Text>
+                    <Text style={toolsStyles.formInputLabel}>Category</Text>
                     <TextInput
-                      style={styles.formTextInput}
+                      style={toolsStyles.formTextInput}
                       value={newGallery.category}
                       onChangeText={t => setNewGallery({ ...newGallery, category: t })}
                       placeholder="e.g. Workshops & Labs, Practical Sessions, Certificates & Events"
@@ -1059,15 +1057,15 @@ export default function AdminDashboardScreen() {
 
                     {newGallery.type === 'photo' ? (
                       <View style={{ marginBottom: 12 }}>
-                        <Text style={styles.formInputLabel}>Gallery Photo File *</Text>
+                        <Text style={toolsStyles.formInputLabel}>Gallery Photo File *</Text>
                         <TouchableOpacity
                           style={{
                             flexDirection: 'row',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            backgroundColor: '#FFF7ED',
+                            backgroundColor: theme.surface,
                             borderWidth: 1.5,
-                            borderColor: '#FFEDD5',
+                            borderColor: theme.line,
                             borderStyle: 'dashed',
                             paddingVertical: 12,
                             paddingHorizontal: 16,
@@ -1090,7 +1088,7 @@ export default function AdminDashboardScreen() {
                         </TouchableOpacity>
 
                         {newGallery.url ? (
-                          <View style={{ position: 'relative', marginTop: 4, borderRadius: 10, overflow: 'hidden', height: 110, backgroundColor: '#F1F5F9' }}>
+                          <View style={{ position: 'relative', marginTop: 4, borderRadius: 10, overflow: 'hidden', height: 110, backgroundColor: theme.surface }}>
                             <Image
                               source={{ uri: getFullImageUrl(newGallery.url) }}
                               style={{ width: '100%', height: '100%' }}
@@ -1105,7 +1103,7 @@ export default function AdminDashboardScreen() {
                           </View>
                         ) : (
                           <TextInput
-                            style={styles.formTextInput}
+                            style={toolsStyles.formTextInput}
                             value={newGallery.url}
                             onChangeText={t => setNewGallery({ ...newGallery, url: t })}
                             placeholder="Or paste photo web link URL..."
@@ -1115,9 +1113,9 @@ export default function AdminDashboardScreen() {
                       </View>
                     ) : (
                       <View style={{ marginBottom: 12 }}>
-                        <Text style={styles.formInputLabel}>YouTube Video Link / URL *</Text>
+                        <Text style={toolsStyles.formInputLabel}>YouTube Video Link / URL *</Text>
                         <TextInput
-                          style={styles.formTextInput}
+                          style={toolsStyles.formTextInput}
                           value={newGallery.url}
                           onChangeText={t => setNewGallery({ ...newGallery, url: t })}
                           placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
@@ -1146,9 +1144,9 @@ export default function AdminDashboardScreen() {
                       </View>
                     )}
 
-                    <Text style={styles.formInputLabel}>Description</Text>
+                    <Text style={toolsStyles.formInputLabel}>Description</Text>
                     <TextInput
-                      style={[styles.formTextInput, { height: 60, textAlignVertical: 'top' }]}
+                      style={[toolsStyles.formTextInput, { height: 60, textAlignVertical: 'top' }]}
                       multiline
                       value={newGallery.description}
                       onChangeText={t => setNewGallery({ ...newGallery, description: t })}
@@ -1157,7 +1155,7 @@ export default function AdminDashboardScreen() {
                     />
 
                     <TouchableOpacity
-                      style={[styles.saveSettingsBtn, { backgroundColor: '#F58220' }]}
+                      style={[toolsStyles.saveSettingsBtn, { backgroundColor: '#F58220' }]}
                       onPress={handleCreateGallery}
                       disabled={savingGallery}
                     >
@@ -1166,21 +1164,21 @@ export default function AdminDashboardScreen() {
                       ) : (
                         <>
                           <Icon name="add-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                          <Text style={styles.saveSettingsBtnText}>Add to Website Gallery</Text>
+                          <Text style={toolsStyles.saveSettingsBtnText}>Add to Website Gallery</Text>
                         </>
                       )}
                     </TouchableOpacity>
-                  </View>
+                  </View>}
 
                   {/* CURRENT GALLERY LIST */}
-                  <View style={styles.settingsCardSection}>
-                    <Text style={[styles.settingsSectionTitle, { marginBottom: 12 }]}>Live Website Gallery Items ({galleryList.length})</Text>
+                  <View style={toolsStyles.settingsCardSection}>
+                    <Text style={[toolsStyles.settingsSectionTitle, { marginBottom: 12 }]}>Live Website Gallery Items ({galleryList.length})</Text>
                     {loadingGallery ? (
                       <ActivityIndicator size="small" color="#F58220" />
-                    ) : galleryList.length === 0 ? (
-                      <Text style={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>No gallery items uploaded yet.</Text>
+                    ) : galleryList.filter(item => `${item.title} ${item.category} ${item.description || ''}`.toLowerCase().includes(toolsSearch.toLowerCase().trim())).length === 0 ? (
+                      <Text style={{ fontSize: 12, color: theme.muted, fontStyle: 'italic' }}>{toolsSearch ? 'No gallery items match your search.' : 'No gallery items uploaded yet.'}</Text>
                     ) : (
-                      galleryList.map((item) => {
+                      galleryList.filter(item => `${item.title} ${item.category} ${item.description || ''}`.toLowerCase().includes(toolsSearch.toLowerCase().trim())).map((item) => {
                         const match = item.url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
                         const ytId = item.youtubeId || (match ? match[1] : null);
                         const thumbUrl = item.type === 'video' && ytId
@@ -1188,32 +1186,30 @@ export default function AdminDashboardScreen() {
                           : getFullImageUrl(item.url);
 
                         return (
-                          <View key={item._id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
+                          <View key={item._id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderWidth: 1, borderColor: theme.line, borderRadius: 14, paddingHorizontal: 12, marginBottom: 10 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
                               {thumbUrl ? (
                                 <Image
                                   source={{ uri: thumbUrl }}
-                                  style={{ width: 44, height: 44, borderRadius: 8, marginRight: 10, backgroundColor: '#F1F5F9' }}
+                                  style={{ width: 44, height: 44, borderRadius: 8, marginRight: 10, backgroundColor: theme.surface }}
                                   resizeMode="cover"
                                 />
                               ) : (
-                                <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: item.type === 'video' ? '#0F172A' : '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                                <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: item.type === 'video' ? theme.text : theme.surface, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                                   <Icon name={item.type === 'video' ? 'logo-youtube' : 'image-outline'} size={20} color={item.type === 'video' ? '#FFFFFF' : '#F58220'} />
                                 </View>
                               )}
                               <View style={{ flex: 1 }}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                  <View style={{ backgroundColor: item.type === 'video' ? '#0F172A' : '#FFF7ED', paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 4, marginRight: 6 }}>
+                                  <View style={{ backgroundColor: item.type === 'video' ? theme.text : theme.surface, paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 4, marginRight: 6 }}>
                                     <Text style={{ fontSize: 8.5, ...FONTS.bold, color: item.type === 'video' ? '#FFFFFF' : '#F58220' }}>{item.type?.toUpperCase() || 'PHOTO'}</Text>
                                   </View>
-                                  <Text style={{ fontSize: 13, ...FONTS.bold, color: '#0F172A' }} numberOfLines={1}>{item.title}</Text>
+                                  <Text style={{ fontSize: 13, ...FONTS.bold, color: theme.text, flexShrink: 1 }} numberOfLines={1}>{item.title}</Text>
                                 </View>
-                                <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }} numberOfLines={1}>{item.category} &bull; {item.description || item.url}</Text>
+                                <Text style={{ fontSize: 11, color: theme.muted, marginTop: 2 }} numberOfLines={1}>{item.category} &bull; {item.description || item.url}</Text>
                               </View>
                             </View>
-                            <TouchableOpacity onPress={() => handleDeleteGallery(item._id)} style={{ padding: 6 }}>
-                              <Icon name="trash-outline" size={18} color="#EF4444" />
-                            </TouchableOpacity>
+                            <WhatsAppOptionsMenu accessibilityLabel={`Options for ${item.title}`} options={[{ id: 'delete', label: 'Delete gallery item', destructive: true, onPress: () => setToolsDelete({ id: item._id, title: item.title, type: 'gallery' }) }]} />
                           </View>
                         );
                       })
@@ -1223,6 +1219,11 @@ export default function AdminDashboardScreen() {
               )}
             </ScrollView>
           )}
+          {activeToolsTab !== 'settings' && !toolsComposer && <TouchableOpacity accessibilityRole="button" accessibilityLabel={activeToolsTab === 'news' ? 'Add website news' : 'Add gallery item'} onPress={() => { setToolsComposer(true); toolsControls.show(); }} style={[managementStyles.fab, { bottom: Math.max(16, insets.bottom + 12) }]}><Icon name="add" size={28} color="#FFFFFF" /></TouchableOpacity>}
+          <ManagementSheet visible={!!toolsDelete} title="Delete website content?" busy={toolsDeleting} onClose={() => setToolsDelete(null)} footer={<><ManagementButton title="Cancel" secondary disabled={toolsDeleting} onPress={() => setToolsDelete(null)} /><ManagementButton title="Delete" busy={toolsDeleting} onPress={async () => { if (!toolsDelete || toolsDeleting) return; setToolsDeleting(true); try { if (toolsDelete.type === 'news') await handleDeleteNews(toolsDelete.id); else await handleDeleteGallery(toolsDelete.id); } finally { setToolsDelete(null); setToolsDeleting(false); } }} /></>}><Text style={{ ...FONTS.regular, fontSize: 14, lineHeight: 22, color: theme.text }}>Remove “{toolsDelete?.title}” from the public website?</Text></ManagementSheet>
+          <ManagementSheet visible={toolsSearchOpen} title="Search website content" onClose={() => setToolsSearchOpen(false)} footer={<ManagementButton title="Done" onPress={() => setToolsSearchOpen(false)} />}>
+            <ManagementSearch value={toolsSearch} onChangeText={setToolsSearch} placeholder="Search published items" />
+          </ManagementSheet>
         </KeyboardAvoidingView>
       </Modal>
 

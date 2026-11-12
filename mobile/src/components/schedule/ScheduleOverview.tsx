@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONTS } from '../../config/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { communicationTheme } from '../shared/communicationTheme';
+import { floatingTabBarClearance } from '../navigation/floatingTabBarLayout';
+import useScrollAwareControls from '../../hooks/useScrollAwareControls';
+import ScrollAwareControls from '../shared/ScrollAwareControls';
 import ScheduleCoursePicker from './ScheduleCoursePicker';
 import ScheduleRegularClasses from './ScheduleRegularClasses';
 import ScheduleCalendar from './ScheduleCalendar';
@@ -16,38 +20,45 @@ type Props = {
   onRetry?: () => void; onRefresh?: () => void; refreshing?: boolean;
   onCreate?: () => void; onViewChange?: (mode: ScheduleViewMode) => void; onFilter?: () => void;
   viewMode?: ScheduleViewMode; selectedDate?: Date; onDateChange?: (date: Date) => void;
-  emptyMessage?: string; regularBatches?: any[]; search?: string; onSearchChange?: (value: string) => void;
+  emptyMessage?: string; regularBatches?: any[]; collapseControls?: boolean;
 };
 export default function ScheduleOverview(props: Props) {
   const { isDark } = useTheme();
   const theme = communicationTheme(isDark);
+  const insets = useSafeAreaInsets();
+  const dockClearance = floatingTabBarClearance(insets.bottom);
   const [viewsOpen, setViewsOpen] = useState(false);
   const mode = props.viewMode || 'List';
   const date = props.selectedDate || scheduleToday();
+  const scrollControls = useScrollAwareControls(`${props.selectedBatchId}:${mode}`);
   const visibleSlots = slotsForScheduleView(props.slots, mode, date);
   const visibleBatches = regularBatchesForScheduleView(scheduleBatches(props.regularBatches || props.batches, props.selectedBatchId), mode, date);
   const action = (label: string, icon: React.ComponentProps<typeof Icon>['name'], onPress: () => void, primary = false, accessibilityLabel?: string) =>
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={accessibilityLabel || label} onPress={onPress} style={[styles.action, { borderColor: theme.line, backgroundColor: primary ? COLORS.secondary : theme.surface }]}>
       <Icon name={icon} size={16} color={primary ? '#FFFFFF' : theme.text} /><Text style={[styles.actionText, { color: primary ? '#FFFFFF' : theme.text }]}>{label}</Text>
     </TouchableOpacity>;
-  return <>
-    <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}
+  const toolbar = <View style={styles.toolbar}>
+          <View style={styles.courseSelection}>
+            {props.batches.length > 0 && <ScheduleCoursePicker batches={props.batches} selectedBatchId={props.selectedBatchId} onSelect={props.onBatchSelect} />}
+          </View>
+          {props.onFilter && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Filters" accessibilityHint="Filter the schedule" onPress={props.onFilter}
+            style={[styles.roundAction, { backgroundColor: theme.surface, borderColor: theme.line }]}>
+            <Icon name="options-outline" size={20} color={theme.text} />
+          </TouchableOpacity>}
+          {props.onViewChange && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Change schedule view, current ${mode}`} accessibilityHint="Choose list, month, week or day view" accessibilityState={{ expanded: viewsOpen }} aria-expanded={viewsOpen} onPress={() => setViewsOpen(true)}
+            style={[styles.roundAction, { backgroundColor: theme.surface, borderColor: theme.line }]}>
+            <Icon name="calendar-outline" size={20} color={theme.text} />
+          </TouchableOpacity>}
+        </View>;
+  return <View style={styles.container}>
+    {!!props.collapseControls && <ScrollAwareControls controls={scrollControls}><View style={[styles.content, { paddingBottom: 10 }]}>{toolbar}</View></ScrollAwareControls>}
+    <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} onScroll={props.collapseControls ? scrollControls.onScroll : undefined} scrollEventThrottle={16}
       refreshControl={props.onRefresh ? <RefreshControl refreshing={!!props.refreshing} onRefresh={props.onRefresh} tintColor={COLORS.secondary} /> : undefined}
-      contentContainerStyle={styles.scrollContent}>
+      contentContainerStyle={{ paddingBottom: dockClearance + (props.onCreate ? 84 : 24) }}>
       <View style={styles.content}>
-        {props.batches.length > 0 && <ScheduleCoursePicker batches={props.batches} selectedBatchId={props.selectedBatchId} onSelect={props.onBatchSelect} />}
-        {(props.onCreate || props.onViewChange || props.onFilter) && <View style={styles.actions}>
-          {props.onCreate && action('Create slot', 'add-outline', props.onCreate, true)}
-          {props.onViewChange && action('Views', 'calendar-outline', () => setViewsOpen(true), false, `Change schedule view, current ${mode}`)}
-          {props.onFilter && action('Filters', 'options-outline', props.onFilter)}
-        </View>}
+        {!props.collapseControls && toolbar}
         {mode !== 'List' && props.onDateChange && props.onViewChange && <ScheduleCalendar mode={mode} date={date}
           slots={props.loading ? [] : props.slots} onDateChange={props.onDateChange} onViewChange={props.onViewChange} />}
-        {props.onSearchChange && <View style={[styles.search, { backgroundColor: theme.surface, borderColor: theme.line }]}>
-          <Icon name="search-outline" size={16} color={theme.muted} />
-          <TextInput accessibilityLabel="Search schedule" placeholder="Search course, batch, instructor…" placeholderTextColor={theme.muted}
-            value={props.search} onChangeText={props.onSearchChange} style={[styles.searchInput, { color: theme.text }]} />
-        </View>}
         {props.loading ? <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 24 }} />
           : props.error ? <View style={styles.empty}>
             <Text accessibilityRole="alert" style={[styles.help, { color: theme.text }]}>{props.error}</Text>
@@ -66,6 +77,10 @@ export default function ScheduleOverview(props: Props) {
           </>}
       </View>
     </ScrollView>
+    {props.onCreate && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Create slot" accessibilityHint="Add a practical slot" onPress={props.onCreate}
+      style={[styles.addSlot, { bottom: dockClearance + 12 }]}>
+      <Icon name="add" size={28} color="#FFFFFF" />
+    </TouchableOpacity>}
     <Modal visible={viewsOpen} transparent animationType="fade" onRequestClose={() => setViewsOpen(false)}>
       <View style={styles.backdrop}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close schedule views" style={StyleSheet.absoluteFill} onPress={() => setViewsOpen(false)} />
@@ -80,19 +95,20 @@ export default function ScheduleOverview(props: Props) {
         </View>
       </View>
     </Modal>
-  </>;
+  </View>;
 }
 export const scheduleOverviewStyles = StyleSheet.create({
   manageButton: { marginTop: 12, minHeight: 44, borderRadius: 12, backgroundColor: COLORS.secondary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7 },
   manageButtonText: { ...FONTS.bold, fontSize: 14, color: '#FFFFFF' },
 });
 const styles = StyleSheet.create({
-  scrollContent: { paddingBottom: 110 },
+  container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 10, width: '100%', maxWidth: 1100, alignSelf: 'center', gap: 10 },
   heading: { ...FONTS.bold, fontSize: 18 }, help: { ...FONTS.regular, fontSize: 14, lineHeight: 21 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  search: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, minHeight: 44 },
-  searchInput: { ...FONTS.regular, fontSize: 13, flex: 1, minWidth: 0, paddingVertical: 10 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  courseSelection: { flex: 1, minWidth: 0 },
+  roundAction: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  addSlot: { position: 'absolute', right: 22, width: 54, height: 54, borderRadius: 27, backgroundColor: COLORS.secondary, alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: COLORS.secondary, shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   action: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 40, paddingHorizontal: 12, borderWidth: 1, borderRadius: 10 },
   actionText: { ...FONTS.semiBold, fontSize: 12 },
   empty: { alignItems: 'center', borderRadius: 16, borderWidth: 1, padding: 24, gap: 12 },

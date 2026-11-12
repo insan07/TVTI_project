@@ -20,7 +20,7 @@ import api from '../../services/api';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
 import { isPracticalExpired, practicalBookingClosed } from '../../utils/practicalTime';
@@ -170,9 +170,7 @@ export default function PracticeSessionsScreen() {
   return (
     <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
       <ScreenBackground />
-      <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
-        <ScreenHeader title="Practice Sessions" subtitle="Book and manage practical lab slots" />
-      </View>
+      <MainPageHeader showBack title="Practice Sessions" subtitle="Book and manage practical lab slots" />
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         <View style={styles.contentPadding}>
           {/* Warning Info Box */}

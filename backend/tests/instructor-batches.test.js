@@ -42,7 +42,7 @@ test('My Batches includes all assigned statuses and empty batches, newest first,
   const res = await call(getMyBatches);
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.body.map(b => String(b._id)), [batches[2], batches[1], batches[0]].map(b => String(b._id)));
-  assert.deepEqual(res.body.map(b => b.enrolled_count), [0, 2, 1]);
+  assert.deepEqual(res.body.map(b => b.enrolled_count), [0, 1, 1]);
   assert.deepEqual(res.body.map(b => b.course_id.title), ['Electrical', 'Plumbing', 'Electrical']);
 });
 

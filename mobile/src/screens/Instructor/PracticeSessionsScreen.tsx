@@ -13,7 +13,7 @@ import {
 } from '../../components/shared/DateTimePickerModals';
 import api from '../../services/api';
 import { updatePracticeSlot, getSlotBookings } from '../../services/practiceService';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScheduleOverview, { scheduleOverviewStyles } from '../../components/schedule/ScheduleOverview';
 import ScheduleSlotCard from '../../components/schedule/ScheduleSlotCard';
 import ScreenBackground from '../../components/shared/ScreenBackground';
@@ -446,10 +446,10 @@ export default function PracticeSessionsScreen() {
   const overviewSlots = slots.filter(slot => selectedBatchFilter === 'all' || String(slot.batch_id?._id || slot.batch_id) === selectedBatchFilter);
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#0B0F19' : '#F5F6F8', paddingTop: Math.max(insets.top + 4, 10) }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#0B0F19' : '#F5F6F8' }]}>
       <ScreenBackground />
-      <ScreenHeader title="Schedule" showBack={false} />
-      <ScheduleOverview batches={batches} selectedBatchId={selectedBatchFilter === 'all' ? null : selectedBatchFilter}
+      <MainPageHeader title="Schedule" showBack={false} />
+      <ScheduleOverview collapseControls batches={batches} selectedBatchId={selectedBatchFilter === 'all' ? null : selectedBatchFilter}
         onBatchSelect={id => { setSelectedBatchFilter(id || 'all'); setSelectedCourseFilter('all'); }}
         slots={overviewSlots} renderSlot={renderListCard}
         loading={loading || masterLoading} error={masterError || slotError}

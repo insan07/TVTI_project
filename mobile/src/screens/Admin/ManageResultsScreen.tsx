@@ -16,11 +16,15 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import CustomDropdown from '../../components/shared/CustomDropdown';
 import api from '../../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
+import { useRoute } from '@react-navigation/native';
+import useScrollAwareControls from '../../hooks/useScrollAwareControls';
+import ScrollAwareControls from '../../components/shared/ScrollAwareControls';
 
 export default function ManageResultsScreen() {
+  const route = useRoute<any>();
   const { isDark } = useTheme();
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>('');
@@ -40,16 +44,20 @@ export default function ManageResultsScreen() {
 
   // Bulk View Toggle
   const [isBulkView, setIsBulkView] = useState(false);
+  const scrollControls = useScrollAwareControls(`${selectedBatch}:${isBulkView}`);
 
   useEffect(() => {
     fetchBatches();
   }, []);
+  useEffect(() => {
+    if (route.params?.batchId && batches.some(batch => batch._id === route.params.batchId)) setSelectedBatch(route.params.batchId);
+  }, [route.params?.batchId, batches]);
 
   const fetchBatches = async () => {
     try {
       const res = await api.get('/admin/batches');
       setBatches(res.data);
-      if (res.data.length > 0) setSelectedBatch(res.data[0]._id);
+      if (res.data.length > 0) setSelectedBatch(res.data.some((batch: any) => batch._id === route.params?.batchId) ? route.params.batchId : res.data[0]._id);
     } catch (e) {
       console.warn(e);
       Alert.alert('Error', 'Failed to load batches');
@@ -174,7 +182,8 @@ export default function ManageResultsScreen() {
   const uniqueAssessments = Array.from(new Set(results.map(r => r.assessment_name)));
 
   const renderBulkView = () => (
-    <ScrollView style={{ flex: 1 }} horizontal showsHorizontalScrollIndicator={true}>
+    <ScrollView style={{ flex: 1 }} onScroll={scrollControls.onScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: 110 }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={true}>
       <View style={styles.tableContainer}>
         {/* Table Header */}
         <View style={styles.tableHeaderRow}>
@@ -231,6 +240,7 @@ export default function ManageResultsScreen() {
         )}
       </View>
     </ScrollView>
+    </ScrollView>
   );
 
   // Live calculation preview in modal
@@ -242,12 +252,13 @@ export default function ManageResultsScreen() {
   return (
     <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
       <ScreenBackground />
-      <ScreenHeader
+      <MainPageHeader safeAreaHandled showBack
         title="Results & Evaluation"
         subtitle="Student grades & batch scoreboards"
       />
 
       {/* Controls Bar: Batch Dropdown & Toggle Button */}
+      <ScrollAwareControls controls={scrollControls}>
       <View style={styles.controlsBar}>
         <View style={{ flex: 1, marginRight: 10 }}>
           <CustomDropdown
@@ -265,6 +276,8 @@ export default function ManageResultsScreen() {
         </View>
 
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={`Switch to ${isBulkView ? 'list' : 'bulk'} view`}
           style={[styles.toggleBtn, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }, isBulkView && styles.toggleBtnActive]}
           onPress={() => setIsBulkView(!isBulkView)}
         >
@@ -275,6 +288,7 @@ export default function ManageResultsScreen() {
         </TouchableOpacity>
       </View>
 
+      </ScrollAwareControls>
       {/* Batch Overview Banner */}
       <View style={[styles.overviewBanner, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}>
         <View style={styles.overviewStat}>
@@ -299,7 +313,7 @@ export default function ManageResultsScreen() {
       ) : isBulkView ? (
         renderBulkView()
       ) : (
-        <FlatList
+        <FlatList onScroll={scrollControls.onScroll} scrollEventThrottle={16}
           data={students}
           keyExtractor={item => item?._id || item?.id || String(Math.random())}
           contentContainerStyle={{ paddingBottom: 110 }}

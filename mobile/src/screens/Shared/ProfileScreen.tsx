@@ -19,7 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { FONTS } from '../../config/theme';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 
 export default function ProfileScreen() {
@@ -259,21 +259,21 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.loadingScreen, isDark && { backgroundColor: '#0B0F19' }]}>
+      <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}><ScreenBackground /><MainPageHeader title="Profile" /><View style={styles.loadingScreen}>
         <ActivityIndicator size="large" color="#F58220" />
         <Text style={[styles.loadingText, isDark && { color: '#94A3B8' }]}>Loading profile...</Text>
-      </View>
+      </View></View>
     );
   }
 
   if (!profile) {
     return (
-      <View style={[styles.loadingScreen, isDark && { backgroundColor: '#0B0F19' }]}>
+      <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}><ScreenBackground /><MainPageHeader title="Profile" /><View style={styles.loadingScreen}>
         <Text style={{ color: isDark ? '#94A3B8' : '#6B7280' }}>Failed to load profile details</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={fetchProfile}>
           <Text style={styles.retryBtnText}>Retry</Text>
         </TouchableOpacity>
-      </View>
+      </View></View>
     );
   }
 
@@ -314,11 +314,8 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
       <ScreenBackground />
-      <ScreenHeader
-        title={
-          user?.role === 'instructor' ? 'Instructor Profile' :
-          user?.role === 'admin' ? 'Admin Profile' : 'Student Profile'
-        }
+      <MainPageHeader safeAreaHandled
+        title="Profile"
         subtitle="Account details & preferences"
         showBack={false}
       />

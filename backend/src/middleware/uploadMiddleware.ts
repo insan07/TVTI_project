@@ -5,14 +5,14 @@ const storage = multer.memoryStorage();
 const MAX_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedExtensions = ['.pdf', '.doc', '.docx', '.mp4', '.avi', '.mkv', '.png', '.jpg', '.jpeg'];
+  const allowedExtensions = ['.pdf', '.doc', '.docx', '.mp4', '.mov', '.webm', '.avi', '.mkv', '.png', '.jpg', '.jpeg'];
   const ext = path.extname(file.originalname).toLowerCase();
   
   const allowedMimeTypes = [
     'application/pdf',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'video/mp4', 'video/avi', 'video/x-matroska', 'video/x-msvideo',
+    'video/mp4', 'video/quicktime', 'video/webm', 'video/avi', 'video/x-matroska', 'video/x-msvideo',
     'image/png', 'image/jpeg', 'image/jpg'
   ];
 

@@ -24,7 +24,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, SPACING } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config/constants';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import { floatingTabBarClearance } from '../../components/navigation/floatingTabBarLayout';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { communicationTheme } from '../../components/shared/communicationTheme';
 import { studentCommunicationSurface } from '../../components/student/StudentHomeCard';
@@ -43,7 +44,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const UPLOAD_GAP = 10;
 const UPLOAD_CARD_PADDING = 14;
 
-export default function VideosScreen({ unreadCount }: { unreadCount?: number }) {
+export default function VideosScreen({ unreadCount, instructor = false, refreshKey = 0, selectedBatchId, onAdd, onDelete }: { unreadCount?: number; instructor?: boolean; refreshKey?: number; selectedBatchId?: string; onAdd?: (batchId?: string) => void; onDelete?: (item: any) => void }) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
@@ -67,6 +68,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
 
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
+  const videoRequest = useRef(0), materialRequest = useRef(0);
 
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
 
@@ -112,19 +114,20 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
   useFocusEffect(
     useCallback(() => {
       enableNativeScreenCaptureProtection();
-      api.get('/students/batches').then(res => {
+      api.get(instructor ? '/instructors/my-batches' : '/students/batches').then(res => {
         setBatches(res.data || []);
         if (res.data && res.data.length > 0) {
           const targetId = activeBatchId || res.data[0]._id;
-          if (!activeBatchId) setActiveBatchId(targetId);
+          if (targetId !== activeBatchId) setActiveBatchId(targetId);
           fetchContent(targetId);
         }
       }).catch(e => console.warn('Failed to load batches:', e));
       return () => {
         disableNativeScreenCaptureProtection();
       };
-    }, [activeBatchId])
+    }, [activeBatchId, instructor, refreshKey])
   );
+  useEffect(() => { if (selectedBatchId) setActiveBatchId(selectedBatchId); }, [selectedBatchId]);
 
   // We can remove the old fetchBatches function as it's handled in useFocusEffect now
 
@@ -134,29 +137,33 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
   };
 
   const fetchVideos = async (batchId: string) => {
+    const request = ++videoRequest.current;
     setLoadingVideos(true);
     try {
-      const res = await api.get(`/students/batches/${batchId}/videos`);
-      setVideos(res.data || []);
+      const res = await api.get(instructor ? "/instructors/videos" : `/students/batches/${batchId}/videos`);
+      if (request !== videoRequest.current) return;
+      setVideos((res.data || []).filter((item: any) => !instructor || String(item.batch_id?._id || item.batch_id) === batchId));
 
       // Modules remain collapsed by default until user taps to expand
       setExpandedModules({});
     } catch (e) {
       console.warn('Failed to load videos:', e);
     } finally {
-      setLoadingVideos(false);
+      if (request === videoRequest.current) setLoadingVideos(false);
     }
   };
 
   const fetchMaterials = async (batchId: string) => {
+    const request = ++materialRequest.current;
     setLoadingMaterials(true);
     try {
-      const res = await api.get(`/students/batches/${batchId}/materials`);
-      setMaterials(res.data || []);
+      const res = await api.get(instructor ? "/instructors/materials" : `/students/batches/${batchId}/materials`);
+      if (request !== materialRequest.current) return;
+      setMaterials((res.data || []).filter((item: any) => !instructor || String(item.batch_id?._id || item.batch_id) === batchId));
     } catch (e) {
       console.warn('Failed to load materials:', e);
     } finally {
-      setLoadingMaterials(false);
+      if (request === materialRequest.current) setLoadingMaterials(false);
     }
   };
 
@@ -221,9 +228,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
   return (
     <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
       <ScreenBackground />
-      <View style={{ paddingTop: Math.max(insets.top + 4, 10) }}>
-        <ScreenHeader title="Uploads" subtitle="Course videos & study materials" showBack={false} />
-      </View>
+      <MainPageHeader title="Uploads" subtitle="Course videos & study materials" showBack={false} />
 
       <ScrollView
         style={styles.scrollContent}
@@ -382,6 +387,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                           onPress={() => navigation.navigate('VideoPlayer', {
                             videoId: video._id,
                             batchId: activeBatchId,
+                            instructor,
                           })}
                         >
                           <View style={styles.widescreenThumbWrapper}>
@@ -409,6 +415,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                               <Text style={[styles.uploadDate, { color: theme.muted }]}>
                                 {formatUploadDate(video.createdAt || video.uploaded_at)}
                               </Text>
+                              {instructor && onDelete && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Delete upload: ${video.title}`} style={styles.notesAction} onPress={event => { event.stopPropagation(); onDelete(video); }}><Icon name="trash-outline" size={16} color={theme.muted} /><Text style={[styles.notesActionText, { color: theme.muted }]}>Delete</Text></TouchableOpacity>}
                               {!!video.notes_url && (
                                 <TouchableOpacity
                                   style={styles.notesAction}
@@ -452,7 +459,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
                                 {formatUploadDate(material.createdAt || material.uploaded_at)}
                               </Text>
                             </View>
-                            <Icon name="arrow-forward" size={19} color={theme.text} style={styles.materialArrow} />
+                            {instructor && onDelete ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Delete upload: ${material.title}`} style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }} onPress={event => { event.stopPropagation(); onDelete(material); }}><Icon name="trash-outline" size={19} color={theme.muted} /></TouchableOpacity> : <Icon name="arrow-forward" size={19} color={theme.text} style={styles.materialArrow} />}
                           </TouchableOpacity>
                         );
                       })}
@@ -472,6 +479,7 @@ export default function VideosScreen({ unreadCount }: { unreadCount?: number }) 
         </Animated.View>
       </ScrollView>
 
+      {instructor && onAdd && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add upload" onPress={() => onAdd(activeBatchId || undefined)} style={{ position: 'absolute', right: 24, bottom: floatingTabBarClearance(insets.bottom) + 16, width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.secondary, alignItems: 'center', justifyContent: 'center' }}><Icon name="add" size={28} color="#FFFFFF" /></TouchableOpacity>}
       {/* Course Selection Dropdown Modal */}
       <Modal
         visible={courseModalVisible}
