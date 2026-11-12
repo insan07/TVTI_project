@@ -6,6 +6,7 @@ import Enrollment from '../models/Enrollment';
 import cloudinary from '../config/cloudinary';
 import { sendNotification } from '../services/notificationService';
 import { deleteGridFSFile, saveBufferToGridFS } from '../services/fileStorage';
+import { assignedUploadBatch } from '../services/uploadAccess';
 
 export const normalizeYouTubeUrl = (url: string): string => {
   if (!url) return '';
@@ -126,6 +127,8 @@ export const uploadVideo = async (req: Request, res: Response): Promise<void> =>
       res.status(400).json({ message: 'Please provide either a YouTube URL or a video file.' });
       return;
     }
+    if (!(await assignedUploadBatch((req as any).user, batch_id))) { res.status(403).json({ message: 'Select an active batch assigned to you.' }); return; }
+    if (files?.notes?.[0] && files.notes[0].buffer?.subarray(0, 5).toString() !== '%PDF-') { res.status(400).json({ message: 'Lesson notes must be a valid PDF document.' }); return; }
 
     let cloudinary_url: string;
 
@@ -184,16 +187,17 @@ export const uploadVideo = async (req: Request, res: Response): Promise<void> =>
     });
 
     // Send instant notifications to enrolled students
-    await sendNotification({
+    let notification_sent = true;
+    try { await sendNotification({
       batchId: batch_id,
       title: `New Video: ${title}`,
       message: `Instructor added a new video for topic "${topic}".`,
       type: 'new_video',
       relatedId: video._id,
       link: '/videos'
-    });
+    }); } catch { notification_sent = false; console.warn('Video saved, but student notifications could not be delivered.'); }
 
-    res.status(201).json(video);
+    res.status(201).json({ ...video.toObject(), notification_sent });
   } catch (error) {
     console.error('Video upload failed:', error);
     const message = error instanceof Error && error.message ? error.message : 'Video upload failed';

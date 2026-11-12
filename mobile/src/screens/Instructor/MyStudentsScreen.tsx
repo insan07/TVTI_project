@@ -10,7 +10,7 @@ import api from '../../services/api';
 import { COLORS, FONTS } from '../../config/theme';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { Platform } from 'react-native';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -144,7 +144,7 @@ export default function MyStudentsScreen() {
   return (
     <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0F0B08' }]}>
       <ScreenBackground />
-      <ScreenHeader
+      <MainPageHeader safeAreaHandled
         title={batchId ? 'Batch Students' : 'My Students'}
         subtitle="Manage & view your assigned batches"
         showBack plainBack

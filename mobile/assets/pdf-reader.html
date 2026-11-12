@@ -168,7 +168,9 @@ startxref
     currentPage=Math.max(1,Math.min(documentPdf.numPages,Number(page)||1));
     if(nextZoom!==currentZoom){currentZoom=nextZoom;resizePages();}
     const slot=slots[currentPage-1];
-    slot.element.scrollIntoView({block:'start'});
+    const target=Math.min(slot.element.offsetTop,Math.max(0,document.documentElement.scrollHeight-window.innerHeight));
+    window.scrollTo({top:target,behavior:'instant'});
+    send({type:'page',page:currentPage});
     enqueue(currentPage-1);
     enqueue(currentPage);
   }
@@ -183,7 +185,8 @@ startxref
     requestAnimationFrame(function(){
       scrollFrame=false;
       const line=window.innerHeight*.35;
-      let visible=slots.findIndex(function(slot){return slot.element.getBoundingClientRect().bottom>line;});
+      const atEnd=window.scrollY>0&&window.scrollY+window.innerHeight>=document.documentElement.scrollHeight-2;
+      let visible=atEnd?slots.length-1:slots.findIndex(function(slot){return slot.element.getBoundingClientRect().bottom>line;});
       if(visible<0)visible=slots.length-1;
       if(visible>=0&&currentPage!==visible+1){currentPage=visible+1;send({type:'page',page:currentPage});}
       slots.forEach(function(slot,index){

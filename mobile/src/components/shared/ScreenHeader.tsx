@@ -81,6 +81,7 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
         ) : null}
         <View style={styles.titleWrapper}>
           <Text
+            accessibilityRole="header"
             style={[
               styles.headerTitle,
               isDark && { color: '#FFFFFF' },

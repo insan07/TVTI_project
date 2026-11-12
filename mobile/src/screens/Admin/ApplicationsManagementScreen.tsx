@@ -23,7 +23,7 @@ import { usersSectionTheme } from '../../components/shared/usersSectionTheme';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../config/theme';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
 import WhatsAppSelectionHeader from '../../components/shared/WhatsAppSelectionHeader';
@@ -1173,9 +1173,7 @@ export default function ApplicationsManagementScreen({
   return (
     <SafeAreaView style={[styles.container, isDark && { backgroundColor: design.surface }]} edges={['top']}>
       <ScreenBackground />
-      <View style={[styles.topHeader, isDark && { backgroundColor: design.surface, borderBottomColor: design.line }]}>
-        <Text style={[styles.topHeaderTitle, isDark && { color: design.text }]}>Pending Registrations</Text>
-      </View>
+      <MainPageHeader safeAreaHandled title="Applications" showBack />
       {renderContent()}
     </SafeAreaView>
   );

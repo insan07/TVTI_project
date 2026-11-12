@@ -59,6 +59,8 @@ export const getBatchMaterials = async (req: AuthRequest, res: Response): Promis
 const getAuthorizedVideo = async (req: AuthRequest, videoId: string) => {
   const video = await Video.findById(videoId);
   if (!video) return { video: null, forbidden: false };
+  if (req.user.role === 'admin') return { video, forbidden: false };
+  if (req.user.role === 'instructor') return { video, forbidden: String(video.instructor_id) !== String(req.user._id) };
 
   const enrollment = await Enrollment.findOne({
     student_id: req.user._id,
@@ -92,7 +94,7 @@ export const getVideoStreamUrl = async (req: AuthRequest, res: Response): Promis
       res.status(404).json({ message: 'Video stream is unavailable' });
       return;
     }
-    await updateStudentVideoActivity(req.user._id, video._id as Types.ObjectId, { last_accessed_at: new Date() })
+    if (req.user.role !== 'instructor' && req.user.role !== 'admin') await updateStudentVideoActivity(req.user._id, video._id as Types.ObjectId, { last_accessed_at: new Date() })
       .catch(error => console.warn('Unable to save recent video access:', error));
     if (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be')) {
       res.json({
@@ -182,14 +184,13 @@ export const downloadVideo = async (req: AuthRequest, res: Response): Promise<vo
 export const getNotesUrl = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { videoId } = req.params;
-    const video = await Video.findById(videoId);
+    const { video, forbidden } = await getAuthorizedVideo(req, String(videoId));
     if (!video || !video.notes_url) {
       res.status(404).json({ message: 'Notes not found' });
       return;
     }
 
-    const enrollment = await Enrollment.findOne({ student_id: req.user._id, batch_id: video.batch_id, status: 'active' });
-    if (!enrollment) {
+    if (forbidden) {
       res.status(403).json({ message: 'Not enrolled in this batch' });
       return;
     }

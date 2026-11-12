@@ -14,7 +14,7 @@ export const getMySchedule = async (req: AuthRequest, res: Response): Promise<vo
     const enrollments = await Enrollment.find({ student_id: req.user._id, status: 'active' }).select('batch_id');
     const batchIds = enrollments.map(e => e.batch_id);
 
-    const batches = await Batch.find({ _id: { $in: batchIds } })
+    const batches = await Batch.find({ _id: { $in: batchIds }, status: 'active' })
       .populate('course_id', 'title')
       .populate('instructor_ids', 'name')
       .lean();
@@ -50,11 +50,11 @@ export const getHomeDashboard = async (req: AuthRequest, res: Response): Promise
     const nowMs = Date.now();
 
     if (hasAssignedBatch) {
-      assignedBatches = await Batch.find({ _id: { $in: batchIds } })
+      assignedBatches = await Batch.find({ _id: { $in: batchIds }, status: 'active' })
         .populate('course_id', 'title code')
         .lean();
 
-      nextBatch = await Batch.findOne({ _id: { $in: batchIds } })
+      nextBatch = await Batch.findOne({ _id: { $in: batchIds }, status: 'active' })
         .populate('course_id', 'title code')
         .populate('instructor_ids', 'name email phone profile_photo')
         .lean();

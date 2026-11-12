@@ -4,9 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import api from '../../services/api';
+import useScrollAwareControls from '../../hooks/useScrollAwareControls';
+import ScrollAwareControls from '../../components/shared/ScrollAwareControls';
 import { useTheme } from '../../context/ThemeContext';
 import { FONTS } from '../../config/theme';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import { communicationTheme, COMMUNICATION_ACCENT } from '../../components/shared/communicationTheme';
 
 type AssignedBatch = {
@@ -28,6 +30,7 @@ export default function MyBatchesScreen() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const request = useRef(0);
+  const scrollControls = useScrollAwareControls(search);
   const fetchBatches = useCallback(async () => {
     const current = ++request.current;
     setError('');
@@ -50,14 +53,15 @@ export default function MyBatchesScreen() {
   }, [batches, search]);
 
   return <SafeAreaView edges={['top', 'bottom']} style={[styles.container, { backgroundColor: theme.background }]}>
-    <ScreenHeader title="My Batches" showBack plainBack containerStyle={styles.header}
+    <MainPageHeader safeAreaHandled title="My Batches" showBack plainBack containerStyle={styles.header}
       onBackPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('InstructorApp', { screen: 'Home' })} />
+    <ScrollAwareControls controls={scrollControls}>
     <View style={styles.controls}>
       <Text style={[styles.description, { color: theme.muted }]}>Your assigned batches and their students</Text>
       <View style={[styles.search, { borderColor: theme.line, backgroundColor: theme.surface }]}>
         <Icon name="search-outline" size={18} color={theme.muted} />
         <TextInput accessibilityLabel="Search batches" placeholder="Search batch or course" placeholderTextColor={theme.muted}
-          value={search} onChangeText={setSearch} style={[styles.searchInput, { color: theme.text }]} />
+          value={search} onChangeText={setSearch} onFocus={scrollControls.onFocus} onBlur={scrollControls.onBlur} style={[styles.searchInput, { color: theme.text }]} />
         {!!search && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear batch search" onPress={() => setSearch('')} style={styles.clear}>
           <Icon name="close" size={18} color={theme.muted} />
         </TouchableOpacity>}
@@ -65,7 +69,8 @@ export default function MyBatchesScreen() {
       {!loading && <Text style={[styles.count, { color: theme.muted }]}>{visibleBatches.length} {visibleBatches.length === 1 ? 'batch' : 'batches'}</Text>}
       {!!error && batches.length > 0 && <Text accessibilityRole="alert" style={[styles.error, { color: isDark ? '#FCA5A5' : '#B91C1C' }]}>{error}</Text>}
     </View>
-    {loading ? <View style={styles.empty}><ActivityIndicator color={COMMUNICATION_ACCENT} size="large" /></View> : <FlatList
+    </ScrollAwareControls>
+    {loading ? <View style={styles.empty}><ActivityIndicator color={COMMUNICATION_ACCENT} size="large" /></View> : <FlatList onScroll={scrollControls.onScroll} scrollEventThrottle={16}
       style={styles.list} data={visibleBatches} keyExtractor={batch => batch._id} contentContainerStyle={styles.listContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void fetchBatches(); }} colors={[COMMUNICATION_ACCENT]} tintColor={COMMUNICATION_ACCENT} />}
       renderItem={({ item }) => {

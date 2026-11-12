@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Platform, 
 import { useRoute } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import useViewerFullscreen from '../../hooks/useViewerFullscreen';
 import { Asset } from 'expo-asset';
 import { File, Paths } from 'expo-file-system';
 import { StorageAccessFramework, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
@@ -30,6 +32,7 @@ function loadTemplate(): Promise<string> {
 }
 
 export default function PdfViewerScreen() {
+  const immersive = useViewerFullscreen();
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
@@ -119,11 +122,12 @@ export default function PdfViewerScreen() {
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} onPress={action} disabled={disabled}
       style={[styles.toolButton, disabled && { opacity: 0.3 }]}><Icon name={icon} size={20} color={foreground} /></TouchableOpacity>;
 
-  return <View style={[styles.screen, { paddingTop: insets.top, backgroundColor: isDark ? '#111111' : '#F7F7F7' }]}>
-    <ScreenBackground />
-    <View style={[styles.content, { paddingBottom: insets.bottom + 8 }]}>
-      <View style={[styles.reader, { backgroundColor: isDark ? '#1B1B1B' : '#FFFFFF', borderColor: border }]}>
-        <View style={[styles.heading, { borderColor: border }]}>
+  return <View ref={immersive.host} collapsable={false} style={[styles.screen, { paddingTop: insets.top, backgroundColor: isDark ? '#111111' : '#F7F7F7' }]}>
+    <StatusBar hidden={immersive.fullscreen} />
+    {!immersive.fullscreen && <ScreenBackground />}
+    <View style={[styles.content, { paddingBottom: immersive.fullscreen ? insets.bottom : insets.bottom + 8 }, immersive.fullscreen && { paddingHorizontal: 0, paddingTop: 0, maxWidth: '100%' }]}>
+      <View style={[styles.reader, { backgroundColor: isDark ? '#1B1B1B' : '#FFFFFF', borderColor: border }, immersive.fullscreen && { borderWidth: 0, borderRadius: 0 }]}>
+        <View style={[styles.heading, { borderColor: border }, immersive.fullscreen && { display: 'none' }]}>
           <ViewerBackButton />
           <Text accessibilityRole="header" style={[styles.title, { color: foreground, flex: 1, minWidth: 0 }]} numberOfLines={1}>{title}</Text>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Download document" disabled={!canDownload || saving}
@@ -132,7 +136,7 @@ export default function PdfViewerScreen() {
             <Text style={styles.downloadLabel}>Download</Text>
           </TouchableOpacity>
         </View>
-        <View style={[styles.toolbar, { borderColor: border }]}>
+        <View style={[styles.toolbar, { borderColor: border }, immersive.fullscreen && { paddingLeft: Math.max(8, insets.left), paddingRight: Math.max(8, insets.right) }]}>
           <View style={styles.toolGroup}>
             {button('chevron-back', 'Previous page', () => changePage(Math.max(1, page - 1)), page <= 1 || !pages || !!error)}
             <Text accessibilityLiveRegion="polite" style={[styles.pageLabel, { color: foreground }]}>Page {page} / {pages || '—'}</Text>
@@ -142,6 +146,7 @@ export default function PdfViewerScreen() {
             {button('remove', 'Zoom out', () => changeZoom(Math.max(0.75, zoom - 0.25)), zoom <= 0.75 || !pages || !!error)}
             <Text style={[styles.zoomLabel, { color: secondary }]}>{Math.round(zoom * 100)}%</Text>
             {button('add', 'Zoom in', () => changeZoom(Math.min(2, zoom + 0.25)), zoom >= 2 || !pages || !!error)}
+            {button(immersive.fullscreen ? 'contract-outline' : 'expand-outline', immersive.fullscreen ? 'Exit PDF fullscreen' : 'Enter PDF fullscreen', immersive.toggle, false)}
           </View>
         </View>
         <View style={[styles.pages, { backgroundColor: isDark ? '#141414' : '#F0F0F0' }]}>
@@ -174,8 +179,8 @@ const styles = StyleSheet.create({
   title: { ...FONTS.semiBold, fontSize: 14, lineHeight: 20 },
   toolbar: { paddingHorizontal: 8, paddingVertical: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
   toolGroup: { flexDirection: 'row', alignItems: 'center' },
-  toolButton: { width: 36, height: 40, alignItems: 'center', justifyContent: 'center' },
-  pageLabel: { ...FONTS.medium, fontSize: 11, minWidth: 70, textAlign: 'center' },
+  toolButton: { width: 32, height: 44, alignItems: 'center', justifyContent: 'center' },
+  pageLabel: { ...FONTS.medium, fontSize: 11, minWidth: 56, textAlign: 'center' },
   zoomLabel: { ...FONTS.medium, fontSize: 11, minWidth: 34, textAlign: 'center' },
   pages: { flex: 1, overflow: 'hidden' },
   overlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12 },

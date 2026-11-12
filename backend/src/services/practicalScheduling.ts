@@ -73,6 +73,8 @@ async function validateSchedule(proposed: any[], excludeId: any, session: Client
   // date rather than letting those sessions bypass timetable checks.
   const query: any = { week_start_date: { $gte: new Date(Math.min(...weeks)), $lt: new Date(Math.max(...weeks) + 86_400_000) } };
   if (excludeId) query._id = { $ne: excludeId };
+  // Completed/cancelled batch history does not occupy the current timetable.
+  query.batch_id = { $in: await Batch.find({ status: 'active' }).distinct('_id').session(session) };
   const existing = await PracticeSlot.find(query).session(session);
   // Locked sessions still run; locking only closes student bookings.
   const all = [...existing, ...proposed];

@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#111111"
     },
     "ios": {
       "supportsTablet": true,
@@ -31,12 +31,12 @@
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#111111"
       },
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#111111"
       },
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
@@ -60,8 +60,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
-          "color": "#FF5E14",
+          "icon": "./assets/logo.png",
+          "color": "#F58220",
           "defaultChannel": "default"
         }
       ],
@@ -69,7 +69,28 @@
       "expo-font",
       "expo-image",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#111111",
+          "dark": {
+            "backgroundColor": "#111111",
+            "image": "./assets/splash-icon.png"
+          }
+        }
+      ],
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT_UP"
+        }
+      ],
+      "./plugins/withWindowsCppDriver",
+      "./plugins/withNotificationManifest"
     ],
     "extra": {
       "eas": {

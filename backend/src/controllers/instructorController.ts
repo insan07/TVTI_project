@@ -10,12 +10,12 @@ import SlotBooking from '../models/SlotBooking';
 export const getMyBatches = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const batches = await Batch.find({ instructor_ids: req.user._id })
-      .select('name course_id start_date end_date capacity room status')
+      .select('name course_id start_date end_date capacity room status schedule_json')
       .populate('course_id', 'title')
       .sort({ createdAt: -1, _id: -1 })
       .lean();
     const counts = await Enrollment.aggregate([
-      { $match: { batch_id: { $in: batches.map(batch => batch._id) } } },
+      { $match: { batch_id: { $in: batches.map(batch => batch._id) }, status: { $ne: 'dropped' } } },
       { $group: { _id: '$batch_id', count: { $sum: 1 } } },
     ]);
     const byBatch = new Map(counts.map(count => [String(count._id), count.count]));
@@ -27,14 +27,14 @@ export const getMyBatches = async (req: AuthRequest, res: Response): Promise<voi
 
 export const getMySchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const query = req.user?.role === 'admin' ? { status: 'active' } : { instructor_ids: req.user._id };
+    const query = req.user?.role === 'admin' ? { status: 'active' } : { instructor_ids: req.user._id, status: 'active' };
     const batches = await Batch.find(query)
       .populate('course_id', 'title')
       .lean();
 
     const batchIds = batches.map(b => b._id);
     const enrollmentsCount = await Enrollment.aggregate([
-      { $match: { batch_id: { $in: batchIds } } },
+      { $match: { batch_id: { $in: batchIds }, status: { $ne: 'dropped' } } },
       { $group: { _id: '$batch_id', count: { $sum: 1 } } }
     ]);
 

@@ -6,6 +6,7 @@ import { createSlots, getMySlots, updateSlot, deleteSlot, getSlotBookings, cance
 import { protect } from '../middleware/authMiddleware';
 import { checkRole } from '../middleware/roleMiddleware';
 import { upload } from '../middleware/uploadMiddleware';
+import { getVideoStreamUrl, getNotesUrl } from '../controllers/studentVideoController';
 
 const router = express.Router();
 
@@ -19,6 +20,8 @@ router.get('/my-students',     getMyStudents);
 
 // ── Videos ──────────────────────────────────────────────────────────────────
 router.get('/videos',     getMyVideos);
+router.get('/videos/:videoId/stream-url', getVideoStreamUrl);
+router.get('/videos/:videoId/notes-url', getNotesUrl);
 router.post(
   '/videos',
   upload.fields([

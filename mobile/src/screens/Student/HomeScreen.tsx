@@ -17,10 +17,10 @@ import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/nativ
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import NotificationBellIcon from '../../components/shared/NotificationBellIcon';
+import { LinearGradient } from 'expo-linear-gradient';
 import StudentHomeCard, { studentHomeCardStyles } from '../../components/student/StudentHomeCard';
 import AnnouncementRow from '../../components/student/AnnouncementRow';
 import { communicationTheme } from '../../components/shared/communicationTheme';

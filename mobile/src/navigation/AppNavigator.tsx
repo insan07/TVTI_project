@@ -261,7 +261,7 @@ export const AppNavigator = () => {
 
   // Keep the form mounted during sign-in so pending state, input, and errors survive.
   if (isLoading && isRestoringSession) {
-    return <AppLoadingAnimation isDark={false} message="Restoring session..." />;
+    return <AppLoadingAnimation message="Opening your learning space" />;
   }
 
   // Shared header styling for stack screens (sub-pages only, not tab screens)
@@ -307,6 +307,7 @@ export const AppNavigator = () => {
                 </Stack.Screen>
                 <Stack.Screen name="MyStudents" component={MyStudentsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="MyBatches" component={MyBatchesScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>

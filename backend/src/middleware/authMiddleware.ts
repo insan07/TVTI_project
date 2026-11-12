@@ -20,6 +20,11 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
         res.status(401).json({ message: 'Not authorized, user not found' });
         return;
       }
+      // Recheck account state on every request, including tokens issued before deactivation.
+      if (!req.user.is_active) {
+        res.status(401).json({ message: 'Your account is inactive. Please contact the TVTI administration.' });
+        return;
+      }
       
       // Enforce route-level blocking if must_change_password is true
       if (req.user.must_change_password) {

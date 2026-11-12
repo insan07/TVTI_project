@@ -26,7 +26,7 @@ import {
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../services/api';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScheduleOverview, { scheduleOverviewStyles } from '../../components/schedule/ScheduleOverview';
 import ScheduleSlotCard from '../../components/schedule/ScheduleSlotCard';
 import { isPracticalExpired, instituteDateKey, instituteWallTime } from '../../utils/practicalTime';
@@ -101,7 +101,6 @@ export default function AdminSlotManagementScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Search & Filters
-  const [search, setSearch] = useState('');
   const [showFilter, setShowFilter] = useState(false);
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>('all');
   const [selectedBatchFilter, setSelectedBatchFilter] = useState<string>('all');
@@ -220,7 +219,7 @@ export default function AdminSlotManagementScreen() {
 
   useEffect(() => {
     fetchSlots();
-  }, [weekStart, selectedDate, viewMode, selectedBatchFilter, selectedInstructorFilter, selectedCourseFilter, statusFilter, search]);
+  }, [weekStart, selectedDate, viewMode, selectedBatchFilter, selectedInstructorFilter, selectedCourseFilter, statusFilter]);
 
   const showAlert = (title: string, msg: string, onOk?: () => void, type: 'success' | 'error' | 'info' = 'info') => {
     setAlertModal({
@@ -291,16 +290,6 @@ export default function AdminSlotManagementScreen() {
         data = data.filter((s: any) => !s.is_open);
       }
 
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        data = data.filter((s: any) =>
-          (s.batch_id?.name || '').toLowerCase().includes(q) ||
-          (s.batch_id?.course_id?.title || '').toLowerCase().includes(q) ||
-          (s.instructor_id?.name || '').toLowerCase().includes(q) ||
-          (s.equipment_note || '').toLowerCase().includes(q) ||
-          (s.location || '').toLowerCase().includes(q)
-        );
-      }
 
       // Newest session date and start time first.
       data.sort((a: any, b: any) => {
@@ -646,10 +635,10 @@ export default function AdminSlotManagementScreen() {
     && (selectedInstructorFilter === 'all' || batch.instructor_ids?.some((instructor: any) => String(instructor._id || instructor) === selectedInstructorFilter)));
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#0B0F19' : '#F5F6F8', paddingTop: Math.max(insets.top + 4, 10) }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#0B0F19' : '#F5F6F8' }]}>
       <ScreenBackground />
-      <ScreenHeader title="Schedule" showBack={false} />
-      <ScheduleOverview batches={batches} selectedBatchId={selectedBatchFilter === 'all' ? null : selectedBatchFilter}
+      <MainPageHeader title="Schedule" showBack={false} />
+      <ScheduleOverview collapseControls batches={batches} selectedBatchId={selectedBatchFilter === 'all' ? null : selectedBatchFilter}
         onBatchSelect={id => { setSelectedBatchFilter(id || 'all'); setSelectedCourseFilter('all'); }}
         slots={slots} regularBatches={overviewBatches} renderSlot={renderListCard}
         loading={loading || masterLoading} error={masterError || slotError}
@@ -657,7 +646,7 @@ export default function AdminSlotManagementScreen() {
         onRefresh={onRefresh} refreshing={refreshing} onCreate={openCreateScheduleSlot}
         viewMode={viewMode} selectedDate={selectedDate} onViewChange={setViewMode}
         onDateChange={date => { setSelectedDate(date); setWeekStart(getMonday(date)); }}
-        onFilter={() => setShowFilter(true)} search={search} onSearchChange={setSearch}
+        onFilter={() => setShowFilter(true)}
         emptyMessage="No batches are available for this schedule." />
 
       {/* CREATE PRACTICAL SLOT POPUP MODAL */}
