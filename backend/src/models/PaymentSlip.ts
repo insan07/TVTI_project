@@ -9,6 +9,7 @@ export interface IPaymentSlip extends Document {
   amount: number;
   payment_method: PaymentMethodType;
   slip_url?: string;
+  receipt_mime_type?: string;
   status: PaymentSlipStatusType;
   rejection_reason?: string;
   notes?: string;
@@ -29,6 +30,7 @@ const paymentSlipSchema = new Schema<IPaymentSlip>(
       default: 'bank_transfer',
     },
     slip_url: { type: String },
+    receipt_mime_type: { type: String },
     status: {
       type: String,
       enum: ['pending', 'verified', 'rejected'],

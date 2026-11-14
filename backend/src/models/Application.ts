@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export type ApplicationStatus = 'pending' | 'contacted' | 'paid' | 'approved' | 'rejected';
 export type PaymentMethod = 'bank_transfer' | 'physical_pay';
-export type PaymentStatus = 'pending' | 'partially_paid' | 'paid' | 'waived';
+export type PaymentStatus = 'pending' | 'partially_paid' | 'paid' | 'waived' | 'overpaid';
 
 export interface IGuardianInfo {
   name?: string;
@@ -78,7 +78,7 @@ const applicationSchema = new Schema<IApplication>(
     payment_slip: { type: String },
     total_course_fee: { type: Number, default: 0 },
     amount_paid: { type: Number, default: 0 },
-    payment_status: { type: String, enum: ['pending', 'partially_paid', 'paid', 'waived'], default: 'pending' },
+    payment_status: { type: String, enum: ['pending', 'partially_paid', 'paid', 'waived', 'overpaid'], default: 'pending' },
     course_id: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
     course_ids: [{ type: Schema.Types.ObjectId, ref: 'Course' }],
     assigned_batch_ids: [{ type: Schema.Types.ObjectId, ref: 'Batch' }],

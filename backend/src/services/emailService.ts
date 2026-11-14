@@ -13,6 +13,18 @@ export interface SendOtpMailOptions {
   otp: string;
 }
 
+export const sendPasswordChangeOtpEmail = async ({ to, otp }: SendOtpMailOptions): Promise<{ success: boolean }> => {
+  const transporter = getTransporter();
+  if (!transporter) return { success: false };
+  try {
+    await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to,
+      subject: 'TVTI - Confirm your password change',
+      text: `Your TVTI password change verification code is ${otp}. It expires in 10 minutes and can only be used once. If you did not request this change, do not share this code.`,
+    });
+    return { success: true };
+  } catch { return { success: false }; }
+};
+
 export interface SendPasswordResetOtpMailOptions {
   to: string;
   otp: string;

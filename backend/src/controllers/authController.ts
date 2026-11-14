@@ -6,6 +6,8 @@ import jwt from 'jsonwebtoken';
 import { sendOtp, verifyOtp, isEmailVerified, consumeEmailVerification, isValidEmail } from '../services/otpService';
 import { sendPasswordResetOtpEmail } from '../services/emailService';
 import crypto from 'crypto';
+import { changeAccountPassword } from '../services/passwordChange';
+import { PracticalError } from '../services/practicalScheduling';
 
 const getJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET?.trim();
@@ -100,66 +102,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
 export const forceChangePassword = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?._id;
-    const { newPassword, nic, newName, newEmail } = req.body;
-
-    if (!newPassword || newPassword.length < 6) {
-      res.status(400).json({ message: 'New password must be at least 6 characters long' });
-      return;
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
-
-    // Verify NIC number if explicitly supplied in request body
-    if (nic && user.nic && nic.trim().toUpperCase() !== user.nic.toUpperCase()) {
-      res.status(400).json({ message: 'Verification failed. NIC number does not match.' });
-      return;
-    }
-
-    // Update name if newName is provided
-    if (newName && newName.trim()) {
-      user.name = newName.trim();
-    }
-
-    // Update email if newEmail is provided and has changed
-    if (newEmail && newEmail.trim() && newEmail.trim().toLowerCase() !== user.email) {
-      const cleanedEmail = newEmail.trim().toLowerCase();
-      const emailExists = await User.findOne({ email: cleanedEmail });
-      if (emailExists) {
-        res.status(400).json({ message: 'Email address is already in use by another account.' });
-        return;
-      }
-      user.email = cleanedEmail;
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    user.password_hash = await bcrypt.hash(newPassword, salt);
-    user.must_change_password = false;
-    user.temp_password_expires_at = undefined;
-    user.password_set_at = new Date();
-
-    await user.save();
-
-    res.json({
-      message: 'Password updated successfully. Access granted.',
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        index_number: user.index_number,
-        registration_number: user.registration_number,
-        profile_photo: user.profile_photo,
-        must_change_password: false
-      }
-    });
+    const user = await changeAccountPassword((req as any).user?._id, req.body, true);
+    res.json({ message: 'Password updated successfully. Access granted.', user: {
+      _id: user._id, name: user.name, email: user.email, role: user.role,
+      index_number: user.index_number, registration_number: user.registration_number,
+      profile_photo: user.profile_photo, must_change_password: false,
+    } });
   } catch (error) {
-    console.error('Force change password error:', error);
-    res.status(500).json({ message: 'Server error updating password' });
+    res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Password could not be changed.' });
   }
 };
 

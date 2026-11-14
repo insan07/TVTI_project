@@ -11,6 +11,7 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { useTheme } from '../../context/ThemeContext';
 import { showToast } from '../../components/shared/Toast';
 import { AuthTextInput } from '../../components/shared/AuthForm';
+import PasswordChangeOtp from '../../components/shared/PasswordChangeOtp';
 
 export default function ForceChangePasswordScreen() {
   return <AuthBackdropProvider><ForceChangePasswordScreenContent /></AuthBackdropProvider>;
@@ -25,6 +26,7 @@ function ForceChangePasswordScreenContent() {
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState<'new' | 'confirm' | null>(null);
@@ -60,10 +62,12 @@ function ForceChangePasswordScreenContent() {
       return;
     }
 
+    if (!/^\d{6}$/.test(otp)) { setErrorMsg('Send and enter the six-digit email verification code.'); return; }
     try {
       setLoading(true);
       await api.put('/users/force-change-password', {
-        newPassword: newPassword.trim(),
+        newPassword,
+        otp,
       });
       showToast('Password updated successfully! Welcome to TVTI.', 'success');
       Alert.alert('Success', 'Password updated successfully! Welcome.');
@@ -252,6 +256,7 @@ function ForceChangePasswordScreenContent() {
         </TouchableOpacity>
       </View>
 
+      <PasswordChangeOtp otp={otp} onChange={setOtp} disabled={loading} />
       {/* Submit Button */}
       <TouchableOpacity
         style={styles.button}

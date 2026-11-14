@@ -8,6 +8,7 @@ import Course from '../models/Course';
 import Enrollment from '../models/Enrollment';
 import { practicalMutation, PracticalError } from './practicalScheduling';
 import { generateTemporaryPassword, resolveStudentIdentifiers } from '../utils/admissionIdentifiers';
+import { summarizePayment, paymentAmount } from '../utils/paymentSummary';
 
 const id = (value: any) => String(value?._id || value);
 const validId = (value: unknown) => typeof value === 'string' && /^[a-f\d]{24}$/i.test(value);
@@ -48,9 +49,9 @@ export async function enrollAdmissionStudent(studentId: any, batches: any[], ses
 function fees(body: any, defaultFee: number) {
   const total = body.total_course_fee === undefined ? defaultFee : Number(body.total_course_fee);
   const paid = body.amount_paid === undefined ? 0 : Number(body.amount_paid);
-  if (!Number.isFinite(total) || !Number.isFinite(paid) || total < 0 || paid < 0 || paid > total) throw new PracticalError(400, 'Enter valid fees and an amount paid no higher than the total fee.');
-  const status = body.payment_status || (paid >= total ? 'paid' : paid > 0 ? 'partially_paid' : 'pending');
-  if (!['pending', 'partially_paid', 'paid', 'waived'].includes(status)) throw new PracticalError(400, 'Select a valid payment status.');
+  if (!Number.isFinite(total) || !Number.isFinite(paid) || total < 0 || paid < 0 || total > 0 && paymentAmount(total) === null || paid > 0 && paymentAmount(paid) === null) throw new PracticalError(400, 'Enter non-negative fees and payments with at most two decimal places.');
+  if (body.payment_status && !['pending', 'partially_paid', 'paid', 'waived', 'overpaid'].includes(body.payment_status)) throw new PracticalError(400, 'Select a valid payment status.');
+  const status = summarizePayment({ total_fee: total, amount_paid: paid, payment_status: body.payment_status }).payment_status;
   return { total, paid, status };
 }
 

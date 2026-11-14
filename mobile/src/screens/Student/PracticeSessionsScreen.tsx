@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ManagementDialog from '../../components/shared/ManagementDialog';
+import { slotBookingSummary } from '../../utils/slotBookingSummary';
 import {
   View,
   Text,
@@ -62,6 +64,9 @@ export default function PracticeSessionsScreen() {
   const [myBookings, setMyBookings] = useState<any[]>([]);
   usePracticalClock([...slots, ...myBookings.map(booking => booking.slot_id).filter(Boolean)]);
   const [loading, setLoading] = useState(false);
+  const [confirmSlot, setConfirmSlot] = useState<any>(null), [bookingBusy, setBookingBusy] = useState(false);
+  const [bookingFeedback, setBookingFeedback] = useState<{ title: string; message: string; success: boolean } | null>(null);
+  const bookingPending = useRef(false);
 
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState('');
@@ -136,14 +141,17 @@ export default function PracticeSessionsScreen() {
     }
   };
 
-  const handleBookSlot = async (slotId: string) => {
+  const handleBookSlot = async () => {
+    if (!confirmSlot || bookingPending.current) return;
+    bookingPending.current = true; setBookingBusy(true);
     try {
-      await bookPracticeSlot(slotId);
-      Alert.alert('Success', 'Session booked successfully!');
+      await bookPracticeSlot(confirmSlot._id);
+      setBookingFeedback({ title: 'Booking confirmed', message: `Your place is reserved.\n\n${slotBookingSummary(confirmSlot)}`, success: true });
+      setConfirmSlot(null);
       fetchOpenSlots();
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || 'Failed to book slot');
-    }
+      setConfirmSlot(null); setBookingFeedback({ title: 'Booking not completed', message: e.response?.data?.message || 'Failed to book slot', success: false });
+    } finally { bookingPending.current = false; setBookingBusy(false); }
   };
 
   const handleCancelBooking = async (slotId: string) => {
@@ -302,7 +310,7 @@ export default function PracticeSessionsScreen() {
                           <TouchableOpacity
                             style={[styles.bookSolidButton, disabled && (isDark ? { backgroundColor: 'rgba(255, 255, 255, 0.08)' } : styles.disabledButton)]}
                             disabled={disabled}
-                            onPress={() => handleBookSlot(slot._id)}
+                            onPress={() => setConfirmSlot(slot)}
                           >
                             <Text style={[styles.bookSolidButtonText, disabled && isDark && { color: '#64748B' }]}>
                               {isExpired ? 'Slot Expired' : isFull ? 'Full' : hasBookedThisWeek ? 'Already booked this week' : disabled ? slot.booking_block_reason || 'Booking closed' : 'Book Session'}
@@ -391,6 +399,8 @@ export default function PracticeSessionsScreen() {
           )}
         </View>
       </ScrollView>
+      <ManagementDialog visible={!!confirmSlot} title="Confirm slot booking" message={confirmSlot ? `${slotBookingSummary(confirmSlot)}\n\nReserve your place in this session?` : ''} busy={bookingBusy} confirmText="Confirm booking" onConfirm={() => { void handleBookSlot(); }} onCancel={() => setConfirmSlot(null)} />
+      <ManagementDialog visible={!!bookingFeedback} title={bookingFeedback?.title || ''} message={bookingFeedback?.message || ''} type={bookingFeedback?.success ? 'success' : 'error'} confirmText="Got it" onConfirm={() => setBookingFeedback(null)} />
     </View>
   );
 }

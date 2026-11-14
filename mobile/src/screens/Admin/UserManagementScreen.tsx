@@ -1,3 +1,7 @@
+import PaymentSummaryCard from '../../components/shared/PaymentSummaryCard';
+import { Linking } from 'react-native';
+import { API_URL } from '../../config/constants';
+import { paymentSummary, money, paymentStatusLabel } from '../../utils/paymentSummary';
 import AccountCredentialsCard from '../../components/shared/AccountCredentialsCard';
 import { registrationNumberOf, compareRegistrationNumbers } from '../../utils/registrationIdentity';
 import UserAvatar from '../../components/shared/UserAvatar';
@@ -285,8 +289,8 @@ export default function UserManagementScreen() {
   const handleVerifySlip = async (slipId: string) => {
     setVerifyingSlipId(slipId);
     try {
-      await api.put(`/admin/payments/slips/${slipId}/verify`);
-      showAlert('Success', 'Payment slip verified and credited to student account!', undefined, 'success');
+      const result = await api.put(`/admin/payments/slips/${slipId}/verify`);
+      showAlert('Payment approved', `Credited to the student account. Balance due: ${money(result.data.summary.remaining_balance)}. Overpayment credit: ${money(result.data.summary.credit_balance)}.`, undefined, 'success');
       if (paymentDossierData?.student?._id) {
         handleOpenPaymentDossier(paymentDossierData.student._id);
       }
@@ -364,8 +368,8 @@ export default function UserManagementScreen() {
     }
     setRecordingManualPay(true);
     try {
-      await api.post(`/admin/payments/${paymentDossierData.student._id}/record-manual`, manualPayForm);
-      showAlert('Payment Recorded', 'Manual cash/bank payment recorded successfully!', undefined, 'success');
+      const result = await api.post(`/admin/payments/${paymentDossierData.student._id}/record-manual`, manualPayForm);
+      showAlert('Payment recorded', `Balance due: ${money(result.data.summary.remaining_balance)}. Overpayment credit: ${money(result.data.summary.credit_balance)}.`, undefined, 'success');
       setManualPayModalVisible(false);
       setManualPayForm({ amount: '', payment_method: 'physical_cash', notes: '' });
       handleOpenPaymentDossier(paymentDossierData.student._id);
@@ -608,12 +612,12 @@ export default function UserManagementScreen() {
       payment_status: s.payment_info?.payment_status || 'pending',
       payment_method: s.payment_info?.payment_method || 'bank_transfer',
       amount_paid: s.payment_info?.amount_paid || 0,
-      total_fee: s.payment_info?.total_fee ?? 25000,
-      category: (s.payment_info?.amount_paid || 0) >= (s.payment_info?.total_fee ?? 25000) ? 'completed' : 'pending',
+      total_fee: s.payment_info?.total_fee ?? 0,
+      category: (s.payment_info?.amount_paid || 0) >= (s.payment_info?.total_fee ?? 0) ? 'completed' : 'pending',
     })),
   ];
 
-  const isPaymentSettled = (payment: any) => payment.category === 'completed' || Number(payment.amount_paid ?? 0) >= Number(payment.total_fee ?? 0) || payment.payment_status === 'paid' || payment.payment_status === 'waived';
+  const isPaymentSettled = (payment: any) => paymentSummary(payment).remaining_balance === 0;
   const paymentsMetrics = { review: sourcePayments.filter((payment: any) => Number(payment.pending_slips_count || 0) > 0).length, pending: sourcePayments.filter(payment => !isPaymentSettled(payment)).length, completed: sourcePayments.filter(isPaymentSettled).length };
 
   const instructorsMetrics = {
@@ -1141,6 +1145,8 @@ export default function UserManagementScreen() {
             <div class="row"><span class="label">Payment Status:</span><span class="val">${u.payment_info.payment_status ? u.payment_info.payment_status.toUpperCase() : 'PENDING'}</span></div>
             <div class="row"><span class="label">Total Course Fee:</span><span class="val">LKR ${u.payment_info.total_fee ? u.payment_info.total_fee.toLocaleString() : '0'}</span></div>
             <div class="row"><span class="label">Amount Paid:</span><span class="val">LKR ${u.payment_info.amount_paid ? u.payment_info.amount_paid.toLocaleString() : '0'}</span></div>
+            <div class="row"><span class="label">Balance due:</span><span class="val">${money(paymentSummary(u.payment_info).remaining_balance)}</span></div>
+            <div class="row"><span class="label">Overpayment credit:</span><span class="val">${money(paymentSummary(u.payment_info).credit_balance)}</span></div>
           </div>
           ` : ''}
 
@@ -1862,31 +1868,7 @@ export default function UserManagementScreen() {
                     </View>
                   )}
 
-                  {/* SECTION 4: Tuition & Financial Info */}
-                  {userDetails.user.payment_info && (
-                    <View style={styles.infoSectionCard}>
-                      <Text style={styles.sectionCardHeaderTitle}>Tuition & Financial Info</Text>
-                      <View style={styles.infoDivider} />
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Payment Method:</Text>
-                        <Text style={styles.infoVal}>{userDetails.user.payment_info.payment_method === 'bank_transfer' ? 'Bank Deposit Slip' : 'Cash at Counter'}</Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Payment Status:</Text>
-                        <Text style={[styles.infoVal, { fontWeight: 'bold', color: userDetails.user.payment_info.payment_status === 'paid' ? design.success : design.accent }]}>
-                          {userDetails.user.payment_info.payment_status ? userDetails.user.payment_info.payment_status.toUpperCase() : 'PENDING'}
-                        </Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Total Course Fee:</Text>
-                        <Text style={styles.infoVal}>LKR {userDetails.user.payment_info.total_fee ? userDetails.user.payment_info.total_fee.toLocaleString() : '0'}</Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Amount Paid:</Text>
-                        <Text style={[styles.infoVal, { color: design.success, fontWeight: 'bold' }]}>LKR {userDetails.user.payment_info.amount_paid ? userDetails.user.payment_info.amount_paid.toLocaleString() : '0'}</Text>
-                      </View>
-                    </View>
-                  )}
+                  {userDetails.user.payment_info && <PaymentSummaryCard summary={userDetails.user.payment_info} />}
 
                   {/* SECTION 5: Academic Enrollments Card */}
                   {userDetails.user.role === 'student' && (
@@ -1971,7 +1953,7 @@ export default function UserManagementScreen() {
       </Modal>
 
       <PaymentDetails visible={paymentDossierModalVisible} loading={loadingDossier} data={paymentDossierData} onClose={() => setPaymentDossierModalVisible(false)}
-        onAdd={() => { setPaymentDossierModalVisible(false); setManualPayForm({ amount: '', payment_method: 'physical_cash', notes: '' }); setManualPayModalVisible(true); }} onImage={setDossierZoomImage} onApprove={handlePromptVerifySlip} onReject={handlePromptRejectSlip} verifyingId={verifyingSlipId} />
+        onAdd={() => { setPaymentDossierModalVisible(false); setManualPayForm({ amount: '', payment_method: 'physical_cash', notes: '' }); setManualPayModalVisible(true); }} onImage={(uri, mimeType) => { if (mimeType === 'application/pdf' || /\.pdf(?:[?#]|$)/i.test(uri)) { void Linking.openURL(uri.startsWith('/') ? API_URL.replace(/\/api\/?$/, '') + uri : uri); } else setDossierZoomImage(uri.startsWith('/') ? API_URL.replace(/\/api\/?$/, '') + uri : uri); }} onApprove={handlePromptVerifySlip} onReject={handlePromptRejectSlip} verifyingId={verifyingSlipId} />
       <AddPayment visible={manualPayModalVisible} data={paymentDossierData} form={manualPayForm} onChange={setManualPayForm} saving={recordingManualPay} onSubmit={handleRecordManualPaySubmit}
         onClose={() => { if (!recordingManualPay) { setManualPayModalVisible(false); setPaymentDossierModalVisible(true); } }} />
 
