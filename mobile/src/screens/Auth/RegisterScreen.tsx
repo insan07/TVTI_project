@@ -1,3 +1,4 @@
+import AuthBackground, { AuthBackdropProvider } from '../../components/shared/AuthBackground';
 import { KeyboardScrollView as ScrollView, KeyboardAvoidingView } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Platform, Image, Linking, Keyboard, useWindowDimensions } from 'react-native';
@@ -22,6 +23,10 @@ const FIELD_SURFACE_LIGHT = {
 };
 
 export default function RegisterScreen() {
+  return <AuthBackdropProvider><RegisterScreenContent /></AuthBackdropProvider>;
+}
+
+function RegisterScreenContent() {
   const { width, height } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isNarrow = width < 480;
@@ -1341,6 +1346,7 @@ export default function RegisterScreen() {
   return (
     <View style={[styles.container, isLight && styles.containerLight]}>
       {/* TVTI Campus Building Background Image — Fills Entire Physical Screen */}
+      {Platform.OS !== 'web' ? <AuthBackground isLight={isLight} /> : (
       <Image
         source={
           isLight
@@ -1360,6 +1366,7 @@ export default function RegisterScreen() {
         ]}
         resizeMode="cover"
       />
+      )}
 
       {/* Atmospheric Overlays */}
       {Platform.OS === 'web' ? (
@@ -1382,16 +1389,7 @@ export default function RegisterScreen() {
             } as any,
           ]}
         />
-      ) : (
-        <LinearGradient
-          colors={
-            isLight
-              ? ['rgba(255, 255, 255, 0.50)', 'rgba(255, 255, 255, 0.30)', 'rgba(255, 255, 255, 0.60)']
-              : ['rgba(15, 23, 42, 0.82)', 'rgba(20, 28, 44, 0.78)', 'rgba(10, 15, 26, 0.88)']
-          }
-          style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-        />
-      )}
+      ) : null}
 
       {/* Floating Theme Toggle Icon (Moon/Sun only, NO header bar) */}
       <TouchableOpacity

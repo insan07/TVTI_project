@@ -85,6 +85,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       role: user.role,
       index_number: user.index_number,
       registration_number: user.registration_number,
+      profile_photo: user.profile_photo,
       must_change_password: user.must_change_password || false,
       token: generateToken(String(user._id)),
     });
@@ -151,6 +152,8 @@ export const forceChangePassword = async (req: Request, res: Response): Promise<
         email: user.email,
         role: user.role,
         index_number: user.index_number,
+        registration_number: user.registration_number,
+        profile_photo: user.profile_photo,
         must_change_password: false
       }
     });

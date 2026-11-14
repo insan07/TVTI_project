@@ -1,3 +1,5 @@
+import ManagementDialog from '../../components/shared/ManagementDialog';
+import { slotBookingSummary } from '../../utils/slotBookingSummary';
 import { KeyboardAvoidingView, KeyboardScrollView as ScrollView } from "../../components/shared/KeyboardForm";
 import { KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -31,6 +33,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
   const now = usePracticalClock(slots);
   const actionPending = useRef(false);
   const [actionBusy, setActionBusy] = useState(false);
+  const [bookingSlot, setBookingSlot] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [loadingBatches, setLoadingBatches] = useState(true);
   const [batchError, setBatchError] = useState<string | null>(null);
@@ -91,15 +94,19 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
     return () => { slotRequest.current += 1; };
   }, [fetchSlots, loadingBatches]);
 
-  const handleBookSlot = async (slotId: string) => {
+  const handleBookSlot = async () => {
+    if (!bookingSlot) return;
+    const slotId = bookingSlot._id;
     if (actionPending.current) return;
     actionPending.current = true; setActionBusy(true);
     try {
       await bookPracticeSlot(slotId);
-      showAlert('Success', 'Practice session booked successfully!');
+      setBookingSlot(null);
+      showAlert('Booking confirmed', `Your place is reserved.\n\n${slotBookingSummary(bookingSlot)}\n\nYou can review this booking in your schedule.`);
       void refreshSlots.current();
     } catch (e: any) {
-      showAlert('Error', e.response?.data?.message || 'Failed to book slot');
+      setBookingSlot(null);
+      showAlert('Booking not completed', e.response?.data?.message || 'Failed to book slot');
       void refreshSlots.current();
     } finally { actionPending.current = false; setActionBusy(false); }
   };
@@ -139,7 +146,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
           : !slot.is_open ? <Text style={[styles.statusMessage, { color: theme.muted }]}>BOOKED (SLOT LOCKED)</Text>
           : <TouchableOpacity accessibilityRole="button" disabled={actionBusy} style={[styles.cancelBookingButton, { borderColor: '#EF4444', backgroundColor: isDark ? 'rgba(239,68,68,0.12)' : '#FFFFFF' }]}
               onPress={() => handleCancelBooking(slot._id)}><Text style={[styles.cancelBookingButtonText, { color: '#EF4444' }]}>Cancel Booking</Text></TouchableOpacity>
-        : <TouchableOpacity accessibilityRole="button" style={[styles.bookSlotButton, disabled && { opacity: 0.45 }]} disabled={disabled} onPress={() => handleBookSlot(slot._id)}>
+        : <TouchableOpacity accessibilityRole="button" style={[styles.bookSlotButton, disabled && { opacity: 0.45 }]} disabled={disabled} onPress={() => setBookingSlot(slot)}>
             <Text style={styles.bookSlotButtonText}>{actionBusy ? 'Please wait…' : reason ? 'Unavailable' : 'Book Slot'}</Text>
           </TouchableOpacity>}
       {!expired && !slot.already_booked && !!reason && <Text style={[styles.bookingHelp, { color: theme.muted }]}>{reason}</Text>}
@@ -157,6 +164,8 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
         onRetry={() => { if (batchError) setReloadBatches(value => value + 1); else void fetchSlots(); }}
         onRefresh={() => setReloadBatches(value => value + 1)}
         emptyMessage="Your timetable and practical booking slots will appear once an administrator assigns your batch." />
+
+      <ManagementDialog visible={!!bookingSlot} title="Confirm slot booking" message={bookingSlot ? `${slotBookingSummary(bookingSlot)}\n\nReserve your place in this session?` : ''} confirmText="Confirm booking" busy={actionBusy} onConfirm={() => { void handleBookSlot(); }} onCancel={() => setBookingSlot(null)} />
 
       {/* Cancellation Reason Modal */}
       <Modal
@@ -217,18 +226,7 @@ export default function StudentScheduleScreen({ unreadCount }: { unreadCount?: n
       </KeyboardAvoidingView>
 </Modal>
 
-      {/* ALERT MODAL */}
-      <Modal visible={alertModal.visible} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
-            <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>{alertModal.title}</Text>
-            <Text style={{color: isDark ? '#94A3B8' : '#4B5563', marginBottom: 20}}>{alertModal.message}</Text>
-            <TouchableOpacity style={styles.submitBtn} onPress={() => { setAlertModal({...alertModal, visible: false}); if (alertModal.onOk) alertModal.onOk(); }}>
-              <Text style={styles.submitBtnText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <ManagementDialog visible={alertModal.visible} title={alertModal.title} message={alertModal.message} type={alertModal.title === 'Booking confirmed' || alertModal.title === 'Success' ? 'success' : 'error'} confirmText="Got it" onConfirm={() => { setAlertModal(previous => ({ ...previous, visible: false })); alertModal.onOk?.(); }} />
 
     </View>
   );

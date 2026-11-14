@@ -47,12 +47,14 @@ test('My Batches includes all assigned statuses and empty batches, newest first,
 });
 
 test('batch roster is scoped by batch ID even when two batches have the same name', async () => {
+  await User.updateOne({ _id: students[0]._id }, { profile_photo: 'https://example.test/student.jpg' });
   const res = await call(getMyStudents, instructors[0], { batch_id: String(batches[1]._id) });
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.length, 2);
   assert(res.body.every(e => String(e.batch_id._id) === String(batches[1]._id)));
   assert.deepEqual(res.body.map(e => e.status).sort(), ['completed', 'dropped']);
   assert.equal(res.body[0].student_id.registration_number, 'REG-0');
+  assert.equal(res.body[0].student_id.profile_photo, 'https://example.test/student.jpg');
   assert.equal(res.body[0].student_id.password_hash, undefined);
   assert.equal(res.body[0].student_id.payment_info, undefined);
 });

@@ -13,6 +13,8 @@ interface User {
   email: string;
   role: UserRole;
   index_number?: string;
+  registration_number?: string;
+  profile_photo?: string;
   must_change_password?: boolean;
 }
 
@@ -47,6 +49,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Attach token to axios and api global headers
           axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
           api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+          // Refresh cached identity so profile changes appear across every section.
+          api.get('/users/me').then(async response => {
+            if (await storage.getItem('token') !== storedToken) return;
+            setUser(response.data);
+            await storage.setItem('user', JSON.stringify(response.data));
+          }).catch(() => {});
           // Ensure push notification token is up-to-date
           registerForPushNotificationsAsync().catch(err => {
             console.warn('Failed to register push token on restore', err);

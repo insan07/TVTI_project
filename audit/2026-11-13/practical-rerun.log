@@ -1,0 +1,29 @@
+✔ all three roles receive newest session dates and later same-day times first (3915.5743ms)
+✔ allows two simultaneous instructors and rejects a third across all courses (88.0642ms)
+✔ concurrent instructor creation cannot exceed the institute limit (88.4851ms)
+✔ locking bookings does not release an instructor, and back-to-back sessions are allowed (98.1701ms)
+✔ legacy Monday timestamps retain their sessions in availability and concurrency checks (77.248ms)
+✔ an instructor may teach sequential sessions, but cannot double-book across batches (63.1822ms)
+✔ instructors cannot spoof another instructor or create for an unassigned batch (49.1287ms)
+✔ a student must be active and enrolled, including staff-assigned bookings (77.7373ms)
+✔ 24 concurrent students cannot overbook 20 seats through mixed student/admin/instructor paths (1149.8743ms)
+✔ students cannot overlap practicals across courses, but may book different batches at different times (102.8406ms)
+✔ concurrent cross-course requests by one student cannot create overlapping bookings (77.0493ms)
+✔ weekly batch rule applies across all roles and pending cancellation keeps the seat (123.1269ms)
+✔ rejecting cancellation retains the booking and duplicate requests do not release capacity (81.2699ms)
+✔ ownership and URL slot/booking identity are enforced for all management actions (92.1215ms)
+✔ capacity reductions include pending cancellations (86.8914ms)
+✔ rescheduling cannot introduce student conflicts or exceed instructor concurrency (109.1809ms)
+✔ manual assignments respect locks, deadlines, started sessions, and expiry (79.1807ms)
+✔ invalid schedules are rejected atomically, including impossible dates, times and capacities (64.1994ms)
+✔ single-course availability detects other-course conflicts without exposing another student (79.7317ms)
+✔ notification delivery failure does not report a committed booking as failed (64.185ms)
+✔ all servers calculate identical Sri Lanka instants and half-open interval boundaries (202.5937ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7767.0637

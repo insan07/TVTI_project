@@ -39,7 +39,7 @@ export const getMySlots = async (req: AuthRequest, res: Response): Promise<void>
     }
     const slots = await PracticeSlot.find(query)
       .populate({ path: 'batch_id', select: 'name course_id', populate: { path: 'course_id', select: 'title' } })
-      .populate('instructor_id', 'name email phone');
+      .populate('instructor_id', 'name email phone profile_photo');
     const counts = await SlotBooking.aggregate([
       { $match: { slot_id: { $in: slots.map(s => s._id) }, status: { $in: ACTIVE_BOOKINGS } } },
       { $group: { _id: '$slot_id', count: { $sum: 1 }, pending: { $sum: { $cond: [{ $eq: ['$status', 'cancellation_requested'] }, 1, 0] } } } },
@@ -56,7 +56,7 @@ export const getSlotBookings = async (req: AuthRequest, res: Response): Promise<
   try {
     const slot = await managedSlot(req.user, req.params.slotId);
     const bookings = await SlotBooking.find({ slot_id: slot._id, status: { $in: ACTIVE_BOOKINGS } })
-      .populate('student_id', 'name email phone index_number nic');
+      .populate('student_id', 'name email phone index_number registration_number nic profile_photo');
     res.json(bookings);
   } catch (error) { practicalFailure(res, error); }
 };

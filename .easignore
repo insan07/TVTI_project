@@ -1,0 +1,15 @@
+backend/
+website/
+.git/
+*.pdf
+*.zip
+*.log
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/app/.cxx/
+mobile/android/.idea/
+mobile/android/local.properties
+mobile/node_modules/
+mobile/.expo/
+

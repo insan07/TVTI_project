@@ -1,0 +1,503 @@
+[
+  {
+    "id": "FLOW-login-admin",
+    "name": "Login admin",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-login-instructor",
+    "name": "Login instructor",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-login-student",
+    "name": "Login student",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-anonymous-admin",
+    "name": "/admin/users",
+    "expected": 401,
+    "actual": 401,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-student-admin",
+    "name": "/admin/users",
+    "expected": 403,
+    "actual": 403,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-teacher-admin",
+    "name": "/admin/users",
+    "expected": 403,
+    "actual": 403,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-inactive",
+    "name": "/users/me",
+    "expected": 401,
+    "actual": 401,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-student-home",
+    "name": "/students/home",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-student-batches",
+    "name": "/students/batches",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-student-schedule",
+    "name": "/students/my-schedule",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-student-results",
+    "name": "/students/my-results",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-student-slips",
+    "name": "/students/payments/my-slips",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-student-announcements",
+    "name": "/students/announcements",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-student-uploads",
+    "name": "/students/batches/6af6160e8a60cc1187bdb88e/videos",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-other-batch",
+    "name": "/students/batches/6af6160e8a60cc1187bdb88f/videos",
+    "expected": 403,
+    "actual": 403,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-other-video",
+    "name": "/students/videos/6af6160e8a60cc1187bdb89a/stream-url",
+    "expected": 403,
+    "actual": 403,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-teacher-batches",
+    "name": "/instructors/my-batches",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-teacher-students",
+    "name": "/instructors/my-students",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-teacher-home",
+    "name": "/instructors/dashboard-stats",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-teacher-uploads",
+    "name": "/instructors/videos",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-admin-stats",
+    "name": "/admin/stats",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-admin-courses",
+    "name": "/admin/courses",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-admin-batches",
+    "name": "/admin/batches",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-admin-payments",
+    "name": "/admin/payments",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "FLOW-notifications",
+    "name": "/notifications/my",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {
+      "note": "Corrected audit URL: mobile uses /notifications/my; bare /notifications is not an app route."
+    }
+  },
+  {
+    "id": "FLOW-notification-count",
+    "name": "/notifications/unread-count",
+    "expected": 200,
+    "actual": 200,
+    "outcome": "PASS",
+    "details": {}
+  },
+  {
+    "id": "SEC-01",
+    "name": "Anonymous applications disclosure",
+    "expected": "401 or 403",
+    "actual": 200,
+    "outcome": "ISSUE",
+    "details": {
+      "fields": [
+        "_id",
+        "full_name",
+        "nic_number",
+        "email",
+        "phone",
+        "address",
+        "guardian",
+        "student_photo",
+        "payment_method",
+        "payment_slip",
+        "total_course_fee",
+        "amount_paid",
+        "payment_status",
+        "course_id",
+        "course_ids",
+        "assigned_batch_ids",
+        "status",
+        "terms_accepted",
+        "email_verified",
+        "approval_email_sent",
+        "terms_accepted_at",
+        "submitted_at",
+        "createdAt",
+        "updatedAt",
+        "__v"
+      ],
+      "records": 1
+    }
+  },
+  {
+    "id": "SEC-02",
+    "name": "Anonymous batch debug data",
+    "expected": "404 or authentication",
+    "actual": 200,
+    "outcome": "ISSUE",
+    "details": {
+      "records": 2
+    }
+  },
+  {
+    "id": "SEC-03",
+    "name": "Instructor topics from unassigned batch",
+    "expected": "403",
+    "actual": {
+      "status": 200,
+      "topics": [
+        "Private topic"
+      ]
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-04",
+    "name": "Instructor posts to unassigned batch",
+    "expected": "403",
+    "actual": 201,
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-05",
+    "name": "Video update bypasses batch assignment",
+    "expected": "403",
+    "actual": {
+      "status": 200,
+      "moved": true
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-06",
+    "name": "Query bypass of mandatory password change",
+    "expected": "403 for both",
+    "actual": {
+      "normal": 403,
+      "withQuery": 200
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-07",
+    "name": "Force-change endpoint usable by ordinary users without current password",
+    "expected": "Reject when must_change_password=false",
+    "actual": {
+      "status": 200,
+      "passwordChanged": true
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-08",
+    "name": "One-character password accepted",
+    "expected": "400",
+    "actual": 200,
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-09",
+    "name": "JWT remains valid after password change",
+    "expected": "Old token invalidated",
+    "actual": 200,
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "FUNC-01",
+    "name": "Payment slip upload retains image",
+    "expected": "201 with retrievable file",
+    "actual": {
+      "status": 201,
+      "slip_url": "/uploads/undefined",
+      "fetchStatus": 404
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-10",
+    "name": "Raw lesson file accessible without auth",
+    "expected": "401 or 403",
+    "actual": {
+      "status": 200,
+      "content": "%PDF-1.4\nSynthetic private notes"
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "FUNC-02",
+    "name": "Transcript with no results",
+    "expected": "No fabricated grade",
+    "actual": {
+      "status": 200,
+      "marks": 85,
+      "grade": "Distinction"
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "FUNC-03",
+    "name": "Certificate for student with no enrollment",
+    "expected": "No certifications",
+    "actual": {
+      "status": 200,
+      "certification": {
+        "certificate_no": "TVTI-CERT-2026-AUDIT-TEMPORARY-01",
+        "course_title": "Vocational Technical Certificate",
+        "course_slug": "",
+        "completion_status": "Certified / Verified Student",
+        "enrolled_date": "2026-11-12T19:39:58.357Z",
+        "issued_date": "November 13, 2026",
+        "grade": "Distinction",
+        "average_marks": 88,
+        "qualification_level": "Vocational Certificate Course",
+        "nvq_level": "Vocational Certificate Course",
+        "accreditation": "Twintec Vocational Training Institute Education Board",
+        "verification_seal": "OFFICIAL_GOLD_SEAL_VERIFIED"
+      }
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-11",
+    "name": "Certificate lookup treats query as regex",
+    "expected": "No match",
+    "actual": {
+      "status": 200,
+      "found": true
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "FUNC-04--1",
+    "name": "Out-of-range result marks",
+    "expected": "400",
+    "actual": {
+      "status": 201,
+      "marks": -1,
+      "grade": "Fail"
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "FUNC-04-101",
+    "name": "Out-of-range result marks",
+    "expected": "400",
+    "actual": {
+      "status": 201,
+      "marks": 101,
+      "grade": "A"
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "FUNC-05",
+    "name": "Result for non-enrolled student",
+    "expected": "400 or 403",
+    "actual": 201,
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-12",
+    "name": "Password reset OTP attempts are uncapped",
+    "expected": "Lock after bounded failures",
+    "actual": {
+      "attempts": [
+        400,
+        400,
+        400,
+        400,
+        400,
+        400,
+        400
+      ],
+      "correctCodeAfter7Failures": 200
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-13",
+    "name": "Password reset accepts one-character password",
+    "expected": "400",
+    "actual": 200,
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-14",
+    "name": "Profile serializes reset verifier",
+    "expected": "No password reset hashes",
+    "actual": {
+      "status": 200,
+      "hasOtpHash": true,
+      "hasOtpExpiry": true
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "SEC-15",
+    "name": "Reset resend has no server cooldown",
+    "expected": "429 for immediate resend",
+    "actual": [
+      200,
+      200
+    ],
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "FUNC-06",
+    "name": "Announcement reports failure after saving",
+    "expected": "201 with notification warning",
+    "actual": {
+      "status": 500,
+      "saved": true
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  },
+  {
+    "id": "FUNC-07",
+    "name": "Payment slip reports failure after saving",
+    "expected": "201 with notification warning",
+    "actual": {
+      "status": 500,
+      "saved": true
+    },
+    "outcome": "ISSUE",
+    "details": {}
+  }
+]

@@ -1,3 +1,4 @@
+import AuthBackground, { AuthBackdropProvider } from '../../components/shared/AuthBackground';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -17,6 +18,10 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { useTheme } from '../../context/ThemeContext';
 
 export default function PasswordResetSuccessScreen() {
+  return <AuthBackdropProvider><PasswordResetSuccessScreenContent /></AuthBackdropProvider>;
+}
+
+function PasswordResetSuccessScreenContent() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;
   const navigation = useNavigation<any>();
@@ -68,6 +73,7 @@ export default function PasswordResetSuccessScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]} edges={['top', 'bottom']}>
       {/* Background Image */}
+      {Platform.OS !== 'web' ? <AuthBackground isLight={isLight} /> : (
       <Image
         source={
           isLight
@@ -89,6 +95,7 @@ export default function PasswordResetSuccessScreen() {
         ]}
         resizeMode="cover"
       />
+      )}
 
       {/* Atmospheric Overlays */}
       {Platform.OS === 'web' ? (
@@ -111,16 +118,7 @@ export default function PasswordResetSuccessScreen() {
             } as any,
           ]}
         />
-      ) : (
-        <LinearGradient
-          colors={
-            isLight
-              ? ['rgba(255, 255, 255, 0.50)', 'rgba(255, 255, 255, 0.30)', 'rgba(255, 255, 255, 0.60)']
-              : ['rgba(15, 23, 42, 0.82)', 'rgba(20, 28, 44, 0.78)', 'rgba(10, 15, 26, 0.88)']
-          }
-          style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-        />
-      )}
+      ) : null}
 
       <ScrollView
         style={{ flex: 1 }}

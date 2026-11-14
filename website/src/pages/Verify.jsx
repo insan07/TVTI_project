@@ -108,7 +108,7 @@ export default function Verify() {
       const response = await fetch(`${API_URL}/api/certificates/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: previewStudent.index_number || queryInput })
+        body: JSON.stringify({ query: previewStudent.registration_number || previewStudent.index_number || queryInput })
       })
 
       const data = await response.json()
@@ -148,7 +148,7 @@ export default function Verify() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: previewStudent?.index_number || queryInput,
+          query: previewStudent?.registration_number || previewStudent?.index_number || queryInput,
           otp: code
         })
       })
@@ -181,7 +181,7 @@ export default function Verify() {
       const response = await fetch(`${API_URL}/api/certificates/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: previewStudent?.index_number || queryInput })
+        body: JSON.stringify({ query: previewStudent?.registration_number || previewStudent?.index_number || queryInput })
       })
 
       const data = await response.json()
@@ -376,8 +376,8 @@ export default function Verify() {
                     <span className="font-heading font-extrabold text-lg text-brand-black">{previewStudent.name}</span>
                   </div>
                   <div>
-                    <span className="text-brand-charcoal/60 uppercase font-heading font-semibold block">Student Index Number:</span>
-                    <span className="font-mono font-extrabold text-base text-brand-orange bg-brand-orange/10 px-2.5 py-0.5 rounded inline-block mt-0.5">{previewStudent.index_number}</span>
+                    <span className="text-brand-charcoal/60 uppercase font-heading font-semibold block">Student Registration Number:</span>
+                    <span className="font-mono font-extrabold text-base text-brand-orange bg-brand-orange/10 px-2.5 py-0.5 rounded inline-block mt-0.5">{previewStudent.registration_number || previewStudent.index_number}</span>
                   </div>
                   <div>
                     <span className="text-brand-charcoal/60 uppercase font-heading font-semibold block">NIC / Identity No:</span>
@@ -475,8 +475,8 @@ export default function Verify() {
                   <span className="font-heading font-bold text-brand-black">{studentInfo.student_name}</span>
                 </div>
                 <div className="flex justify-between items-center text-brand-charcoal/70">
-                  <span className="font-heading font-semibold uppercase">Index Number:</span>
-                  <span className="font-mono font-bold text-brand-orange bg-brand-orange/10 px-2 py-0.5 rounded">{studentInfo.index_number}</span>
+                  <span className="font-heading font-semibold uppercase">Registration Number:</span>
+                  <span className="font-mono font-bold text-brand-orange bg-brand-orange/10 px-2 py-0.5 rounded">{studentInfo.registration_number || studentInfo.index_number}</span>
                 </div>
                 <div className="flex justify-between items-center text-brand-charcoal/70 pt-2 border-t border-black/10">
                   <span className="font-heading font-semibold uppercase">Verification Code Sent To:</span>
@@ -690,7 +690,7 @@ export default function Verify() {
                     Student Index Number
                   </span>
                   <span className="font-mono font-extrabold text-base text-brand-orange bg-brand-orange/10 px-3 py-1 rounded-md inline-block">
-                    {resultData.student.index_number}
+                    {resultData.student.registration_number || resultData.student.index_number}
                   </span>
                 </div>
                 <div className="space-y-1">

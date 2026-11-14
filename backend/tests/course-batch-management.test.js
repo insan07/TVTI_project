@@ -49,17 +49,18 @@ test('only admin can read or change course, batch, details and enrollment manage
   assert.equal((await http('/students/my-schedule', instructors[0])).status, 403);
   assert.equal(await Batch.countDocuments(), 1);
 });
-test('enrolled student lists are admin-only and expose only names and registration numbers', async () => {
+test('enrolled student lists are admin-only and expose names, registration numbers and profile photos', async () => {
   const paths = [`/admin/courses/${courses[0]._id}/enrolled-students`, `/admin/batches/${batch._id}/enrolled-students`];
   for (const path of paths) {
     assert.equal((await http(path, null)).status, 401);
     for (const actor of [instructors[0], students[0]]) assert.equal((await http(path, actor)).status, 403);
   }
-  await User.updateOne({ _id: students[0]._id }, { registration_number: 'TVTI-2026-001', index_number: 'PRIVATE-INDEX', phone: '0700000000' });
+  await User.updateOne({ _id: students[0]._id }, { registration_number: 'TVTI-2026-001', index_number: 'PRIVATE-INDEX', phone: '0700000000', profile_photo: 'https://example.test/student.jpg' });
   await Enrollment.create({ student_id: students[0]._id, batch_id: batch._id });
   for (const path of paths) {
     const res = await http(path); assert.equal(res.status, 200); assert.equal(res.body.length, 1);
-    assert.deepEqual(Object.keys(res.body[0]).sort(), ['_id', 'name', 'registration_number']);
+    assert.deepEqual(Object.keys(res.body[0]).sort(), ['_id', 'name', 'profile_photo', 'registration_number']);
+    assert.equal(res.body[0].profile_photo, 'https://example.test/student.jpg');
     assert.equal(res.body[0].registration_number, 'TVTI-2026-001');
   }
 });

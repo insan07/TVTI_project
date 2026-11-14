@@ -41,7 +41,10 @@ test('approval creates exactly the selected enrollments and persists their batch
  assert.equal(result.student.role,'student');assert.equal(result.student.is_active,true);assert.equal(result.student.must_change_password,true);
  assert.equal(await Enrollment.countDocuments({student_id:result.student._id}),2);
  assert.deepEqual((await Application.findById(application._id)).assigned_batch_ids.map(String).sort(),batches.map(b=>String(b._id)).sort());
- assert(result.credentials.temp_password);assert.match(result.credentials.registration_number,/^TVTI-\d{4}-\d+$/);
+ assert(result.credentials.temp_password);assert.match(result.credentials.registration_number,/^\d{2}T\d{4,}$/);
+ assert.equal(result.student.index_number,result.student.registration_number);
+ assert.equal(result.credentials.registration_number,result.student.registration_number);
+ assert.equal((await Application.findById(application._id)).registration_number,result.student.registration_number);
  const hash=result.student.password_hash;await fails(admissions.approveStudentApplication(String(application._id),input()),409);assert.equal((await User.findById(result.student._id)).password_hash,hash);
 });
 test('wrong-course, inactive and full batches are rejected without partial student creation',async()=>{
@@ -59,8 +62,21 @@ test('manual creation requires valid fields and batches and rejects duplicate em
  await fails(admissions.createManualStudent({...manual(),email:'invalid'}),400);
  await fails(admissions.createManualStudent({...manual(),batch_ids:[]}),400);
  const result=await admissions.createManualStudent(manual());assert.equal(await Enrollment.countDocuments({student_id:result.student._id}),1);
+ assert.match(result.student.registration_number,/^\d{2}T\d{4,}$/);assert.equal(result.student.index_number,result.student.registration_number);
  await fails(admissions.createManualStudent({...manual('Other'),email:result.student.email}),409);
  await fails(admissions.createManualStudent({...manual('Other'),nic:result.student.nic}),409);assert.equal(await User.countDocuments(),1);
+});
+
+test('concurrent manual students share one sequential registration/index series with no double allocation',async()=>{
+ const results=await Promise.all(['First','Second','Third'].map(name=>admissions.createManualStudent(manual(name))));
+ const numbers=results.map(result=>Number(result.student.registration_number.match(/T(\d+)$/)[1])).sort((a,b)=>a-b);
+ assert.deepEqual(numbers,[numbers[0],numbers[0]+1,numbers[0]+2]);
+ for(const result of results){
+  assert.equal(result.student.index_number,result.student.registration_number);
+  assert.equal(result.application.registration_number,result.student.registration_number);
+  assert.equal(result.application.generated_index_number,result.student.registration_number);
+  assert.equal(result.credentials.registration_number,result.student.registration_number);
+ }
 });
 test('reactivation clears completion flags without changing password or historical enrollments',async()=>{
  const result=await admissions.createManualStudent(manual());await User.updateOne({_id:result.student._id},{is_active:false,is_graduated:true,status:'completed'});

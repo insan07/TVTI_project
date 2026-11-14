@@ -1,0 +1,89 @@
+✔ YouTube speed options use provider-supported values, sorted without duplicates (10.5305ms)
+✔ recognizes actual YouTube links and rejects lookalike hosts and invalid IDs (2.1679ms)
+✔ native embedded player allows bootstrap/embed documents but blocks outbound actions (0.641ms)
+✔ native protection is shared, serialized and released after the last screen leaves (93.9ms)
+✔ capture protection reports native failures and can retry without leaking acquisitions (32.9258ms)
+✔ HTML video restrictions prevent context actions and clean up all event listeners (28.1112ms)
+✔ lifecycle listener pauses on background and is removed on leaving the screen (20.4932ms)
+✔ notifications group by exact date with newest sections and rows first (86.0924ms)
+✔ date boundaries follow Sri Lanka midnight rather than UTC midnight (0.4577ms)
+✔ Yesterday works across year and month changes (0.3354ms)
+✔ invalid or missing timestamps stay visible in Earlier after all dated notifications (0.4581ms)
+✔ notification times use the institute clock and invalid times are blank (1.2554ms)
+✔ date headings refresh at the next midnight (0.3146ms)
+✔ PDF URLs resolve server paths and reject executable or credential-bearing links (2.497ms)
+✔ binary PDF data is preserved through the native-to-WebView base64 bridge (9.2949ms)
+✔ invalid file responses are reported instead of showing a blank PDF frame (0.4192ms)
+✔ document download names preserve titles and remove file-path characters (1.7075ms)
+✔ legacy slot times are interpreted in Sri Lanka time, independent of the device timezone (2.1419ms)
+✔ expiration changes exactly at the end and booking closes exactly at the start (0.4609ms)
+✔ server timestamps are authoritative and an earlier booking deadline is respected (0.2897ms)
+✔ calendar date validation uses the institute day across midnight and parses institute wall time (1.7828ms)
+"shadow*" style props are deprecated. Use "boxShadow".
+props.pointerEvents is deprecated. Use style.pointerEvents
+✔ expired overrides booked/open status in the same shared card for every role and theme (1400.8948ms)
+✔ students see available seats and staff management controls stay hidden (7.3634ms)
+✔ staff cards show occupancy and keep their existing management menu and students action (7.2098ms)
+✔ course picker preserves All courses and selected course labels across roles (9.9548ms)
+✖ shared overview filters regular classes by the chosen course and keeps role-specific actions (39.2884ms)
+✔ loading failures show retry text instead of a misleading empty schedule (7.581ms)
+✔ every role keeps the same Views control available in List, Month, Week, and Day (487.1864ms)
+✔ every date view renders period-filtered sessions with the common course and card layout (115.5165ms)
+✔ List keeps the full newest-first history (2.8227ms)
+✔ Month excludes padded dates from adjacent months and keeps newest-first ordering (1.7994ms)
+✔ Week includes Monday through Sunday even when the week crosses the year boundary (6.0189ms)
+✔ Day shows only its own sessions, with later times first (0.844ms)
+✔ month navigation clamps dates to short months, including leap years (0.4188ms)
+✔ week and day navigation crosses months and years without skipping dates (0.2071ms)
+✔ month calendar rows start on Monday and include every day exactly once (1.1133ms)
+✔ week calendar has seven dates for the selected week (0.2769ms)
+✔ daily regular classes match abbreviated, full, and comma-separated weekday names (39.36ms)
+✔ All courses includes every enrolled batch and preserves course and batch names on slots (23.3584ms)
+✔ selecting one course fetches and displays only that batch (0.6746ms)
+✔ weekly limits apply per batch, including pending cancellation bookings (5.9047ms)
+✔ combined sessions show newest dates and later times first across batches and weeks (0.7264ms)
+✔ a failed course request does not present an incomplete All courses list as complete (1.5266ms)
+✔ slot dates preserve calendar dates across month boundaries (2.9771ms)
+✔ existing pins migrate once and are not reapplied after an explicit unpin (158.9314ms)
+✔ simultaneous home refreshes share one migration (22.3036ms)
+✔ only valid pinned video IDs migrate, with no more than three slots (18.8368ms)
+✔ network failures retain pending migration for the next visit (21.6469ms)
+✔ an outdated backend route does not discard pending device pins (12.9291ms)
+✔ removed lessons and enrollments do not prevent valid remaining pins from migrating (7.5337ms)
+✔ no authenticated student means no pin requests or shared default history (8.5416ms)
+✔ videos and documents share one module despite spacing and case differences (3.6221ms)
+✔ material-only modules are retained and module order is stable (0.5049ms)
+✔ missing topics form one General module and empty libraries remain empty (0.3833ms)
+✔ YouTube thumbnails work for watch, embed, shorts, and shortened URLs (0.7909ms)
+✔ explicit thumbnails win and raw local videos are not treated as images (0.4214ms)
+✔ document links preserve external URLs and resolve both supported local paths (0.4545ms)
+✔ unavailable dates do not add placeholder copy (41.1265ms)
+ℹ tests 58
+ℹ suites 0
+ℹ pass 57
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2643.7847
+
+✖ failing tests:
+
+test at tests\scheduleInterface.test.cjs:79:1
+✖ shared overview filters regular classes by the chosen course and keeps role-specific actions (39.2884ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression />Views</. Input:
+  
+  '<div class="css-view-g5y9jx r-flex-13awgt0"><div class="css-view-g5y9jx r-WebkitOverflowScrolling-150rngu r-flexDirection-eqz5dr r-flexGrow-16y2uox r-flexShrink-1wbh5a2 r-overflowX-11yh6sk r-overflowY-1rnoaur r-transform-agouwx r-scrollbarWidth-2eszeu" style="flex:1"><div class="css-view-g5y9jx" style="padding-bottom:162px"><div class="css-view-g5y9jx r-alignSelf-1kihuf0 r-gap-uaa2di r-maxWidth-1eey0nk r-paddingInline-u9wvl5 r-paddingTop-m611by r-width-13qz1uu"><div class="css-view-g5y9jx r-alignItems-1awozwy r-flexDirection-18u37iz r-gap-1cmwbt1"><div class="css-view-g5y9jx r-flex-13awgt0 r-minWidth-bcqeeo"><button aria-label="Select course: Refrigeration" role="button" class="css-view-g5y9jx r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-cursor-1loqt21 r-touchAction-1otgn73 r-borderWidth-rs99b7 r-overflow-1udh08x r-boxShadow-i82mgk r-borderRadius-t23y2h r-alignItems-1awozwy r-flexDirection-18u37iz r-gap-1cmwbt1 r-justifyContent-1wtj0ep r-minHeight-peo1c r-paddingBlock-ytbthy r-paddingInline-gu64tb" style="background-color:rgba(255,255,255,1.00);border-top-color:rgba(26,26,26,0.10);border-right-color:rgba(26,26,26,0.10);border-bottom-color:rgba(26,26,26,0.10);border-left-color:rgba(26,26,26,0.10);transition-duration:0s" type="button"><div dir="auto" class="css-text-146c3p1 r-maxWidth-dnmrzs r-overflow-1udh08x r-textOverflow-1udbk01 r-whiteSpace-3s2u2q r-wordWrap-1iln25a r-flex-13awgt0 r-fontFamily-1mfmfji r-fontSize-1diydf2 r-fontWeight-1vr29t4 r-minWidth-bcqeeo" style="color:rgba(26,26,26,1.00)">Refrigeration</div><span data-icon="chevron-down"></span></button></div><button aria-label="Filters" role="button" class="css-view-g5y9jx r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-cursor-1loqt21 r-touchAction-1otgn73 r-alignItems-1awozwy r-borderRadius-16uyjmq r-borderWidth-rs99b7 r-height-1ugchlj r-justifyContent-1777fci r-width-usgzl9" style="background-color:rgba(255,255,255,1.00);border-top-color:rgba(26,26,26,0.10);border-right-color:rgba(26,26,26,0.10);border-bottom-color:rgba(26,26,26,0.10);border-left-color:rgba(26,26,26,0.10);transition-duration:0s" type="button"><span data-icon="options-outline"></span></button><button aria-expanded="false" aria-label="Change schedule view, current List" role="button" class="css-view-g5y9jx r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-cursor-1loqt21 r-touchAction-1otgn73 r-alignItems-1awozwy r-borderRadius-16uyjmq r-borderWidth-rs99b7 r-height-1ugchlj r-justifyContent-1777fci r-width-usgzl9" style="background-color:rgba(255,255,255,1.00);border-top-color:rgba(26,26,26,0.10);border-right-color:rgba(26,26,26,0.10);border-bottom-color:rgba(26,26,26,0.10);border-left-color:rgba(26,26,26,0.10);transition-duration:0s" type="button"><span data-icon="calendar-outline"></span></button></div><div class="css-view-g5y9jx r-gap-uaa2di"><h1 dir="auto" role="heading" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-1i10wst r-fontWeight-b88u0q" style="color:rgba(26,26,26,1.00)">Regular Classes</h1><div class="css-view-g5y9jx r-borderRadius-1867qdf r-borderWidth-1rf8fdq r-boxShadow-1nov8t6 r-padding-nsbfu8" style="background-color:rgba(255,255,255,1.00);border-top-color:rgba(219,234,254,1.00);border-right-color:rgba(219,234,254,1.00);border-bottom-color:rgba(219,234,254,1.00);border-left-color:rgba(219,234,254,1.00)"><div dir="auto" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-g2gp47 r-fontWeight-b88u0q r-lineHeight-7ptqe7" style="color:rgba(26,26,26,1.00)">Refrigeration</div><div dir="auto" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-1enofrn r-fontWeight-majxgm r-lineHeight-14yzgew r-marginTop-14gqq1x" style="color:rgba(115,115,115,1.00)">Batch: R-02</div><div class="css-view-g5y9jx r-alignItems-1awozwy r-columnGap-10lpmc4 r-flexDirection-18u37iz r-flexWrap-1w6e6rj r-marginTop-kc8jnq r-rowGap-1rxb9bi"><span data-icon="calendar-outline"></span><div dir="auto" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-vbi3md r-fontWeight-b88u0q" style="color:rgba(30,64,175,1.00)">Tue</div><span data-icon="time-outline"></span><div dir="auto" class="css-text-146c3p1 r-flexShrink-1wbh5a2 r-fontFamily-1mfmfji r-fontSize-vbi3md r-fontWeight-16dba41" style="color:rgba(115,115,115,1.00)">10:00</div></div><div class="css-view-g5y9jx r-alignItems-1awozwy r-columnGap-10lpmc4 r-flexDirection-18u37iz r-flexWrap-1w6e6rj r-marginTop-kc8jnq r-rowGap-1rxb9bi"><span data-icon="location-outline"></span><div dir="auto" class="css-text-146c3p1 r-flexShrink-1wbh5a2 r-fontFamily-1mfmfji r-fontSize-vbi3md r-fontWeight-16dba41" style="color:rgba(115,115,115,1.00)">Room TBD</div><span data-icon="person-outline"></span><div dir="auto" class="css-text-146c3p1 r-flexShrink-1wbh5a2 r-fontFamily-1mfmfji r-fontSize-vbi3md r-fontWeight-16dba41" style="color:rgba(115,115,115,1.00)">Instructor TBD</div></div></div></div><h1 dir="auto" role="heading" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-1i10wst r-fontWeight-b88u0q" style="color:rgba(26,26,26,1.00)">Practice Sessions &amp; Lab Slots</h1><div class="css-view-g5y9jx"><div dir="auto" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-1b43r93 r-fontWeight-16dba41 r-lineHeight-10yl4k" style="color:rgba(115,115,115,1.00)">No practice sessions available.</div></div></div></div></div><button aria-label="Create slot" role="button" class="css-view-g5y9jx r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-cursor-1loqt21 r-touchAction-1otgn73 r-alignItems-1awozwy r-backgroundColor-1dt7w0r r-borderRadius-qxtw8h r-boxShadow-19h1gic r-height-1sn7ly2 r-justifyContent-1777fci r-position-u8s1d r-right-18xqfo6 r-width-8br3cv" style="bottom:90px;transition-duration:0s" type="button"><span data-icon="add"></span></button></div>'
+  
+      at TestContext.<anonymous> (F:\PROJECT\t1\TVTI_project\mobile\tests\scheduleInterface.test.cjs:85:46)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="css-view-g5y9jx r-flex-13awgt0"><div class="css-view-g5y9jx r-WebkitOverflowScrolling-150rngu r-flexDirection-eqz5dr r-flexGrow-16y2uox r-flexShrink-1wbh5a2 r-overflowX-11yh6sk r-overflowY-1rnoaur r-transform-agouwx r-scrollbarWidth-2eszeu" style="flex:1"><div class="css-view-g5y9jx" style="padding-bottom:162px"><div class="css-view-g5y9jx r-alignSelf-1kihuf0 r-gap-uaa2di r-maxWidth-1eey0nk r-paddingInline-u9wvl5 r-paddingTop-m611by r-width-13qz1uu"><div class="css-view-g5y9jx r-alignItems-1awozwy r-flexDirection-18u37iz r-gap-1cmwbt1"><div class="css-view-g5y9jx r-flex-13awgt0 r-minWidth-bcqeeo"><button aria-label="Select course: Refrigeration" role="button" class="css-view-g5y9jx r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-cursor-1loqt21 r-touchAction-1otgn73 r-borderWidth-rs99b7 r-overflow-1udh08x r-boxShadow-i82mgk r-borderRadius-t23y2h r-alignItems-1awozwy r-flexDirection-18u37iz r-gap-1cmwbt1 r-justifyContent-1wtj0ep r-minHeight-peo1c r-paddingBlock-ytbthy r-paddingInline-gu64tb" style="background-color:rgba(255,255,255,1.00);border-top-color:rgba(26,26,26,0.10);border-right-color:rgba(26,26,26,0.10);border-bottom-color:rgba(26,26,26,0.10);border-left-color:rgba(26,26,26,0.10);transition-duration:0s" type="button"><div dir="auto" class="css-text-146c3p1 r-maxWidth-dnmrzs r-overflow-1udh08x r-textOverflow-1udbk01 r-whiteSpace-3s2u2q r-wordWrap-1iln25a r-flex-13awgt0 r-fontFamily-1mfmfji r-fontSize-1diydf2 r-fontWeight-1vr29t4 r-minWidth-bcqeeo" style="color:rgba(26,26,26,1.00)">Refrigeration</div><span data-icon="chevron-down"></span></button></div><button aria-label="Filters" role="button" class="css-view-g5y9jx r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-cursor-1loqt21 r-touchAction-1otgn73 r-alignItems-1awozwy r-borderRadius-16uyjmq r-borderWidth-rs99b7 r-height-1ugchlj r-justifyContent-1777fci r-width-usgzl9" style="background-color:rgba(255,255,255,1.00);border-top-color:rgba(26,26,26,0.10);border-right-color:rgba(26,26,26,0.10);border-bottom-color:rgba(26,26,26,0.10);border-left-color:rgba(26,26,26,0.10);transition-duration:0s" type="button"><span data-icon="options-outline"></span></button><button aria-expanded="false" aria-label="Change schedule view, current List" role="button" class="css-view-g5y9jx r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-cursor-1loqt21 r-touchAction-1otgn73 r-alignItems-1awozwy r-borderRadius-16uyjmq r-borderWidth-rs99b7 r-height-1ugchlj r-justifyContent-1777fci r-width-usgzl9" style="background-color:rgba(255,255,255,1.00);border-top-color:rgba(26,26,26,0.10);border-right-color:rgba(26,26,26,0.10);border-bottom-color:rgba(26,26,26,0.10);border-left-color:rgba(26,26,26,0.10);transition-duration:0s" type="button"><span data-icon="calendar-outline"></span></button></div><div class="css-view-g5y9jx r-gap-uaa2di"><h1 dir="auto" role="heading" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-1i10wst r-fontWeight-b88u0q" style="color:rgba(26,26,26,1.00)">Regular Classes</h1><div class="css-view-g5y9jx r-borderRadius-1867qdf r-borderWidth-1rf8fdq r-boxShadow-1nov8t6 r-padding-nsbfu8" style="background-color:rgba(255,255,255,1.00);border-top-color:rgba(219,234,254,1.00);border-right-color:rgba(219,234,254,1.00);border-bottom-color:rgba(219,234,254,1.00);border-left-color:rgba(219,234,254,1.00)"><div dir="auto" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-g2gp47 r-fontWeight-b88u0q r-lineHeight-7ptqe7" style="color:rgba(26,26,26,1.00)">Refrigeration</div><div dir="auto" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-1enofrn r-fontWeight-majxgm r-lineHeight-14yzgew r-marginTop-14gqq1x" style="color:rgba(115,115,115,1.00)">Batch: R-02</div><div class="css-view-g5y9jx r-alignItems-1awozwy r-columnGap-10lpmc4 r-flexDirection-18u37iz r-flexWrap-1w6e6rj r-marginTop-kc8jnq r-rowGap-1rxb9bi"><span data-icon="calendar-outline"></span><div dir="auto" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-vbi3md r-fontWeight-b88u0q" style="color:rgba(30,64,175,1.00)">Tue</div><span data-icon="time-outline"></span><div dir="auto" class="css-text-146c3p1 r-flexShrink-1wbh5a2 r-fontFamily-1mfmfji r-fontSize-vbi3md r-fontWeight-16dba41" style="color:rgba(115,115,115,1.00)">10:00</div></div><div class="css-view-g5y9jx r-alignItems-1awozwy r-columnGap-10lpmc4 r-flexDirection-18u37iz r-flexWrap-1w6e6rj r-marginTop-kc8jnq r-rowGap-1rxb9bi"><span data-icon="location-outline"></span><div dir="auto" class="css-text-146c3p1 r-flexShrink-1wbh5a2 r-fontFamily-1mfmfji r-fontSize-vbi3md r-fontWeight-16dba41" style="color:rgba(115,115,115,1.00)">Room TBD</div><span data-icon="person-outline"></span><div dir="auto" class="css-text-146c3p1 r-flexShrink-1wbh5a2 r-fontFamily-1mfmfji r-fontSize-vbi3md r-fontWeight-16dba41" style="color:rgba(115,115,115,1.00)">Instructor TBD</div></div></div></div><h1 dir="auto" role="heading" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-1i10wst r-fontWeight-b88u0q" style="color:rgba(26,26,26,1.00)">Practice Sessions &amp; Lab Slots</h1><div class="css-view-g5y9jx"><div dir="auto" class="css-text-146c3p1 r-fontFamily-1mfmfji r-fontSize-1b43r93 r-fontWeight-16dba41 r-lineHeight-10yl4k" style="color:rgba(115,115,115,1.00)">No practice sessions available.</div></div></div></div></div><button aria-label="Create slot" role="button" class="css-view-g5y9jx r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-cursor-1loqt21 r-touchAction-1otgn73 r-alignItems-1awozwy r-backgroundColor-1dt7w0r r-borderRadius-qxtw8h r-boxShadow-19h1gic r-height-1sn7ly2 r-justifyContent-1777fci r-position-u8s1d r-right-18xqfo6 r-width-8br3cv" style="bottom:90px;transition-duration:0s" type="button"><span data-icon="add"></span></button></div>',
+    expected: />Views</,
+    operator: 'match',
+    diff: 'simple'
+  }

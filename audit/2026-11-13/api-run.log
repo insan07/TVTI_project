@@ -1,0 +1,242 @@
+MongoDB Connected successfully.
+POST /api/auth/login 200 144.470 ms - 376
+PASS FLOW-login-admin Login admin: 200
+POST /api/auth/login 200 73.974 ms - 389
+PASS FLOW-login-instructor Login instructor: 200
+POST /api/auth/login 200 72.649 ms - 386
+PASS FLOW-login-student Login student: 200
+GET /api/admin/users 401 0.502 ms - 38
+PASS FLOW-anonymous-admin /admin/users: 401
+GET /api/admin/users 403 6.799 ms - 53
+PASS FLOW-student-admin /admin/users: 403
+GET /api/admin/users 403 2.195 ms - 53
+PASS FLOW-teacher-admin /admin/users: 403
+GET /api/users/me 401 1.892 ms - 79
+PASS FLOW-inactive /users/me: 401
+GET /api/students/home 200 56.814 ms - 1758
+PASS FLOW-student-home /students/home: 200
+GET /api/students/batches 200 8.421 ms - 483
+PASS FLOW-student-batches /students/batches: 200
+GET /api/students/my-schedule 200 8.090 ms - 483
+PASS FLOW-student-schedule /students/my-schedule: 200
+GET /api/students/my-results 200 3.776 ms - 2
+PASS FLOW-student-results /students/my-results: 200
+GET /api/students/payments/my-slips 200 5.631 ms - 120
+PASS FLOW-student-slips /students/payments/my-slips: 200
+GET /api/students/announcements 200 8.293 ms - 344
+PASS FLOW-student-announcements /students/announcements: 200
+GET /api/students/batches/6af6160e8a60cc1187bdb88e/videos 200 5.816 ms - 343
+PASS FLOW-student-uploads /students/batches/6af6160e8a60cc1187bdb88e/videos: 200
+GET /api/students/batches/6af6160e8a60cc1187bdb88f/videos 403 3.349 ms - 40
+PASS FLOW-other-batch /students/batches/6af6160e8a60cc1187bdb88f/videos: 403
+GET /api/students/videos/6af6160e8a60cc1187bdb89a/stream-url 403 5.029 ms - 40
+PASS FLOW-other-video /students/videos/6af6160e8a60cc1187bdb89a/stream-url: 403
+GET /api/instructors/my-batches 200 10.187 ms - 339
+PASS FLOW-teacher-batches /instructors/my-batches: 200
+GET /api/instructors/my-students 200 11.895 ms - 587
+PASS FLOW-teacher-students /instructors/my-students: 200
+GET /api/instructors/dashboard-stats 200 15.124 ms - 785
+PASS FLOW-teacher-home /instructors/dashboard-stats: 200
+GET /api/instructors/videos 200 4.843 ms - 379
+PASS FLOW-teacher-uploads /instructors/videos: 200
+GET /api/admin/stats 200 18.964 ms - 1774
+PASS FLOW-admin-stats /admin/stats: 200
+GET /api/admin/courses 200 9.788 ms - 588
+PASS FLOW-admin-courses /admin/courses: 200
+GET /api/admin/batches 200 7.856 ms - 1016
+PASS FLOW-admin-batches /admin/batches: 200
+GET /api/admin/payments 200 9.990 ms - 1712
+PASS FLOW-admin-payments /admin/payments: 200
+GET /api/notifications 404 2.955 ms - 156
+ISSUE FLOW-notifications /notifications: 404
+GET /api/notifications/unread-count 200 3.639 ms - 18
+PASS FLOW-notification-count /notifications/unread-count: 200
+GET /api/applications 200 3.718 ms - 864
+ISSUE SEC-01 Anonymous applications disclosure: 200
+GET /api/auth/debug-batch 200 4.777 ms - 1242
+ISSUE SEC-02 Anonymous batch debug data: 200
+GET /api/instructors/batches/6af6160e8a60cc1187bdb88f/topics 200 4.129 ms - 17
+ISSUE SEC-03 Instructor topics from unassigned batch: {"status":200,"topics":["Private topic"]}
+POST /api/announcements 201 6.054 ms - 256
+ISSUE SEC-04 Instructor posts to unassigned batch: 201
+PUT /api/instructors/videos/6af6160e8a60cc1187bdb898 200 8.647 ms - 353
+ISSUE SEC-05 Video update bypasses batch assignment: {"status":200,"moved":true}
+GET /api/students/home 403 1.871 ms - 103
+GET /api/students/home?next=/users/me 200 5.034 ms - 178
+ISSUE SEC-06 Query bypass of mandatory password change: {"normal":403,"withQuery":200}
+PUT /api/users/force-change-password 200 83.480 ms - 234
+ISSUE SEC-07 Force-change endpoint usable by ordinary users without current password: {"status":200,"passwordChanged":true}
+PUT /api/users/change-password 200 144.299 ms - 43
+ISSUE SEC-08 One-character password accepted: 200
+GET /api/users/me 200 8.247 ms - 802
+ISSUE SEC-09 JWT remains valid after password change: 200
+POST /api/students/payments/upload-slip 201 66.716 ms - 363
+GET /uploads/undefined 404 1.309 ms - 156
+ISSUE FUNC-01 Payment slip upload retains image: {"status":201,"slip_url":"/uploads/undefined","fetchStatus":404}
+GET /api/files/6af6160f8a60cc1187bdb936 200 3.063 ms - -
+ISSUE SEC-10 Raw lesson file accessible without auth: {"status":200,"content":"%PDF-1.4\nSynthetic private notes"}
+POST /api/certificates/verify-otp 200 30.124 ms - 757
+ISSUE FUNC-02 Transcript with no results: {"status":200,"marks":85,"grade":"Distinction"}
+POST /api/certificates/verify-otp 200 8.667 ms - 784
+ISSUE FUNC-03 Certificate for student with no enrollment: {"status":200,"certification":{"certificate_no":"TVTI-CERT-2026-AUDIT-TEMPORARY-01","course_title":"Vocational Technical Certificate","course_slug":"","completion_status":"Certified / Verified Student","enrolled_date":"2026-11-12T19:39:58.357Z","issued_date":"November 13, 2026","grade":"Distinction","average_marks":88,"qualification_level":"Vocational Certificate Course","nvq_level":"Vocational Certificate Course","accreditation":"Twintec Vocational Training Institute Education Board","verification_seal":"OFFICIAL_GOLD_SEAL_VERIFIED"}}
+POST /api/certificates/search 200 3.063 ms - 239
+ISSUE SEC-11 Certificate lookup treats query as regex: {"status":200,"found":true}
+POST /api/admin/results 201 4.718 ms - 263
+ISSUE FUNC-04--1 Out-of-range result marks: {"status":201,"marks":-1,"grade":"Fail"}
+POST /api/admin/results 201 4.200 ms - 261
+ISSUE FUNC-04-101 Out-of-range result marks: {"status":201,"marks":101,"grade":"A"}
+POST /api/admin/results 201 5.644 ms - 264
+ISSUE FUNC-05 Result for non-enrolled student: 201
+POST /api/auth/forgot-password 200 82.596 ms - 93
+POST /api/auth/verify-reset-otp 400 76.700 ms - 49
+POST /api/auth/verify-reset-otp 400 72.833 ms - 49
+POST /api/auth/verify-reset-otp 400 74.066 ms - 49
+POST /api/auth/verify-reset-otp 400 82.194 ms - 49
+POST /api/auth/verify-reset-otp 400 78.283 ms - 49
+POST /api/auth/verify-reset-otp 400 79.157 ms - 49
+POST /api/auth/verify-reset-otp 400 80.229 ms - 49
+POST /api/auth/verify-reset-otp 200 195.430 ms - 145
+ISSUE SEC-12 Password reset OTP attempts are uncapped: {"attempts":[400,400,400,400,400,400,400],"correctCodeAfter7Failures":200}
+POST /api/auth/reset-password 200 200.258 ms - 42
+ISSUE SEC-13 Password reset accepts one-character password: 200
+POST /api/auth/forgot-password 200 75.596 ms - 93
+GET /api/users/me 200 5.462 ms - 943
+ISSUE SEC-14 Profile serializes reset verifier: {"status":200,"hasOtpHash":true,"hasOtpExpiry":true}
+POST /api/auth/resend-reset-otp 200 76.000 ms - 93
+POST /api/auth/resend-reset-otp 200 80.113 ms - 93
+ISSUE SEC-15 Reset resend has no server cooldown: [200,200]
+POST /api/announcements 500 5.508 ms - 26
+ISSUE FUNC-06 Announcement reports failure after saving: {"status":500,"saved":true}
+uploadPaymentSlip error: Error: Local audit notification outage
+POST /api/students/payments/upload-slip 500 9.396 ms - 43
+    at dist.sendNotification (F:\PROJECT\t1\TVTI_project\audit\2026-11-13\run-audit.cjs:37:32)
+    at uploadPaymentSlip (F:\PROJECT\t1\TVTI_project\backend\dist\controllers\paymentController.js:59:58)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+ISSUE FUNC-07 Payment slip reports failure after saving: {"status":500,"saved":true}
+Audit complete: 49 checks; 24 issue observations.
+LOCAL_UI_READY http://localhost:8086 — synthetic accounts admin/teacher/student@audit.invalid / AuditTest!123
+POST /api/auth/login 200 97.937 ms - 386
+GET /api/notifications/unread-count 200 12.783 ms - 18
+GET /api/students/announcements 200 26.757 ms - 694
+GET /api/notifications/unread-count 304 14.598 ms - -
+GET /api/students/home 200 56.398 ms - 2108
+GET /api/notifications/unread-count 304 4.031 ms - -
+GET /api/notifications/unread-count 304 4.037 ms - -
+GET /api/users/me 200 12.892 ms - 863
+GET /api/notifications/unread-count 304 3.537 ms - -
+GET /api/notifications/unread-count 304 3.336 ms - -
+GET /api/students/payments/my-slips 200 8.269 ms - 667
+GET /api/notifications/unread-count 304 4.706 ms - -
+GET /api/students/batches 200 14.707 ms - 483
+GET /api/students/practice-slots?batchId=6af6160e8a60cc1187bdb88e 200 14.433 ms - 2
+GET /api/notifications/unread-count 304 4.793 ms - -
+GET /api/notifications/unread-count 304 4.036 ms - -
+GET /api/notifications/unread-count 304 4.826 ms - -
+GET /api/notifications/unread-count 304 6.249 ms - -
+GET /api/notifications/unread-count 304 5.418 ms - -
+GET /api/students/batches 304 61.936 ms - -
+GET /api/students/batches/6af6160e8a60cc1187bdb88e/videos 200 64.791 ms - 343
+GET /api/students/batches/6af6160e8a60cc1187bdb88e/materials 200 78.524 ms - 2
+GET /api/students/batches 304 118.036 ms - -
+GET /api/students/batches/6af6160e8a60cc1187bdb88e/videos 304 24.604 ms - -
+GET /api/students/batches/6af6160e8a60cc1187bdb88e/materials 304 24.918 ms - -
+GET /api/notifications/unread-count 304 7.920 ms - -
+GET /api/notifications/unread-count 304 20.135 ms - -
+POST /api/certificates/verify-otp 200 5.457 ms - 784
+POST /api/auth/login 200 72.165 ms - 376
+GET /api/admin/activities 200 11.625 ms - 4067
+POST /api/auth/login 200 89.019 ms - 389
+GET /api/notifications/unread-count 200 7.096 ms - 18
+GET /api/notifications/unread-count 304 30.290 ms - -
+GET /api/instructors/dashboard-stats 200 53.622 ms - 1375
+GET /api/instructors/my-batches 200 12.013 ms - 339
+GET /api/notifications/unread-count - - ms - -
+GET /api/instructors/my-students?batch_id=6af6160e8a60cc1187bdb88e 200 37.624 ms - 587
+GET /api/notifications/unread-count 304 110.814 ms - -
+GET /api/notifications/unread-count 304 5.295 ms - -
+GET /api/instructors/my-batches 304 10.628 ms - -
+GET /api/notifications/unread-count 304 13.472 ms - -
+GET /api/instructors/dashboard-stats 304 27.248 ms - -
+GET /api/instructors/my-batches 304 11.824 ms - -
+GET /api/instructors/materials 200 13.537 ms - 2
+GET /api/instructors/videos 200 16.954 ms - 379
+GET /api/instructors/my-batches 304 23.827 ms - -
+GET /api/instructors/materials 304 9.492 ms - -
+GET /api/instructors/videos 304 13.595 ms - -
+GET /api/notifications/unread-count 304 5.715 ms - -
+GET /api/instructors/batches/6af6160e8a60cc1187bdb88e/topics 200 6.564 ms - 10
+GET /api/instructors/my-batches 304 11.572 ms - -
+GET /api/notifications/unread-count 304 3.717 ms - -
+GET /api/notifications/unread-count 304 3.490 ms - -
+GET /api/notifications/unread-count 304 3.343 ms - -
+GET /api/announcements/my 200 13.127 ms - 1036
+GET /api/instructors/my-batches 304 15.556 ms - -
+GET /api/notifications/unread-count 304 3.905 ms - -
+GET /api/notifications/unread-count 304 3.217 ms - -
+GET /api/notifications/unread-count 304 3.526 ms - -
+GET /api/notifications/unread-count 304 4.861 ms - -
+GET /api/notifications/unread-count 304 3.609 ms - -
+GET /api/notifications/unread-count 304 4.330 ms - -
+GET /api/notifications/unread-count 304 4.871 ms - -
+GET /api/notifications/unread-count 304 4.182 ms - -
+POST /api/certificates/verify-otp 200 5.536 ms - 784
+POST /api/auth/login 200 71.839 ms - 376
+GET /api/admin/activities 200 15.447 ms - 4067
+POST /api/auth/login 200 72.514 ms - 386
+GET /api/notifications/my 200 3.257 ms - 261
+PUT /api/users/force-change-password 200 77.966 ms - 234
+POST /api/auth/login 200 70.284 ms - 386
+POST /api/auth/login 401 69.788 ms - 59
+PUT /api/users/force-change-password 200 77.398 ms - 234
+GET /api/notifications/unread-count 304 3.373 ms - -
+GET /api/users/me 200 8.301 ms - 631
+POST /api/auth/login 200 75.438 ms - 376
+GET /api/notifications/unread-count 304 6.441 ms - -
+GET /api/admin/stats 200 31.650 ms - 1793
+GET /api/notifications/unread-count 304 5.963 ms - -
+GET /api/admin/users?role=instructor 200 10.790 ms - 1167
+GET /api/admin/applications?status=all 200 18.992 ms - 864
+GET /api/admin/users?role=student 200 18.954 ms - 2426
+GET /api/admin/payments 200 25.276 ms - 1712
+GET /api/admin/users?role=instructor 304 10.699 ms - -
+GET /api/admin/batches 200 33.362 ms - 1016
+GET /api/admin/applications?status=all 304 13.751 ms - -
+GET /api/admin/users?role=student 304 15.226 ms - -
+GET /api/admin/users?role=instructor 304 9.213 ms - -
+GET /api/admin/payments 304 17.682 ms - -
+GET /api/admin/applications?status=all 304 11.451 ms - -
+GET /api/admin/users?role=student 304 10.947 ms - -
+GET /api/admin/payments 304 11.002 ms - -
+GET /api/notifications/unread-count 304 3.545 ms - -
+GET /api/courses/active 200 3.671 ms - 182
+GET /api/admin/applications?status=all 304 8.214 ms - -
+GET /api/courses/active 304 2.149 ms - -
+GET /api/admin/batches 304 8.393 ms - -
+GET /api/notifications/unread-count 304 3.616 ms - -
+GET /api/notifications/unread-count 304 3.410 ms - -
+GET /api/admin/courses 200 8.591 ms - 588
+GET /api/admin/users?role=instructor 304 7.698 ms - -
+GET /api/admin/courses 304 10.393 ms - -
+GET /api/admin/batches 304 12.933 ms - -
+GET /api/notifications/unread-count 304 4.488 ms - -
+GET /api/notifications/unread-count 304 3.441 ms - -
+GET /api/notifications/unread-count 304 3.468 ms - -
+GET /api/admin/courses 304 6.693 ms - -
+GET /api/admin/courses 304 9.133 ms - -
+GET /api/admin/users?role=instructor 304 7.990 ms - -
+GET /api/instructors/practice-slots 200 12.740 ms - 2
+GET /api/admin/batches 304 15.681 ms - -
+GET /api/notifications/unread-count 304 3.246 ms - -
+GET /api/instructors/practice-slots 304 5.011 ms - -
+GET /api/notifications/unread-count 304 3.248 ms - -
+GET /api/notifications/unread-count 304 3.815 ms - -
+GET /api/notifications/unread-count 304 3.734 ms - -
+GET /api/notifications/unread-count 304 3.769 ms - -
+GET /api/notifications/unread-count 304 3.746 ms - -
+GET /api/admin/stats 304 36.670 ms - -
+GET /api/notifications/unread-count 304 6.905 ms - -
+GET /api/notifications/my 200 4.571 ms - 2
+GET /api/notifications/unread-count 304 3.644 ms - -
+GET /api/admin/stats 304 30.622 ms - -
+GET /api/notifications/unread-count 304 3.702 ms - -
+GET /api/users/me 200 5.385 ms - 611

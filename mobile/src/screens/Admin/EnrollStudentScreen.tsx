@@ -1,3 +1,4 @@
+import UserAvatar from '../../components/shared/UserAvatar';
 import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -56,7 +57,7 @@ export default function EnrollStudentScreen() {
         return <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel={`Select ${item.name}`} aria-checked={checked} accessibilityState={{ checked, disabled }} disabled={disabled}
           onPress={() => setSelected(previous => checked ? previous.filter(id => id !== item._id) : [...previous, item._id])}
           style={[s.row, { flexWrap: 'nowrap', padding: 16, borderWidth: 1, borderRadius: 18, marginBottom: 10, backgroundColor: checked ? theme.accentSoft : theme.surface, borderColor: checked ? theme.accent : theme.line, opacity: disabled && !checked ? 0.5 : 1 }]}>
-          <Icon name={checked ? 'checkbox' : 'square-outline'} size={24} color={checked ? theme.accent : theme.muted} /><View style={s.grow}><Text style={[s.title, { color: theme.text }]}>{item.name}</Text><Text style={[s.copy, { color: theme.muted }]}>{item.registration_number || item.index_number || item.email}</Text></View>
+          <UserAvatar user={item} size={40} /><Icon name={checked ? 'checkbox' : 'square-outline'} size={24} color={checked ? theme.accent : theme.muted} /><View style={s.grow}><Text style={[s.title, { color: theme.text }]}>{item.name}</Text><Text style={[s.copy, { color: theme.muted }]}>{item.registration_number || item.index_number || item.email}</Text></View>
         </TouchableOpacity>;
       }} ListEmptyComponent={<ManagementEmpty title={error ? 'Unable to load enrollment' : 'No available students'} message={error || 'All eligible students are assigned, or no students match your search.'} retry={error ? () => { setLoading(true); void load(); } : undefined} />} />}
     <View style={[s.content, s.footer, { borderColor: theme.line, backgroundColor: theme.surface, alignItems: 'center' }]}><Text style={[s.copy, s.grow, { color: theme.text }]}>{selected.length} selected</Text><ManagementButton title="Enroll selected" busy={saving} disabled={loading || !!error || !allowed || !selected.length || selected.length > remaining} onPress={enroll} /></View>

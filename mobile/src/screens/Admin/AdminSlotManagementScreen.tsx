@@ -1,3 +1,8 @@
+import SlotStudentsSheet from '../../components/schedule/SlotStudentsSheet';
+import { ManagementSheet, ManagementButton } from '../../components/shared/CourseBatchUI';
+import CustomDropdown from '../../components/shared/CustomDropdown';
+import ManagementDialog from '../../components/shared/ManagementDialog';
+import { usersSectionTheme } from '../../components/shared/usersSectionTheme';
 import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
 import { KeyboardScrollView as ScrollView, KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect, useRef } from 'react';
@@ -70,6 +75,7 @@ const isSlotDateTimeInPast = (date: Date, endTimeStr?: string) => {
 
 export default function AdminSlotManagementScreen() {
   const { isDark } = useTheme();
+  const styles = getStyles(isDark);
   const insets = useSafeAreaInsets();
   const [viewMode, setViewMode] = useState<'Month' | 'Week' | 'Day' | 'List'>('List');
   const [createModalVisible, setCreateModalVisible] = useState(false);
@@ -100,13 +106,8 @@ export default function AdminSlotManagementScreen() {
   // Bookings Modal
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
   const [bookingsModalVisible, setBookingsModalVisible] = useState(false);
-  const [slotBookings, setSlotBookings] = useState<any[]>([]);
-  const [bookingsLoading, setBookingsLoading] = useState(false);
 
   // Assign Student Sub-Modal
-  const [addStudentModalVisible, setAddStudentModalVisible] = useState(false);
-  const [batchStudents, setBatchStudents] = useState<any[]>([]);
-  const [loadingBatchStudents, setLoadingBatchStudents] = useState(false);
 
   // Edit Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -231,8 +232,15 @@ export default function AdminSlotManagementScreen() {
       setInstructors(iList);
       setCourses(cList);
 
-      if (bList.length > 0 && !createBatchId) setCreateBatchId(bList[0]._id);
-      if (iList.length > 0 && !createInstructorId) setCreateInstructorId(iList[0]._id);
+      const activeBatches = bList.filter((batch: any) => batch.status === 'active');
+      const initialBatch = activeBatches.find((batch: any) => batch._id === createBatchId) || activeBatches[0];
+      if (initialBatch) {
+        setCreateBatchId(initialBatch._id);
+        const assigned = initialBatch.instructor_ids || [];
+        if (!assigned.some((instructor: any) => String(instructor._id || instructor) === createInstructorId)) {
+          setCreateInstructorId(String(assigned[0]?._id || assigned[0] || ''));
+        }
+      }
     } catch (e) {
       console.log('Error fetching master data', e);
       setMasterError('Courses could not be loaded. Please try again.');
@@ -343,90 +351,7 @@ export default function AdminSlotManagementScreen() {
     });
   };
 
-  const openBookingsModal = async (slot: any) => {
-    setSelectedSlot(slot);
-    setBookingsModalVisible(true);
-    setBookingsLoading(true);
-    try {
-      const res = await api.get(`/instructors/practice-slots/${slot._id}/bookings`);
-      setSlotBookings(res.data || []);
-    } catch (e) {
-      showAlert('Error', 'Failed to fetch slot bookings', undefined, 'error');
-    } finally {
-      setBookingsLoading(false);
-    }
-  };
-
-  const handleRemoveBooking = (bookingId: string, studentName: string) => {
-    setConfirmModal({
-      visible: true,
-      title: 'Cancel Booking',
-      message: `Remove ${studentName} from this practical slot?`,
-      type: 'danger',
-      confirmText: 'Remove',
-      cancelText: 'Cancel',
-      onConfirm: async () => {
-        try {
-          await api.delete(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}`);
-          showAlert('Success', 'Student removed from slot', undefined, 'success');
-          openBookingsModal(selectedSlot);
-          fetchSlots();
-        } catch (e) {
-          showAlert('Error', 'Failed to remove booking', undefined, 'error');
-        }
-      }
-    });
-  };
-
-  const handleApproveCancellation = async (bookingId: string) => {
-    try {
-      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}/approve-cancellation`);
-      showAlert('Success', 'Cancellation request approved', () => openBookingsModal(selectedSlot), 'success');
-      fetchSlots();
-    } catch (e: any) {
-      showAlert('Error', e.response?.data?.message || 'Failed to approve cancellation', undefined, 'error');
-    }
-  };
-
-  const handleRejectCancellation = async (bookingId: string) => {
-    try {
-      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}/reject-cancellation`);
-      showAlert('Success', 'Cancellation request declined', () => openBookingsModal(selectedSlot), 'success');
-      fetchSlots();
-    } catch (e: any) {
-      showAlert('Error', e.response?.data?.message || 'Failed to reject cancellation', undefined, 'error');
-    }
-  };
-
-  const openAddStudentModal = async () => {
-    if (!selectedSlot?.batch_id?._id) return;
-    setAddStudentModalVisible(true);
-    setLoadingBatchStudents(true);
-    try {
-      const res = await api.get('/instructors/my-students');
-      const bStudents = (res.data || [])
-        .filter((e: any) => String(e.batch_id?._id || e.batch_id) === String(selectedSlot.batch_id._id))
-        .map((e: any) => e.student_id)
-        .filter(Boolean);
-      setBatchStudents(bStudents);
-    } catch (e) {
-      console.log('Error loading batch students', e);
-    } finally {
-      setLoadingBatchStudents(false);
-    }
-  };
-
-  const handleAssignStudent = async (studentId: string, studentName: string) => {
-    try {
-      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings`, { student_id: studentId });
-      showAlert('Success', `${studentName} assigned to slot!`, undefined, 'success');
-      setAddStudentModalVisible(false);
-      openBookingsModal(selectedSlot);
-      fetchSlots();
-    } catch (e: any) {
-      showAlert('Error', e.response?.data?.message || 'Failed to assign student', undefined, 'error');
-    }
-  };
+  const openBookingsModal = (slot: any) => { setSelectedSlot(slot); setBookingsModalVisible(true); };
 
   const openEditModal = (slot: any) => {
     if (isSlotExpired(slot)) {
@@ -610,7 +535,11 @@ export default function AdminSlotManagementScreen() {
   const openCreateScheduleSlot = () => {
     const date = isPastDate(selectedDate) ? new Date() : selectedDate;
     setCreateDate(date);
-    if (selectedBatchFilter !== 'all') setCreateBatchId(selectedBatchFilter);
+    if (selectedBatchFilter !== 'all') {
+      setCreateBatchId(selectedBatchFilter);
+      const assigned = batches.find(batch => batch._id === selectedBatchFilter)?.instructor_ids || [];
+      setCreateInstructorId(String(assigned[0]?._id || assigned[0] || ''));
+    }
     if (isPastDate(weekStart)) setWeekStart(getMonday(date));
     setCreateModalVisible(true);
   };
@@ -634,21 +563,7 @@ export default function AdminSlotManagementScreen() {
         emptyMessage="No batches are available for this schedule." />
 
       {/* CREATE PRACTICAL SLOT POPUP MODAL */}
-      <Modal visible={createModalVisible} animationType="slide" transparent onRequestClose={() => setCreateModalVisible(false)}>
-        <KeyboardAvoidingView style={{ flex: 1 }}>
-        <View style={styles.createModalOverlay}>
-          <View style={styles.createModalCard}>
-            <View style={styles.modalHeaderRow}>
-              <View>
-                <Text style={styles.modalTitleText}>Create Practical Slot</Text>
-                <Text style={styles.modalSubtitleText}>Configure date, time & capacity</Text>
-              </View>
-              <TouchableOpacity onPress={() => setCreateModalVisible(false)} style={styles.closeModalIconBtn}>
-                <Icon name="close" size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+      <ManagementSheet visible={createModalVisible} title="Create practical slot" busy={creating} overlay={<ManagementDialog inline visible={alertModal.visible} title={alertModal.title} message={alertModal.message} type={alertModal.type} onConfirm={() => { setAlertModal(previous => ({ ...previous, visible: false })); alertModal.onOk?.(); }} />} onClose={() => setCreateModalVisible(false)} footer={<><ManagementButton title="Cancel" secondary disabled={creating} onPress={() => setCreateModalVisible(false)} /><ManagementButton title={createMode === 'single' ? 'Create slot' : 'Create slots'} busy={creating} disabled={masterLoading || !!masterError || !createBatchId || !createInstructorId} onPress={createMode === 'single' ? handleCreateSingleSlot : handleCreateSlots} /></>}>
               {/* Creation Mode Toggle Bar */}
               <View style={styles.modeToggleRow}>
                 <TouchableOpacity
@@ -669,36 +584,10 @@ export default function AdminSlotManagementScreen() {
 
               <Text style={styles.formSectionTitle}>1. Target Batch & Instructor</Text>
 
-              <Text style={styles.fieldLabel}>SELECT BATCH *</Text>
-              <View style={styles.pillsWrap}>
-                {batches.map(b => (
-                  <TouchableOpacity
-                    key={b._id}
-                    style={[styles.selectPill, createBatchId === b._id && styles.selectPillActive]}
-                    onPress={() => setCreateBatchId(b._id)}
-                  >
-                    <Text style={createBatchId === b._id ? styles.selectPillTextActive : styles.selectPillText}>
-                      {b.name || 'Batch'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <CustomDropdown appearance="management" label="Batch *" selectedValue={createBatchId} onValueChange={id => { setCreateBatchId(id); const assigned = batches.find(batch => batch._id === id)?.instructor_ids || []; setCreateInstructorId(String(assigned[0]?._id || assigned[0] || '')); }} items={batches.filter(batch => !batch.status || batch.status === 'active').map(batch => ({ value: batch._id, label: batch.name, subtext: batch.course_id?.title }))} />
+              <CustomDropdown appearance="management" label="Instructor *" selectedValue={createInstructorId} onValueChange={setCreateInstructorId} items={instructors.filter(instructor => instructor.is_active !== false && (batches.find(batch => batch._id === createBatchId)?.instructor_ids || []).some((assigned: any) => String(assigned?._id || assigned) === instructor._id)).map(instructor => ({ value: instructor._id, label: instructor.name }))} />
 
-              <Text style={styles.fieldLabel}>ASSIGN INSTRUCTOR *</Text>
-              <View style={styles.pillsWrap}>
-                {instructors.map(inst => (
-                  <TouchableOpacity
-                    key={inst._id}
-                    style={[styles.selectPill, createInstructorId === inst._id && styles.selectPillActive]}
-                    onPress={() => setCreateInstructorId(inst._id)}
-                  >
-                    <Text style={createInstructorId === inst._id ? styles.selectPillTextActive : styles.selectPillText}>
-                      Inst. {inst.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
+              {!createInstructorId && <Text style={{ color: isDark ? '#FDBA74' : '#9A3412', marginBottom: 12 }}>Assign an active instructor to this batch before creating a slot.</Text>}
               {createMode === 'single' ? (
                 /* SINGLE SLOT (DATE PICKER FORM) */
                 <View style={{ marginTop: 16 }}>
@@ -762,26 +651,7 @@ export default function AdminSlotManagementScreen() {
                     onChangeText={setCreateEquipmentNote}
                   />
 
-                  <View style={styles.modalBtnRow}>
-                    <TouchableOpacity
-                      style={styles.cancelBtn}
-                      onPress={() => setCreateModalVisible(false)}
-                    >
-                      <Text style={styles.cancelBtnText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.submitCreateBtn}
-                      onPress={handleCreateSingleSlot}
-                      disabled={creating}
-                    >
-                      {creating ? <ActivityIndicator color="#FFF" /> : (
-                        <>
-                          <Icon name="checkmark-circle" size={18} color="#FFF" style={{ marginRight: 6 }} />
-                          <Text style={styles.submitCreateBtnText}>Create Practical Slot</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
+
                 </View>
               ) : (
                 /* MULTI-SLOT BUILDER FORM */
@@ -891,33 +761,10 @@ export default function AdminSlotManagementScreen() {
                     <Text style={styles.addMoreText}>Add Another Slot Row</Text>
                   </TouchableOpacity>
 
-                  <View style={styles.modalBtnRow}>
-                    <TouchableOpacity
-                      style={styles.cancelBtn}
-                      onPress={() => setCreateModalVisible(false)}
-                    >
-                      <Text style={styles.cancelBtnText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.submitCreateBtn}
-                      onPress={handleCreateSlots}
-                      disabled={creating}
-                    >
-                      {creating ? <ActivityIndicator color="#FFF" /> : (
-                        <>
-                          <Icon name="checkmark-circle" size={18} color="#FFF" style={{ marginRight: 6 }} />
-                          <Text style={styles.submitCreateBtnText}>Publish All Slots</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
+
                 </View>
               )}
-            </ScrollView>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-</Modal>
+      </ManagementSheet>
 
       {/* FILTERS MODAL */}
       <Modal visible={showFilter} animationType="slide" transparent>
@@ -1017,162 +864,7 @@ export default function AdminSlotManagementScreen() {
         </View>
       </Modal>
 
-      {/* STUDENT BOOKINGS MODAL */}
-      <Modal visible={bookingsModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>Booked Students</Text>
-                <Text style={styles.modalSubtitle}>
-                  {selectedSlot?.day_of_week} ({selectedSlot?.start_time} - {selectedSlot?.end_time})
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setBookingsModalVisible(false)}>
-                <Icon name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ fontWeight: 'bold', color: '#1F2937', fontSize: 14 }}>
-                Booked Students ({slotBookings.length})
-              </Text>
-              {!isSlotExpired(selectedSlot) && (
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: '#EFF6FF',
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 8,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    borderWidth: 1,
-                    borderColor: '#BFDBFE'
-                  }}
-                  onPress={openAddStudentModal}
-                >
-                  <Icon name="person-add" size={14} color="#2563EB" style={{ marginRight: 4 }} />
-                  <Text style={{ color: '#2563EB', fontWeight: 'bold', fontSize: 12 }}>+ Assign Student</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {bookingsLoading ? (
-              <ActivityIndicator size="large" color="#F97316" style={{ marginTop: 20 }} />
-            ) : (
-              <FlatList
-                data={slotBookings}
-                keyExtractor={item => item._id}
-                initialNumToRender={10}
-                maxToRenderPerBatch={10}
-                windowSize={5}
-                removeClippedSubviews={Platform.OS !== 'web'}
-                ListEmptyComponent={
-                  <View style={styles.emptyContainer}>
-                    <Icon name="people-outline" size={44} color="#D1D5DB" />
-                    <Text style={styles.emptyTitle}>No students booked yet.</Text>
-                  </View>
-                }
-                renderItem={({ item }) => (
-                  <View style={styles.bookingRowItem}>
-                    <View style={styles.studentAvatar}>
-                      <Text style={styles.studentAvatarText}>
-                        {item.student_id?.name?.charAt(0)?.toUpperCase() || 'S'}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.studentName}>{item.student_id?.name || 'Student'}</Text>
-                      <Text style={styles.studentMeta}>
-                        Index: {item.student_id?.index_number || 'N/A'} • {item.student_id?.phone || item.student_id?.email || ''}
-                      </Text>
-                      {item.status === 'cancellation_requested' && (
-                        <View style={{ marginTop: 3 }}>
-                          <Text style={{ fontSize: 12, color: '#D97706', fontWeight: '700' }}>
-                            Cancellation Requested
-                          </Text>
-                          {item.cancellation_reason ? (
-                            <Text style={{ fontSize: 11.5, color: '#64748B', fontStyle: 'italic', marginTop: 1 }}>
-                              Reason: {item.cancellation_reason}
-                            </Text>
-                          ) : null}
-                        </View>
-                      )}
-                    </View>
-                    {!isSlotExpired(selectedSlot) && (
-                      item.status === 'cancellation_requested' ? (
-                        <View style={{ flexDirection: 'row', gap: 6 }}>
-                          <TouchableOpacity
-                            style={{ backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
-                            onPress={() => handleApproveCancellation(item._id)}
-                          >
-                            <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '700' }}>Approve</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={{ backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
-                            onPress={() => handleRejectCancellation(item._id)}
-                          >
-                            <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '700' }}>Reject</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <TouchableOpacity
-                          style={styles.removeBookingBtn}
-                          onPress={() => handleRemoveBooking(item._id, item.student_id?.name || 'Student')}
-                        >
-                          <Text style={styles.removeBookingText}>Remove</Text>
-                        </TouchableOpacity>
-                      )
-                    )}
-                  </View>
-                )}
-              />
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* ASSIGN STUDENT SUB-MODAL */}
-      <Modal visible={addStudentModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '75%' }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Assign Student to Slot</Text>
-              <TouchableOpacity onPress={() => setAddStudentModalVisible(false)}>
-                <Icon name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            {loadingBatchStudents ? (
-              <ActivityIndicator size="large" color="#F97316" style={{ marginTop: 20 }} />
-            ) : (
-              <FlatList
-                data={batchStudents}
-                keyExtractor={item => item._id}
-                initialNumToRender={10}
-                maxToRenderPerBatch={10}
-                windowSize={5}
-                removeClippedSubviews={Platform.OS !== 'web'}
-                ListEmptyComponent={<Text style={styles.emptyTitle}>No enrolled students found in this batch.</Text>}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.assignStudentRow}
-                    onPress={() => handleAssignStudent(item._id, item.name)}
-                  >
-                    <View style={styles.studentAvatar}>
-                      <Text style={styles.studentAvatarText}>{item.name?.charAt(0) || 'S'}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.studentName}>{item.name}</Text>
-                      <Text style={styles.studentMeta}>{item.index_number || item.phone || item.email}</Text>
-                    </View>
-                    <Text style={{ color: '#2563EB', fontWeight: 'bold' }}>Assign +</Text>
-                  </TouchableOpacity>
-                )}
-              />
-            )}
-          </View>
-        </View>
-      </Modal>
+      {bookingsModalVisible && selectedSlot && <SlotStudentsSheet slot={selectedSlot} admin onClose={() => setBookingsModalVisible(false)} onChanged={() => { void fetchSlots(); }} />}
 
       {/* EDIT SLOT MODAL */}
       <Modal visible={editModalVisible} animationType="slide" transparent>
@@ -1293,7 +985,7 @@ export default function AdminSlotManagementScreen() {
 
       {/* CUSTOM IN-APP ALERT POPUP MODAL */}
       <Modal
-        visible={alertModal.visible}
+        visible={alertModal.visible && !createModalVisible}
         transparent
         animationType="fade"
         onRequestClose={() => setAlertModal(prev => ({ ...prev, visible: false }))}
@@ -1379,7 +1071,7 @@ export default function AdminSlotManagementScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFA' },
   createModalOverlay: {
     flex: 1,
@@ -1533,3 +1225,23 @@ const styles = StyleSheet.create({
   popupSingleBtn: { width: '100%', minHeight: 48, paddingVertical: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   popupSingleBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 }
 });
+
+function getStyles(isDark: boolean) {
+  const theme = usersSectionTheme(isDark);
+  const styles: any = { ...baseStyles };
+  for (const [name, value] of Object.entries(baseStyles)) {
+    const style = { ...value } as any;
+    if (isDark) {
+      if (['#FFFFFF', '#fff', '#FAFAFA', '#F8FAFC', '#F9FAFB', '#F1F5F9', '#F3F4F6'].includes(style.backgroundColor)) style.backgroundColor = ['textInputBox', 'newSlotCard', 'modeToggleRow', 'dayPill', 'selectPill'].includes(name) ? theme.field : theme.surface;
+      if (['#0F172A', '#1F2937', '#374151', '#4B5563', '#475569', '#64748B'].includes(style.color)) style.color = name.toLowerCase().includes('title') ? theme.text : theme.muted;
+      if (style.borderColor && !['#F58220', '#F97316'].includes(style.borderColor)) style.borderColor = theme.line;
+      if (style.borderBottomColor) style.borderBottomColor = theme.line;
+    }
+    if (['textInputBox', 'selectPill', 'dayPill', 'modeToggleBtn'].includes(name)) style.minHeight = 44;
+    if (name === 'modeToggleText') { style.flexShrink = 1; style.textAlign = 'center'; }
+    if (name === 'modeToggleBtn') { style.paddingHorizontal = 8; style.borderRadius = 10; }
+    if (name === 'modeToggleRow') style.borderRadius = 12;
+    styles[name] = style;
+  }
+  return styles;
+}

@@ -30,7 +30,7 @@ import ScreenBackground from '../../components/shared/ScreenBackground';
 import { communicationTheme } from '../../components/shared/communicationTheme';
 import { studentCommunicationSurface } from '../../components/student/StudentHomeCard';
 import UploadVideoPreview from '../../components/student/UploadVideoPreview';
-import { formatUploadDate, getUploadThumbnail } from '../../utils/uploadLibrary';
+import { formatUploadDate, getUploadThumbnail, loadBatchUploads } from '../../utils/uploadLibrary';
 import { useTheme } from '../../context/ThemeContext';
 import {
   enableNativeScreenCaptureProtection,
@@ -68,7 +68,8 @@ export default function VideosScreen({ unreadCount, instructor = false, refreshK
 
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
-  const videoRequest = useRef(0), materialRequest = useRef(0);
+  const contentRequest = useRef(0);
+  const [contentError, setContentError] = useState('');
 
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
 
@@ -111,66 +112,42 @@ export default function VideosScreen({ unreadCount, instructor = false, refreshK
     return () => animation.stop();
   }, [filterIndex, reduceMotion, filterPosition, contentOpacity]);
 
-  useFocusEffect(
-    useCallback(() => {
-      enableNativeScreenCaptureProtection();
-      api.get(instructor ? '/instructors/my-batches' : '/students/batches').then(res => {
-        setBatches(res.data || []);
-        if (res.data && res.data.length > 0) {
-          const targetId = activeBatchId || res.data[0]._id;
-          if (targetId !== activeBatchId) setActiveBatchId(targetId);
-          fetchContent(targetId);
-        }
-      }).catch(e => console.warn('Failed to load batches:', e));
-      return () => {
-        disableNativeScreenCaptureProtection();
-      };
-    }, [activeBatchId, instructor, refreshKey])
-  );
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    enableNativeScreenCaptureProtection();
+    setLoadingVideos(true); setLoadingMaterials(true); setContentError('');
+    api.get(instructor ? '/instructors/my-batches' : '/students/batches').then(async res => {
+      if (!active) return;
+      const available = res.data || [];
+      setBatches(available);
+      const target = available.some((batch: any) => batch._id === activeBatchId) ? activeBatchId : null;
+      if (target !== activeBatchId) { setActiveBatchId(target); return; }
+      await fetchContent(available, target);
+    }).catch(() => {
+      if (active) { setVideos([]); setMaterials([]); setContentError('Uploads could not be loaded. Please try again.'); setLoadingVideos(false); setLoadingMaterials(false); }
+    });
+    return () => { active = false; contentRequest.current++; disableNativeScreenCaptureProtection(); };
+  }, [activeBatchId, instructor, refreshKey]));
   useEffect(() => { if (selectedBatchId) setActiveBatchId(selectedBatchId); }, [selectedBatchId]);
 
-  // We can remove the old fetchBatches function as it's handled in useFocusEffect now
-
-  const fetchContent = (batchId: string) => {
-    fetchVideos(batchId);
-    fetchMaterials(batchId);
-  };
-
-  const fetchVideos = async (batchId: string) => {
-    const request = ++videoRequest.current;
-    setLoadingVideos(true);
+  const fetchContent = async (available: any[], target: string | null) => {
+    const request = ++contentRequest.current;
+    setLoadingVideos(true); setLoadingMaterials(true); setVideos([]); setMaterials([]); setExpandedModules({});
     try {
-      const res = await api.get(instructor ? "/instructors/videos" : `/students/batches/${batchId}/videos`);
-      if (request !== videoRequest.current) return;
-      setVideos((res.data || []).filter((item: any) => !instructor || String(item.batch_id?._id || item.batch_id) === batchId));
-
-      // Modules remain collapsed by default until user taps to expand
-      setExpandedModules({});
-    } catch (e) {
-      console.warn('Failed to load videos:', e);
+      const [nextVideos, nextMaterials] = await Promise.all([
+        loadBatchUploads(available, target, instructor, 'videos', path => api.get(path)),
+        loadBatchUploads(available, target, instructor, 'materials', path => api.get(path)),
+      ]);
+      if (request !== contentRequest.current) return;
+      setVideos(nextVideos); setMaterials(nextMaterials);
+    } catch {
+      if (request === contentRequest.current) setContentError('Uploads could not be loaded. Please try again.');
     } finally {
-      if (request === videoRequest.current) setLoadingVideos(false);
+      if (request === contentRequest.current) { setLoadingVideos(false); setLoadingMaterials(false); }
     }
   };
 
-  const fetchMaterials = async (batchId: string) => {
-    const request = ++materialRequest.current;
-    setLoadingMaterials(true);
-    try {
-      const res = await api.get(instructor ? "/instructors/materials" : `/students/batches/${batchId}/materials`);
-      if (request !== materialRequest.current) return;
-      setMaterials((res.data || []).filter((item: any) => !instructor || String(item.batch_id?._id || item.batch_id) === batchId));
-    } catch (e) {
-      console.warn('Failed to load materials:', e);
-    } finally {
-      if (request === materialRequest.current) setLoadingMaterials(false);
-    }
-  };
-
-  const handleBatchSelect = (batchId: string) => {
-    setActiveBatchId(batchId);
-    fetchContent(batchId);
-  };
+  const handleBatchSelect = (batchId: string | null) => setActiveBatchId(batchId);
 
   const toggleModule = (modKey: string) => {
     if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -193,18 +170,24 @@ export default function VideosScreen({ unreadCount, instructor = false, refreshK
   };
 
   const currentBatch = batches.find((b) => b._id === activeBatchId);
-  const courseTitle = currentBatch?.course_id?.title || 'Select Course';
+  const courseTitle = currentBatch ? `${currentBatch.course_id?.title || 'Course'} · ${currentBatch.name || 'Batch'}` : 'All courses';
+  const topicFor = (item: any) => {
+    const topic = item.topic?.trim() || 'General Module';
+    if (activeBatchId) return topic;
+    const batch = batches.find(batch => batch._id === String(item.batch_id?._id || item.batch_id));
+    return `${batch?.course_id?.title || 'Course'} · ${batch?.name || 'Batch'} — ${topic}`;
+  };
 
   // Extract all unique modules/topics across both videos and materials in order
   const allModuleTopics: string[] = [];
   videos.forEach((v: any) => {
-    const t = v.topic || 'General Module';
+    const t = topicFor(v);
     if (!allModuleTopics.some((existing) => existing.toLowerCase().trim() === t.toLowerCase().trim())) {
       allModuleTopics.push(t);
     }
   });
   materials.forEach((m: any) => {
-    const t = m.topic || 'General Module';
+    const t = topicFor(m);
     if (!allModuleTopics.some((existing) => existing.toLowerCase().trim() === t.toLowerCase().trim())) {
       allModuleTopics.push(t);
     }
@@ -212,13 +195,13 @@ export default function VideosScreen({ unreadCount, instructor = false, refreshK
 
   const getVideosForTopic = (topic: string) => {
     return videos.filter(
-      (v: any) => (v.topic || 'General Module').toLowerCase().trim() === topic.toLowerCase().trim()
+      (v: any) => topicFor(v).toLowerCase().trim() === topic.toLowerCase().trim()
     );
   };
 
   const getMaterialsForTopic = (topic: string) => {
     return materials.filter(
-      (m: any) => (m.topic || 'General Module').toLowerCase().trim() === topic.toLowerCase().trim()
+      (m: any) => topicFor(m).toLowerCase().trim() === topic.toLowerCase().trim()
     );
   };
 
@@ -311,6 +294,8 @@ export default function VideosScreen({ unreadCount, instructor = false, refreshK
             <View style={[cardSurface, styles.loadingCard]}>
               <ActivityIndicator size="large" color={COLORS.secondary} />
             </View>
+          ) : contentError ? (
+            <View style={[cardSurface, styles.pendingBatchCard]}><Text style={{ color: theme.text }}>{contentError}</Text><TouchableOpacity accessibilityRole="button" onPress={() => { setContentError(''); void fetchContent(batches, activeBatchId); }} style={styles.notesAction}><Text style={styles.notesActionText}>Try again</Text></TouchableOpacity></View>
           ) : batches.length === 0 ? (
             <View style={[cardSurface, styles.pendingBatchCard]}>
               <View style={styles.pendingBatchIconCircle}>
@@ -386,7 +371,7 @@ export default function VideosScreen({ unreadCount, instructor = false, refreshK
                           activeOpacity={0.85}
                           onPress={() => navigation.navigate('VideoPlayer', {
                             videoId: video._id,
-                            batchId: activeBatchId,
+                            batchId: String(video.batch_id?._id || video.batch_id || activeBatchId),
                             instructor,
                           })}
                         >
@@ -506,6 +491,9 @@ export default function VideosScreen({ unreadCount, instructor = false, refreshK
               </View>
 
               <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+                {batches.length > 0 && <TouchableOpacity accessibilityRole="radio" accessibilityState={{ checked: activeBatchId === null }} style={[cardSurface, styles.courseOptionItem, activeBatchId === null && styles.courseOptionItemSelected, activeBatchId === null && isDark && styles.courseOptionItemSelectedDark]} onPress={() => { handleBatchSelect(null); setCourseModalVisible(false); }}>
+                  <Text style={[styles.courseOptionText, { color: theme.text }]}>All courses</Text><Icon name={activeBatchId === null ? 'checkmark-circle' : 'layers-outline'} size={20} color={COLORS.secondary} />
+                </TouchableOpacity>}
                 {batches.length > 0 ? (
                   batches.map((batch) => {
                     const isSelected = batch._id === activeBatchId;

@@ -16,7 +16,7 @@ export const getMySchedule = async (req: AuthRequest, res: Response): Promise<vo
 
     const batches = await Batch.find({ _id: { $in: batchIds }, status: 'active' })
       .populate('course_id', 'title')
-      .populate('instructor_ids', 'name')
+      .populate('instructor_ids', 'name profile_photo')
       .lean();
 
     res.json(batches);

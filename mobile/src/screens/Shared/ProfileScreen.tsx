@@ -83,6 +83,7 @@ export default function ProfileScreen() {
     try {
       const res = await api.get('/users/me');
       setProfile(res.data);
+      context?.setUser({ ...context.user!, ...res.data });
       setFormData({ name: res.data.name || '', phone: res.data.phone || '' });
     } catch (error) {
       console.warn('Failed to fetch profile', error);
@@ -343,7 +344,7 @@ export default function ProfileScreen() {
             </Text>
             <Text style={styles.regNumberText}>
               {user?.role === 'student' ? 'REG NO : ' : 'ID : '}
-              {profile.index_number || profile.nic || (user?.role === 'student' ? 'TVTI/STUDENT' : 'N/A')}
+              {profile.registration_number || profile.index_number || 'Not assigned'}
             </Text>
           </View>
 

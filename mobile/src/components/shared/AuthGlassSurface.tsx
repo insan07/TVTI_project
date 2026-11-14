@@ -2,15 +2,19 @@ import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuthBackdrop } from './AuthBackground';
 
 /** Decorative layers stay behind the form and never intercept input. */
 export function AuthGlassSurface({ isLight }: { isLight: boolean }) {
+  const blurTarget = useAuthBackdrop();
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       {/* Web blur lives on the card so the backdrop is filtered only once. */}
       {Platform.OS !== 'web' && (
         <BlurView
           intensity={70}
+          blurTarget={blurTarget}
+          blurMethod={blurTarget ? 'dimezisBlurView' : 'none'}
           tint={isLight ? 'light' : 'dark'}
           style={StyleSheet.absoluteFill}
         />

@@ -1,7 +1,7 @@
+import { deliverAccountCredentials } from '../services/accountCredentialDelivery';
+import { withAccountCredentialLock } from '../services/accountCredentialLock';
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
 import Application from '../models/Application';
 import User from '../models/User';
 import Course from '../models/Course';
@@ -9,11 +9,10 @@ import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
 import { sendNotification } from '../services/notificationService';
 import { isEmailVerified, consumeEmailVerification } from '../services/otpService';
-import { sendApplicationSubmissionEmail, sendApprovalEmail, sendRejectionEmail } from '../services/emailService';
+import { sendApplicationSubmissionEmail, sendRejectionEmail } from '../services/emailService';
 
 import { approveStudentApplication, regenerateApprovedApplicationCredentials } from '../services/studentAdmissions';
 import { PracticalError, practicalMutation } from '../services/practicalScheduling';
-import { generateTemporaryPassword, generateUniqueIndexNumber, generateUniqueRegistrationNumber } from '../utils/admissionIdentifiers';
 export { generateTemporaryPassword, generateUniqueIndexNumber, generateUniqueRegistrationNumber } from '../utils/admissionIdentifiers';
 
 export const submitApplication = async (req: Request, res: Response): Promise<void> => {
@@ -225,7 +224,7 @@ export const getApplications = async (req: Request, res: Response): Promise<void
   }
 };
 
-export const updateApplicationStatus = async (req: Request, res: Response): Promise<void> => {
+const updateApplicationStatusUnlocked = async (req: Request, res: Response): Promise<void> => {
   try {
     const status = req.body.status;
     if (!['pending', 'contacted', 'paid', 'approved', 'rejected'].includes(status) || !mongoose.isValidObjectId(req.params.id)) {
@@ -246,12 +245,15 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
     let emailSent = false, emailError: string | undefined;
     if (status === 'approved' || status === 'rejected') {
       try {
-        const mail = status === 'approved' ? await sendApprovalEmail({ to: application.email, name: application.full_name, registrationNumber: result.credentials.registration_number, temporaryPassword: result.credentials.temp_password })
-          : await sendRejectionEmail({ to: application.email, name: application.full_name, rejectionReason: application.rejection_reason });
-        emailSent = !!mail.success;
-        if (!emailSent) emailError = 'Email delivery failed.';
-      } catch (error: any) { emailError = error.message || 'Email delivery failed.'; }
-      if (status === 'approved') await Application.findByIdAndUpdate(application._id, { approval_email_sent: emailSent, approval_email_sent_at: emailSent ? new Date() : undefined, approval_email_error: emailError });
+        if (status === 'approved') {
+          const delivery = await deliverAccountCredentials(result);
+          emailSent = delivery.email_sent; emailError = delivery.email_error;
+        } else {
+          const mail = await sendRejectionEmail({ to: application.email, name: application.full_name, rejectionReason: application.rejection_reason });
+          emailSent = !!mail.success && !mail.simulated;
+          if (!emailSent) emailError = 'Email delivery failed.';
+        }
+      } catch { emailError = 'Email delivery failed.'; }
     }
     try {
       const student = result.student || await User.findOne({ email: application.email.toLowerCase(), role: 'student' });
@@ -263,20 +265,11 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
   }
 };
 
-export const resendApplicationCredentials = async (req: Request, res: Response): Promise<void> => {
+const resendApplicationCredentialsUnlocked = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await regenerateApprovedApplicationCredentials(String(req.params.id));
-    let emailSent = false;
-    try {
-      const mail = await sendApprovalEmail({ to: result.student.email, name: result.student.name, registrationNumber: result.credentials.registration_number, temporaryPassword: result.credentials.temp_password });
-      emailSent = !!mail.success;
-    } catch { /* Return the generated credentials so the admin can still save them. */ }
-    await Application.findByIdAndUpdate(result.application._id, {
-      approval_email_sent: emailSent,
-      approval_email_sent_at: emailSent ? new Date() : undefined,
-      approval_email_error: emailSent ? undefined : 'Email delivery failed.'
-    });
-    res.json({ success: true, message: emailSent ? 'New credentials emailed to the student.' : 'New credentials generated, but email delivery failed.', credentials: result.credentials, email_sent: emailSent });
+    const delivery = await deliverAccountCredentials(result);
+    res.json({ success: true, message: delivery.email_sent ? 'New temporary credentials emailed. Previous temporary passwords no longer work.' : 'New temporary credentials generated, but email delivery failed.', credentials: result.credentials, ...delivery });
   } catch (error: any) {
     res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Credentials could not be resent. Please try again.' });
   }
@@ -298,3 +291,16 @@ export const deleteApplicationCompletely = async (req: Request, res: Response): 
     res.status(500).json({ message: 'Server error during application deletion' });
   }
 };
+
+async function applicationCredentialOperation(req: Request, res: Response, operation: (req: Request, res: Response) => Promise<void>) {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) throw new PracticalError(400, 'Invalid application.');
+    const application = await Application.findById(req.params.id);
+    if (!application) throw new PracticalError(404, 'Application not found.');
+    await withAccountCredentialLock(application.email, () => operation(req, res));
+  } catch (error: any) {
+    res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Account operation could not be completed. Please try again.' });
+  }
+}
+export const updateApplicationStatus = (req: Request, res: Response): Promise<void> => applicationCredentialOperation(req, res, updateApplicationStatusUnlocked);
+export const resendApplicationCredentials = (req: Request, res: Response): Promise<void> => applicationCredentialOperation(req, res, resendApplicationCredentialsUnlocked);

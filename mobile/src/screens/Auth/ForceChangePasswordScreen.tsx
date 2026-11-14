@@ -1,3 +1,4 @@
+import AuthBackground, { AuthBackdropProvider } from '../../components/shared/AuthBackground';
 import { KeyboardAvoidingView, KeyboardScrollView as ScrollView } from '../../components/shared/KeyboardForm';
 import React, { useState, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform, Image, useWindowDimensions } from 'react-native';
@@ -12,6 +13,10 @@ import { showToast } from '../../components/shared/Toast';
 import { AuthTextInput } from '../../components/shared/AuthForm';
 
 export default function ForceChangePasswordScreen() {
+  return <AuthBackdropProvider><ForceChangePasswordScreenContent /></AuthBackdropProvider>;
+}
+
+function ForceChangePasswordScreenContent() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;
 
@@ -116,8 +121,8 @@ export default function ForceChangePasswordScreen() {
         </Text>
 
         <View style={styles.readOnlyRow}>
-          <Text style={[styles.readOnlyLabel, { color: isLight ? '#64748B' : '#94A3B8' }]}>Reg No / Index:</Text>
-          <Text style={styles.readOnlyValueBold}>{user?.index_number || 'Registered Student'}</Text>
+          <Text style={[styles.readOnlyLabel, { color: isLight ? '#64748B' : '#94A3B8' }]}>Registration number:</Text>
+          <Text style={styles.readOnlyValueBold}>{user?.registration_number || user?.index_number || 'Registered account'}</Text>
         </View>
 
         <View style={styles.readOnlyRow}>
@@ -269,6 +274,7 @@ export default function ForceChangePasswordScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]} edges={['top', 'bottom']}>
       {/* Background Image */}
+      {Platform.OS !== 'web' ? <AuthBackground isLight={isLight} /> : (
       <Image
         source={
           isLight
@@ -290,6 +296,7 @@ export default function ForceChangePasswordScreen() {
         ]}
         resizeMode="cover"
       />
+      )}
 
       {/* Atmospheric Overlays */}
       {Platform.OS === 'web' ? (
@@ -312,16 +319,7 @@ export default function ForceChangePasswordScreen() {
             } as any,
           ]}
         />
-      ) : (
-        <LinearGradient
-          colors={
-            isLight
-              ? ['rgba(255, 255, 255, 0.65)', 'rgba(255, 255, 255, 0.45)', 'rgba(255, 255, 255, 0.75)']
-              : ['rgba(15, 23, 42, 0.95)', 'rgba(20, 28, 44, 0.90)', 'rgba(10, 15, 26, 0.98)']
-          }
-          style={StyleSheet.absoluteFill}
-        />
-      )}
+      ) : null}
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}

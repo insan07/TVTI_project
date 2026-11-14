@@ -80,7 +80,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
 export const getMyPaymentSlips = async (req: Request, res: Response): Promise<void> => {
   try {
     const studentId = (req as any).user?._id;
-    const student = await User.findById(studentId).select('payment_info name email index_number');
+    const student = await User.findById(studentId).select('payment_info name email index_number registration_number');
     if (!student) {
       res.status(404).json({ message: 'Student account not found' });
       return;
@@ -112,7 +112,7 @@ export const getMyPaymentSlips = async (req: Request, res: Response): Promise<vo
 export const getAdminPaymentList = async (req: Request, res: Response): Promise<void> => {
   try {
     const students = await User.find({ role: 'student' })
-      .select('name email phone index_number nic profile_photo payment_info createdAt')
+      .select('name email phone index_number registration_number nic profile_photo payment_info createdAt')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -134,6 +134,7 @@ export const getAdminPaymentList = async (req: Request, res: Response): Promise<
           email: s.email,
           phone: s.phone,
           index_number: s.index_number,
+          registration_number: s.registration_number,
           nic: s.nic,
           profile_photo: s.profile_photo,
           total_fee: totalFee,
@@ -190,6 +191,7 @@ export const getStudentPaymentDossier = async (req: Request, res: Response): Pro
         email: student.email,
         phone: student.phone,
         index_number: student.index_number,
+        registration_number: student.registration_number,
         nic: student.nic,
         address: student.address,
         profile_photo: student.profile_photo,

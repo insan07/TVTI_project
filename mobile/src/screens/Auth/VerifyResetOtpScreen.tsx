@@ -1,3 +1,4 @@
+import AuthBackground, { AuthBackdropProvider } from '../../components/shared/AuthBackground';
 import { KeyboardAvoidingView } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Platform, useWindowDimensions, Keyboard, Alert } from 'react-native';
@@ -13,6 +14,10 @@ import { authApi } from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function VerifyResetOtpScreen() {
+  return <AuthBackdropProvider><VerifyResetOtpScreenContent /></AuthBackdropProvider>;
+}
+
+function VerifyResetOtpScreenContent() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;
 
@@ -213,6 +218,7 @@ export default function VerifyResetOtpScreen() {
   return (
     <View style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]}>
       {/* TVTI Campus Building Background Image — Fills Entire Physical Screen */}
+      {Platform.OS !== 'web' ? <AuthBackground isLight={isLight} /> : (
       <Image
         source={
           isLight
@@ -234,6 +240,7 @@ export default function VerifyResetOtpScreen() {
         ]}
         resizeMode="cover"
       />
+      )}
 
       {/* Atmospheric Overlays - TVTI Midnight Blue / Light Foggy Mist */}
       {Platform.OS === 'web' ? (
@@ -256,16 +263,7 @@ export default function VerifyResetOtpScreen() {
             } as any,
           ]}
         />
-      ) : (
-        <LinearGradient
-          colors={
-            isLight
-              ? ['rgba(255, 255, 255, 0.50)', 'rgba(255, 255, 255, 0.30)', 'rgba(255, 255, 255, 0.60)']
-              : ['rgba(15, 23, 42, 0.82)', 'rgba(20, 28, 44, 0.78)', 'rgba(10, 15, 26, 0.88)']
-          }
-          style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-        />
-      )}
+      ) : null}
 
       {/* Floating Theme Toggle Icon (Moon/Sun only, NO header bar) */}
       <TouchableOpacity

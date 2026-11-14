@@ -466,9 +466,9 @@ export default function AdminDashboardScreen() {
         style={[styles.graphicHeader, { paddingTop: Math.max(insets.top + 8, 16) }]}>
         <View style={styles.glowOrbOrange} pointerEvents="none" /><View style={styles.glowOrbBlue} pointerEvents="none" />
         <View style={styles.brandHeaderRow}>
-          <View style={styles.brandLogoGroup}>
+          <View style={[styles.brandLogoGroup, { flexShrink: 1, minWidth: 0, marginRight: 12 }]}>
             <Image source={require('../../../assets/logo.png')} style={styles.brandLogoImg} resizeMode="contain" />
-            <Text style={styles.brandTitleText}>TWINTEC VTI</Text>
+            <Text numberOfLines={1} style={[styles.brandTitleText, { flexShrink: 1 }]}>TWINTEC VTI</Text>
           </View>
           <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')} accessibilityRole="button" accessibilityLabel="View notifications" accessibilityHint={`${unreadCount} unread notifications`}>
             <NotificationBellIcon size={22} color="#FFFFFF" />{unreadCount > 0 && <View style={styles.badgeDot} />}

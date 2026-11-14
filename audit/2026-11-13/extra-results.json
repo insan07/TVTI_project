@@ -1,0 +1,228 @@
+[
+  {
+    "id": "SEC-16",
+    "name": "Wrong code accepted after prior certificate verification",
+    "expected": 400,
+    "actual": {
+      "status": 200,
+      "verified": true,
+      "exposedNic": true
+    },
+    "outcome": "ISSUE"
+  },
+  {
+    "id": "FUNC-08",
+    "name": "Missing mail config returns simulated OTP delivery success",
+    "expected": "Explicit failure; no raw OTP log",
+    "actual": {
+      "reset": {
+        "success": true,
+        "simulated": true
+      },
+      "certificate": {
+        "success": true,
+        "simulated": true
+      },
+      "rawOtpLogged": true
+    },
+    "outcome": "ISSUE"
+  },
+  {
+    "id": "UI-03",
+    "name": "Admin application activity has applicant name",
+    "expected": "Synthetic Applicant",
+    "actual": [
+      {
+        "id": "slip-6af616118a60cc1187bdb975",
+        "text": "Payment slip of LKR 500 submitted by \"Audit Student\" (Pending review)",
+        "type": "payment",
+        "createdAt": "2026-11-12T19:40:01.386Z",
+        "time": "1h ago",
+        "color": "#F59E0B",
+        "icon": "receipt-outline"
+      },
+      {
+        "id": "ann-6af616118a60cc1187bdb96e",
+        "text": "Notice posted: \"Notification outage audit\"",
+        "type": "announcement",
+        "createdAt": "2026-11-12T19:40:01.373Z",
+        "time": "1h ago",
+        "color": "#D97706",
+        "icon": "megaphone-outline"
+      },
+      {
+        "id": "slip-6af6160f8a60cc1187bdb933",
+        "text": "Payment slip of LKR 1,200 submitted by \"Audit Student\" (Pending review)",
+        "type": "payment",
+        "createdAt": "2026-11-12T19:39:59.896Z",
+        "time": "1h ago",
+        "color": "#F59E0B",
+        "icon": "receipt-outline"
+      },
+      {
+        "id": "ann-6af6160f8a60cc1187bdb91a",
+        "text": "Notice posted: \"Cross-batch audit\"",
+        "type": "announcement",
+        "createdAt": "2026-11-12T19:39:59.538Z",
+        "time": "1h ago",
+        "color": "#D97706",
+        "icon": "megaphone-outline"
+      },
+      {
+        "id": "ann-6af6160e8a60cc1187bdb89c",
+        "text": "Notice posted: \"Audit notice\"",
+        "type": "announcement",
+        "createdAt": "2026-11-12T19:39:58.394Z",
+        "time": "1h ago",
+        "color": "#D97706",
+        "icon": "megaphone-outline"
+      },
+      {
+        "id": "vid-6af6160e8a60cc1187bdb89a",
+        "text": "New lecture video: \"Private Plumbing Topic\"",
+        "type": "video",
+        "createdAt": "2026-11-12T19:39:58.392Z",
+        "time": "1h ago",
+        "color": "#6366F1",
+        "icon": "play-circle-outline"
+      },
+      {
+        "id": "vid-6af6160e8a60cc1187bdb898",
+        "text": "New lecture video: \"Audit Lesson\"",
+        "type": "video",
+        "createdAt": "2026-11-12T19:39:58.389Z",
+        "time": "1h ago",
+        "color": "#6366F1",
+        "icon": "play-circle-outline"
+      },
+      {
+        "id": "app-6af6160e8a60cc1187bdb896",
+        "text": "Application received from undefined for Electrical Safety",
+        "type": "application",
+        "createdAt": "2026-11-12T19:39:58.386Z",
+        "time": "1h ago",
+        "color": "#EC4899",
+        "icon": "document-text-outline"
+      },
+      {
+        "id": "batch-6af6160e8a60cc1187bdb88e",
+        "text": "New batch \"Audit Electrical A\" opened for Electrical Safety",
+        "type": "batch",
+        "createdAt": "2026-11-12T19:39:58.377Z",
+        "time": "1h ago",
+        "color": "#06B6D4",
+        "icon": "layers-outline"
+      },
+      {
+        "id": "batch-6af6160e8a60cc1187bdb88f",
+        "text": "New batch \"Audit Plumbing B\" opened for Plumbing",
+        "type": "batch",
+        "createdAt": "2026-11-12T19:39:58.377Z",
+        "time": "1h ago",
+        "color": "#06B6D4",
+        "icon": "layers-outline"
+      },
+      {
+        "id": "course-6af6160e8a60cc1187bdb88a",
+        "text": "Course \"Electrical Safety\" added to curriculum",
+        "type": "course",
+        "createdAt": "2026-11-12T19:39:58.372Z",
+        "time": "1h ago",
+        "color": "#8B5CF6",
+        "icon": "book-outline"
+      },
+      {
+        "id": "course-6af6160e8a60cc1187bdb88b",
+        "text": "Course \"Plumbing\" added to curriculum",
+        "type": "course",
+        "createdAt": "2026-11-12T19:39:58.372Z",
+        "time": "1h ago",
+        "color": "#8B5CF6",
+        "icon": "book-outline"
+      },
+      {
+        "id": "user-6af6160e8a60cc1187bdb87d",
+        "text": "Instructor \"Audit Teacher\" account created",
+        "type": "user",
+        "createdAt": "2026-11-12T19:39:58.357Z",
+        "time": "1h ago",
+        "color": "#3B82F6",
+        "icon": "shield-checkmark-outline"
+      },
+      {
+        "id": "user-6af6160e8a60cc1187bdb87e",
+        "text": "Instructor \"Other Teacher\" account created",
+        "type": "user",
+        "createdAt": "2026-11-12T19:39:58.357Z",
+        "time": "1h ago",
+        "color": "#3B82F6",
+        "icon": "shield-checkmark-outline"
+      },
+      {
+        "id": "user-6af6160e8a60cc1187bdb882",
+        "text": "Student \"Inactive Student\" registered (Pending approval)",
+        "type": "user",
+        "createdAt": "2026-11-12T19:39:58.357Z",
+        "time": "1h ago",
+        "color": "#F59E0B",
+        "icon": "person-add-outline"
+      },
+      {
+        "id": "user-6af6160e8a60cc1187bdb87f",
+        "text": "Student \"Audit Student\" registered (Active)",
+        "type": "user",
+        "createdAt": "2026-11-12T19:39:58.357Z",
+        "time": "1h ago",
+        "color": "#10B981",
+        "icon": "person-add-outline"
+      },
+      {
+        "id": "user-6af6160e8a60cc1187bdb881",
+        "text": "Student \"Temporary Student\" registered (Active)",
+        "type": "user",
+        "createdAt": "2026-11-12T19:39:58.357Z",
+        "time": "1h ago",
+        "color": "#10B981",
+        "icon": "person-add-outline"
+      },
+      {
+        "id": "user-6af6160e8a60cc1187bdb880",
+        "text": "Student \"Other Student\" registered (Active)",
+        "type": "user",
+        "createdAt": "2026-11-12T19:39:58.357Z",
+        "time": "1h ago",
+        "color": "#10B981",
+        "icon": "person-add-outline"
+      },
+      {
+        "id": "user-6af6160e8a60cc1187bdb87c",
+        "text": "User \"Audit Admin\" account created",
+        "type": "user",
+        "createdAt": "2026-11-12T19:39:58.356Z",
+        "time": "1h ago",
+        "color": "#3B82F6",
+        "icon": "shield-checkmark-outline"
+      }
+    ],
+    "outcome": "ISSUE"
+  },
+  {
+    "id": "TEST-02",
+    "name": "Nodemailer test mock targets same transport as compiled service",
+    "expected": "Default sees named export mock",
+    "actual": {
+      "defaultSeesNamedMock": false
+    },
+    "outcome": "ISSUE"
+  },
+  {
+    "id": "FUNC-09",
+    "name": "Login trims a password which profile/reset preserves",
+    "expected": "Password can be used unchanged",
+    "actual": {
+      "exactStatus": 200,
+      "uiTrimmedStatus": 401
+    },
+    "outcome": "ISSUE"
+  }
+]

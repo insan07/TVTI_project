@@ -1,3 +1,7 @@
+import mongoose from 'mongoose';
+import { createInstructorAccount, regenerateAccountCredentials } from '../services/accountCredentials';
+import { deliverAccountCredentials } from '../services/accountCredentialDelivery';
+import { withAccountCredentialLock } from '../services/accountCredentialLock';
 import { Request, Response } from 'express';
 import User from '../models/User';
 import Course from '../models/Course';
@@ -10,11 +14,9 @@ import SlotBooking from '../models/SlotBooking';
 import Application from '../models/Application';
 import Announcement from '../models/Announcement';
 import PaymentSlip from '../models/PaymentSlip';
-import bcrypt from 'bcryptjs';
 import { createManualStudent, approveRegisteredStudent, reactivateStudent } from '../services/studentAdmissions';
 import { PracticalError } from '../services/practicalScheduling';
-import { generateUniqueIndexNumber } from './applicationController';
-import { sendApprovalCredentialsEmail, sendDeactivationEmail, sendApprovalEmail } from '../services/emailService';
+import { sendDeactivationEmail } from '../services/emailService';
 import { sendNotification } from '../services/notificationService';
 
 const formatTimeAgo = (date: any): string => {
@@ -226,7 +228,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
       query.$nor = [{ role: 'student', $or: [{ status: 'rejected' }, { email: { $in: rejected.map(application => application._id) } }] }];
     }
 
-    const users = await User.find(query).select('-password_hash').sort({ createdAt: -1 });
+    const users = await User.find(query).select('-password_hash').sort({ registration_number: 1, index_number: 1, _id: 1 }).collation({ locale: 'en', numericOrdering: true });
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -314,34 +316,31 @@ export const getUserDetails = async (req: Request, res: Response): Promise<void>
 };
 
 // PUT /api/admin/users/:id/approve
-async function deliverAdmissionEmail(result: any) {
-  let sent = false;
-  try {
-    const mail = await sendApprovalEmail({ to: result.student.email, name: result.student.name, registrationNumber: result.credentials.registration_number, temporaryPassword: result.credentials.temp_password });
-    sent = !!mail.success;
-  } catch { /* Account creation remains successful when email delivery fails. */ }
-  if (result.application) await Application.findByIdAndUpdate(result.application._id, { approval_email_sent: sent, approval_email_sent_at: sent ? new Date() : undefined, approval_email_error: sent ? '' : 'Email delivery failed.' });
-  return { email_sent: sent };
-}
 function admissionError(error: any, res: Response) {
-  res.status(error instanceof PracticalError ? error.status : error.code === 11000 ? 409 : 500).json({ message: error instanceof PracticalError ? error.message : error.code === 11000 ? 'An account with these details already exists.' : 'The student could not be saved. Please try again.' });
+  res.status(error instanceof PracticalError ? error.status : error.code === 11000 ? 409 : 500).json({ message: error instanceof PracticalError ? error.message : error.code === 11000 ? 'An account with these details already exists.' : 'The account could not be saved. Please try again.' });
 }
 export const approveUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await approveRegisteredStudent(String(req.params.id), req.body);
-    const delivery = await deliverAdmissionEmail(result);
+    if (!mongoose.isValidObjectId(req.params.id)) throw new PracticalError(400, 'Invalid student.');
+    const account = await User.findById(req.params.id);
+    if (!account || account.role !== 'student') throw new PracticalError(404, 'Student account not found.');
+    const { result, delivery } = await withAccountCredentialLock(account.email, async () => {
+      const result = await approveRegisteredStudent(String(req.params.id), req.body);
+      return { result, delivery: await deliverAccountCredentials(result) };
+    });
     res.json({ message: 'Student approved and batches assigned.', credentials: result.credentials, assigned_batch_ids: result.batches.map(batch => batch._id), ...delivery });
   } catch (error) { admissionError(error, res); }
 };
 
 export const createStudent = async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await createManualStudent(req.body);
-    const delivery = await deliverAdmissionEmail(result);
+    const { result, delivery } = await withAccountCredentialLock(req.body.email, async () => {
+      const result = await createManualStudent(req.body);
+      return { result, delivery: await deliverAccountCredentials(result) };
+    });
     res.status(201).json({ message: 'Student created and batches assigned.', _id: result.student._id, credentials: result.credentials, assigned_batch_ids: result.batches.map(batch => batch._id), ...delivery });
   } catch (error) { admissionError(error, res); }
 };
-
 export const reactivateUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const student = await reactivateStudent(String(req.params.id));
@@ -381,7 +380,7 @@ export const deactivateUser = async (req: Request, res: Response): Promise<void>
         await sendDeactivationEmail({
           to: user.email,
           studentName: user.name,
-          registrationNumber: user.index_number || user.registration_number || 'N/A'
+          registrationNumber: user.registration_number || user.index_number || 'Not assigned'
         });
         user.deactivation_email_sent = true;
         user.deactivation_email_sent_at = new Date();
@@ -441,66 +440,21 @@ export const markUserCompleted = async (req: Request, res: Response): Promise<vo
 // PUT /api/admin/users/:id/resend-credentials — regenerate & resend credentials email
 export const resendUserCredentials = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) throw new PracticalError(400, 'Invalid account.');
     let user = await User.findById(req.params.id);
-
-    // If ID belongs to an application or student not found by direct ID, search by application or email
     if (!user) {
       const application = await Application.findById(req.params.id);
-      if (application) {
-        user = await User.findOne({
-          $or: [
-            { email: application.email.toLowerCase() },
-            { nic: application.nic_number }
-          ]
-        });
-      }
+      if (!application || application.status !== 'approved') throw new PracticalError(400, 'Approve the application before sending credentials.');
+      user = await User.findOne({ email: application.email.trim().toLowerCase(), role: 'student' });
     }
-
-    if (!user) {
-      res.status(404).json({ message: 'Approved student user account not found.' });
-      return;
-    }
-
-    // Generate fresh index number if not present
-    if (!user.index_number) {
-      user.index_number = await generateUniqueIndexNumber();
-    }
-
-    // Generate fresh temporary password e.g. TVTI#8392
-    const randomDigits = Math.floor(1000 + Math.random() * 9000);
-    const tempPassword = `TVTI#${randomDigits}`;
-    const salt = await bcrypt.genSalt(10);
-    user.password_hash = await bcrypt.hash(tempPassword, salt);
-    user.must_change_password = true;
-    user.temp_password_expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    await user.save();
-
-    // Send credentials email
-    try {
-      await sendApprovalCredentialsEmail({
-        to: user.email,
-        studentName: user.name,
-        indexNumber: user.index_number,
-        tempPassword: tempPassword
-      });
-    } catch (emailErr) {
-      console.warn('Warning: Failed to send approval credentials email:', emailErr);
-    }
-
-    res.json({
-      message: 'Credentials email resent successfully!',
-      credentials: {
-        index_number: user.index_number,
-        temp_password: tempPassword,
-        email: user.email,
-        student_id: user._id
-      }
+    if (!user || !['student', 'instructor'].includes(user.role)) throw new PracticalError(404, 'Student or instructor account not found.');
+    const account = user;
+    const { result, delivery } = await withAccountCredentialLock(account.email, async () => {
+      const result = await regenerateAccountCredentials(String(account._id));
+      return { result, delivery: await deliverAccountCredentials(result) };
     });
-  } catch (error) {
-    console.error('Error resending user credentials:', error);
-    res.status(500).json({ message: 'Server error during credentials email resend' });
-  }
+    res.json({ message: delivery.email_sent ? 'New temporary credentials emailed. Previous temporary passwords no longer work.' : 'New temporary credentials saved, but email delivery failed.', credentials: result.credentials, ...delivery });
+  } catch (error) { admissionError(error, res); }
 };
 
 // DELETE /api/admin/users/:id/delete — permanently remove a user and all related data
@@ -549,76 +503,19 @@ export const deleteUserCompletely = async (req: Request, res: Response): Promise
   }
 };
 
-const generateUniqueInstructorIndexNumber = async (): Promise<string> => {
-  const fullYear = new Date().getFullYear();
-  const year2Digits = String(fullYear).slice(-2); // e.g. 2026 -> 26
-  const prefix = `${year2Digits}I`;
-  const regex = new RegExp(`^${year2Digits}I(\\d+)`);
-  const users = await User.find({ index_number: { $regex: regex } }).select('index_number');
-
-  let maxSeq = 0;
-  for (const u of users) {
-    if (u.index_number) {
-      const match = u.index_number.match(regex);
-      if (match && match[1]) {
-        const seq = parseInt(match[1], 10);
-        if (seq > maxSeq) maxSeq = seq;
-      }
-    }
-  }
-
-  const nextSeq = maxSeq + 1;
-  return `${prefix}${String(nextSeq).padStart(4, '0')}`;
-};
-
 // POST /api/admin/users/instructor
 export const createInstructor = async (req: Request, res: Response): Promise<void> => {
-  const { name, email, phone, nic } = req.body;
   try {
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      res.status(400).json({ message: 'User already exists' });
-      return;
-    }
-
-    // Generate random 7-day temporary password e.g. TVTI#4829
-    const randomDigits = Math.floor(1000 + Math.random() * 9000);
-    const tempPassword = `TVTI#${randomDigits}`;
-
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(tempPassword, salt);
-    const index_number = await generateUniqueInstructorIndexNumber();
-
-    const user = await User.create({
-      name,
-      email,
-      password_hash,
-      role: 'instructor',
-      phone,
-      nic,
-      index_number,
-      is_active: true, // Instructors created by admin are automatically active
-      must_change_password: true,
-      temp_password_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days expiration
+    const { result, delivery } = await withAccountCredentialLock(req.body.email, async () => {
+      const result = await createInstructorAccount(req.body);
+      const delivery = await deliverAccountCredentials(result);
+      try {
+        await sendNotification({ userIds: [String(result.user._id)], title: 'Welcome to TVTI Instructor Portal',
+          message: `Your instructor account (${result.credentials.registration_number}) has been created.`, type: 'general', relatedId: result.user._id, link: '/profile' });
+      } catch { /* Notifications cannot invalidate a successfully created instructor account. */ }
+      return { result, delivery };
     });
-
-    await sendNotification({
-      userIds: [String(user._id)],
-      title: 'Welcome to TVTI Instructor Portal 👋',
-      message: `Your instructor account (${user.index_number}) has been created.`,
-      type: 'general',
-      relatedId: user._id,
-      link: '/profile'
-    });
-
-    res.status(201).json({
-      message: 'Instructor created successfully',
-      _id: user._id,
-      index_number: user.index_number,
-      temp_password: tempPassword,
-      email: user.email
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
+    res.status(201).json({ message: delivery.email_sent ? 'Instructor created and credentials emailed.' : 'Instructor created. Credentials email was not sent.',
+      _id: result.user._id, ...result.credentials, credentials: result.credentials, ...delivery });
+  } catch (error) { admissionError(error, res); }
 };

@@ -1,3 +1,4 @@
+import { accountCredentials } from './accountCredentials';
 import { ClientSession } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import Application from '../models/Application';
@@ -6,7 +7,7 @@ import Batch from '../models/Batch';
 import Course from '../models/Course';
 import Enrollment from '../models/Enrollment';
 import { practicalMutation, PracticalError } from './practicalScheduling';
-import { generateTemporaryPassword, generateUniqueIndexNumber, generateUniqueRegistrationNumber } from '../utils/admissionIdentifiers';
+import { generateTemporaryPassword, resolveStudentIdentifiers } from '../utils/admissionIdentifiers';
 
 const id = (value: any) => String(value?._id || value);
 const validId = (value: unknown) => typeof value === 'string' && /^[a-f\d]{24}$/i.test(value);
@@ -67,8 +68,7 @@ export async function approveStudentApplication(applicationId: string, body: any
     let student = matches[0];
     const { courses, batches } = await selectedAdmissionBatches(body.assigned_course_ids, body.assigned_batch_ids, student?._id, session);
     const payment = fees(body, courses.reduce((sum, course: any) => sum + (course.fee || 0), 0));
-    const index = student?.index_number || await generateUniqueIndexNumber(session);
-    const registration = student?.registration_number || application.registration_number || await generateUniqueRegistrationNumber(session);
+    const { index_number: index, registration_number: registration } = await resolveStudentIdentifiers(student, application, session);
     const values = {
       name: application.full_name, email, phone: application.phone, nic: application.nic_number || student?.nic,
       date_of_birth: application.date_of_birth, gender: application.gender, address: application.address,
@@ -86,7 +86,7 @@ export async function approveStudentApplication(applicationId: string, body: any
     application.total_course_fee = payment.total; application.amount_paid = payment.paid; application.payment_status = payment.status;
     application.registration_number = registration; application.generated_index_number = index; application.rejection_reason = undefined;
     await application.save({ session });
-    return { application, student, batches, credentials: { index_number: index, registration_number: registration, temp_password: tempPassword, email, student_id: student._id } };
+    return { application, student, batches, credentials: accountCredentials(student, tempPassword) };
   });
 }
 
@@ -113,7 +113,7 @@ export async function createManualStudent(body: any) {
     if (await Application.exists({ $or: [{ email }, ...(nic ? [{ nic_number: nic }] : [])], status: { $ne: 'rejected' } }).session(session)) throw new PracticalError(409, 'An application already exists for this email or NIC. Review it from Applications.');
     const { courses, batches } = await selectedAdmissionBatches(body.course_ids, body.batch_ids, null, session);
     const payment = fees(body, courses.reduce((sum, course: any) => sum + (course.fee || 0), 0));
-    const index = await generateUniqueIndexNumber(session), registration = await generateUniqueRegistrationNumber(session);
+    const { index_number: index, registration_number: registration } = await resolveStudentIdentifiers(null, null, session);
     const [student] = await User.create([{
       name, email, phone, nic: nic || undefined, date_of_birth, gender, address, guardian, educational_qualification, profile_photo: student_photo,
       role: 'student', is_active: true, status: 'active', is_graduated: false,
@@ -128,7 +128,7 @@ export async function createManualStudent(body: any) {
       course_id: courses[0]._id, course_ids: courses.map(course => course._id), assigned_batch_ids: batches.map(batch => batch._id),
       status: 'approved', registration_number: registration, generated_index_number: index, terms_accepted: body.terms_accepted === true, terms_accepted_at: body.terms_accepted === true ? new Date() : undefined
     }], { session });
-    return { student, application, batches, credentials: { index_number: index, registration_number: registration, temp_password: tempPassword, email, student_id: student._id } };
+    return { student, application, batches, credentials: accountCredentials(student, tempPassword) };
   });
 }
 
@@ -149,16 +149,17 @@ export async function regenerateApprovedApplicationCredentials(applicationId: st
     if (application.status !== 'approved') throw new PracticalError(400, 'Approve the application before resending credentials.');
     const student = await User.findOne({ email: application.email.toLowerCase().trim(), role: 'student' }).session(session);
     if (!student) throw new PracticalError(404, 'The approved student account was not found.');
-    student.index_number ||= await generateUniqueIndexNumber(session);
-    student.registration_number ||= application.registration_number || await generateUniqueRegistrationNumber(session);
+    Object.assign(student, await resolveStudentIdentifiers(student, application, session));
     student.password_hash = password_hash;
+    student.passwordResetOtpHash = undefined; student.passwordResetOtpExpiresAt = undefined;
+    student.passwordResetTokenHash = undefined; student.passwordResetTokenExpiresAt = undefined;
     student.must_change_password = true;
     student.temp_password_expires_at = new Date(Date.now() + 7 * 86400000);
     await student.save({ session });
     application.generated_index_number = student.index_number;
     application.registration_number = student.registration_number;
     await application.save({ session });
-    return { application, student, credentials: { index_number: student.index_number, registration_number: student.registration_number, temp_password: tempPassword, email: student.email, student_id: student._id } };
+    return { application, student, credentials: accountCredentials(student, tempPassword) };
   });
 }
 
@@ -170,8 +171,7 @@ export async function approveRegisteredStudent(studentId: string, body: any) {
     if (!student) throw new PracticalError(404, 'Student not found.');
     if (student.is_active && student.status !== 'completed' && !student.is_graduated) throw new PracticalError(409, 'This student is already active.');
     const { batches } = await selectedAdmissionBatches(body.assigned_course_ids, body.assigned_batch_ids, student._id, session);
-    student.index_number ||= await generateUniqueIndexNumber(session);
-    student.registration_number ||= await generateUniqueRegistrationNumber(session);
+    Object.assign(student, await resolveStudentIdentifiers(student, null, session));
     student.is_active = true; student.is_graduated = false; student.status = 'active';
     student.password_hash = password_hash; student.must_change_password = true;
     student.temp_password_expires_at = new Date(Date.now() + 7 * 86400000);
@@ -185,7 +185,7 @@ export async function approveRegisteredStudent(studentId: string, body: any) {
       application.rejection_reason = undefined;
       await application.save({ session });
     }
-    return { student, batches, credentials: { index_number: student.index_number, registration_number: student.registration_number, temp_password: tempPassword, email: student.email, student_id: student._id } };
+    return { student, batches, credentials: accountCredentials(student, tempPassword) };
   });
 }
 
