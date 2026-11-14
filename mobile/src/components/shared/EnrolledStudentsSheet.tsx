@@ -1,3 +1,4 @@
+import UserAvatar from './UserAvatar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import api from '../../services/api';
@@ -6,7 +7,7 @@ import { FONTS } from '../../config/theme';
 import { usersSectionTheme } from './usersSectionTheme';
 import { ManagementEmpty, ManagementSheet, managementStyles } from './CourseBatchUI';
 
-type Student = { _id: string; name: string; registration_number?: string };
+type Student = { _id: string; name: string; registration_number?: string; profile_photo?: string };
 type Props = { scope: 'course' | 'batch'; id: string; name: string; onClose: () => void };
 
 export default function EnrolledStudentsSheet({ scope, id, name, onClose }: Props) {
@@ -35,7 +36,7 @@ export default function EnrolledStudentsSheet({ scope, id, name, onClose }: Prop
           <Text style={[styles.registration, styles.heading, { color: theme.muted }]}>Registration no.</Text>
         </View>
         {students.map(student => <View key={student._id} style={[styles.row, { borderBottomColor: theme.line, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-          <Text selectable style={[styles.name, styles.value, { color: theme.text }]}>{student.name}</Text>
+          <View style={[styles.name, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}><UserAvatar user={student} size={32} /><Text selectable style={[styles.value, { color: theme.text, flex: 1 }]}>{student.name}</Text></View>
           <Text selectable style={[styles.registration, styles.value, { color: theme.text }]}>{student.registration_number || 'Not assigned'}</Text>
         </View>)}
       </View>}

@@ -16,7 +16,7 @@ function enrolledStudents(scope: 'course' | 'batch') {
       const studentIds = await Enrollment.find({ batch_id: { $in: batchIds }, status: { $ne: 'dropped' } }).distinct('student_id');
       // A student enrolled in multiple batches of one course appears only once.
       const students = await User.find({ _id: { $in: studentIds }, role: 'student' })
-        .select('_id name registration_number')
+        .select('_id name registration_number profile_photo')
         .collation({ locale: 'en', strength: 2 })
         .sort({ name: 1, registration_number: 1, _id: 1 })
         .lean();

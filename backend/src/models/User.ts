@@ -57,6 +57,9 @@ export interface IUser extends Document {
   deactivation_email_sent?: boolean;
   deactivation_email_sent_at?: Date;
   deactivation_email_error?: string;
+  credential_email_sent?: boolean;
+  credential_email_sent_at?: Date;
+  credential_email_error?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -113,6 +116,9 @@ const userSchema = new Schema<IUser>(
     deactivation_email_sent: { type: Boolean, default: false },
     deactivation_email_sent_at: { type: Date },
     deactivation_email_error: { type: String },
+    credential_email_sent: { type: Boolean },
+    credential_email_sent_at: { type: Date },
+    credential_email_error: { type: String },
   },
   { timestamps: true }
 );

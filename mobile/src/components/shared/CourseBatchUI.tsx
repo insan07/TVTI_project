@@ -77,13 +77,13 @@ export function ManagementEmpty({ title, message, retry }: { title: string; mess
   const { isDark } = useTheme(); const theme = usersSectionTheme(isDark);
   return <View style={managementStyles.empty}><Icon name={retry ? 'cloud-offline-outline' : 'layers-outline'} size={32} color={theme.accent} /><Text style={[managementStyles.emptyTitle, { color: theme.text }]}>{title}</Text><Text style={[managementStyles.copy, { color: theme.muted, textAlign: 'center' }]}>{message}</Text>{!!retry && <ManagementButton title="Try again" secondary onPress={retry} />}</View>;
 }
-export function ManagementSheet({ visible, title, busy = false, onClose, footer, children, overlay }: { visible: boolean; title: string; busy?: boolean; onClose: () => void; footer?: React.ReactNode; children: React.ReactNode; overlay?: React.ReactNode }) {
+export function ManagementSheet({ visible, title, busy = false, onClose, footer, children, overlay, spaced = false }: { visible: boolean; title: string; busy?: boolean; onClose: () => void; footer?: React.ReactNode; children: React.ReactNode; overlay?: React.ReactNode; spaced?: boolean }) {
   const { isDark } = useTheme(); const theme = usersSectionTheme(isDark); const insets = useSafeAreaInsets();
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={() => { if (!busy) onClose(); }}>
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[managementStyles.scrim, { paddingTop: Math.max(16, insets.top), paddingBottom: Math.max(16, insets.bottom) }]}>
       <View accessibilityViewIsModal style={[managementStyles.sheet, { backgroundColor: theme.surface, borderColor: theme.line }]}>
         <View style={[managementStyles.sheetHeader, { borderBottomColor: theme.line }]}><Text accessibilityRole="header" style={[managementStyles.sheetTitle, { color: theme.text }]}>{title}</Text><TouchableOpacity disabled={busy} accessibilityRole="button" accessibilityLabel={`Close ${title}`} onPress={onClose} style={managementStyles.iconButton}><Icon name="close" size={22} color={theme.text} /></TouchableOpacity></View>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={managementStyles.sheetContent}>{children}</ScrollView>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[managementStyles.sheetContent, spaced && { gap: 12 }]}>{children}</ScrollView>
         {!!footer && <View style={[managementStyles.footer, { borderTopColor: theme.line }]}>{footer}</View>}
         {overlay}
       </View>

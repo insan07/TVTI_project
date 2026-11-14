@@ -1,3 +1,8 @@
+import SlotStudentsSheet from '../../components/schedule/SlotStudentsSheet';
+import { ManagementSheet, ManagementButton } from '../../components/shared/CourseBatchUI';
+import CustomDropdown from '../../components/shared/CustomDropdown';
+import ManagementDialog from '../../components/shared/ManagementDialog';
+import { usersSectionTheme } from '../../components/shared/usersSectionTheme';
 import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
 import { KeyboardScrollView as ScrollView, KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect, useRef } from 'react';
@@ -69,6 +74,7 @@ const isSlotDateTimeInPast = (date: Date, endTimeStr?: string) => {
 export default function PracticeSessionsScreen() {
   const navigation = useNavigation<any>();
   const { isDark } = useTheme();
+  const styles = getStyles(isDark);
   const insets = useSafeAreaInsets();
   const [viewMode, setViewMode] = useState<'Month' | 'Week' | 'Day' | 'List'>('List');
   const [createModalVisible, setCreateModalVisible] = useState(false);
@@ -99,12 +105,7 @@ export default function PracticeSessionsScreen() {
   // Modals & Sub-modals (Same as original but styled to fit new theme if needed)
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
   const [bookingsModalVisible, setBookingsModalVisible] = useState(false);
-  const [slotBookings, setSlotBookings] = useState<any[]>([]);
-  const [bookingsLoading, setBookingsLoading] = useState(false);
 
-  const [addStudentModalVisible, setAddStudentModalVisible] = useState(false);
-  const [batchStudents, setBatchStudents] = useState<any[]>([]);
-  const [loadingBatchStudents, setLoadingBatchStudents] = useState(false);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editMaxStudents, setEditMaxStudents] = useState('');
@@ -159,59 +160,7 @@ export default function PracticeSessionsScreen() {
     }
   };
 
-  const handleViewBookings = async (slot: any) => {
-    setSelectedSlot(slot);
-    setBookingsModalVisible(true);
-    setBookingsLoading(true);
-    try {
-      const res = await getSlotBookings(slot._id);
-      setSlotBookings(res);
-    } catch (e) {
-      console.log('Error fetching bookings', e);
-    } finally {
-      setBookingsLoading(false);
-    }
-  };
-
-  const handleApproveCancellation = async (bookingId: string) => {
-    try {
-      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}/approve-cancellation`);
-      showAlert('Success', 'Cancellation approved', () => handleViewBookings(selectedSlot), 'success');
-      fetchSlots();
-    } catch (e: any) {
-      showAlert('Error', e.response?.data?.message || 'Failed to approve cancellation', undefined, 'error');
-    }
-  };
-
-  const handleRejectCancellation = async (bookingId: string) => {
-    try {
-      await api.post(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}/reject-cancellation`);
-      showAlert('Success', 'Cancellation rejected', () => handleViewBookings(selectedSlot), 'success');
-      fetchSlots();
-    } catch (e: any) {
-      showAlert('Error', e.response?.data?.message || 'Failed to reject cancellation', undefined, 'error');
-    }
-  };
-
-  const handleRemoveBooking = (bookingId: string, studentName: string) => {
-    setConfirmModal({
-      visible: true,
-      title: 'Cancel Booking',
-      message: `Remove ${studentName} from this practical slot?`,
-      type: 'danger',
-      confirmText: 'Remove',
-      cancelText: 'Cancel',
-      onConfirm: async () => {
-        try {
-          await api.delete(`/instructors/practice-slots/${selectedSlot._id}/bookings/${bookingId}`);
-          showAlert('Success', 'Student removed from slot', () => handleViewBookings(selectedSlot), 'success');
-          fetchSlots();
-        } catch (e: any) {
-          showAlert('Error', e.response?.data?.message || 'Failed to remove booking', undefined, 'error');
-        }
-      }
-    });
-  };
+  const handleViewBookings = (slot: any) => { setSelectedSlot(slot); setBookingsModalVisible(true); };
 
   // Create Form State
   const [createCourseId, setCreateCourseId] = useState('all');
@@ -459,32 +408,10 @@ export default function PracticeSessionsScreen() {
         emptyMessage="No batches are available for this schedule." />
 
       {/* POP-UP MODAL FOR CREATE SLOT */}
-      <Modal visible={createModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView style={{ flex: 1 }}>
-        <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
-          <View style={[styles.modalCard, isDark && styles.modalCardDark]}>
-            <View style={[styles.modalHeaderRow, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.10)' }]}>
-              <Text style={[styles.modalTitleText, isDark && { color: '#FFFFFF' }]}>Create Practical Slot</Text>
-              <TouchableOpacity onPress={() => setCreateModalVisible(false)} style={[styles.closeModalIconBtn, isDark && { backgroundColor: 'rgba(255, 255, 255, 0.10)' }]}>
-                <Icon name="close" size={20} color={isDark ? '#FFFFFF' : '#4B5563'} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }}>
+      <ManagementSheet visible={createModalVisible} title="Create practical slot" busy={creating} overlay={<ManagementDialog inline visible={alertModal.visible} title={alertModal.title} message={alertModal.message} type={alertModal.type} onConfirm={() => { setAlertModal((previous: any) => ({ ...previous, visible: false })); alertModal.onOk?.(); }} />} onClose={() => setCreateModalVisible(false)} footer={<><ManagementButton title="Cancel" secondary disabled={creating} onPress={() => setCreateModalVisible(false)} /><ManagementButton title="Create slot" busy={creating} disabled={masterLoading || !!masterError || !createBatchId} onPress={handleCreateSlot} /></>}>
               <Text style={[styles.createFormSubtitle, isDark && { color: '#A89F93' }]}>Add a new practical training session</Text>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, isDark && { color: '#D4CAC0' }]}><Icon name="people-outline" size={14} /> Batch *</Text>
-                <View style={styles.pickerWrap}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {batches.map(b => (
-                      <TouchableOpacity key={b._id} style={[styles.pillsForm, isDark && styles.pillsFormDark, createBatchId === b._id && styles.pillsFormActive]} onPress={() => setCreateBatchId(b._id)}>
-                        <Text style={[styles.pillsFormText, isDark && { color: '#A89F93' }, createBatchId === b._id && { color: '#fff' }]}>{b.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              </View>
-
+              <CustomDropdown appearance="management" label="Batch *" selectedValue={createBatchId} onValueChange={setCreateBatchId} items={batches.filter(batch => !batch.status || batch.status === 'active').map(batch => ({ value: batch._id, label: batch.name, subtext: batch.course_id?.title }))} />
               <View style={styles.formGroup}>
                 <Text style={[styles.label, isDark && { color: '#D4CAC0' }]}><Icon name="calendar-outline" size={14} /> Practical Date *</Text>
                 <PickerField
@@ -552,19 +479,7 @@ export default function PracticeSessionsScreen() {
                 <TextInput style={[styles.textInputBox, isDark && styles.textInputBoxDark]} value={createCapacity} onChangeText={setCreateCapacity} keyboardType="numeric" placeholderTextColor={isDark ? '#8A7D71' : '#9CA3AF'} />
               </View>
 
-              <View style={styles.createActionsRow}>
-                <TouchableOpacity style={[styles.cancelBtn, isDark && styles.cancelBtnDark]} onPress={() => setCreateModalVisible(false)}>
-                  <Text style={[styles.cancelBtnText, isDark && { color: '#A89F93' }]}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.submitBtn, { backgroundColor: '#FF5E14' }]} onPress={handleCreateSlot} disabled={creating}>
-                  {creating ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Create Slot</Text>}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-</Modal>
+      </ManagementSheet>
 
       <Modal visible={showFilter} animationType="slide" transparent>
         <View style={styles.filterModalOverlay}>
@@ -626,58 +541,7 @@ export default function PracticeSessionsScreen() {
       </KeyboardAvoidingView>
 </Modal>
 
-      {/* BOOKINGS (STUDENTS) MODAL */}
-      <Modal visible={bookingsModalVisible} animationType="fade" transparent>
-        <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
-          <View style={[styles.modalContent, { maxHeight: '80%' }, isDark && styles.modalCardDark]}>
-            <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>Booked Students</Text>
-            {bookingsLoading ? <ActivityIndicator size="small" color="#FF5E14" /> : (
-              <ScrollView style={{ marginBottom: 20 }}>
-                {slotBookings.length === 0 ? <Text style={{ color: isDark ? '#8A7D71' : '#6B7280' }}>No students booked yet.</Text> :
-                  slotBookings.map((b: any) => (
-                    <View key={b._id} style={[{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[{ fontWeight: '500', color: '#1F2937' }, isDark && { color: '#FFFFFF' }]}>{b.student_id?.name || 'Unknown Student'}</Text>
-                        <Text style={[{ fontSize: 12, color: '#6B7280' }, isDark && { color: '#A89F93' }]}>{b.student_id?.email || ''}</Text>
-                        {b.status === 'cancellation_requested' && (
-                          <View>
-                            <Text style={{ fontSize: 12, color: '#F59E0B', fontWeight: '600', marginTop: 2 }}>Cancellation Requested</Text>
-                            {b.cancellation_reason ? (
-                              <Text style={{ fontSize: 12, color: isDark ? '#A89F93' : '#6B7280', fontStyle: 'italic', marginTop: 2 }}>Reason: {b.cancellation_reason}</Text>
-                            ) : null}
-                          </View>
-                        )}
-                      </View>
-                      {!(selectedSlot && isSlotExpired(selectedSlot)) && (
-                        b.status === 'cancellation_requested' ? (
-                          <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <TouchableOpacity style={{ backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }} onPress={() => handleApproveCancellation(b._id)}>
-                              <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Approve</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={{ backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }} onPress={() => handleRejectCancellation(b._id)}>
-                              <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Reject</Text>
-                            </TouchableOpacity>
-                          </View>
-                        ) : (
-                          <TouchableOpacity
-                            style={{ backgroundColor: '#FEF2F2', borderColor: '#FECACA', borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 }}
-                            onPress={() => handleRemoveBooking(b._id, b.student_id?.name || 'Student')}
-                          >
-                            <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '700' }}>Remove</Text>
-                          </TouchableOpacity>
-                        )
-                      )}
-                    </View>
-                  ))
-                }
-              </ScrollView>
-            )}
-            <TouchableOpacity style={[styles.cancelBtn, isDark && styles.cancelBtnDark]} onPress={() => setBookingsModalVisible(false)}>
-              <Text style={[styles.cancelBtnText, isDark && { color: '#A89F93' }]}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {bookingsModalVisible && selectedSlot && <SlotStudentsSheet slot={selectedSlot} onClose={() => setBookingsModalVisible(false)} onChanged={() => { void fetchSlots(); }} />}
 
       {/* CONFIRM MODAL */}
       <Modal visible={confirmModal.visible} animationType="fade" transparent>
@@ -698,7 +562,7 @@ export default function PracticeSessionsScreen() {
       </Modal>
 
       {/* ALERT MODAL */}
-      <Modal visible={alertModal.visible} animationType="fade" transparent>
+      <Modal visible={alertModal.visible && !createModalVisible} animationType="fade" transparent>
         <View style={[styles.modalOverlay, isDark && { backgroundColor: 'rgba(0, 0, 0, 0.78)' }]}>
           <View style={[styles.modalContent, isDark && styles.modalCardDark]}>
             <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>{alertModal.title}</Text>
@@ -744,7 +608,7 @@ export default function PracticeSessionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFA' },
   createFormSubtitle: { fontSize: 14, color: '#6B7280', marginBottom: 24 },
   formGroup: { marginBottom: 20 },
@@ -877,3 +741,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
   }
 });
+
+function getStyles(isDark: boolean) {
+  const theme = usersSectionTheme(isDark);
+  const styles: any = { ...baseStyles };
+  for (const [name, value] of Object.entries(baseStyles)) {
+    const style = { ...value } as any;
+    if (isDark) {
+      if (['#FFFFFF', '#fff', '#FAFAFA', '#F8FAFC', '#F9FAFB', '#F1F5F9', '#F3F4F6'].includes(style.backgroundColor)) style.backgroundColor = ['textInputBox', 'newSlotCard', 'modeToggleRow', 'dayPill', 'selectPill'].includes(name) ? theme.field : theme.surface;
+      if (['#0F172A', '#1F2937', '#374151', '#4B5563', '#475569', '#64748B'].includes(style.color)) style.color = name.toLowerCase().includes('title') ? theme.text : theme.muted;
+      if (style.borderColor && !['#F58220', '#F97316'].includes(style.borderColor)) style.borderColor = theme.line;
+      if (style.borderBottomColor) style.borderBottomColor = theme.line;
+    }
+    if (['textInputBox', 'selectPill', 'dayPill', 'modeToggleBtn'].includes(name)) style.minHeight = 44;
+    if (name === 'modeToggleText') { style.flexShrink = 1; style.textAlign = 'center'; }
+    if (name === 'modeToggleBtn') { style.paddingHorizontal = 8; style.borderRadius = 10; }
+    if (name === 'modeToggleRow') style.borderRadius = 12;
+    styles[name] = style;
+  }
+  return styles;
+}

@@ -99,9 +99,9 @@ export default function InstructorHomeScreen() {
       style={[styles.stickyHeaderCard, { paddingTop: Math.max(insets.top + 8, 16) }]}>
       <View style={styles.glowOrbOrange} pointerEvents="none" /><View style={styles.glowOrbBlue} pointerEvents="none" />
       <View style={styles.brandHeaderRow}>
-        <View style={styles.brandLogoGroup}>
+        <View style={[styles.brandLogoGroup, { flexShrink: 1, minWidth: 0, marginRight: 12 }]}>
           <Image source={require('../../../assets/logo.png')} style={styles.brandLogoImg} resizeMode="contain" />
-          <Text style={styles.brandTitleText}>TWINTEC VTI</Text>
+          <Text numberOfLines={1} style={[styles.brandTitleText, { flexShrink: 1 }]}>TWINTEC VTI</Text>
         </View>
         <TouchableOpacity style={styles.bellBtn} accessibilityRole="button" accessibilityLabel="View notifications" accessibilityHint={`${unreadCount} unread notifications`}
           onPress={() => navigation.navigate('Notifications')}>

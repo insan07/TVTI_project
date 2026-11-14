@@ -11,6 +11,8 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { FONTS } from '../../config/theme';
 import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
+import StudentPayments from '../../components/shared/StudentPayments';
+import PasswordChangeOtp from '../../components/shared/PasswordChangeOtp';
 
 export default function ProfileScreen() {
   const context = useContext(AuthContext);
@@ -27,16 +29,6 @@ export default function ProfileScreen() {
   const [myDetailsModalVisible, setMyDetailsModalVisible] = useState(false);
   const [paymentDetailsModalVisible, setPaymentDetailsModalVisible] = useState(false);
 
-  // Student Payment Slips & Upload States
-  const [mySlipsList, setMySlipsList] = useState<any[]>([]);
-  const [mySlipsSummary, setMySlipsSummary] = useState<any>(null);
-  const [loadingMySlips, setLoadingMySlips] = useState(false);
-  const [uploadModalVisible, setUploadModalVisible] = useState(false);
-  const [uploadForm, setUploadForm] = useState({ amount: '', payment_method: 'bank_transfer', notes: '' });
-  const [uploadSlipAsset, setUploadSlipAsset] = useState<any>(null);
-  const [uploadingSlip, setUploadingSlip] = useState(false);
-  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
-
   // Edit Profile Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '' });
@@ -48,6 +40,7 @@ export default function ProfileScreen() {
   // Change Password Modal
   const [passModalVisible, setPassModalVisible] = useState(false);
   const [passData, setPassData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [passwordOtp, setPasswordOtp] = useState('');
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
@@ -78,86 +71,18 @@ export default function ProfileScreen() {
     fetchProfile();
   }, []);
 
-  const fetchProfile = async () => {
-    setLoading(true);
+  const fetchProfile = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const res = await api.get('/users/me');
       setProfile(res.data);
+      context?.setUser({ ...context.user!, ...res.data });
       setFormData({ name: res.data.name || '', phone: res.data.phone || '' });
     } catch (error) {
       console.warn('Failed to fetch profile', error);
       showAck('Error', 'Failed to fetch profile details', 'error');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchMyPaymentSlips = async () => {
-    setLoadingMySlips(true);
-    try {
-      const res = await api.get('/students/payments/my-slips');
-      setMySlipsSummary(res.data.summary);
-      setMySlipsList(res.data.slips || []);
-    } catch (e) {
-      console.warn('Failed to fetch payment slips', e);
-    } finally {
-      setLoadingMySlips(false);
-    }
-  };
-
-  const pickPaymentSlipImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const asset = result.assets[0];
-      if (asset.fileSize && asset.fileSize > 8 * 1024 * 1024) {
-        showAck('File Too Large', 'Selected slip document is larger than 8MB. Please upload a smaller image.', 'error');
-        return;
-      }
-      setUploadSlipAsset(asset);
-    }
-  };
-
-  const handleUploadPaymentSlip = async () => {
-    if (!uploadForm.amount || isNaN(Number(uploadForm.amount)) || Number(uploadForm.amount) <= 0) {
-      return showAck('Required Field', 'Please enter a valid payment amount (e.g. 10000).', 'error');
-    }
-    if (!uploadSlipAsset) {
-      return showAck('Required Field', 'Please select or capture a payment slip document image.', 'error');
-    }
-
-    setUploadingSlip(true);
-    try {
-      const data = new FormData();
-      data.append('amount', uploadForm.amount.trim());
-      data.append('payment_method', uploadForm.payment_method);
-      data.append('notes', uploadForm.notes.trim());
-
-      if (Platform.OS === 'web' && uploadSlipAsset.file instanceof File) {
-        data.append('slip_file', uploadSlipAsset.file, uploadSlipAsset.fileName || 'slip.jpg');
-      } else {
-        const localUri = uploadSlipAsset.uri;
-        const filename = uploadSlipAsset.fileName || localUri.split('/').pop() || 'slip.jpg';
-        const type = uploadSlipAsset.mimeType || 'image/jpeg';
-        data.append('slip_file', { uri: localUri, name: filename, type } as any);
-      }
-
-      await api.post('/students/payments/upload-slip', data);
-      showAck('Slip Uploaded', 'Your payment slip has been submitted successfully for admin review.', 'success', () => {
-        setUploadModalVisible(false);
-        setUploadSlipAsset(null);
-        setUploadForm({ amount: '', payment_method: 'bank_transfer', notes: '' });
-        fetchMyPaymentSlips();
-        fetchProfile();
-      });
-    } catch (e: any) {
-      showAck('Error', e.response?.data?.message || 'Failed to upload payment slip', 'error');
-    } finally {
-      setUploadingSlip(false);
     }
   };
 
@@ -229,16 +154,19 @@ export default function ProfileScreen() {
       return showAck('Error', 'Password must be at least 6 characters', 'error');
     }
 
+    if (!/^\d{6}$/.test(passwordOtp)) return showAck('Verification required', 'Send and enter the six-digit code from your registered email.', 'error');
     setSaving(true);
     try {
       await api.put('/users/change-password', {
         currentPassword: passData.currentPassword,
         newPassword: passData.newPassword,
+        otp: passwordOtp,
       });
 
       showAck('Password Updated', 'Your password has been changed successfully', 'success', () => {
         setPassModalVisible(false);
         setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setPasswordOtp('');
       });
     } catch (e: any) {
       showAck('Error', e.response?.data?.message || 'Failed to change password', 'error');
@@ -260,7 +188,7 @@ export default function ProfileScreen() {
     return (
       <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}><ScreenBackground /><MainPageHeader title="Profile" /><View style={styles.loadingScreen}>
         <Text style={{ color: isDark ? '#94A3B8' : '#6B7280' }}>Failed to load profile details</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={fetchProfile}>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => { void fetchProfile(); }}>
           <Text style={styles.retryBtnText}>Retry</Text>
         </TouchableOpacity>
       </View></View>
@@ -278,28 +206,6 @@ export default function ProfileScreen() {
     const val = amt || 0;
     return `LKR ${val.toLocaleString('en-US')}`;
   };
-
-  const getPaymentStatusBadge = (status?: string) => {
-    const s = (status || 'pending').toLowerCase();
-    switch (s) {
-      case 'paid':
-        return { text: 'Fully Paid', bg: '#DCFCE7', color: '#15803D' };
-      case 'partial':
-        return { text: 'Partially Paid', bg: '#FFEDD5', color: '#C2410C' };
-      case 'overdue':
-        return { text: 'Overdue', bg: '#FEE2E2', color: '#B91C1C' };
-      case 'waived':
-        return { text: 'Waived', bg: '#DBEAFE', color: '#1D4ED8' };
-      default:
-        return { text: 'Pending Payment', bg: '#FEF3C7', color: '#B45309' };
-    }
-  };
-
-  const paymentInfo = profile.payment_info || {};
-  const totalFee = paymentInfo.total_course_fee || 0;
-  const amountPaid = paymentInfo.amount_paid || 0;
-  const remainingBalance = Math.max(0, totalFee - amountPaid);
-  const statusBadge = getPaymentStatusBadge(paymentInfo.payment_status);
 
   return (
     <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
@@ -343,7 +249,7 @@ export default function ProfileScreen() {
             </Text>
             <Text style={styles.regNumberText}>
               {user?.role === 'student' ? 'REG NO : ' : 'ID : '}
-              {profile.index_number || profile.nic || (user?.role === 'student' ? 'TVTI/STUDENT' : 'N/A')}
+              {profile.registration_number || profile.index_number || 'Not assigned'}
             </Text>
           </View>
 
@@ -393,7 +299,7 @@ export default function ProfileScreen() {
           {/* Change Password Option Card */}
           <TouchableOpacity
             style={[styles.menuCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}
-            onPress={() => setPassModalVisible(true)}
+            onPress={() => { setPasswordOtp(''); setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' }); setPassModalVisible(true); }}
             activeOpacity={0.7}
           >
             <View style={styles.menuLeftContent}>
@@ -620,298 +526,7 @@ export default function ProfileScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* ========================================================================= */}
-      {/* PAYMENT DETAILS & SLIP HISTORY MODAL VIEW */}
-      {/* ========================================================================= */}
-      <Modal visible={paymentDetailsModalVisible} animationType="slide" transparent={false}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }} edges={['top']}>
-          {/* Modal Header */}
-          <View style={styles.modalHeaderBar}>
-            <TouchableOpacity
-              style={styles.modalBackBtn}
-              onPress={() => setPaymentDetailsModalVisible(false)}
-              activeOpacity={0.7}
-            >
-              <Icon name="chevron-back" size={24} color="#18181B" />
-            </TouchableOpacity>
-            <Text style={styles.modalHeaderTitle}>My Payments & Slips</Text>
-            <TouchableOpacity
-              style={{ padding: 6 }}
-              onPress={fetchMyPaymentSlips}
-              activeOpacity={0.7}
-            >
-              <Icon name="refresh" size={20} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            contentContainerStyle={{ padding: 18, paddingBottom: 40, gap: 16 }}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* 1. Summary Card */}
-            <View style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <Icon name="wallet-outline" size={22} color="#F59E0B" />
-                <Text style={styles.cardHeaderTitle}>Fee Summary</Text>
-              </View>
-              <View style={styles.cardDivider} />
-
-              <View style={styles.infoGrid}>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Total Course Fee</Text>
-                  <Text style={styles.infoValue}>{formatCurrency(mySlipsSummary?.total_fee || totalFee)}</Text>
-                </View>
-
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Amount Paid</Text>
-                  <Text style={[styles.infoValue, { color: '#10B981' }]}>{formatCurrency(mySlipsSummary?.amount_paid || amountPaid)}</Text>
-                </View>
-
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Remaining Balance</Text>
-                  <Text style={[styles.infoValue, { color: (mySlipsSummary?.remaining_balance ?? remainingBalance) > 0 ? '#EF4444' : '#10B981' }]}>
-                    {formatCurrency(mySlipsSummary?.remaining_balance ?? remainingBalance)}
-                  </Text>
-                </View>
-
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Overall Status</Text>
-                  <Text style={[styles.infoValue, { color: statusBadge.color, fontWeight: '700' }]}>
-                    {mySlipsSummary?.payment_status === 'paid' ? 'Fully Paid' : mySlipsSummary?.payment_status === 'partially_paid' ? 'Partially Paid' : 'Pending Review'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Upload Slip Action Button */}
-              <TouchableOpacity
-                style={{
-                  marginTop: 16,
-                  backgroundColor: '#0F172A',
-                  paddingVertical: 13,
-                  borderRadius: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                }}
-                onPress={() => setUploadModalVisible(true)}
-                activeOpacity={0.8}
-              >
-                <Icon name="cloud-upload-outline" size={20} color="#FFFFFF" />
-                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Upload Payment Slip</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* 2. Sent Slips History Section */}
-            <View>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 12 }}>
-                Sent Slips History ({mySlipsList.length})
-              </Text>
-
-              {loadingMySlips ? (
-                <ActivityIndicator size="small" color="#F59E0B" style={{ marginVertical: 20 }} />
-              ) : mySlipsList.length === 0 ? (
-                <View style={{ backgroundColor: '#FFFFFF', padding: 20, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' }}>
-                  <Icon name="receipt-outline" size={32} color="#94A3B8" />
-                  <Text style={{ color: '#64748B', marginTop: 8, fontSize: 13 }}>No payment slips submitted yet.</Text>
-                  <TouchableOpacity
-                    style={{ marginTop: 10 }}
-                    onPress={() => setUploadModalVisible(true)}
-                  >
-                    <Text style={{ color: '#2563EB', fontWeight: '700', fontSize: 13 }}>+ Upload your first slip</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                mySlipsList.map((slip: any, index: number) => {
-                  const isVerified = slip.status === 'verified';
-                  const isRejected = slip.status === 'rejected';
-                  return (
-                    <View
-                      key={slip._id || index}
-                      style={{
-                        backgroundColor: '#FFFFFF',
-                        borderRadius: 14,
-                        padding: 14,
-                        marginBottom: 12,
-                        borderWidth: 1,
-                        borderColor: isVerified ? '#BBF7D0' : isRejected ? '#FECDD3' : '#E2E8F0',
-                      }}
-                    >
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A' }}>
-                          LKR {(slip.amount || 0).toLocaleString()}
-                        </Text>
-                        <View
-                          style={{
-                            backgroundColor: isVerified ? '#D1FAE5' : isRejected ? '#FFE4E6' : '#FEF3C7',
-                            paddingHorizontal: 10,
-                            paddingVertical: 4,
-                            borderRadius: 12,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              fontSize: 12,
-                              fontWeight: '700',
-                              color: isVerified ? '#065F46' : isRejected ? '#BE123C' : '#D97706',
-                            }}
-                          >
-                            {isVerified ? 'Verified & Approved' : isRejected ? 'Rejected' : 'Pending Review'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={{ marginTop: 8, gap: 4 }}>
-                        <Text style={{ fontSize: 12.5, color: '#64748B' }}>
-                          Method: {slip.payment_method === 'bank_transfer' ? 'Bank Deposit' : slip.payment_method === 'online_transfer' ? 'Online Transfer' : 'Physical Cash'}
-                        </Text>
-                        <Text style={{ fontSize: 12, color: '#94A3B8' }}>
-                          Submitted: {slip.createdAt ? new Date(slip.createdAt).toLocaleString() : 'Recently'}
-                        </Text>
-                        {slip.notes ? <Text style={{ fontSize: 12, color: '#475569', fontStyle: 'italic' }}>Note: {slip.notes}</Text> : null}
-                        {isRejected && slip.rejection_reason ? (
-                          <Text style={{ fontSize: 12.5, color: '#BE123C', fontWeight: '600', marginTop: 4 }}>
-                            Rejection Reason: {slip.rejection_reason}
-                          </Text>
-                        ) : null}
-                      </View>
-
-                      {slip.slip_url ? (
-                        <TouchableOpacity
-                          style={{ marginTop: 10, borderRadius: 8, overflow: 'hidden', height: 100, backgroundColor: '#F1F5F9', position: 'relative' }}
-                          onPress={() => setZoomImageUrl(slip.slip_url)}
-                          activeOpacity={0.8}
-                        >
-                          <Image source={{ uri: slip.slip_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-                          <View style={{ position: 'absolute', bottom: 6, right: 6, backgroundColor: 'rgba(15, 23, 42, 0.75)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <Icon name="expand" size={12} color="#FFFFFF" />
-                            <Text style={{ color: '#FFFFFF', fontSize: 10.5, fontWeight: '600' }}>Preview Slip</Text>
-                          </View>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                  );
-                })
-              )}
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-
-      {/* ========================================================================= */}
-      {/* UPLOAD PAYMENT SLIP MODAL */}
-      {/* ========================================================================= */}
-      <Modal visible={uploadModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={[styles.modalCard, { maxHeight: '100%', flexShrink: 1 }]}>
-<ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Upload Payment Slip</Text>
-                <TouchableOpacity onPress={() => setUploadModalVisible(false)}>
-                  <Icon name="close" size={22} color="#4B5563" />
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity onPress={pickPaymentSlipImage} style={[styles.photoUploadBox, { borderRadius: 12, height: 120, width: '100%' }]}>
-                {uploadSlipAsset?.uri ? (
-                  <Image source={{ uri: uploadSlipAsset.uri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} contentFit="cover" />
-                ) : (
-                  <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name="camera-outline" size={32} color="#64748B" />
-                    <Text style={{ color: '#64748B', fontSize: 12, marginTop: 4 }}>Tap to select slip document photo</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              <Text style={styles.inputLabel}>Paid Amount (LKR) *</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={uploadForm.amount}
-                onChangeText={t => setUploadForm({ ...uploadForm, amount: t })}
-                placeholder="e.g. 10000"
-                keyboardType="numeric"
-                placeholderTextColor="#9CA3AF"
-              />
-
-              <Text style={styles.inputLabel}>Payment Method</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-                {[
-                  { id: 'bank_transfer', label: 'Bank Slip' },
-                  { id: 'online_transfer', label: 'Online Bank' },
-                  { id: 'physical_cash', label: 'Cash' },
-                ].map(method => (
-                  <TouchableOpacity
-                    key={method.id}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 8,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: uploadForm.payment_method === method.id ? '#0F172A' : '#E2E8F0',
-                      backgroundColor: uploadForm.payment_method === method.id ? '#0F172A' : '#FFFFFF',
-                      alignItems: 'center',
-                    }}
-                    onPress={() => setUploadForm({ ...uploadForm, payment_method: method.id })}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: uploadForm.payment_method === method.id ? '#FFFFFF' : '#475569' }}>
-                      {method.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={styles.inputLabel}>Notes / Reference Number (Optional)</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={uploadForm.notes}
-                onChangeText={t => setUploadForm({ ...uploadForm, notes: t })}
-                placeholder="Bank branch or ref no"
-                placeholderTextColor="#9CA3AF"
-              />
-
-              <View style={styles.modalFooterBtns}>
-                <TouchableOpacity
-                  style={styles.cancelModalBtn}
-                  onPress={() => setUploadModalVisible(false)}
-                  disabled={uploadingSlip}
-                >
-                  <Text style={styles.cancelModalBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.saveModalBtn, uploadingSlip && { opacity: 0.6 }]}
-                  onPress={handleUploadPaymentSlip}
-                  disabled={uploadingSlip}
-                >
-                  {uploadingSlip ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.saveModalBtnText}>Submit Slip</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-          </ScrollView>
-</View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ========================================================================= */}
-      {/* FULL-SCREEN SLIP IMAGE ZOOM MODAL */}
-      {/* ========================================================================= */}
-      <Modal visible={Boolean(zoomImageUrl)} transparent animationType="fade">
-        <View style={styles.zoomModalOverlay}>
-          <TouchableOpacity style={styles.zoomCloseBtn} onPress={() => setZoomImageUrl(null)}>
-            <Icon name="close" size={26} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={styles.zoomImageContainer}>
-            {zoomImageUrl ? (
-              <Image source={{ uri: zoomImageUrl }} style={styles.fullZoomImage} contentFit="contain" />
-            ) : null}
-          </View>
-        </View>
-      </Modal>
+      <StudentPayments visible={paymentDetailsModalVisible} profile={profile} onClose={() => setPaymentDetailsModalVisible(false)} onUpdated={() => { void fetchProfile(false); }} />
 
       {/* ========================================================================= */}
       {/* EDIT PROFILE MODAL */}
@@ -1072,6 +687,8 @@ export default function ProfileScreen() {
                   />
                 </TouchableOpacity>
               </View>
+
+              {passModalVisible && <PasswordChangeOtp otp={passwordOtp} onChange={setPasswordOtp} currentPassword={passData.currentPassword} disabled={saving} />}
 
               <View style={styles.modalActions}>
                 <TouchableOpacity

@@ -1,6 +1,7 @@
+import AuthBackground, { AuthBackdropProvider } from '../../components/shared/AuthBackground';
 import { KeyboardAvoidingView, KeyboardScrollView as ScrollView } from '../../components/shared/KeyboardForm';
 import React, { useState, useContext, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Platform, useWindowDimensions, Keyboard, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Platform, useWindowDimensions, Keyboard } from 'react-native';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,10 +10,13 @@ import { AuthFormScrollView, AuthTextInput } from '../../components/shared/AuthF
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { showToast } from '../../components/shared/Toast';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function LoginScreen() {
+  return <AuthBackdropProvider><LoginScreenContent /></AuthBackdropProvider>;
+}
+
+function LoginScreenContent() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const isDesktop = width >= 1024;
@@ -65,71 +69,56 @@ export default function LoginScreen() {
     setInfoMsg('');
 
     const cleanEmail = email.trim();
-    const cleanPassword = password.trim();
+    const cleanPassword = password;
 
     if (!cleanEmail && !cleanPassword) {
       const msg = 'Please enter your Registration Number or Email address and Password to log in.';
       setErrorMsg(msg);
-      showToast(msg, 'error');
-      Alert.alert('Login Required', msg);
       return;
     }
     if (!cleanEmail) {
       const msg = 'Please enter your Registration Number or Email address.';
       setErrorMsg(msg);
-      showToast(msg, 'error');
-      Alert.alert('Email / Reg No Required', msg);
       return;
     }
     if (!cleanPassword) {
       const msg = 'Please enter your Password.';
       setErrorMsg(msg);
-      showToast(msg, 'error');
-      Alert.alert('Password Required', msg);
       return;
     }
 
     try {
       await authContext?.login(cleanEmail, cleanPassword);
-      showToast('Logged in successfully', 'success');
     } catch (e: any) {
       const serverMsg = e.response?.data?.message || e.message;
       const status = e.response?.status;
-
-      let alertTitle = 'Login Failed';
       let fullMessage = 'Invalid Registration Number/Email or Password. Please verify your details and try again.';
       let isPending = false;
 
-      if (serverMsg) {
+      if (!e.response) {
+        fullMessage = 'Unable to connect to the TVTI LMS server. Please check your internet connection and try again.';
+      } else if (serverMsg) {
         const msgLower = String(serverMsg).toLowerCase();
         if (msgLower.includes('pending') || msgLower.includes('inactive')) {
-          alertTitle = 'Account Pending Approval';
           fullMessage = 'Your student registration has been received and is currently awaiting Admin approval. You will receive an email with your credentials once approved.';
           isPending = true;
         } else if (msgLower.includes('expired')) {
-          alertTitle = 'Temporary Password Expired';
           fullMessage = 'Your 7-day temporary password has expired. Please contact TVTI Administration to request a password reset.';
         } else if (msgLower.includes('invalid') || msgLower.includes('credentials') || status === 401) {
-          alertTitle = 'Invalid Credentials';
           fullMessage = 'The Registration Number/Email or Password you entered is incorrect. Please verify your details and try again.';
         } else {
-          alertTitle = 'Login Failed';
           fullMessage = serverMsg;
         }
       } else {
-        alertTitle = 'Connection Error';
         fullMessage = 'Unable to connect to the TVTI LMS server. Please check your internet connection and try again.';
       }
 
       if (isPending) {
         setInfoMsg(fullMessage);
-        showToast('Account Pending Admin Approval', 'error');
       } else {
         setErrorMsg(fullMessage);
-        showToast(alertTitle, 'error');
       }
 
-      Alert.alert(alertTitle, fullMessage);
     }
   };
 
@@ -313,6 +302,7 @@ export default function LoginScreen() {
   return (
     <View style={[styles.container, { backgroundColor: isLight ? '#F8FAFC' : '#0B0F19' }]}>
       {/* TVTI Campus Building Background Image — Stretches Whole Physical Screen */}
+      {Platform.OS !== 'web' ? <AuthBackground isLight={isLight} /> : (
       <Image
         source={
           isLight
@@ -332,6 +322,7 @@ export default function LoginScreen() {
         ]}
         resizeMode="cover"
       />
+      )}
 
       {/* Atmospheric Overlays - TVTI Midnight Blue / Light Foggy Mist */}
       {Platform.OS === 'web' ? (
@@ -354,16 +345,7 @@ export default function LoginScreen() {
             } as any,
           ]}
         />
-      ) : (
-        <LinearGradient
-          colors={
-            isLight
-              ? ['rgba(255, 255, 255, 0.50)', 'rgba(255, 255, 255, 0.30)', 'rgba(255, 255, 255, 0.60)']
-              : ['rgba(15, 23, 42, 0.82)', 'rgba(20, 28, 44, 0.78)', 'rgba(10, 15, 26, 0.88)']
-          }
-          style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-        />
-      )}
+      ) : null}
 
       {/* Floating Theme Toggle Icon (Moon/Sun only, NO header bar) */}
       <TouchableOpacity

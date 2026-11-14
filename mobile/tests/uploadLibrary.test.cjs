@@ -62,3 +62,33 @@ test('unavailable dates do not add placeholder copy', () => {
   assert.equal(formatUploadDate('invalid-date'), '');
   assert.ok(formatUploadDate('2026-11-11T12:00:00Z').includes('2026'));
 });
+
+const { loadBatchUploads } = library;
+const batches = [{ _id: 'batch-a', name: 'A' }, { _id: 'batch-b', name: 'B' }];
+test('All courses loads both student enrollments and preserves each upload batch for playback', async () => {
+  const calls = [];
+  const uploads = await loadBatchUploads(batches, null, false, 'videos', async path => {
+    calls.push(path); return { data: [{ _id: path.includes('batch-a') ? 'video-a' : 'video-b' }] };
+  });
+  assert.deepEqual(calls, ['/students/batches/batch-a/videos', '/students/batches/batch-b/videos']);
+  assert.deepEqual(uploads.map(item => item.batch_id._id), ['batch-a', 'batch-b']);
+});
+test('selected course and empty enrollments never request unrelated student uploads', async () => {
+  const calls = [];
+  const get = async path => { calls.push(path); return { data: [{ _id: 'notes' }] }; };
+  await loadBatchUploads(batches, 'batch-b', false, 'materials', get);
+  await loadBatchUploads([], null, false, 'videos', get);
+  await loadBatchUploads(batches, 'unassigned', false, 'videos', get);
+  assert.deepEqual(calls, ['/students/batches/batch-b/materials']);
+});
+test('instructor All courses includes every assigned batch and excludes unrelated content', async () => {
+  const get = async () => ({ data: [{ _id: 'a', batch_id: 'batch-a' }, { _id: 'b', batch_id: { _id: 'batch-b' } }, { _id: 'c', batch_id: 'other' }] });
+  assert.deepEqual((await loadBatchUploads(batches, null, true, 'videos', get)).map(item => item._id), ['a', 'b']);
+  assert.deepEqual((await loadBatchUploads(batches, 'batch-b', true, 'materials', get)).map(item => item._id), ['b']);
+});
+test('All courses rejects partial results if one enrolled course cannot load', async () => {
+  await assert.rejects(loadBatchUploads(batches, null, false, 'videos', async path => {
+    if (path.includes('batch-b')) throw new Error('Unavailable');
+    return { data: [{ _id: 'a' }] };
+  }), /Unavailable/);
+});

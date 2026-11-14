@@ -1,3 +1,10 @@
+import PaymentSummaryCard from '../../components/shared/PaymentSummaryCard';
+import { Linking } from 'react-native';
+import { API_URL } from '../../config/constants';
+import { paymentSummary, money, paymentStatusLabel } from '../../utils/paymentSummary';
+import AccountCredentialsCard from '../../components/shared/AccountCredentialsCard';
+import { registrationNumberOf, compareRegistrationNumbers } from '../../utils/registrationIdentity';
+import UserAvatar from '../../components/shared/UserAvatar';
 import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
 import { KeyboardTextInput as TextInput, KeyboardScrollView as ScrollView } from '../../components/shared/KeyboardForm';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
@@ -39,7 +46,7 @@ export type InstructorsSubFilter = 'active' | 'deactive';
 const EXPORT_AVAILABLE_FIELDS = [
   { key: 'name', label: 'Full Name', defaultChecked: true },
   { key: 'email', label: 'Email Address', defaultChecked: true },
-  { key: 'index_number', label: 'Reg No / Index', defaultChecked: true },
+  { key: 'registration_number', label: 'Registration number', defaultChecked: true },
   { key: 'nic', label: 'NIC Number', defaultChecked: true },
   { key: 'phone', label: 'Phone Number', defaultChecked: true },
   { key: 'date_of_birth', label: 'Date of Birth', defaultChecked: false },
@@ -123,7 +130,7 @@ export default function UserManagementScreen() {
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>([
     'name',
     'email',
-    'index_number',
+    'registration_number',
     'nic',
     'phone'
   ]);
@@ -153,6 +160,8 @@ export default function UserManagementScreen() {
   // Approval Credentials Modal
   const [credentialsModalVisible, setCredentialsModalVisible] = useState(false);
   const [approvedCredentials, setApprovedCredentials] = useState<any>(null);
+  const [credentialsEmailSent, setCredentialsEmailSent] = useState(false);
+  const credentialSending = useRef(false);
 
   // Custom Confirmation & Alert Dialog Popup State
   const [confirmModal, setConfirmModal] = useState<{
@@ -280,8 +289,8 @@ export default function UserManagementScreen() {
   const handleVerifySlip = async (slipId: string) => {
     setVerifyingSlipId(slipId);
     try {
-      await api.put(`/admin/payments/slips/${slipId}/verify`);
-      showAlert('Success', 'Payment slip verified and credited to student account!', undefined, 'success');
+      const result = await api.put(`/admin/payments/slips/${slipId}/verify`);
+      showAlert('Payment approved', `Credited to the student account. Balance due: ${money(result.data.summary.remaining_balance)}. Overpayment credit: ${money(result.data.summary.credit_balance)}.`, undefined, 'success');
       if (paymentDossierData?.student?._id) {
         handleOpenPaymentDossier(paymentDossierData.student._id);
       }
@@ -359,8 +368,8 @@ export default function UserManagementScreen() {
     }
     setRecordingManualPay(true);
     try {
-      await api.post(`/admin/payments/${paymentDossierData.student._id}/record-manual`, manualPayForm);
-      showAlert('Payment Recorded', 'Manual cash/bank payment recorded successfully!', undefined, 'success');
+      const result = await api.post(`/admin/payments/${paymentDossierData.student._id}/record-manual`, manualPayForm);
+      showAlert('Payment recorded', `Balance due: ${money(result.data.summary.remaining_balance)}. Overpayment credit: ${money(result.data.summary.credit_balance)}.`, undefined, 'success');
       setManualPayModalVisible(false);
       setManualPayForm({ amount: '', payment_method: 'physical_cash', notes: '' });
       handleOpenPaymentDossier(paymentDossierData.student._id);
@@ -525,6 +534,23 @@ export default function UserManagementScreen() {
     });
   };
 
+  const handleSendCredentials = (account: any) => {
+    if (credentialSending.current) return;
+    setDetailsModalVisible(false);
+    setConfirmModal({ visible: true, title: 'Send temporary credentials?', type: 'warning', confirmText: 'Generate and email', cancelText: 'Cancel',
+      message: `Generate a new 7-day temporary password for ${account.name} and email it to ${account.email}? Their current password will stop working. Their registration number stays the same.`,
+      onConfirm: async () => {
+        if (credentialSending.current) return;
+        credentialSending.current = true;
+        try {
+          const response = await api.put(`/admin/users/${account._id}/resend-credentials`);
+          setApprovedCredentials(response.data.credentials); setCredentialsEmailSent(response.data.email_sent === true); setCredentialsModalVisible(true); fetchUsers();
+        } catch (error: any) { showAlert('Unable to send credentials', error.response?.data?.message || 'Please try again.', undefined, 'error'); }
+        finally { credentialSending.current = false; }
+      }
+    });
+  };
+
   const handleCreateInstructor = async () => {
     const { name, email, phone, nic } = instructorForm;
     if (!name.trim() || !email.trim() || !nic.trim()) {
@@ -538,15 +564,12 @@ export default function UserManagementScreen() {
       setInstructorForm({ name: '', email: '', phone: '', nic: '' });
       setInstructorModalVisible(false);
 
-      if (res.data.index_number) {
-        setApprovedCredentials({
-          index_number: res.data.index_number,
-          temp_password: res.data.temp_password,
-          email: res.data.email
-        });
+      if (res.data.credentials) {
+        setApprovedCredentials(res.data.credentials);
+        setCredentialsEmailSent(res.data.email_sent === true);
         setCredentialsModalVisible(true);
       } else {
-        showAlert('Success', 'Instructor created successfully', undefined, 'success');
+        showAlert('Account created', res.data.message || 'Instructor created.', undefined, 'success');
       }
 
       if (activeMode === 'instructors') {
@@ -584,16 +607,17 @@ export default function UserManagementScreen() {
       email: s.email,
       phone: s.phone,
       index_number: s.index_number,
+      registration_number: s.registration_number,
       nic: s.nic,
       payment_status: s.payment_info?.payment_status || 'pending',
       payment_method: s.payment_info?.payment_method || 'bank_transfer',
       amount_paid: s.payment_info?.amount_paid || 0,
-      total_fee: s.payment_info?.total_fee ?? 25000,
-      category: (s.payment_info?.amount_paid || 0) >= (s.payment_info?.total_fee ?? 25000) ? 'completed' : 'pending',
+      total_fee: s.payment_info?.total_fee ?? 0,
+      category: (s.payment_info?.amount_paid || 0) >= (s.payment_info?.total_fee ?? 0) ? 'completed' : 'pending',
     })),
   ];
 
-  const isPaymentSettled = (payment: any) => payment.category === 'completed' || Number(payment.amount_paid ?? 0) >= Number(payment.total_fee ?? 0) || payment.payment_status === 'paid' || payment.payment_status === 'waived';
+  const isPaymentSettled = (payment: any) => paymentSummary(payment).remaining_balance === 0;
   const paymentsMetrics = { review: sourcePayments.filter((payment: any) => Number(payment.pending_slips_count || 0) > 0).length, pending: sourcePayments.filter(payment => !isPaymentSettled(payment)).length, completed: sourcePayments.filter(isPaymentSettled).length };
 
   const instructorsMetrics = {
@@ -610,7 +634,7 @@ export default function UserManagementScreen() {
         const name = a.full_name || a.fullName || a.name || a.student_name || 'Applicant';
         const email = a.email || '';
         const nic = a.nic_number || a.nic || '';
-        const regNo = a.generated_index_number || a.index_number || '';
+        const regNo = registrationNumberOf(a);
         const status = a.status || 'pending';
 
         const matchesSearch =
@@ -628,11 +652,12 @@ export default function UserManagementScreen() {
     }
 
     if (activeMode === 'students') {
-      return (studentsList || []).filter(s => {
+      return [...(studentsList || [])].sort(compareRegistrationNumbers).filter(s => {
         const matchesSearch =
           !term ||
           (s?.name || '').toLowerCase().includes(term) ||
           (s?.email || '').toLowerCase().includes(term) ||
+          registrationNumberOf(s).toLowerCase().includes(term) ||
           (s?.index_number || '').toLowerCase().includes(term) ||
           (s?.nic || '').toLowerCase().includes(term);
 
@@ -649,6 +674,7 @@ export default function UserManagementScreen() {
           !term ||
           (p?.name || '').toLowerCase().includes(term) ||
           (p?.email || '').toLowerCase().includes(term) ||
+          registrationNumberOf(p).toLowerCase().includes(term) ||
           (p?.index_number || '').toLowerCase().includes(term) ||
           (p?.nic || '').toLowerCase().includes(term);
 
@@ -666,11 +692,13 @@ export default function UserManagementScreen() {
     }
 
     if (activeMode === 'instructors') {
-      return (instructorsList || []).filter(i => {
+      return [...(instructorsList || [])].sort(compareRegistrationNumbers).filter(i => {
         const matchesSearch =
           !term ||
           (i?.name || '').toLowerCase().includes(term) ||
           (i?.email || '').toLowerCase().includes(term) ||
+          registrationNumberOf(i).toLowerCase().includes(term) ||
+          (i?.index_number || '').toLowerCase().includes(term) ||
           (i?.nic || '').toLowerCase().includes(term);
 
         if (instructorsSubFilter === 'active') return matchesSearch && i.is_active !== false;
@@ -727,6 +755,7 @@ export default function UserManagementScreen() {
       return fieldsToExport.map(f => {
         let val = '';
         if (f.key === 'name') val = u.name || u.full_name || u.fullName || '';
+        else if (f.key === 'registration_number') val = registrationNumberOf(u);
         else if (f.key === 'guardian_name') val = u.guardian?.name || '';
         else if (f.key === 'guardian_phone') val = u.guardian?.phone || '';
         else if (f.key === 'is_active') val = u.is_active ? 'Active' : 'Deactivated';
@@ -857,7 +886,8 @@ export default function UserManagementScreen() {
           <View style={styles.headerDetails}>
             <Text style={[styles.userName, isDark && { color: design.text }]}>{name}</Text>
             <Text style={[styles.userEmail, isDark && { color: design.muted }]}>{item.email}</Text>
-            <Text style={[styles.userSubtext, isDark && { color: design.muted }]}>NIC / Reg: {item.nic_number || item.nic || item.index_number || 'N/A'}</Text>
+            <Text style={[styles.userSubtext, { color: design.muted }]}>Reg No: {registrationNumberOf(item) || 'Not assigned'}</Text>
+            <Text style={[styles.userSubtext, isDark && { color: design.muted }]}>Registration: {registrationNumberOf(item) || 'Not assigned'}</Text>
           </View>
 
           <View style={styles.rightCardCol}>
@@ -916,12 +946,13 @@ export default function UserManagementScreen() {
       style={[styles.card, selected && isSelectMode && styles.whatsappSelectedCard]} activeOpacity={0.75}
       onPress={() => isSelectMode ? toggleUserSelection(item._id) : handleOpenDetails(item._id)} onLongPress={() => { setIsSelectMode(true); toggleUserSelection(item._id); }}>
       <View style={styles.cardHeader}>
-        <View style={styles.avatar}><Icon name={selected && isSelectMode ? 'checkmark' : 'person-outline'} size={22} color={design.accent} /></View>
-        <View style={styles.headerDetails}><Text style={styles.userName}>{item.name}</Text><Text style={styles.userEmail}>{item.email}</Text><Text style={styles.userSubtext}>Reg No: {item.index_number || item.registration_number || item.nic || 'N/A'}</Text></View>
+        <View style={{ marginRight: 12 }}>{selected && isSelectMode ? <Icon name="checkmark-circle" size={40} color={design.accent} /> : <UserAvatar user={item} size={44} />}</View>
+        <View style={styles.headerDetails}><Text style={styles.userName}>{item.name}</Text><Text style={styles.userEmail}>{item.email}</Text><Text style={styles.userSubtext}>Reg No: {registrationNumberOf(item) || 'Not assigned'}</Text></View>
         <View style={styles.rightCardCol}>
           {!isSelectMode && <WhatsAppOptionsMenu accessibilityLabel={`Student options for ${item.name}`} options={[
             { id: 'view', label: 'View Profile', onPress: () => handleOpenDetails(item._id) },
             ...(active ? [
+              { id: 'credentials', label: 'Send temporary credentials', onPress: () => handleSendCredentials(item) },
               { id: 'batch', label: 'Assign Batch', onPress: () => { setAssignStudentId(item._id); setAssignModalVisible(true); } },
               { id: 'complete', label: 'Mark Completed', onPress: () => handleMarkCompleted(item._id, item.name) },
               { id: 'deactivate', label: 'Deactivate', onPress: () => handleToggleActive(item._id, true, item.name) },
@@ -939,7 +970,7 @@ export default function UserManagementScreen() {
     const actions = [
       ...(active ? [{ title: 'Assign Batch', primary: true, action: () => { setDetailsModalVisible(false); setAssignStudentId(student._id); setAssignModalVisible(true); } }] : [{ title: 'Reactivate', primary: true, action: () => handleReactivateStudent(student._id, student.name) }]),
       { title: 'Payments', primary: false, action: () => { setDetailsModalVisible(false); void handleOpenPaymentDossier(student._id); } },
-      ...(active ? [{ title: 'Mark Completed', primary: false, action: () => handleMarkCompleted(student._id, student.name) }, { title: 'Deactivate', primary: false, action: () => handleToggleActive(student._id, true, student.name) }] : []),
+      ...(active ? [{ title: 'Send temporary credentials', primary: false, action: () => handleSendCredentials(student) }, { title: 'Mark Completed', primary: false, action: () => handleMarkCompleted(student._id, student.name) }, { title: 'Deactivate', primary: false, action: () => handleToggleActive(student._id, true, student.name) }] : []),
     ];
     return <View style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{actions.map(action => <TouchableOpacity key={action.title} accessibilityRole="button" accessibilityLabel={`Student action ${action.title}`} onPress={action.action}
       style={{ flexGrow: 1, flexBasis: '45%', minHeight: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: action.primary ? design.accent : design.line, backgroundColor: action.primary ? design.accent : design.field }}><Text style={{ ...FONTS.semiBold, fontSize: 13, color: action.primary ? '#FFFFFF' : design.text }}>{action.title}</Text></TouchableOpacity>)}</View>;
@@ -992,6 +1023,7 @@ export default function UserManagementScreen() {
           <View style={styles.headerDetails}>
             <Text style={[styles.userName, isDark && { color: design.text }]}>{item.name}</Text>
             <Text style={[styles.userEmail, isDark && { color: design.muted }]}>{item.email}</Text>
+            <Text style={[styles.userSubtext, { color: design.muted }]}>Reg No: {registrationNumberOf(item) || 'Not assigned'}</Text>
             {item.phone ? <Text style={[styles.userSubtext, isDark && { color: design.muted }]}>{item.phone}</Text> : null}
           </View>
           <View style={styles.rightCardCol}>
@@ -1003,6 +1035,7 @@ export default function UserManagementScreen() {
                     label: 'View Profile',
                     onPress: () => handleOpenDetails(item._id),
                   },
+                  ...(item.is_active ? [{ id: 'credentials', label: 'Send temporary credentials', onPress: () => handleSendCredentials(item) }] : []),
                   {
                     id: 'toggle_active',
                     label: item.is_active ? 'Deactivate' : 'Activate',
@@ -1079,7 +1112,7 @@ export default function UserManagementScreen() {
             <div class="row"><span class="label">Full Name:</span><span class="val">${u.name || 'N/A'}</span></div>
             <div class="row"><span class="label">Email:</span><span class="val">${u.email || 'N/A'}</span></div>
             <div class="row"><span class="label">Role:</span><span class="val">${u.role ? u.role.toUpperCase() : 'STUDENT'}</span></div>
-            <div class="row"><span class="label">Reg No / Index:</span><span class="val">${u.index_number || 'N/A'}</span></div>
+            <div class="row"><span class="label">Registration number:</span><span class="val">${registrationNumberOf(u) || 'Not assigned'}</span></div>
             <div class="row"><span class="label">NIC Number:</span><span class="val">${u.nic || 'N/A'}</span></div>
             <div class="row"><span class="label">Phone:</span><span class="val">${u.phone || 'N/A'}</span></div>
             <div class="row"><span class="label">Date of Birth:</span><span class="val">${u.date_of_birth || 'N/A'}</span></div>
@@ -1112,6 +1145,8 @@ export default function UserManagementScreen() {
             <div class="row"><span class="label">Payment Status:</span><span class="val">${u.payment_info.payment_status ? u.payment_info.payment_status.toUpperCase() : 'PENDING'}</span></div>
             <div class="row"><span class="label">Total Course Fee:</span><span class="val">LKR ${u.payment_info.total_fee ? u.payment_info.total_fee.toLocaleString() : '0'}</span></div>
             <div class="row"><span class="label">Amount Paid:</span><span class="val">LKR ${u.payment_info.amount_paid ? u.payment_info.amount_paid.toLocaleString() : '0'}</span></div>
+            <div class="row"><span class="label">Balance due:</span><span class="val">${money(paymentSummary(u.payment_info).remaining_balance)}</span></div>
+            <div class="row"><span class="label">Overpayment credit:</span><span class="val">${money(paymentSummary(u.payment_info).credit_balance)}</span></div>
           </div>
           ` : ''}
 
@@ -1142,7 +1177,7 @@ export default function UserManagementScreen() {
     if (!userDetails || !userDetails.user) return;
     try {
       const u = userDetails.user;
-      const shareMessage = `Twintec VTI - User Profile Dossier\nName: ${u.name}\nEmail: ${u.email}\nReg No: ${u.index_number || u.nic || 'N/A'}\nRole: ${u.role ? u.role.toUpperCase() : 'STUDENT'}`;
+      const shareMessage = `Twintec VTI - User Profile Dossier\nName: ${u.name}\nEmail: ${u.email}\nReg No: ${registrationNumberOf(u) || 'Not assigned'}\nRole: ${u.role ? u.role.toUpperCase() : 'STUDENT'}`;
 
       if (Platform.OS === 'web') {
         if (typeof navigator !== 'undefined' && (navigator as any).share) {
@@ -1185,7 +1220,7 @@ export default function UserManagementScreen() {
                 <div class="row"><span class="label">Full Name:</span><span class="val">${u.name || 'N/A'}</span></div>
                 <div class="row"><span class="label">Email:</span><span class="val">${u.email || 'N/A'}</span></div>
                 <div class="row"><span class="label">Role:</span><span class="val">${u.role ? u.role.toUpperCase() : 'STUDENT'}</span></div>
-                <div class="row"><span class="label">Reg No / Index:</span><span class="val">${u.index_number || 'N/A'}</span></div>
+                <div class="row"><span class="label">Registration number:</span><span class="val">${registrationNumberOf(u) || 'Not assigned'}</span></div>
                 <div class="row"><span class="label">NIC Number:</span><span class="val">${u.nic || 'N/A'}</span></div>
                 <div class="row"><span class="label">Phone:</span><span class="val">${u.phone || 'N/A'}</span></div>
                 <div class="row"><span class="label">Date of Birth:</span><span class="val">${u.date_of_birth || 'N/A'}</span></div>
@@ -1578,50 +1613,10 @@ export default function UserManagementScreen() {
         </View>
       </Modal>
 
-      {/* Generated Credentials Modal */}
-      <Modal visible={credentialsModalVisible} animationType="slide" transparent={true} onRequestClose={() => setCredentialsModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { alignItems: 'center' }]}>
-            <View style={{ marginBottom: 12 }}>
-              <Icon name="checkmark-circle-outline" size={50} color={design.accent} />
-            </View>
-            <Text style={styles.modalTitle}>Student Account Ready</Text>
-            <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted, textAlign: 'center', marginBottom: 16 }}>
-              Student account saved and selected batches assigned.
-            </Text>
-
-            {approvedCredentials && (
-              <View style={{ backgroundColor: design.surface, borderRadius: 12, padding: 16, width: '100%', marginBottom: 14 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted }}>Index No:</Text>
-                  <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 17, fontWeight: 'bold', color: design.accent }}>{approvedCredentials.index_number}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted }}>Temp Password:</Text>
-                  <Text style={{ fontFamily: FONTS.bold.fontFamily,  fontSize: 17, fontWeight: 'bold', color: design.accent }}>{approvedCredentials.temp_password}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted }}>Student Email:</Text>
-                  <Text style={{ fontFamily: FONTS.medium.fontFamily,  fontSize: 13, color: design.text, fontWeight: '500' }}>{approvedCredentials.email}</Text>
-                </View>
-              </View>
-            )}
-
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: design.accentSoft, borderRadius: 8, padding: 10, marginBottom: 18 }}>
-              <Icon name="shield-checkmark-outline" size={18} color={design.accent} style={{ marginRight: 8 }} />
-              <Text style={{ fontFamily: FONTS.regular.fontFamily,  flex: 1, fontSize: 12, color: design.accent, lineHeight: 16 }}>
-                Temporary password expires in 7 days. Save these initial login details before closing.
-              </Text>
-            </View>
-
-            <TouchableOpacity accessibilityRole="button"               style={{ backgroundColor: design.accent, borderRadius: 10, paddingVertical: 12, width: '100%', alignItems: 'center' }}
-              onPress={() => setCredentialsModalVisible(false)} accessibilityLabel="Close credentials"
-            >
-              <Text style={{ fontFamily: FONTS.bold.fontFamily,  color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 }}>Close & Return</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <ManagementSheet visible={credentialsModalVisible} title={approvedCredentials?.role === 'instructor' ? 'Instructor credentials' : 'Student credentials'} backLabel="Close credentials" onClose={() => setCredentialsModalVisible(false)}
+        footer={<TouchableOpacity accessibilityRole="button" accessibilityLabel="Close credentials" onPress={() => setCredentialsModalVisible(false)} style={{ backgroundColor: design.accent, borderRadius: 10, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><Text style={{ ...FONTS.semiBold, color: '#FFFFFF' }}>Done</Text></TouchableOpacity>}>
+        {approvedCredentials && <AccountCredentialsCard credentials={approvedCredentials} emailSent={credentialsEmailSent} />}
+      </ManagementSheet>
 
       {/* CUSTOM IN-APP CONFIRMATION POPUP MODAL */}
 
@@ -1655,7 +1650,7 @@ export default function UserManagementScreen() {
                 <Text style={styles.fieldQuickBtnText}>Select All Fields</Text>
               </TouchableOpacity>
               <TouchableOpacity accessibilityRole="button"                 style={styles.fieldQuickBtn}
-                onPress={() => setSelectedExportFields(['name', 'email', 'index_number', 'nic', 'phone'])}
+                onPress={() => setSelectedExportFields(['name', 'email', 'registration_number', 'nic', 'phone'])}
               >
                 <Text style={styles.fieldQuickBtnText}>Reset Defaults</Text>
               </TouchableOpacity>
@@ -1808,8 +1803,8 @@ export default function UserManagementScreen() {
                       <Text style={styles.infoVal}>{userDetails.user.email || 'N/A'}</Text>
                     </View>
                     <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>Reg No / Index:</Text>
-                      <Text style={styles.infoVal}>{userDetails.user.index_number || 'N/A'}</Text>
+                      <Text style={styles.infoLabel}>Registration number:</Text>
+                      <Text style={styles.infoVal}>{registrationNumberOf(userDetails.user) || 'Not assigned'}</Text>
                     </View>
                     <View style={styles.infoRow}>
                       <Text style={styles.infoLabel}>NIC Number:</Text>
@@ -1873,31 +1868,7 @@ export default function UserManagementScreen() {
                     </View>
                   )}
 
-                  {/* SECTION 4: Tuition & Financial Info */}
-                  {userDetails.user.payment_info && (
-                    <View style={styles.infoSectionCard}>
-                      <Text style={styles.sectionCardHeaderTitle}>Tuition & Financial Info</Text>
-                      <View style={styles.infoDivider} />
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Payment Method:</Text>
-                        <Text style={styles.infoVal}>{userDetails.user.payment_info.payment_method === 'bank_transfer' ? 'Bank Deposit Slip' : 'Cash at Counter'}</Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Payment Status:</Text>
-                        <Text style={[styles.infoVal, { fontWeight: 'bold', color: userDetails.user.payment_info.payment_status === 'paid' ? design.success : design.accent }]}>
-                          {userDetails.user.payment_info.payment_status ? userDetails.user.payment_info.payment_status.toUpperCase() : 'PENDING'}
-                        </Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Total Course Fee:</Text>
-                        <Text style={styles.infoVal}>LKR {userDetails.user.payment_info.total_fee ? userDetails.user.payment_info.total_fee.toLocaleString() : '0'}</Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Amount Paid:</Text>
-                        <Text style={[styles.infoVal, { color: design.success, fontWeight: 'bold' }]}>LKR {userDetails.user.payment_info.amount_paid ? userDetails.user.payment_info.amount_paid.toLocaleString() : '0'}</Text>
-                      </View>
-                    </View>
-                  )}
+                  {userDetails.user.payment_info && <PaymentSummaryCard summary={userDetails.user.payment_info} />}
 
                   {/* SECTION 5: Academic Enrollments Card */}
                   {userDetails.user.role === 'student' && (
@@ -1982,7 +1953,7 @@ export default function UserManagementScreen() {
       </Modal>
 
       <PaymentDetails visible={paymentDossierModalVisible} loading={loadingDossier} data={paymentDossierData} onClose={() => setPaymentDossierModalVisible(false)}
-        onAdd={() => { setPaymentDossierModalVisible(false); setManualPayForm({ amount: '', payment_method: 'physical_cash', notes: '' }); setManualPayModalVisible(true); }} onImage={setDossierZoomImage} onApprove={handlePromptVerifySlip} onReject={handlePromptRejectSlip} verifyingId={verifyingSlipId} />
+        onAdd={() => { setPaymentDossierModalVisible(false); setManualPayForm({ amount: '', payment_method: 'physical_cash', notes: '' }); setManualPayModalVisible(true); }} onImage={(uri, mimeType) => { if (mimeType === 'application/pdf' || /\.pdf(?:[?#]|$)/i.test(uri)) { void Linking.openURL(uri.startsWith('/') ? API_URL.replace(/\/api\/?$/, '') + uri : uri); } else setDossierZoomImage(uri.startsWith('/') ? API_URL.replace(/\/api\/?$/, '') + uri : uri); }} onApprove={handlePromptVerifySlip} onReject={handlePromptRejectSlip} verifyingId={verifyingSlipId} />
       <AddPayment visible={manualPayModalVisible} data={paymentDossierData} form={manualPayForm} onChange={setManualPayForm} saving={recordingManualPay} onSubmit={handleRecordManualPaySubmit}
         onClose={() => { if (!recordingManualPay) { setManualPayModalVisible(false); setPaymentDossierModalVisible(true); } }} />
 
@@ -2019,7 +1990,7 @@ export default function UserManagementScreen() {
       <ManagementDialog visible={alertModal.visible} title={alertModal.title} message={alertModal.message} type={alertModal.type} onConfirm={() => { const action = alertModal.onOk; setAlertModal(prev => ({ ...prev, visible: false })); action?.(); }} />
       {admissionTarget && <StudentAdmissionModal target={admissionTarget} onClose={() => setAdmissionTarget(null)} onSaved={data => {
         setAdmissionTarget(null); fetchUsers();
-        if (data.credentials) { setApprovedCredentials(data.credentials); setCredentialsModalVisible(true); }
+        if (data.credentials) { setCredentialsEmailSent(data.email_sent === true); setApprovedCredentials(data.credentials); setCredentialsModalVisible(true); }
         else showAlert('Student saved', data.message || 'Student saved and batches assigned.', undefined, 'success');
       }} />}
     </SafeAreaView>

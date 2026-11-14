@@ -200,14 +200,14 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
 
         {/* Top Brand Logo & Notification Bar */}
         <View style={styles.brandHeaderRow}>
-          <View style={styles.brandLogoGroup}>
+          <View style={[styles.brandLogoGroup, { flexShrink: 1, minWidth: 0, marginRight: 12 }]}>
             <Image
               source={require('../../../assets/logo.png')}
               style={styles.brandLogoImg}
               resizeMode="contain"
             />
-            <View style={styles.brandTextColumn}>
-              <Text style={styles.brandTitleText}>TWINTEC VTI</Text>
+            <View style={[styles.brandTextColumn, { flexShrink: 1, minWidth: 0 }]}>
+              <Text numberOfLines={1} style={[styles.brandTitleText, { flexShrink: 1 }]}>TWINTEC VTI</Text>
             </View>
           </View>
 
@@ -261,17 +261,13 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
                 </View>
               </View>
 
-              {/* Bottom Row: Instructor Avatar + View Slot Button */}
+              {/* Bottom Row: Instructor Details + View Slot Button */}
               <View style={styles.cardBottomRow}>
                 <TouchableOpacity 
                   style={styles.instructorInfoRow} 
                   activeOpacity={0.7}
                   onPress={() => setInstructorModalVisible(true)}
                 >
-                  <Image
-                    source={{ uri: avatarUrl }}
-                    style={styles.instructorAvatar}
-                  />
                   <View style={styles.instructorTextColumn}>
                     <Text style={[styles.instructorName, isDark && { color: '#FFFFFF' }]}>{instructorName}</Text>
                     <Text style={[styles.instructorRole, isDark && { color: '#94A3B8' }]}>Course Instructor</Text>

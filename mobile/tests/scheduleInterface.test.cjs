@@ -18,6 +18,7 @@ before(async () => {
     alias: { 'react-native': 'react-native-web' },
     plugins: [{ name: 'schedule-test-platform', setup(build) {
       build.onResolve({ filter: /ThemeContext$/ }, () => ({ path: 'theme', namespace: 'test-platform' }));
+      build.onResolve({ filter: /config\/constants$/ }, () => ({ path: 'constants', namespace: 'test-platform' }));
       build.onResolve({ filter: /^@expo\/vector-icons$/ }, () => ({ path: 'icons', namespace: 'test-platform' }));
       build.onResolve({ filter: /WhatsAppOptionsMenu$/ }, () => ({ path: 'menu', namespace: 'test-platform' }));
       build.onResolve({ filter: /(?:^|\/)api$/ }, () => ({ path: 'api', namespace: 'test-platform' }));
@@ -27,6 +28,7 @@ before(async () => {
       build.onResolve({ filter: /ScreenHeader$/ }, () => ({ path: 'header', namespace: 'test-platform' }));
       build.onLoad({ filter: /.*/, namespace: 'test-platform' }, ({ path: name }) => ({ loader: 'jsx', resolveDir: path.join(__dirname, '..'), contents:
         name === 'theme' ? 'export const useTheme = () => ({isDark: !!globalThis.scheduleTestDark});'
+          : name === 'constants' ? 'export const API_URL = "http://localhost/api";'
           : name === 'api' ? 'export default {get:async()=>({data:[]}),post:async()=>({data:{}}),delete:async()=>({data:{}}),patch:async()=>({data:{}})};'
           : name === 'navigation' ? 'export const useFocusEffect = () => {}; export const useNavigation = () => ({navigate(){},goBack(){},canGoBack:()=>true});'
           : name === 'safe-area' ? 'export const useSafeAreaInsets = () => ({top:0,bottom:0,left:0,right:0});'
@@ -82,7 +84,7 @@ test('shared overview filters regular classes by the chosen course and keeps rol
   assert.match(student, /Regular Classes/); assert.match(student, /Practice Sessions &amp; Lab Slots/);
   assert.match(student, /Batch: R-02/); assert.doesNotMatch(student, /Batch: E-01|Create slot|>Views</);
   const staff = render(Overview, { ...base, onCreate() {}, onViewChange() {}, onFilter() {} });
-  assert.match(staff, /Create slot/); assert.match(staff, />Views</); assert.match(staff, />Filters</);
+  assert.match(staff, /Create slot/); assert.match(staff, /aria-label="Change schedule view, current List"/); assert.match(staff, /aria-label="Filters"/);
 });
 
 test('loading failures show retry text instead of a misleading empty schedule', () => {

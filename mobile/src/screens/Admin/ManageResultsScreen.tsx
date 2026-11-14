@@ -205,7 +205,7 @@ export default function ManageResultsScreen() {
               >
                 <View style={{ width: 170, paddingRight: 8 }}>
                   <Text style={styles.tableStudentName} numberOfLines={1}>{student.name}</Text>
-                  <Text style={styles.tableStudentSub}>Reg No: {student.index_number || student.nic || 'N/A'}</Text>
+                  <Text style={styles.tableStudentSub}>Reg No: {student.registration_number || student.index_number || 'Not assigned'}</Text>
                 </View>
                 {uniqueAssessments.map(a => {
                   const res = sResults.find(r => r.assessment_name === a);
@@ -328,7 +328,7 @@ export default function ManageResultsScreen() {
 
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.studentName, isDark && { color: '#FFFFFF' }]}>{item.name}</Text>
-                  <Text style={[styles.studentSub, isDark && { color: '#94A3B8' }]}>Reg No: {item.index_number || item.nic || 'N/A'}</Text>
+                  <Text style={[styles.studentSub, isDark && { color: '#94A3B8' }]}>Reg No: {item.registration_number || item.index_number || 'Not assigned'}</Text>
                   <Text style={[styles.evalCountText, isDark && { color: '#64748B' }]}>{sResults.length} Assessment{sResults.length === 1 ? '' : 's'} recorded</Text>
                 </View>
 
@@ -361,7 +361,7 @@ export default function ManageResultsScreen() {
             <View style={[styles.modalHeader, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, isDark && { color: '#FFFFFF' }]}>{selectedStudent?.name}</Text>
-                <Text style={[styles.modalSub, isDark && { color: '#94A3B8' }]}>Reg No: {selectedStudent?.index_number || selectedStudent?.nic || 'N/A'}</Text>
+                <Text style={[styles.modalSub, isDark && { color: '#94A3B8' }]}>Reg No: {selectedStudent?.registration_number || selectedStudent?.index_number || 'Not assigned'}</Text>
               </View>
               <TouchableOpacity style={styles.closeModalIconBtn} onPress={() => setModalVisible(false)}>
                 <Icon name="close" size={22} color={isDark ? "#94A3B8" : "#4B5563"} />

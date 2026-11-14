@@ -1,3 +1,5 @@
+import { compareRegistrationNumbers } from '../../utils/registrationIdentity';
+import UserAvatar from '../../components/shared/UserAvatar';
 import { KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl, Modal, Animated, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
@@ -86,7 +88,7 @@ export default function MyStudentsScreen() {
     try {
       const res = await api.get('/instructors/my-students', { params: batchId ? { batch_id: batchId } : undefined });
       if (current !== request.current) return;
-      const entries = [...(res.data || [])].sort((a, b) => String(a.student_id?.name || '').localeCompare(String(b.student_id?.name || '')));
+      const entries = [...(res.data || [])].sort((a, b) => compareRegistrationNumbers(a.student_id || {}, b.student_id || {}));
       setStudents(entries);
       const byId = new Map<string, { id: string; name: string }>();
       entries.forEach((entry: any) => {
@@ -122,7 +124,7 @@ export default function MyStudentsScreen() {
     const nameMatch = s.student_id?.name?.toLowerCase().includes(term);
     const emailMatch = s.student_id?.email?.toLowerCase().includes(term);
     const batchMatch = s.batch_id?.name?.toLowerCase().includes(term);
-    const registrationMatch = String(s.student_id?.index_number || s.student_id?.registration_number || s.student_id?.nic || '').toLowerCase().includes(term);
+    const registrationMatch = `${s.student_id?.registration_number || ''} ${s.student_id?.index_number || ''} ${s.student_id?.nic || ''}`.toLowerCase().includes(term);
     const matchesSearch = !term || nameMatch || emailMatch || batchMatch || registrationMatch;
     const matchesBatch = batchId ? String(s.batch_id?._id) === batchId : selectedBatch === 'all' || s.batch_id?._id === selectedBatch;
     return matchesSearch && matchesBatch;
@@ -268,15 +270,11 @@ export default function MyStudentsScreen() {
         renderItem={({ item }) => (
           <View style={[styles.card, isDark && styles.cardDark]}>
             <View style={styles.cardHeader}>
-              <View style={[styles.avatar, { backgroundColor: isDark ? 'rgba(255, 94, 20, 0.22)' : stringToColor(item.student_id?.name || 'S') }]}>
-                <Text style={[styles.avatarText, isDark && { color: '#FB923C' }]}>
-                  {item.student_id?.name?.charAt(0)?.toUpperCase() || 'S'}
-                </Text>
-              </View>
+              <View style={{ marginRight: 12 }}><UserAvatar user={item.student_id} size={46} /></View>
               <View style={styles.info}>
                 <Text style={[styles.name, isDark && { color: '#FFFFFF' }]}>{item.student_id?.name || 'Unknown Student'}</Text>
                 <Text style={{ fontSize: 13, fontWeight: 'bold', color: isDark ? '#34D399' : '#059669', marginTop: 2 }}>
-                  Reg No: {item.student_id?.index_number || item.student_id?.registration_number || item.student_id?.nic || 'N/A'}
+                  Reg No: {item.student_id?.registration_number || item.student_id?.index_number || 'Not assigned'}
                 </Text>
                 <Text style={[styles.email, isDark && { color: '#CBD5E1' }]}>{item.student_id?.email || 'No email'}</Text>
                 {item.student_id?.phone ? (

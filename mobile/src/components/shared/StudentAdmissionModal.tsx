@@ -10,6 +10,7 @@ import CourseBatchAssignments from './CourseBatchAssignments';
 import ManagementDialog from './ManagementDialog';
 import CustomDropdown from './CustomDropdown';
 import AdmissionImageField from './AdmissionImageField';
+import PaymentSummaryCard from './PaymentSummaryCard';
 
 export type AdmissionTarget = { kind: 'create' } | { kind: 'approve'; id: string; name: string };
 export default function StudentAdmissionModal({ target, onClose, onSaved }: { target: AdmissionTarget; onClose: () => void; onSaved: (data: any) => void }) {
@@ -40,7 +41,7 @@ export default function StudentAdmissionModal({ target, onClose, onSaved }: { ta
     if (creating && form.dob && (!/^\d{4}-\d{2}-\d{2}$/.test(form.dob) || !Number.isFinite(Date.parse(form.dob)) || new Date(form.dob).toISOString().slice(0, 10) !== form.dob || Date.parse(form.dob) > Date.now())) { setError('Enter a valid date of birth as YYYY-MM-DD.'); return; }
     if (creating && form.payment_method === 'bank_transfer' && !form.payment_slip) { setError('Choose the bank deposit receipt image.'); return; }
     if (!courseIds.length || batchIds.length !== courseIds.length) { setError('Choose a course and one batch for every selected course.'); return; }
-    if (creating && ((!Number.isFinite(Number(form.paid)) || Number(form.paid) < 0) || form.total !== '' && (!Number.isFinite(Number(form.total)) || Number(form.total) < Number(form.paid)))) { setError('Enter valid fees and an amount paid no higher than the total fee.'); return; }
+    if (creating && ((!Number.isFinite(Number(form.paid)) || Number(form.paid) < 0) || form.total !== '' && (!Number.isFinite(Number(form.total)) || Number(form.total) < 0))) { setError('Enter valid, non-negative fees and payments.'); return; }
     setConfirming(true);
   };
   const dropdown = (key: keyof typeof form, label: string, values: string[]) => <CustomDropdown appearance="management" label={label} selectedValue={form[key]} placeholder={`Select ${label.toLowerCase()}`} items={values.map(value => ({ value, label: value }))} onValueChange={value => { if (!saving) setForm(current => ({ ...current, [key]: value })); }} />;
@@ -75,6 +76,7 @@ export default function StudentAdmissionModal({ target, onClose, onSaved }: { ta
               <CustomDropdown appearance="management" label="Registration payment method" selectedValue={form.payment_method} items={[{ value: 'physical_pay', label: 'Cash at counter' }, { value: 'bank_transfer', label: 'Bank deposit' }]} onValueChange={value => { if (!saving) setForm(current => ({ ...current, payment_method: value })); }} />
               {form.payment_method === 'bank_transfer' && image('payment_slip', 'Bank receipt')}
               {field('total', 'Total fee (LKR)', 'numeric', 'Defaults to the selected course fees')}{field('paid', 'Amount received (LKR)', 'numeric')}
+              {form.total !== '' && <PaymentSummaryCard summary={{ total_fee: Number(form.total), amount_paid: Number(form.paid) }} />}
               <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel="Registration terms accepted" accessibilityState={{ checked: termsAccepted }} disabled={saving} onPress={() => setTermsAccepted(value => !value)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 }}><Icon name={termsAccepted ? 'checkbox' : 'square-outline'} size={22} color={termsAccepted ? theme.accent : theme.muted} /><Text style={[styles.label, { color: theme.text, flex: 1 }]}>Student's registration consent recorded</Text></TouchableOpacity>
             </>}
           </ScrollView>

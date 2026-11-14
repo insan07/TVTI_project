@@ -14,6 +14,22 @@ export type UploadItem = {
 
 export type UploadModule = { key: string; title: string; videos: UploadItem[]; materials: UploadItem[] };
 
+/** Student requests always stay within enrolled batches; a failure rejects the whole view. */
+export async function loadBatchUploads(batches: any[], selectedBatchId: string | null, instructor: boolean,
+  kind: 'videos' | 'materials', get: (path: string) => Promise<{ data: any[] }>): Promise<any[]> {
+  const chosen = selectedBatchId ? batches.filter(batch => batch._id === selectedBatchId) : batches;
+  if (chosen.length === 0) return [];
+  if (instructor) {
+    const response = await get(`/instructors/${kind}`);
+    return (response.data || []).filter(item => chosen.some(batch => String(item.batch_id?._id || item.batch_id) === batch._id));
+  }
+  const results = await Promise.all(chosen.map(async batch => {
+    const response = await get(`/students/batches/${batch._id}/${kind}`);
+    return (response.data || []).map(item => ({ ...item, batch_id: batch }));
+  }));
+  return results.flat();
+}
+
 export function groupUploadModules(videos: UploadItem[], materials: UploadItem[]): UploadModule[] {
   const modules = new Map<string, UploadModule>();
   const add = (item: UploadItem, kind: 'videos' | 'materials') => {

@@ -118,7 +118,8 @@ async function buildCertificateResponse(student: any) {
     student: {
       id: student._id,
       name: student.name,
-      index_number: student.index_number || '26T0001',
+      index_number: student.index_number || '',
+      registration_number: student.registration_number || student.index_number || '',
       nic_number: student.nic || 'N/A',
       email: student.email,
       phone: student.phone || 'N/A',
@@ -147,16 +148,17 @@ export const searchStudentForVerification = async (req: Request, res: Response):
     if (!rawQuery) {
       res.status(400).json({
         found: false,
-        message: 'Please provide a valid Student Index Number (e.g. 26T0001) or NIC Number.'
+        message: 'Please provide the student registration number, legacy index number or NIC number.'
       });
       return;
     }
 
-    const queryRegex = new RegExp(`^${rawQuery}$`, 'i');
+    const queryRegex = new RegExp(`^${rawQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 
     // Search User by Index Number, NIC Number, or Email
     const student = await User.findOne({
       $or: [
+        { registration_number: queryRegex },
         { index_number: queryRegex },
         { nic: queryRegex },
         { email: rawQuery.toLowerCase() }
@@ -194,7 +196,8 @@ export const searchStudentForVerification = async (req: Request, res: Response):
       student: {
         id: student._id,
         name: student.name,
-        index_number: student.index_number || '26T0001',
+        index_number: student.index_number || '',
+        registration_number: student.registration_number || student.index_number || '',
         nic_masked: maskNic(student.nic),
         email_masked: maskEmail(student.email),
         desired_course: student.desired_course || 'Vocational Certificate Course'
@@ -229,15 +232,16 @@ export const requestCertificateOtp = async (req: Request, res: Response): Promis
     if (!rawQuery) {
       res.status(400).json({
         verified: false,
-        message: 'Please provide a valid Student Index Number (e.g. 26T0001) or NIC Number.'
+        message: 'Please provide the student registration number, legacy index number or NIC number.'
       });
       return;
     }
 
-    const queryRegex = new RegExp(`^${rawQuery}$`, 'i');
+    const queryRegex = new RegExp(`^${rawQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 
     const student = await User.findOne({
       $or: [
+        { registration_number: queryRegex },
         { index_number: queryRegex },
         { nic: queryRegex },
         { email: rawQuery.toLowerCase() }
@@ -305,7 +309,7 @@ export const requestCertificateOtp = async (req: Request, res: Response): Promis
     const mailResult = await sendCertificateVerificationOtpEmail({
       to: studentEmail,
       studentName: student.name,
-      indexNumber: student.index_number || '26T0001',
+      indexNumber: student.registration_number || student.index_number || 'Not assigned',
       otp
     });
 
@@ -313,7 +317,8 @@ export const requestCertificateOtp = async (req: Request, res: Response): Promis
       success: true,
       requires_otp: true,
       student_name: student.name,
-      index_number: student.index_number || '26T0001',
+      index_number: student.index_number || '',
+      registration_number: student.registration_number || student.index_number || '',
       email_masked: maskEmail(studentEmail),
       message: `A 6-digit security code has been sent to the student's registered email (${maskEmail(studentEmail)}).`,
       devOtp: mailResult.simulated ? otp : undefined
@@ -352,10 +357,11 @@ export const verifyCertificateOtp = async (req: Request, res: Response): Promise
       return;
     }
 
-    const queryRegex = new RegExp(`^${rawQuery}$`, 'i');
+    const queryRegex = new RegExp(`^${rawQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 
     const student = await User.findOne({
       $or: [
+        { registration_number: queryRegex },
         { index_number: queryRegex },
         { nic: queryRegex },
         { email: rawQuery.toLowerCase() }

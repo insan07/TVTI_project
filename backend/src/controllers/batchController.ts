@@ -13,7 +13,7 @@ export const getAdminBatches = async (req: Request, res: Response): Promise<void
   try {
     const batches = await Batch.find()
       .populate('course_id', 'title fee')
-      .populate('instructor_ids', 'name')
+      .populate('instructor_ids', 'name profile_photo')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -38,7 +38,7 @@ export const getBatchDetails = async (req: Request, res: Response): Promise<void
     if (!validManagementId(req.params.id)) { res.status(400).json({ message: 'Invalid batch.' }); return; }
     const batch = await Batch.findById(req.params.id)
       .populate('course_id', 'title fee description duration_weeks is_active')
-      .populate('instructor_ids', 'name email phone')
+      .populate('instructor_ids', 'name email phone profile_photo')
       .lean();
 
     if (!batch) {
@@ -47,15 +47,15 @@ export const getBatchDetails = async (req: Request, res: Response): Promise<void
     }
 
     const enrollments = await Enrollment.find({ batch_id: batch._id })
-      .populate('student_id', 'name email phone nic index_number registration_number is_active createdAt')
+      .populate('student_id', 'name email phone nic index_number registration_number is_active createdAt profile_photo')
       .lean();
 
     const results = await Result.find({ batch_id: batch._id })
-      .populate('student_id', 'name email index_number')
+      .populate('student_id', 'name email index_number registration_number profile_photo')
       .lean();
 
     const videos = await Video.find({ batch_id: batch._id })
-      .populate('instructor_id', 'name')
+      .populate('instructor_id', 'name profile_photo')
       .lean();
 
     res.json({
@@ -111,7 +111,7 @@ export const getBatchStudents = async (req: Request, res: Response): Promise<voi
     if (!validManagementId(req.params.id)) { res.status(400).json({ message: 'Invalid batch.' }); return; }
     if (!await Batch.exists({ _id: req.params.id })) { res.status(404).json({ message: 'Batch not found.' }); return; }
     const enrollments = await Enrollment.find({ batch_id: req.params.id })
-      .populate('student_id', 'name email nic index_number phone');
+      .populate('student_id', 'name email nic index_number registration_number phone profile_photo');
     res.json(enrollments);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -134,7 +134,7 @@ export const enrollStudents = async (req: Request, res: Response): Promise<void>
           await sendBatchAssignmentEmail({
             to: student.email,
             studentName: student.name,
-            registrationNumber: student.index_number || student.registration_number || 'N/A',
+            registrationNumber: student.registration_number || student.index_number || 'Not assigned',
             courseName: (course as any).title || 'TVTI Course',
             batchName: batch.name,
             startDate: new Date(batch.start_date).toLocaleDateString(),

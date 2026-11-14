@@ -28,7 +28,7 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       
       // Enforce route-level blocking if must_change_password is true
       if (req.user.must_change_password) {
-        const allowedPaths = ['/users/force-change-password', '/users/me', '/auth/me'];
+        const allowedPaths = ['/users/force-change-password', '/users/password-change-otp', '/users/me', '/auth/me'];
         const isAllowed = allowedPaths.some(p => req.originalUrl.includes(p));
         if (!isAllowed) {
           res.status(403).json({

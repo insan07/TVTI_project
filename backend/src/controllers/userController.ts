@@ -5,6 +5,10 @@ import Batch from '../models/Batch';
 import bcrypt from 'bcryptjs';
 import cloudinary from '../config/cloudinary';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { requestPasswordChangeOtp, changeAccountPassword } from '../services/passwordChange';
+import { PracticalError } from '../services/practicalScheduling';
+import PaymentSlip from '../models/PaymentSlip';
+import { summarizePayment } from '../utils/paymentSummary';
 
 export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -45,7 +49,9 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       stats = { total_users_count: total_users };
     }
 
-    res.json({ ...user.toObject(), stats, enrolled_courses });
+    const payment_summary = user.role === 'student' ? summarizePayment(user.payment_info,
+      await PaymentSlip.find({ student_id: user._id }).select('amount status')) : undefined;
+    res.json({ ...user.toObject(), stats, enrolled_courses, payment_summary });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -87,28 +93,17 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
 };
 
 export const changePassword = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { currentPassword, newPassword } = req.body;
   try {
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
-
-    const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
-    if (!isMatch) {
-      res.status(400).json({ message: 'Incorrect current password' });
-      return;
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    user.password_hash = await bcrypt.hash(newPassword, salt);
-    await user.save();
-
+    await changeAccountPassword(req.user._id, req.body);
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Password could not be changed.' });
   }
+};
+
+export const sendPasswordChangeOtp = async (req: AuthRequest, res: Response): Promise<void> => {
+  try { res.json(await requestPasswordChangeOtp(req.user._id, req.body.currentPassword)); }
+  catch (error) { res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Verification email could not be sent.' }); }
 };
 
 export const updatePushToken = async (req: AuthRequest, res: Response): Promise<void> => {

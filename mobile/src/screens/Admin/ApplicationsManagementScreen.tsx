@@ -1,3 +1,4 @@
+import AccountCredentialsCard from '../../components/shared/AccountCredentialsCard';
 import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
 import { KeyboardScrollView as ScrollView, KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useMemo, useState, useEffect } from 'react';
@@ -368,7 +369,7 @@ export default function ApplicationsManagementScreen({
     setReviewModalVisible(false);
     setConfirmModal({
       visible: true, title: 'Resend Credentials',
-      message: `Generate a new temporary password and email it to ${selectedAppForReview.email}? The current password will be replaced.`,
+      message: `Generate a new temporary password and email it to ${selectedAppForReview.email}? Their current password will stop working. Their registration number stays the same.`,
       confirmText: 'Resend Credentials', cancelText: 'Cancel', type: 'info',
       onConfirm: async () => {
         setResendingCredentials(true);
@@ -958,29 +959,7 @@ export default function ApplicationsManagementScreen({
                   {credentialsEmailSent ? 'Login credentials have been emailed to the student.' : 'Login credentials generated. Email delivery failed; save the details below.'}
                 </Text>
 
-                {approvedCredentials && (
-                  <View style={styles.credentialsBox}>
-                    <View style={styles.credRow}>
-                      <Text style={styles.credLabel}>Index No:</Text>
-                      <Text style={styles.credValue}>{approvedCredentials.index_number}</Text>
-                    </View>
-                    <View style={styles.credRow}>
-                      <Text style={styles.credLabel}>Temp Password:</Text>
-                      <Text style={styles.credValue}>{approvedCredentials.temp_password}</Text>
-                    </View>
-                    <View style={styles.credRow}>
-                      <Text style={styles.credLabel}>Student Email:</Text>
-                      <Text style={styles.credSubValue}>{approvedCredentials.email}</Text>
-                    </View>
-                  </View>
-                )}
-
-                <View style={styles.expiryNoticeBox}>
-                  <Icon name="shield-checkmark-outline" size={18} color={design.accent} style={{ marginRight: 8 }} />
-                  <Text style={styles.expiryNoticeText}>
-                    Temporary password expires in 7 days. Save these initial login details before closing.
-                  </Text>
-                </View>
+                {approvedCredentials && <AccountCredentialsCard credentials={approvedCredentials} emailSent={credentialsEmailSent} />}
 
                 <TouchableOpacity accessibilityRole="button"                   style={styles.closeCredModalBtn}
                   onPress={() => {

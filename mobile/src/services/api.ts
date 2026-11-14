@@ -25,6 +25,8 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Login feedback belongs to the form, including network/server failures.
+    if (error.config?.url?.replace(/\?.*$/, '') === '/auth/login') return Promise.reject(error);
     if (!error.response) {
       // Network error
       showToast('No internet connection', 'error');

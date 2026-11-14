@@ -22,7 +22,7 @@ export const getOpenSlots = async (req: AuthRequest, res: Response): Promise<voi
         query.week_start_date = { $gte: week, $lt: new Date(week.getTime() + 86_400_000) };
       } catch (error: any) { throw new PracticalError(400, error.message); }
     }
-    const all = await PracticeSlot.find(query).populate('instructor_id', 'name')
+    const all = await PracticeSlot.find(query).populate('instructor_id', 'name profile_photo')
       .populate({ path: 'batch_id', select: 'name course_id status', populate: { path: 'course_id', select: 'title' } });
     const myBookings = await SlotBooking.find({ student_id: req.user._id, status: { $in: ACTIVE_BOOKINGS } }).populate('slot_id');
     const mine = new Map(myBookings.filter(b => b.slot_id).map(b => [String((b.slot_id as any)._id), b.status]));
