@@ -6,6 +6,7 @@ import cloudinary from '../config/cloudinary';
 import { sendNotification } from '../services/notificationService';
 import { saveBufferToGridFS } from '../services/fileStorage';
 import os from 'os';
+import { assignedUploadBatch } from '../services/uploadAccess';
 
 const saveFileToDisk = (buffer: Buffer, originalName: string, subfolder: 'videos' | 'notes' | 'materials'): string => {
   const uploadsDir = path.join(process.cwd(), 'uploads', subfolder);
@@ -81,6 +82,8 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
       res.status(400).json({ message: 'Material file was not received correctly.' });
       return;
     }
+    if (!(await assignedUploadBatch((req as any).user, batch_id))) { res.status(403).json({ message: 'Select an active batch assigned to you.' }); return; }
+    if (materialFile.mimetype === 'application/pdf' && materialFile.buffer.subarray(0, 5).toString() !== '%PDF-') { res.status(400).json({ message: 'Choose a valid PDF document.' }); return; }
 
     const originalName = materialFile.originalname || 'document.pdf';
     const file_id = await saveBufferToGridFS(
@@ -132,6 +135,7 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
     });
 
     // Send instant notification to enrolled students
+    let notification_sent = true;
     try {
       await sendNotification({
         title: 'New Study Material Available 📄',
@@ -143,10 +147,11 @@ export const uploadMaterial = async (req: Request, res: Response): Promise<void>
         link: '/videos',
       });
     } catch (notifErr) {
+      notification_sent = false;
       console.warn('Failed to send material notification:', notifErr);
     }
 
-    res.status(201).json(material);
+    res.status(201).json({ ...material.toObject(), notification_sent });
   } catch (error) {
     console.error('Material upload failed:', error);
     const message = error instanceof Error && error.message ? error.message : 'Material upload failed';

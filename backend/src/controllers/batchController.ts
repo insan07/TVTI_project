@@ -3,11 +3,12 @@ import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
 import Result from '../models/Result';
 import Video from '../models/Video';
-import PracticeSlot from '../models/PracticeSlot';
-import SlotBooking from '../models/SlotBooking';
 import User from '../models/User';
 import { sendBatchAssignmentEmail } from '../services/emailService';
+import { assignStudentsToBatch } from '../services/studentAdmissions';
+import { PracticalError } from '../services/practicalScheduling';
 import { sendNotification } from '../services/notificationService';
+import { saveManagedBatch, deleteEmptyBatch, validManagementId } from '../services/courseBatchManagement';
 export const getAdminBatches = async (req: Request, res: Response): Promise<void> => {
   try {
     const batches = await Batch.find()
@@ -17,6 +18,7 @@ export const getAdminBatches = async (req: Request, res: Response): Promise<void
       .lean();
 
     const enrollmentsCount = await Enrollment.aggregate([
+      { $match: { status: { $ne: 'dropped' } } },
       { $group: { _id: '$batch_id', count: { $sum: 1 } } }
     ]);
 
@@ -33,8 +35,9 @@ export const getAdminBatches = async (req: Request, res: Response): Promise<void
 
 export const getBatchDetails = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!validManagementId(req.params.id)) { res.status(400).json({ message: 'Invalid batch.' }); return; }
     const batch = await Batch.findById(req.params.id)
-      .populate('course_id', 'title fee description duration_weeks')
+      .populate('course_id', 'title fee description duration_weeks is_active')
       .populate('instructor_ids', 'name email phone')
       .lean();
 
@@ -44,7 +47,7 @@ export const getBatchDetails = async (req: Request, res: Response): Promise<void
     }
 
     const enrollments = await Enrollment.find({ batch_id: batch._id })
-      .populate('student_id', 'name email phone nic index_number is_active createdAt')
+      .populate('student_id', 'name email phone nic index_number registration_number is_active createdAt')
       .lean();
 
     const results = await Result.find({ batch_id: batch._id })
@@ -60,7 +63,7 @@ export const getBatchDetails = async (req: Request, res: Response): Promise<void
       enrollments,
       results,
       videos,
-      enrolled_count: enrollments.length
+      enrolled_count: enrollments.filter(entry => entry.status !== 'dropped').length
     });
   } catch (error) {
     console.error('Error in getBatchDetails:', error);
@@ -68,85 +71,45 @@ export const getBatchDetails = async (req: Request, res: Response): Promise<void
   }
 };
 
+// Delivery happens after the transaction; notification failure must never report a saved batch as failed.
+async function notifyBatch(batch: any, previousInstructorIds: string[], created: boolean) {
+  let delivered = true;
+  const safely = async (payload: any) => { try { await sendNotification(payload); } catch { delivered = false; } };
+  const added = batch.instructor_ids.map(String).filter((id: string) => !previousInstructorIds.includes(id));
+  const removed = previousInstructorIds.filter(id => !batch.instructor_ids.map(String).includes(id));
+  if (added.length) await safely({ userIds: added, title: 'Assigned to Batch', message: `You have been assigned to batch "${batch.name}".`, type: 'batch_assigned', relatedId: batch._id, link: '/instructor/home' });
+  if (removed.length) await safely({ userIds: removed, title: 'Batch Assignment Updated', message: `You are no longer assigned to batch "${batch.name}".`, type: 'batch_assigned', relatedId: batch._id, link: '/instructor/home' });
+  if (!created) {
+    const payload = { title: 'Batch Updated', message: `The details for batch "${batch.name}" have been updated. Status: ${batch.status}.`, type: 'schedule_change', relatedId: batch._id, link: '/schedule' };
+    await safely({ ...payload, batchId: batch._id });
+    if (batch.instructor_ids.length) await safely({ ...payload, userIds: batch.instructor_ids.map(String) });
+  }
+  return delivered;
+}
+const batchFailure = (res: Response, error: any) => res.status(error instanceof PracticalError ? error.status : 400).json({ message: error instanceof PracticalError ? error.message : 'Batch could not be saved. Check the details and try again.' });
 export const createBatch = async (req: Request, res: Response): Promise<void> => {
   try {
-    const batch = await Batch.create(req.body);
-
-    if (Array.isArray(batch.instructor_ids) && batch.instructor_ids.length > 0) {
-      await sendNotification({
-        userIds: batch.instructor_ids.map(id => String(id)),
-        title: 'Assigned to New Batch',
-        message: `You have been assigned as an instructor for batch "${batch.name}".`,
-        type: 'batch_assigned',
-        relatedId: batch._id,
-        link: '/instructor/home'
-      });
-    }
-
-    res.status(201).json(batch);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message || 'Server error' });
-  }
+    const { batch, previousInstructorIds } = await saveManagedBatch(null, req.body);
+    const notification_sent = await notifyBatch(batch, previousInstructorIds, true);
+    res.status(201).json({ ...batch.toObject(), notification_sent });
+  } catch (error) { batchFailure(res, error); }
 };
-
 export const updateBatch = async (req: Request, res: Response): Promise<void> => {
   try {
-    const batch = await Batch.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!batch) {
-      res.status(404).json({ message: 'Batch not found' });
-      return;
-    }
-
-    await sendNotification({
-      batchId: batch._id,
-      title: 'Batch Schedule Updated',
-      message: `The schedule or details for batch "${batch.name}" have been updated.`,
-      type: 'schedule_change',
-      relatedId: batch._id,
-      link: '/schedule'
-    });
-
-    res.json(batch);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
+    const { batch, previousInstructorIds } = await saveManagedBatch(String(req.params.id), req.body);
+    const notification_sent = await notifyBatch(batch, previousInstructorIds, false);
+    res.json({ ...batch.toObject(), notification_sent });
+  } catch (error) { batchFailure(res, error); }
 };
-
 export const deleteBatchCompletely = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const batchId = req.params.id;
-    const batch = await Batch.findById(batchId);
-    if (!batch) {
-      res.status(404).json({ message: 'Batch not found' });
-      return;
-    }
-
-    // Delete associated enrollments, results, videos
-    await Enrollment.deleteMany({ batch_id: batchId });
-    await Result.deleteMany({ batch_id: batchId });
-    await Video.deleteMany({ batch_id: batchId });
-
-    // Delete associated practice slots and their bookings
-    const slots = await PracticeSlot.find({ batch_id: batchId }).select('_id');
-    const slotIds = slots.map(s => s._id);
-    
-    if (slotIds.length > 0) {
-      await SlotBooking.deleteMany({ slot_id: { $in: slotIds } });
-      await PracticeSlot.deleteMany({ batch_id: batchId });
-    }
-
-    // Delete the batch
-    await batch.deleteOne();
-
-    res.json({ message: 'Batch and all related records deleted completely' });
-  } catch (error) {
-    console.error('Error deleting batch:', error);
-    res.status(500).json({ message: 'Server error during batch deletion' });
-  }
+  try { await deleteEmptyBatch(String(req.params.id)); res.json({ message: 'Empty batch deleted successfully.' }); }
+  catch (error) { batchFailure(res, error); }
 };
 
 export const getBatchStudents = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!validManagementId(req.params.id)) { res.status(400).json({ message: 'Invalid batch.' }); return; }
+    if (!await Batch.exists({ _id: req.params.id })) { res.status(404).json({ message: 'Batch not found.' }); return; }
     const enrollments = await Enrollment.find({ batch_id: req.params.id })
       .populate('student_id', 'name email nic index_number phone');
     res.json(enrollments);
@@ -157,45 +120,14 @@ export const getBatchStudents = async (req: Request, res: Response): Promise<voi
 
 export const enrollStudents = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { studentIds } = req.body;
-    const batch_id = req.params.id;
-
-    const batch = await Batch.findById(batch_id);
-    if (!batch) {
-      res.status(404).json({ message: 'Batch not found' });
-      return;
-    }
-
-    const currentEnrollments = await Enrollment.countDocuments({ batch_id });
-    if (currentEnrollments + studentIds.length > batch.capacity) {
-      res.status(400).json({ message: 'Batch capacity exceeded' });
-      return;
-    }
-
-    // Find existing enrollments for this batch to prevent duplicates
-    const existingEnrollments = await Enrollment.find({ batch_id });
-    const existingStudentIds = new Set(existingEnrollments.map(e => e.student_id.toString()));
-
-    const newStudentIds = studentIds.filter((id: string) => !existingStudentIds.has(id.toString()));
-
-    if (newStudentIds.length === 0) {
-      res.json({ message: 'All selected students are already enrolled in this batch' });
-      return;
-    }
-
-    const enrollmentsToCreate = newStudentIds.map((id: string) => ({
-      student_id: id,
-      batch_id,
-      enrolled_date: new Date(),
-      status: 'active'
-    }));
-
-    const createdEnrollments = await Enrollment.insertMany(enrollmentsToCreate);
+    const { batch, enrollments: createdEnrollments, newStudentIds } = await assignStudentsToBatch(String(req.params.id), req.body.studentIds);
+    if (newStudentIds.length === 0) { res.json({ message: 'All selected students are already enrolled in this batch' }); return; }
 
     const Course = (await import('../models/Course')).default;
     const course = await Course.findById(batch.course_id);
 
     for (const enrollment of createdEnrollments) {
+      if (!enrollment) continue;
       const student = await User.findById(enrollment.student_id);
       if (student && course) {
         try {
@@ -221,8 +153,10 @@ export const enrollStudents = async (req: Request, res: Response): Promise<void>
       }
     }
 
-    // Send in-app notifications to newly enrolled students and batch instructors
-    await sendNotification({
+    // Enrollment has committed; delivery failures do not undo assigned seats.
+    let notification_sent = true;
+    const notify = async (payload: any) => { try { await sendNotification(payload); } catch { notification_sent = false; } };
+    await notify({
       userIds: newStudentIds.map((id: string) => String(id)),
       title: 'Enrolled in Batch 🎉',
       message: `You have been enrolled in batch "${batch.name}"${course ? ` for ${(course as any).title}` : ''}.`,
@@ -232,7 +166,7 @@ export const enrollStudents = async (req: Request, res: Response): Promise<void>
     });
 
     if (Array.isArray(batch.instructor_ids) && batch.instructor_ids.length > 0) {
-      await sendNotification({
+      await notify({
         userIds: batch.instructor_ids.map(id => String(id)),
         title: 'New Students Enrolled',
         message: `${newStudentIds.length} new student(s) have been enrolled in your batch "${batch.name}".`,
@@ -242,8 +176,8 @@ export const enrollStudents = async (req: Request, res: Response): Promise<void>
       });
     }
 
-    res.json({ message: 'Students enrolled successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    res.json({ message: 'Students enrolled successfully', notification_sent, email_sent: !await Enrollment.exists({ _id: { $in: createdEnrollments.map(entry => entry!._id) }, batch_assignment_email_sent: { $ne: true } }) });
+  } catch (error: any) {
+    res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Enrollment failed. Please try again.' });
   }
 };

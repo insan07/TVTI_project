@@ -13,6 +13,8 @@ import {
   Keyboard,
   PanResponder,
   Vibration,
+  AccessibilityInfo,
+  useWindowDimensions,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -20,6 +22,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '../../context/ThemeContext';
+import { COLORS } from '../../config/theme';
+import { useTabGlassBackdrop } from './TabGlassBackdrop';
+import { floatingTabBarBottom } from './floatingTabBarLayout';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -54,7 +59,10 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   navigation,
 }) => {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { isDark } = useTheme();
+  const blurTarget = useTabGlassBackdrop();
+  const reduceMotionRef = useRef(false);
   const [tabLayouts, setTabLayouts] = useState<{ [key: number]: LayoutRectangle }>({});
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
@@ -69,6 +77,17 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   const activeIndexRef = useRef(0);
   const currentTranslateXRef = useRef(0);
   const currentIndicatorWidthRef = useRef(44);
+
+  useEffect(() => {
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then(enabled => {
+      if (mounted) reduceMotionRef.current = enabled;
+    });
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', enabled => {
+      reduceMotionRef.current = enabled;
+    });
+    return () => { mounted = false; subscription.remove(); };
+  }, []);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -119,6 +138,29 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   const translateX = useRef(new Animated.Value(0)).current;
   const indicatorWidth = useRef(new Animated.Value(44)).current;
   const indicatorScale = useRef(new Animated.Value(1)).current;
+  const jelly = useRef(new Animated.Value(0)).current;
+
+  const animateIndicator = (layout: LayoutRectangle, immediate = false) => {
+    translateX.stopAnimation();
+    indicatorWidth.stopAnimation();
+    indicatorScale.stopAnimation();
+    jelly.stopAnimation();
+    if (immediate || reduceMotionRef.current) {
+      translateX.setValue(layout.x);
+      indicatorWidth.setValue(layout.width);
+      indicatorScale.setValue(1);
+      jelly.setValue(0);
+      return;
+    }
+    // Stretch horizontally on travel, then wobble back into a rounded droplet.
+    jelly.setValue(1);
+    Animated.parallel([
+      Animated.spring(translateX, { toValue: layout.x, tension: 92, friction: 9, useNativeDriver: false }),
+      Animated.spring(indicatorWidth, { toValue: layout.width, tension: 92, friction: 9, useNativeDriver: false }),
+      Animated.spring(indicatorScale, { toValue: 1, tension: 100, friction: 7, useNativeDriver: false }),
+      Animated.spring(jelly, { toValue: 0, tension: 145, friction: 5.5, useNativeDriver: false }),
+    ]).start();
+  };
 
   const [hasMeasured, setHasMeasured] = useState(false);
 
@@ -136,69 +178,18 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
     };
   }, [translateX, indicatorWidth]);
 
-  // Spring to current active tab layout when not dragging
+  // Follow layout changes as the selected label expands its tab.
   useEffect(() => {
     if (isDraggingRef.current) return;
-
-    if (activeIndex !== -1 && tabLayouts[activeIndex]) {
-      const { x, width } = tabLayouts[activeIndex];
-
-      if (!hasMeasured) {
-        translateX.setValue(x);
-        indicatorWidth.setValue(width);
-        setHasMeasured(true);
-      } else {
-        triggerHaptic('tick');
-
-        // Clean, responsive Apple-calibrated spring animation
-        Animated.parallel([
-          Animated.spring(translateX, {
-            toValue: x,
-            tension: 68,
-            friction: 9.5,
-            useNativeDriver: false,
-          }),
-          Animated.spring(indicatorWidth, {
-            toValue: width,
-            tension: 68,
-            friction: 9.5,
-            useNativeDriver: false,
-          }),
-          Animated.spring(indicatorScale, {
-            toValue: 1.0,
-            tension: 68,
-            friction: 9,
-            useNativeDriver: false,
-          }),
-        ]).start();
-      }
-    }
+    const layout = tabLayouts[activeIndex];
+    if (activeIndex === -1 || !layout) return;
+    animateIndicator(layout, !hasMeasured);
+    if (!hasMeasured) setHasMeasured(true);
   }, [activeIndex, tabLayouts]);
 
   const snapToTab = (idx: number) => {
     const layout = tabLayoutsRef.current[idx];
-    if (layout) {
-      Animated.parallel([
-        Animated.spring(translateX, {
-          toValue: layout.x,
-          tension: 68,
-          friction: 9.5,
-          useNativeDriver: false,
-        }),
-        Animated.spring(indicatorWidth, {
-          toValue: layout.width,
-          tension: 68,
-          friction: 9.5,
-          useNativeDriver: false,
-        }),
-        Animated.spring(indicatorScale, {
-          toValue: 1.0,
-          tension: 68,
-          friction: 9,
-          useNativeDriver: false,
-        }),
-      ]).start();
-    }
+    if (layout) animateIndicator(layout);
   };
 
   const finishDrag = () => {
@@ -224,7 +215,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
       });
 
       if (!event.defaultPrevented) {
-        LayoutAnimation.configureNext({
+        if (!reduceMotionRef.current) LayoutAnimation.configureNext({
           duration: 220,
           update: { type: 'spring', springDamping: 0.85 },
           create: { type: 'linear', property: 'opacity' },
@@ -261,7 +252,12 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
         dragHoverIndexRef.current = curActive;
         setDragHoverIndex(curActive);
 
-        // Subtle lift scale when picked up
+        translateX.stopAnimation();
+        indicatorWidth.stopAnimation();
+        if (reduceMotionRef.current) return;
+        jelly.stopAnimation();
+        jelly.setValue(-0.35);
+        // Lift the glass droplet while it follows the finger.
         Animated.spring(indicatorScale, {
           toValue: 1.04,
           tension: 80,
@@ -285,6 +281,9 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
 
         const clampedX = Math.max(minX, Math.min(maxX, rawX));
         translateX.setValue(clampedX);
+        if (!reduceMotionRef.current) {
+          jelly.setValue(Math.min(1, Math.abs(gestureState.vx) * 0.42 + 0.18));
+        }
 
         // Find closest tab to indicator center
         const bubbleCenter = clampedX + curWidth / 2;
@@ -314,7 +313,11 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
         finishDrag();
       },
       onPanResponderTerminate: () => {
-        finishDrag();
+        isDraggingRef.current = false;
+        setIsDragging(false);
+        setDragHoverIndex(null);
+        dragHoverIndexRef.current = null;
+        snapToTab(activeIndexRef.current);
       },
     })
   ).current;
@@ -322,6 +325,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   if (visibleRoutes.length === 0) return null;
 
   const isScrollable = visibleRoutes.length > 5;
+  const showActiveLabel = windowWidth >= 380 || visibleRoutes.length <= 4;
 
   const handleLayout = (index: number, layout: LayoutRectangle) => {
     setTabLayouts((prev) => {
@@ -337,8 +341,8 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
   }
 
   return (
-    <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom + 10, 16) }]}>
-      {/* Clean, Elegant Floating Dock */}
+    <View pointerEvents="box-none" style={[styles.outerWrapper, { bottom: floatingTabBarBottom(insets.bottom) }]}>
+      {/* Translucent dock with a reflected rim and a clear center. */}
       <View
         {...panResponder.panHandlers}
         style={[
@@ -346,11 +350,27 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
           isDark ? styles.tabBarContainerDark : styles.tabBarContainerLight,
         ]}
       >
-        <BlurView
-          intensity={Platform.OS === 'android' ? 30 : 50}
-          tint={isDark ? 'dark' : 'light'}
+        {Platform.OS !== 'web' && (Platform.OS !== 'android' || blurTarget) && (
+          <BlurView
+            pointerEvents="none"
+            intensity={40}
+            tint={isDark ? 'dark' : 'light'}
+            blurTarget={blurTarget}
+            blurMethod="dimezisBlurViewSdk31Plus"
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+        <LinearGradient
+          pointerEvents="none"
+          colors={isDark
+            ? ['rgba(255, 255, 255, 0.14)', 'rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.06)']
+            : ['rgba(255, 255, 255, 0.60)', 'rgba(255, 255, 255, 0.06)', 'rgba(255, 255, 255, 0.24)']}
+          locations={[0, 0.5, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
+        <View pointerEvents="none" style={[styles.dockRim, { backgroundColor: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.95)' }]} />
 
         <ScrollView
           horizontal
@@ -362,27 +382,27 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
             !isScrollable && { flex: 1, justifyContent: 'space-between' }
           ]}
         >
-          {/* Crisp, Modern Active Indicator Pill */}
+          {/* The active droplet stretches and settles with a damped spring. */}
           {hasMeasured && (
             <Animated.View
+              pointerEvents="none"
               style={[
                 styles.activeIndicator,
+                isDark ? styles.activeIndicatorDark : styles.activeIndicatorLight,
                 isDragging && styles.activeIndicatorDragging,
                 {
                   width: indicatorWidth,
                   transform: [
                     { translateX },
                     { scale: indicatorScale },
+                    { scaleX: jelly.interpolate({ inputRange: [-1, 0, 1], outputRange: [0.94, 1, 1.16], extrapolate: 'clamp' }) },
+                    { scaleY: jelly.interpolate({ inputRange: [-1, 0, 1], outputRange: [1.06, 1, 0.86], extrapolate: 'clamp' }) },
                   ],
                 },
               ]}
             >
-              <LinearGradient
-                colors={['#F97316', '#EA580C']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.indicatorGradient}
-              />
+              <View style={styles.indicatorFill} />
+              <View style={styles.dropletReflection} />
             </Animated.View>
           )}
 
@@ -419,6 +439,9 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
             const onPress = () => {
               if (isDraggingRef.current) return;
 
+              triggerHaptic('tick');
+              if (isFocused) snapToTab(idx);
+
               const event = navigation.emit({
                 type: 'tabPress',
                 target: route.key,
@@ -426,7 +449,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
               });
 
               if (!isFocused && !event.defaultPrevented) {
-                LayoutAnimation.configureNext({
+                if (!reduceMotionRef.current) LayoutAnimation.configureNext({
                   duration: 220,
                   update: { type: 'spring', springDamping: 0.85 },
                   create: { type: 'linear', property: 'opacity' },
@@ -444,8 +467,8 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
             };
 
             const iconColor = (isFocused && !isDragging) || isHovered
-              ? '#FFFFFF'
-              : (isDark ? '#94A3B8' : '#64748B');
+              ? COLORS.textOnPrimary
+              : (isDark ? '#CBD5E1' : COLORS.textSecondary);
 
             return (
               <TouchableOpacity
@@ -453,14 +476,14 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
                 onLayout={(e) => handleLayout(idx, e.nativeEvent.layout)}
                 accessibilityRole="button"
                 accessibilityState={isFocused ? { selected: true } : {}}
-                accessibilityLabel={options.tabBarAccessibilityLabel}
-                testID={(options as any).tabBarTestID}
+                accessibilityLabel={options.tabBarAccessibilityLabel ?? label}
+                testID={options.tabBarButtonTestID}
                 onPress={onPress}
                 onLongPress={onLongPress}
-                activeOpacity={0.8}
+                activeOpacity={0.9}
                 style={[
                   styles.tabItem,
-                  isFocused ? styles.activeTabItem : styles.inactiveTabItem,
+                  isFocused && showActiveLabel ? styles.activeTabItem : styles.inactiveTabItem,
                   Platform.OS === 'web' && ({ cursor: isDragging ? 'grabbing' : 'pointer' } as any),
                 ]}
               >
@@ -469,7 +492,7 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
                   size={20}
                   color={iconColor}
                 />
-                {isFocused && (
+                {isFocused && showActiveLabel && (
                   <Text
                     style={[
                       styles.activeLabel,
@@ -501,7 +524,7 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   tabBarContainer: {
-    borderRadius: 28,
+    borderRadius: 32,
     paddingHorizontal: 6,
     paddingVertical: 5,
     maxWidth: 400,
@@ -510,14 +533,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   tabBarContainerDark: {
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    backgroundColor: 'rgba(26, 26, 26, 0.30)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.24)',
     ...Platform.select({
       web: {
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.50)',
+        backdropFilter: 'blur(22px) saturate(175%)',
+        WebkitBackdropFilter: 'blur(22px) saturate(175%)',
+        boxShadow: '0 12px 36px -8px rgba(0, 0, 0, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.26), inset 0 -1px 0 rgba(255, 255, 255, 0.06)',
       },
       default: {
         shadowColor: '#000000',
@@ -529,17 +552,17 @@ const styles = StyleSheet.create({
     }),
   },
   tabBarContainerLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.90)',
+    backgroundColor: 'rgba(255, 255, 255, 0.24)',
     borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.85)',
+    borderColor: 'rgba(255, 255, 255, 0.76)',
     ...Platform.select({
       web: {
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        boxShadow: '0px 8px 24px rgba(15, 23, 42, 0.08)',
+        backdropFilter: 'blur(22px) saturate(175%)',
+        WebkitBackdropFilter: 'blur(22px) saturate(175%)',
+        boxShadow: '0 12px 36px -8px rgba(26, 26, 26, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(255, 255, 255, 0.38)',
       },
       default: {
-        shadowColor: '#0F172A',
+        shadowColor: COLORS.primary,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.08,
         shadowRadius: 14,
@@ -551,23 +574,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
     position: 'relative',
+  },
+  dockRim: {
+    position: 'absolute',
+    top: 0,
+    left: 26,
+    right: 26,
+    height: 1,
   },
   activeIndicator: {
     position: 'absolute',
     left: 0,
-    top: 0,
+    top: 4,
     height: 44,
     borderRadius: 22,
     overflow: 'hidden',
     zIndex: 1,
+    borderWidth: 1,
     ...Platform.select({
       web: {
-        boxShadow: '0px 3px 12px rgba(249, 115, 22, 0.32)',
+        boxShadow: '0px 3px 12px rgba(245, 130, 32, 0.32)',
         cursor: 'grab' as any,
       },
       default: {
-        shadowColor: '#F97316',
+        shadowColor: COLORS.secondary,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.30,
         shadowRadius: 8,
@@ -575,14 +608,22 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  activeIndicatorLight: {
+    backgroundColor: COLORS.tabBarActive,
+    borderColor: 'rgba(255, 255, 255, 0.88)',
+  },
+  activeIndicatorDark: {
+    backgroundColor: COLORS.tabBarActive,
+    borderColor: 'rgba(255, 255, 255, 0.40)',
+  },
   activeIndicatorDragging: {
     ...Platform.select({
       web: {
-        boxShadow: '0px 6px 18px rgba(249, 115, 22, 0.45)',
+        boxShadow: '0px 6px 18px rgba(245, 130, 32, 0.45)',
         cursor: 'grabbing' as any,
       },
       default: {
-        shadowColor: '#F97316',
+        shadowColor: COLORS.secondary,
         shadowOffset: { width: 0, height: 5 },
         shadowOpacity: 0.45,
         shadowRadius: 12,
@@ -590,9 +631,19 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  indicatorGradient: {
+  indicatorFill: {
     ...StyleSheet.absoluteFill,
+    backgroundColor: COLORS.tabBarActive,
     borderRadius: 22,
+  },
+  dropletReflection: {
+    position: 'absolute',
+    top: 2,
+    left: 12,
+    right: 12,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.70)',
+    borderRadius: 1,
   },
   tabItem: {
     flexDirection: 'row',
@@ -611,7 +662,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   activeLabel: {
-    color: '#FFFFFF',
+    color: COLORS.textOnPrimary,
     fontWeight: '600',
     fontSize: 13,
     marginLeft: 6,

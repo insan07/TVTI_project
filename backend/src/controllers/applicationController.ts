@@ -11,72 +11,10 @@ import { sendNotification } from '../services/notificationService';
 import { isEmailVerified, consumeEmailVerification } from '../services/otpService';
 import { sendApplicationSubmissionEmail, sendApprovalEmail, sendRejectionEmail } from '../services/emailService';
 
-/**
- * Generates a sequential, unique Registration Number in the format TVTI-YYYY-00001
- */
-export const generateUniqueRegistrationNumber = async (): Promise<string> => {
-  const currentYear = new Date().getFullYear();
-  const prefix = `TVTI-${currentYear}-`;
-  const regex = new RegExp(`^TVTI-${currentYear}-(\\d+)`);
-
-  const [users, applications] = await Promise.all([
-    User.find({ registration_number: { $regex: regex } }).select('registration_number'),
-    Application.find({ registration_number: { $regex: regex } }).select('registration_number')
-  ]);
-
-  let maxSeq = 0;
-  const processRegNo = (regNo?: string) => {
-    if (regNo) {
-      const match = regNo.match(regex);
-      if (match && match[1]) {
-        const seq = parseInt(match[1], 10);
-        if (seq > maxSeq) maxSeq = seq;
-      }
-    }
-  };
-
-  for (const u of users) processRegNo(u.registration_number);
-  for (const a of applications) processRegNo(a.registration_number);
-
-  const nextSeq = maxSeq + 1;
-  return `${prefix}${String(nextSeq).padStart(5, '0')}`;
-};
-
-/**
- * Generates a secure random temporary password (e.g. TVTI@K7mP92x)
- */
-export const generateTemporaryPassword = (): string => {
-  const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-  let randomStr = '';
-  const bytes = crypto.randomBytes(7);
-  for (let i = 0; i < 7; i++) {
-    randomStr += charset[bytes[i] % charset.length];
-  }
-  return `TVTI@${randomStr}`;
-};
-
-
-export const generateUniqueIndexNumber = async (): Promise<string> => {
-  const fullYear = new Date().getFullYear();
-  const year2Digits = String(fullYear).slice(-2); // e.g. 2026 -> 26
-  const prefix = `${year2Digits}T`;
-  const regex = new RegExp(`^${year2Digits}T(\\d+)`);
-  const users = await User.find({ index_number: { $regex: regex } }).select('index_number');
-
-  let maxSeq = 0;
-  for (const u of users) {
-    if (u.index_number) {
-      const match = u.index_number.match(regex);
-      if (match && match[1]) {
-        const seq = parseInt(match[1], 10);
-        if (seq > maxSeq) maxSeq = seq;
-      }
-    }
-  }
-
-  const nextSeq = maxSeq + 1;
-  return `${prefix}${String(nextSeq).padStart(4, '0')}`;
-};
+import { approveStudentApplication, regenerateApprovedApplicationCredentials } from '../services/studentAdmissions';
+import { PracticalError, practicalMutation } from '../services/practicalScheduling';
+import { generateTemporaryPassword, generateUniqueIndexNumber, generateUniqueRegistrationNumber } from '../utils/admissionIdentifiers';
+export { generateTemporaryPassword, generateUniqueIndexNumber, generateUniqueRegistrationNumber } from '../utils/admissionIdentifiers';
 
 export const submitApplication = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -289,243 +227,58 @@ export const getApplications = async (req: Request, res: Response): Promise<void
 
 export const updateApplicationStatus = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const { status, assigned_course_ids, total_course_fee, amount_paid, payment_status, rejection_reason } = req.body;
-
-    const application = await Application.findById(id).populate('course_id').populate('course_ids');
-    if (!application) {
-      res.status(404).json({ message: 'Application not found' });
-      return;
+    const status = req.body.status;
+    if (!['pending', 'contacted', 'paid', 'approved', 'rejected'].includes(status) || !mongoose.isValidObjectId(req.params.id)) {
+      res.status(400).json({ message: 'Select a valid application and status.' }); return;
     }
-
-    if (status === 'approved' && application.status === 'approved') {
-      res.status(400).json({
-        message: 'This application has already been approved. Duplicate approval is not permitted.',
-        application
-      });
-      return;
-    }
-
-    application.status = status;
-    if (status === 'rejected') {
-      if (rejection_reason && rejection_reason.trim()) {
-        application.rejection_reason = rejection_reason.trim();
-      } else if (!application.rejection_reason) {
-        application.rejection_reason = 'Application details did not meet entry requirements.';
-      }
-    }
-
-    if (assigned_course_ids && Array.isArray(assigned_course_ids) && assigned_course_ids.length > 0) {
-      application.course_ids = assigned_course_ids as any;
-      application.course_id = assigned_course_ids[0] as any;
-    }
-
-    if (total_course_fee !== undefined) {
-      application.total_course_fee = Number(total_course_fee);
-    }
-    if (amount_paid !== undefined) {
-      application.amount_paid = Number(amount_paid);
-    }
-    if (payment_status) {
-      application.payment_status = payment_status;
-    }
-
-    let generatedCredentials = null;
-    let regNumber = application.registration_number;
-    let emailSent = false;
-    let emailError: string | undefined = undefined;
-
-    if (status === 'rejected') {
-      try {
-        const mailRes = await sendRejectionEmail({
-          to: application.email,
-          name: application.full_name,
-          rejectionReason: application.rejection_reason || 'Application details did not meet entry requirements.'
-        });
-        emailSent = mailRes.success;
-      } catch (mailErr: any) {
-        console.error('Failed to send rejection email:', mailErr);
-        emailSent = false;
-        emailError = mailErr?.message || String(mailErr);
-      }
-    }
-
-    if (status === 'approved') {
-      const orConditions: any[] = [{ email: application.email.toLowerCase() }];
-      if (application.nic_number && application.nic_number.trim()) {
-        orConditions.push({ nic: application.nic_number.trim() });
-      }
-      let studentUser = await User.findOne({ $or: orConditions });
-
-      // Generate Registration Number if not already assigned
-      if (!regNumber) {
-        regNumber = await generateUniqueRegistrationNumber();
-      }
-
-      // Generate Secure Random Temp Password e.g. TVTI@K7mP92x
-      const tempPassword = generateTemporaryPassword();
-      const salt = await bcrypt.genSalt(10);
-      const password_hash = await bcrypt.hash(tempPassword, salt);
-      const temp_password_expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-      let indexNumber = '';
-
-      if (studentUser) {
-        // If user exists without index_number or registration_number, assign them
-        if (!studentUser.index_number) {
-          studentUser.index_number = await generateUniqueIndexNumber();
-        }
-        studentUser.registration_number = regNumber;
-        indexNumber = studentUser.index_number;
-        studentUser.password_hash = password_hash;
-        studentUser.must_change_password = true;
-        studentUser.temp_password_expires_at = temp_password_expires_at;
-        studentUser.is_active = true;
-        studentUser.nic = application.nic_number || studentUser.nic;
-        studentUser.date_of_birth = application.date_of_birth || studentUser.date_of_birth;
-        studentUser.gender = application.gender || studentUser.gender;
-        studentUser.address = application.address || studentUser.address;
-        studentUser.guardian = application.guardian || studentUser.guardian;
-        studentUser.educational_qualification = application.educational_qualification || studentUser.educational_qualification;
-        if (application.student_photo && !studentUser.profile_photo) {
-          studentUser.profile_photo = application.student_photo;
-        }
-        studentUser.payment_info = {
-          total_fee: application.total_course_fee || 0,
-          amount_paid: application.amount_paid || 0,
-          payment_status: application.payment_status || 'pending',
-          payment_method: application.payment_method || 'physical_pay',
-          payment_slip: application.payment_slip || '',
-          receipt_number: `REC-${Date.now().toString().slice(-6)}`,
-          last_updated: new Date()
-        };
-        await studentUser.save();
-      } else {
-        indexNumber = await generateUniqueIndexNumber();
-        studentUser = await User.create({
-          name: application.full_name,
-          email: application.email.toLowerCase(),
-          phone: application.phone,
-          nic: application.nic_number,
-          date_of_birth: application.date_of_birth,
-          gender: application.gender,
-          address: application.address,
-          guardian: application.guardian,
-          educational_qualification: application.educational_qualification,
-          profile_photo: application.student_photo,
-          payment_info: {
-            total_fee: application.total_course_fee || 0,
-            amount_paid: application.amount_paid || 0,
-            payment_status: application.payment_status || 'pending',
-            payment_method: application.payment_method || 'physical_pay',
-            payment_slip: application.payment_slip || '',
-            receipt_number: `REC-${Date.now().toString().slice(-6)}`,
-            last_updated: new Date()
-          },
-          index_number: indexNumber,
-          registration_number: regNumber,
-          password_hash,
-          role: 'student',
-          is_active: true,
-          must_change_password: true,
-          temp_password_expires_at
-        });
-      }
-
-      application.registration_number = regNumber;
-      application.generated_index_number = indexNumber;
-
-      generatedCredentials = {
-        registration_number: regNumber,
-        index_number: indexNumber,
-        temp_password: tempPassword,
-        email: application.email,
-        student_id: studentUser._id
-      };
-
-      // Auto-enroll into active batch(es)
-      try {
-        const coursesToEnroll = (assigned_course_ids && assigned_course_ids.length > 0)
-          ? assigned_course_ids
-          : ((application.course_ids && application.course_ids.length > 0)
-              ? application.course_ids.map((c: any) => c._id || c)
-              : [application.course_id]);
-
-        for (const targetCourseId of coursesToEnroll) {
-          const activeBatch = await Batch.findOne({ course_id: targetCourseId }).sort({ createdAt: -1 });
-          if (activeBatch) {
-            const existingEnrollment = await Enrollment.findOne({
-              student_id: studentUser._id,
-              batch_id: activeBatch._id
-            });
-            if (!existingEnrollment) {
-              await Enrollment.create({
-                student_id: studentUser._id,
-                batch_id: activeBatch._id,
-                enrolled_date: new Date(),
-                status: 'active'
-              });
-            }
-          }
-        }
-      } catch (enrollErr) {
-        console.warn('Auto enrollment warning:', enrollErr);
-      }
-
-      // Send official approval credentials email via Nodemailer
-      try {
-        const emailResult = await sendApprovalEmail({
-          to: application.email,
-          name: application.full_name,
-          registrationNumber: regNumber,
-          temporaryPassword: tempPassword
-        });
-        emailSent = emailResult.success;
-        application.approval_email_sent = true;
-        application.approval_email_sent_at = new Date();
-        application.approval_email_error = undefined;
-      } catch (mailErr: any) {
-        console.error('Failed to send approval email via Nodemailer:', mailErr);
-        emailSent = false;
-        emailError = mailErr?.message || String(mailErr);
-        application.approval_email_sent = false;
-        application.approval_email_error = emailError;
-      }
-    }
-
-    await application.save();
-
-    // Send instant notification if student account exists
-    try {
-      const matchingUser = await User.findOne({ email: application.email.toLowerCase() });
-      if (matchingUser) {
-        await sendNotification({
-          userIds: [matchingUser._id],
-          title: `Application ${status.toUpperCase()}`,
-          message: status === 'approved'
-            ? `Congratulations! Your TVTI course application has been APPROVED. Reg No: ${regNumber || 'Assigned'}.`
-            : `Your TVTI application status has been updated to: ${status}.`,
-          type: 'application_update',
-          relatedId: application._id,
-          link: '/profile'
-        });
-      }
-    } catch (notifErr) {
-      console.warn('In-app notification warning:', notifErr);
-    }
-
-    res.json({
-      success: true,
-      message: `Application marked as ${status}${status === 'approved' ? (emailSent ? ' and credentials sent via email' : ' but approval email delivery failed') : ''}`,
-      application,
-      registration_number: regNumber,
-      email_sent: emailSent,
-      email_error: emailError,
-      credentials: generatedCredentials
+    let result: any;
+    if (status === 'approved') result = await approveStudentApplication(String(req.params.id), req.body);
+    else result = await practicalMutation(async session => {
+      const application = await Application.findById(req.params.id).session(session);
+      if (!application) throw new PracticalError(404, 'Application not found.');
+      application.status = status;
+      if (status === 'rejected') application.rejection_reason = String(req.body.rejection_reason || '').trim() || 'Application details did not meet entry requirements.';
+      await application.save({ session });
+      if (status === 'rejected') await User.updateOne({ email: application.email.toLowerCase().trim(), role: 'student' }, { $set: { status: 'rejected', is_active: false } }, { session });
+      return { application };
     });
-  } catch (error) {
-    console.error('Error updating application status:', error);
-    res.status(500).json({ message: 'Server error updating application status' });
+    const application = result.application;
+    let emailSent = false, emailError: string | undefined;
+    if (status === 'approved' || status === 'rejected') {
+      try {
+        const mail = status === 'approved' ? await sendApprovalEmail({ to: application.email, name: application.full_name, registrationNumber: result.credentials.registration_number, temporaryPassword: result.credentials.temp_password })
+          : await sendRejectionEmail({ to: application.email, name: application.full_name, rejectionReason: application.rejection_reason });
+        emailSent = !!mail.success;
+        if (!emailSent) emailError = 'Email delivery failed.';
+      } catch (error: any) { emailError = error.message || 'Email delivery failed.'; }
+      if (status === 'approved') await Application.findByIdAndUpdate(application._id, { approval_email_sent: emailSent, approval_email_sent_at: emailSent ? new Date() : undefined, approval_email_error: emailError });
+    }
+    try {
+      const student = result.student || await User.findOne({ email: application.email.toLowerCase(), role: 'student' });
+      if (student) await sendNotification({ userIds: [String(student._id)], title: status === 'approved' ? 'Application approved' : 'Application updated', message: status === 'approved' ? 'Your application is approved and your selected batches are assigned.' : `Your application status is ${status}.`, type: 'application_update', relatedId: application._id, link: '/profile' });
+    } catch (error) { console.warn('Application notification could not be delivered.'); }
+    res.json({ success: true, message: status === 'approved' ? 'Application approved and batches assigned.' : `Application marked as ${status}.`, application, credentials: result.credentials || null, assigned_batch_ids: result.batches?.map((batch: any) => batch._id), email_sent: emailSent, email_error: emailError });
+  } catch (error: any) {
+    res.status(error instanceof PracticalError ? error.status : error.code === 11000 ? 409 : 500).json({ message: error instanceof PracticalError ? error.message : error.code === 11000 ? 'The student account already exists. Refresh and try again.' : 'Application update failed. Please try again.' });
+  }
+};
+
+export const resendApplicationCredentials = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await regenerateApprovedApplicationCredentials(String(req.params.id));
+    let emailSent = false;
+    try {
+      const mail = await sendApprovalEmail({ to: result.student.email, name: result.student.name, registrationNumber: result.credentials.registration_number, temporaryPassword: result.credentials.temp_password });
+      emailSent = !!mail.success;
+    } catch { /* Return the generated credentials so the admin can still save them. */ }
+    await Application.findByIdAndUpdate(result.application._id, {
+      approval_email_sent: emailSent,
+      approval_email_sent_at: emailSent ? new Date() : undefined,
+      approval_email_error: emailSent ? undefined : 'Email delivery failed.'
+    });
+    res.json({ success: true, message: emailSent ? 'New credentials emailed to the student.' : 'New credentials generated, but email delivery failed.', credentials: result.credentials, email_sent: emailSent });
+  } catch (error: any) {
+    res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Credentials could not be resent. Please try again.' });
   }
 };
 

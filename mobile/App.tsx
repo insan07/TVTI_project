@@ -8,6 +8,13 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import Toast from './src/components/shared/Toast';
 import OfflineBanner from './src/components/shared/OfflineBanner';
 import AppLoadingAnimation from './src/components/shared/AppLoadingAnimation';
+import * as SplashScreen from 'expo-splash-screen';
+
+if (Platform.OS !== 'web') {
+  void SplashScreen.preventAutoHideAsync().catch(() => {});
+  SplashScreen.setOptions({ duration: 350, fade: true });
+}
+const hideNativeSplash = () => { if (Platform.OS !== 'web') void SplashScreen.hideAsync().catch(() => {}); };
 
 import {
   useFonts,
@@ -20,7 +27,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     ...Ionicons.font,
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -99,12 +106,12 @@ export default function App() {
     }
   }, []);
 
-  if (!fontsLoaded) {
-    return <AppLoadingAnimation message="Loading resources..." />;
+  if (!fontsLoaded && !fontError) {
+    return <AppLoadingAnimation message="Preparing your learning space" onReady={hideNativeSplash} />;
   }
 
   return (
-    <SafeAreaProvider style={{ flex: 1 }}>
+    <SafeAreaProvider style={{ flex: 1 }} onLayout={hideNativeSplash}>
       <ThemeProvider>
         <ThemedApp />
       </ThemeProvider>

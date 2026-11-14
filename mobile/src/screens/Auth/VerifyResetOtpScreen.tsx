@@ -1,22 +1,10 @@
+import { KeyboardAvoidingView } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  useWindowDimensions,
-  ScrollView,
-  Keyboard,
-  Alert
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Platform, useWindowDimensions, Keyboard, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { AuthGlassSurface, authGlassStyles } from '../../components/shared/AuthGlassSurface';
+import { AuthFormScrollView, AuthTextInput } from '../../components/shared/AuthForm';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { RADIUS } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -55,7 +43,7 @@ export default function VerifyResetOtpScreen() {
   }, []);
 
   // Theme mode: 'light' | 'dark'
-  const { mode: themeMode, isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme } = useTheme();
 
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -71,49 +59,6 @@ export default function VerifyResetOtpScreen() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  // Web autofill styles for chrome/safari input boxes
-  useEffect(() => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const styleId = 'lms-autofill-styles';
-      let style = document.getElementById(styleId) as HTMLStyleElement | null;
-      if (!style) {
-        style = document.createElement('style');
-        style.id = styleId;
-        document.head.appendChild(style);
-      }
-      if (themeMode === 'light') {
-        style.innerHTML = `
-          input:-webkit-autofill,
-          input:-webkit-autofill:hover, 
-          input:-webkit-autofill:focus,
-          input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
-            -webkit-text-fill-color: #0F172A !important;
-            caret-color: #0F172A !important;
-            transition: background-color 5000s ease-in-out 0s;
-          }
-          input {
-            background-color: transparent !important;
-          }
-        `;
-      } else {
-        style.innerHTML = `
-          input:-webkit-autofill,
-          input:-webkit-autofill:hover, 
-          input:-webkit-autofill:focus,
-          input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 1000px rgba(22, 16, 12, 0.70) inset !important;
-            -webkit-text-fill-color: #FFFFFF !important;
-            caret-color: #FFFFFF !important;
-            transition: background-color 5000s ease-in-out 0s;
-          }
-          input {
-            background-color: transparent !important;
-          }
-        `;
-      }
-    }
-  }, [themeMode]);
 
   const handleVerifyOtp = async () => {
     setErrorMsg('');
@@ -169,19 +114,7 @@ export default function VerifyResetOtpScreen() {
         isDesktop && (isLight ? styles.desktopCardLight : styles.desktopCardDark),
       ]}
     >
-      <BlurView
-        intensity={Platform.OS === 'android' ? 35 : 55}
-        tint={isLight ? 'light' : 'dark'}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* Specular Top Rim Reflection Sheen */}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.cardTopSheen,
-          { backgroundColor: isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.18)' },
-        ]}
-      />
+      <AuthGlassSurface isLight={isLight} />
 
       <Text style={[styles.welcomeTitle, { color: isLight ? '#0F172A' : '#FFFFFF' }]}>
         Verify Code
@@ -221,7 +154,7 @@ export default function VerifyResetOtpScreen() {
           color={isFocused ? '#FF5E14' : (isLight ? '#94A3B8' : '#8A7D71')}
           style={styles.inputIcon}
         />
-        <TextInput
+        <AuthTextInput
           style={[
             styles.input,
             { letterSpacing: 4, fontWeight: '700', color: isLight ? '#0F172A' : '#FFFFFF' },
@@ -361,7 +294,7 @@ export default function VerifyResetOtpScreen() {
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-        <ScrollView
+        <AuthFormScrollView
           style={{ flex: 1 }}
           contentContainerStyle={[
             isDesktop ? styles.desktopScrollContent : styles.mobileScrollContent,
@@ -443,7 +376,7 @@ export default function VerifyResetOtpScreen() {
               </View>
             </View>
           )}
-        </ScrollView>
+        </AuthFormScrollView>
       </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -613,48 +546,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  cardTopSheen: {
-    position: 'absolute',
-    top: 0,
-    left: 20,
-    right: 20,
-    height: 1.5,
-    borderRadius: 1,
-    zIndex: 2,
-  },
   cardLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.74)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 28,
-    elevation: 8,
-    ...(Platform.OS === 'web'
-      ? ({
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        boxShadow: '0 16px 40px -8px rgba(15, 23, 42, 0.10), 0 0 1px 1px rgba(255, 255, 255, 0.9)',
-      } as any)
-      : {}),
+    ...authGlassStyles.light,
   },
   cardDark: {
-    backgroundColor: 'rgba(20, 27, 38, 0.74)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.50,
-    shadowRadius: 28,
-    elevation: 10,
-    ...(Platform.OS === 'web'
-      ? ({
-        backdropFilter: 'blur(26px)',
-        WebkitBackdropFilter: 'blur(26px)',
-        boxShadow: '0 20px 48px -10px rgba(0, 0, 0, 0.55), 0 0 1px 1px rgba(255, 255, 255, 0.08)',
-      } as any)
-      : {}),
+    ...authGlassStyles.dark,
   },
   desktopCardLight: {
     paddingVertical: 38,
@@ -664,31 +560,18 @@ const styles = StyleSheet.create({
     paddingVertical: 36,
     paddingHorizontal: 34,
   },
-  backButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    alignSelf: 'flex-start',
-  },
-  backButtonText: {
-    color: '#FF6500',
-    fontSize: 13,
-    fontWeight: '600',
-  },
   welcomeTitle: {
+    textAlign: 'center',
     fontSize: 25,
     fontWeight: '700',
     marginBottom: 6,
     letterSpacing: -0.2,
-    textAlign: 'center',
-    alignSelf: 'center',
   },
   welcomeSubtitle: {
+    textAlign: 'center',
     fontSize: 13.5,
     lineHeight: 20,
     marginBottom: 24,
-    textAlign: 'center',
-    alignSelf: 'center',
   },
   errorBox: {
     flexDirection: 'row',
@@ -724,48 +607,29 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 22,
     paddingHorizontal: 14,
-    height: 48,
+    minHeight: 48,
   },
   inputContainerLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-    borderWidth: 1.2,
-    ...(Platform.OS === 'web'
-      ? ({
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
-      } as any)
-      : {}),
+    ...authGlassStyles.inputLight,
   },
   inputContainerDark: {
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    borderWidth: 1.1,
+    ...authGlassStyles.inputDark,
   },
   inputContainerFocusedLight: {
-    borderColor: '#FF5E14',
-    backgroundColor: '#FFFFFF',
-    ...(Platform.OS === 'web'
-      ? ({
-        boxShadow: '0 0 0 3px rgba(255, 94, 20, 0.14)',
-      } as any)
-      : {}),
+    ...authGlassStyles.inputFocusedLight,
   },
   inputContainerFocusedDark: {
-    borderColor: '#FF5E14',
-    backgroundColor: 'rgba(20, 27, 38, 0.90)',
-    ...(Platform.OS === 'web'
-      ? ({
-        boxShadow: '0 0 0 3px rgba(249, 115, 22, 0.20)',
-      } as any)
-      : {}),
+    ...authGlassStyles.inputFocusedDark,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    height: '100%',
-    fontSize: 14.5,
+    minWidth: 0,
+    minHeight: 46,
+    paddingVertical: 10,
+    fontSize: 16,
     backgroundColor: 'transparent',
   },
   button: {

@@ -1,16 +1,6 @@
+import { KeyboardTextInput as TextInput, KeyboardScrollView as ScrollView, KeyboardAvoidingView } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../services/api';
@@ -19,7 +9,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { FONTS } from '../../config/theme';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 
 export default function ProfileScreen() {
@@ -259,21 +249,21 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.loadingScreen, isDark && { backgroundColor: '#0B0F19' }]}>
+      <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}><ScreenBackground /><MainPageHeader title="Profile" /><View style={styles.loadingScreen}>
         <ActivityIndicator size="large" color="#F58220" />
         <Text style={[styles.loadingText, isDark && { color: '#94A3B8' }]}>Loading profile...</Text>
-      </View>
+      </View></View>
     );
   }
 
   if (!profile) {
     return (
-      <View style={[styles.loadingScreen, isDark && { backgroundColor: '#0B0F19' }]}>
+      <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}><ScreenBackground /><MainPageHeader title="Profile" /><View style={styles.loadingScreen}>
         <Text style={{ color: isDark ? '#94A3B8' : '#6B7280' }}>Failed to load profile details</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={fetchProfile}>
           <Text style={styles.retryBtnText}>Retry</Text>
         </TouchableOpacity>
-      </View>
+      </View></View>
     );
   }
 
@@ -314,11 +304,8 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
       <ScreenBackground />
-      <ScreenHeader
-        title={
-          user?.role === 'instructor' ? 'Instructor Profile' :
-          user?.role === 'admin' ? 'Admin Profile' : 'Student Profile'
-        }
+      <MainPageHeader safeAreaHandled
+        title="Profile"
         subtitle="Account details & preferences"
         showBack={false}
       />
@@ -363,6 +350,7 @@ export default function ProfileScreen() {
           {/* Quick Edit Pencil Circle Button */}
           <TouchableOpacity
             style={[styles.editCircleBtn, isDark && { backgroundColor: '#0F172A', borderColor: 'rgba(255, 255, 255, 0.12)' }]}
+            accessibilityRole="button" accessibilityLabel="Edit profile"
             onPress={() => setEditModalVisible(true)}
             activeOpacity={0.7}
           >
@@ -479,7 +467,8 @@ export default function ProfileScreen() {
             <Text style={[styles.modalHeaderTitle, isDark && { color: '#FFFFFF' }]}>My Details</Text>
             <TouchableOpacity
               style={[styles.modalEditHeaderBtn, isDark && { backgroundColor: 'rgba(245, 130, 32, 0.15)' }]}
-              onPress={() => setEditModalVisible(true)}
+              accessibilityRole="button" accessibilityLabel="Edit profile"
+            onPress={() => setEditModalVisible(true)}
               activeOpacity={0.7}
             >
               <Icon name="pencil-outline" size={20} color="#F58220" />
@@ -817,92 +806,94 @@ export default function ProfileScreen() {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Upload Payment Slip</Text>
-              <TouchableOpacity onPress={() => setUploadModalVisible(false)}>
-                <Icon name="close" size={22} color="#4B5563" />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity onPress={pickPaymentSlipImage} style={[styles.photoUploadBox, { borderRadius: 12, height: 120, width: '100%' }]}>
-              {uploadSlipAsset?.uri ? (
-                <Image source={{ uri: uploadSlipAsset.uri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} contentFit="cover" />
-              ) : (
-                <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="camera-outline" size={32} color="#64748B" />
-                  <Text style={{ color: '#64748B', fontSize: 12, marginTop: 4 }}>Tap to select slip document photo</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            <Text style={styles.inputLabel}>Paid Amount (LKR) *</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={uploadForm.amount}
-              onChangeText={t => setUploadForm({ ...uploadForm, amount: t })}
-              placeholder="e.g. 10000"
-              keyboardType="numeric"
-              placeholderTextColor="#9CA3AF"
-            />
-
-            <Text style={styles.inputLabel}>Payment Method</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-              {[
-                { id: 'bank_transfer', label: 'Bank Slip' },
-                { id: 'online_transfer', label: 'Online Bank' },
-                { id: 'physical_cash', label: 'Cash' },
-              ].map(method => (
-                <TouchableOpacity
-                  key={method.id}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 8,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: uploadForm.payment_method === method.id ? '#0F172A' : '#E2E8F0',
-                    backgroundColor: uploadForm.payment_method === method.id ? '#0F172A' : '#FFFFFF',
-                    alignItems: 'center',
-                  }}
-                  onPress={() => setUploadForm({ ...uploadForm, payment_method: method.id })}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: uploadForm.payment_method === method.id ? '#FFFFFF' : '#475569' }}>
-                    {method.label}
-                  </Text>
+          <View style={[styles.modalCard, { maxHeight: '100%', flexShrink: 1 }]}>
+<ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Upload Payment Slip</Text>
+                <TouchableOpacity onPress={() => setUploadModalVisible(false)}>
+                  <Icon name="close" size={22} color="#4B5563" />
                 </TouchableOpacity>
-              ))}
-            </View>
+              </View>
 
-            <Text style={styles.inputLabel}>Notes / Reference Number (Optional)</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={uploadForm.notes}
-              onChangeText={t => setUploadForm({ ...uploadForm, notes: t })}
-              placeholder="Bank branch or ref no"
-              placeholderTextColor="#9CA3AF"
-            />
-
-            <View style={styles.modalFooterBtns}>
-              <TouchableOpacity
-                style={styles.cancelModalBtn}
-                onPress={() => setUploadModalVisible(false)}
-                disabled={uploadingSlip}
-              >
-                <Text style={styles.cancelModalBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveModalBtn, uploadingSlip && { opacity: 0.6 }]}
-                onPress={handleUploadPaymentSlip}
-                disabled={uploadingSlip}
-              >
-                {uploadingSlip ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+              <TouchableOpacity onPress={pickPaymentSlipImage} style={[styles.photoUploadBox, { borderRadius: 12, height: 120, width: '100%' }]}>
+                {uploadSlipAsset?.uri ? (
+                  <Image source={{ uri: uploadSlipAsset.uri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} contentFit="cover" />
                 ) : (
-                  <Text style={styles.saveModalBtnText}>Submit Slip</Text>
+                  <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="camera-outline" size={32} color="#64748B" />
+                    <Text style={{ color: '#64748B', fontSize: 12, marginTop: 4 }}>Tap to select slip document photo</Text>
+                  </View>
                 )}
               </TouchableOpacity>
-            </View>
-          </View>
+
+              <Text style={styles.inputLabel}>Paid Amount (LKR) *</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={uploadForm.amount}
+                onChangeText={t => setUploadForm({ ...uploadForm, amount: t })}
+                placeholder="e.g. 10000"
+                keyboardType="numeric"
+                placeholderTextColor="#9CA3AF"
+              />
+
+              <Text style={styles.inputLabel}>Payment Method</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+                {[
+                  { id: 'bank_transfer', label: 'Bank Slip' },
+                  { id: 'online_transfer', label: 'Online Bank' },
+                  { id: 'physical_cash', label: 'Cash' },
+                ].map(method => (
+                  <TouchableOpacity
+                    key={method.id}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: uploadForm.payment_method === method.id ? '#0F172A' : '#E2E8F0',
+                      backgroundColor: uploadForm.payment_method === method.id ? '#0F172A' : '#FFFFFF',
+                      alignItems: 'center',
+                    }}
+                    onPress={() => setUploadForm({ ...uploadForm, payment_method: method.id })}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: uploadForm.payment_method === method.id ? '#FFFFFF' : '#475569' }}>
+                      {method.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>Notes / Reference Number (Optional)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={uploadForm.notes}
+                onChangeText={t => setUploadForm({ ...uploadForm, notes: t })}
+                placeholder="Bank branch or ref no"
+                placeholderTextColor="#9CA3AF"
+              />
+
+              <View style={styles.modalFooterBtns}>
+                <TouchableOpacity
+                  style={styles.cancelModalBtn}
+                  onPress={() => setUploadModalVisible(false)}
+                  disabled={uploadingSlip}
+                >
+                  <Text style={styles.cancelModalBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveModalBtn, uploadingSlip && { opacity: 0.6 }]}
+                  onPress={handleUploadPaymentSlip}
+                  disabled={uploadingSlip}
+                >
+                  {uploadingSlip ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.saveModalBtnText}>Submit Slip</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+          </ScrollView>
+</View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -930,70 +921,72 @@ export default function ProfileScreen() {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Profile</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <Icon name="close" size={22} color="#4B5563" />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity onPress={pickImage} style={styles.photoUploadBox}>
-              {(photoAsset?.uri || profile.profile_photo) ? (
-                <Image
-                  source={photoAsset?.uri || profile.profile_photo}
-                  style={styles.modalAvatarImg}
-                />
-              ) : (
-                <View style={styles.modalAvatarPlaceholder}>
-                  <Text style={styles.avatarInitials}>{getInitials(formData.name)}</Text>
-                </View>
-              )}
-              <View style={styles.uploadBadge}>
-                <Icon name="camera" size={14} color="#FFFFFF" />
+          <View style={[styles.modalCard, { maxHeight: '100%', flexShrink: 1 }]}>
+<ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Profile</Text>
+                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                  <Icon name="close" size={22} color="#4B5563" />
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-            <Text style={styles.photoUploadHint}>Tap avatar to upload photo</Text>
 
-            <Text style={styles.inputLabel}>Full Name *</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={formData.name}
-              onChangeText={t => setFormData({ ...formData, name: t })}
-              placeholder="Full Name"
-              placeholderTextColor="#9CA3AF"
-            />
-
-            <Text style={styles.inputLabel}>Phone Number</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={formData.phone}
-              onChangeText={t => setFormData({ ...formData, phone: t })}
-              placeholder="+94 77 123 4567"
-              keyboardType="phone-pad"
-              placeholderTextColor="#9CA3AF"
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelModalBtn}
-                onPress={() => setEditModalVisible(false)}
-              >
-                <Text style={styles.cancelModalText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.submitModalBtn}
-                onPress={saveProfile}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#FFFFFF" />
+              <TouchableOpacity onPress={pickImage} style={styles.photoUploadBox}>
+                {(photoAsset?.uri || profile.profile_photo) ? (
+                  <Image
+                    source={photoAsset?.uri || profile.profile_photo}
+                    style={styles.modalAvatarImg}
+                  />
                 ) : (
-                  <Text style={styles.submitModalText}>Save Changes</Text>
+                  <View style={styles.modalAvatarPlaceholder}>
+                    <Text style={styles.avatarInitials}>{getInitials(formData.name)}</Text>
+                  </View>
                 )}
+                <View style={styles.uploadBadge}>
+                  <Icon name="camera" size={14} color="#FFFFFF" />
+                </View>
               </TouchableOpacity>
-            </View>
-          </View>
+              <Text style={styles.photoUploadHint}>Tap avatar to upload photo</Text>
+
+              <Text style={styles.inputLabel}>Full Name *</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={formData.name}
+                onChangeText={t => setFormData({ ...formData, name: t })}
+                placeholder="Full Name"
+                placeholderTextColor="#9CA3AF"
+              />
+
+              <Text style={styles.inputLabel}>Phone Number</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={formData.phone}
+                onChangeText={t => setFormData({ ...formData, phone: t })}
+                placeholder="+94 77 123 4567"
+                keyboardType="phone-pad"
+                placeholderTextColor="#9CA3AF"
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelModalBtn}
+                  onPress={() => setEditModalVisible(false)}
+                >
+                  <Text style={styles.cancelModalText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.submitModalBtn}
+                  onPress={saveProfile}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.submitModalText}>Save Changes</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+          </ScrollView>
+</View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -1005,100 +998,102 @@ export default function ProfileScreen() {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Change Password</Text>
-              <TouchableOpacity onPress={() => setPassModalVisible(false)}>
-                <Icon name="close" size={22} color="#4B5563" />
-              </TouchableOpacity>
-            </View>
+          <View style={[styles.modalCard, { maxHeight: '100%', flexShrink: 1 }]}>
+<ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Change Password</Text>
+                <TouchableOpacity onPress={() => setPassModalVisible(false)}>
+                  <Icon name="close" size={22} color="#4B5563" />
+                </TouchableOpacity>
+              </View>
 
-            <Text style={styles.inputLabel}>Current Password *</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={styles.passwordInput}
-                secureTextEntry={!showCurrentPass}
-                value={passData.currentPassword}
-                onChangeText={t => setPassData({ ...passData, currentPassword: t })}
-                placeholder="Enter current password"
-                placeholderTextColor="#9CA3AF"
-              />
-              <TouchableOpacity
-                style={styles.eyeBtn}
-                onPress={() => setShowCurrentPass(v => !v)}
-              >
-                <Icon
-                  name={showCurrentPass ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color="#9CA3AF"
+              <Text style={styles.inputLabel}>Current Password *</Text>
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={styles.passwordInput}
+                  secureTextEntry={!showCurrentPass}
+                  value={passData.currentPassword}
+                  onChangeText={t => setPassData({ ...passData, currentPassword: t })}
+                  placeholder="Enter current password"
+                  placeholderTextColor="#9CA3AF"
                 />
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowCurrentPass(v => !v)}
+                >
+                  <Icon
+                    name={showCurrentPass ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color="#9CA3AF"
+                  />
+                </TouchableOpacity>
+              </View>
 
-            <Text style={styles.inputLabel}>New Password *</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={styles.passwordInput}
-                secureTextEntry={!showNewPass}
-                value={passData.newPassword}
-                onChangeText={t => setPassData({ ...passData, newPassword: t })}
-                placeholder="At least 6 characters"
-                placeholderTextColor="#9CA3AF"
-              />
-              <TouchableOpacity
-                style={styles.eyeBtn}
-                onPress={() => setShowNewPass(v => !v)}
-              >
-                <Icon
-                  name={showNewPass ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color="#9CA3AF"
+              <Text style={styles.inputLabel}>New Password *</Text>
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={styles.passwordInput}
+                  secureTextEntry={!showNewPass}
+                  value={passData.newPassword}
+                  onChangeText={t => setPassData({ ...passData, newPassword: t })}
+                  placeholder="At least 6 characters"
+                  placeholderTextColor="#9CA3AF"
                 />
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowNewPass(v => !v)}
+                >
+                  <Icon
+                    name={showNewPass ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color="#9CA3AF"
+                  />
+                </TouchableOpacity>
+              </View>
 
-            <Text style={styles.inputLabel}>Confirm New Password *</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={styles.passwordInput}
-                secureTextEntry={!showConfirmPass}
-                value={passData.confirmPassword}
-                onChangeText={t => setPassData({ ...passData, confirmPassword: t })}
-                placeholder="Re-enter new password"
-                placeholderTextColor="#9CA3AF"
-              />
-              <TouchableOpacity
-                style={styles.eyeBtn}
-                onPress={() => setShowConfirmPass(v => !v)}
-              >
-                <Icon
-                  name={showConfirmPass ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color="#9CA3AF"
+              <Text style={styles.inputLabel}>Confirm New Password *</Text>
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={styles.passwordInput}
+                  secureTextEntry={!showConfirmPass}
+                  value={passData.confirmPassword}
+                  onChangeText={t => setPassData({ ...passData, confirmPassword: t })}
+                  placeholder="Re-enter new password"
+                  placeholderTextColor="#9CA3AF"
                 />
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowConfirmPass(v => !v)}
+                >
+                  <Icon
+                    name={showConfirmPass ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color="#9CA3AF"
+                  />
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelModalBtn}
-                onPress={() => setPassModalVisible(false)}
-              >
-                <Text style={styles.cancelModalText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.submitModalBtn}
-                onPress={handleChangePassword}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.submitModalText}>Update Password</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelModalBtn}
+                  onPress={() => setPassModalVisible(false)}
+                >
+                  <Text style={styles.cancelModalText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.submitModalBtn}
+                  onPress={handleChangePassword}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.submitModalText}>Update Password</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+          </ScrollView>
+</View>
         </KeyboardAvoidingView>
       </Modal>
 

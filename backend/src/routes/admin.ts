@@ -1,9 +1,10 @@
 import express from 'express';
-import { getUsers, getUserDetails, approveUser, rejectUser, deactivateUser, markUserCompleted, resendUserCredentials, deleteUserCompletely, createInstructor, getAdminStats, getAdminActivities } from '../controllers/adminController';
-import { getAdminCourses, createCourse, updateCourse, archiveCourse } from '../controllers/courseController';
+import { getUsers, getUserDetails, approveUser, rejectUser, deactivateUser, markUserCompleted, resendUserCredentials, deleteUserCompletely, createInstructor, getAdminStats, getAdminActivities, createStudent, reactivateUser } from '../controllers/adminController';
+import { getAdminCourses, createCourse, updateCourse, archiveCourse, deleteCourse } from '../controllers/courseController';
 import { getAdminBatches, getBatchDetails, createBatch, updateBatch, getBatchStudents, enrollStudents, deleteBatchCompletely } from '../controllers/batchController';
 import { getBatchResults, createResult, updateResult } from '../controllers/resultController';
-import { getApplications, updateApplicationStatus, deleteApplicationCompletely } from '../controllers/applicationController';
+import { getCourseEnrolledStudents, getBatchEnrolledStudents } from '../controllers/enrollmentRosterController';
+import { getApplications, updateApplicationStatus, deleteApplicationCompletely, resendApplicationCredentials } from '../controllers/applicationController';
 import {
   getAdminPaymentList,
   getStudentPaymentDossier,
@@ -40,6 +41,7 @@ router.post('/payments/:studentId/record-manual', recordManualPayment);
 // Applications
 router.get('/applications', getApplications);
 router.put('/applications/:id/status', updateApplicationStatus);
+router.put('/applications/:id/resend-credentials', resendApplicationCredentials);
 router.delete('/applications/:id', deleteApplicationCompletely);
 router.get('/users', getUsers);
 router.get('/users/:id/details', getUserDetails);
@@ -50,15 +52,20 @@ router.put('/users/:id/complete', markUserCompleted);
 router.put('/users/:id/resend-credentials', resendUserCredentials);
 router.delete('/users/:id/delete', deleteUserCompletely);
 router.post('/users/instructor', createInstructor);
+router.post('/users/student', createStudent);
+router.put('/users/:id/reactivate', reactivateUser);
 
 // Courses
 router.get('/courses', getAdminCourses);
+router.get('/courses/:id/enrolled-students', getCourseEnrolledStudents);
 router.post('/courses', createCourse);
 router.put('/courses/:id', updateCourse);
 router.put('/courses/:id/archive', archiveCourse);
+router.delete('/courses/:id', deleteCourse);
 
 // Batches
 router.get('/batches', getAdminBatches);
+router.get('/batches/:id/enrolled-students', getBatchEnrolledStudents);
 router.get('/batches/:id/details', getBatchDetails);
 router.post('/batches', createBatch);
 router.put('/batches/:id', updateBatch);

@@ -1,18 +1,6 @@
-import React, { useState, useContext, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
-  ScrollView,
-  useWindowDimensions,
-} from 'react-native';
+import { KeyboardAvoidingView, KeyboardScrollView as ScrollView } from '../../components/shared/KeyboardForm';
+import React, { useState, useContext } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform, Image, useWindowDimensions } from 'react-native';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +9,7 @@ import { RADIUS } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { showToast } from '../../components/shared/Toast';
+import { AuthTextInput } from '../../components/shared/AuthForm';
 
 export default function ForceChangePasswordScreen() {
   const { width } = useWindowDimensions();
@@ -38,52 +27,9 @@ export default function ForceChangePasswordScreen() {
   const [errorMsg, setErrorMsg] = useState('');
 
   const insets = useSafeAreaInsets();
-  const { mode: themeMode, isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme } = useTheme();
   const isLight = !isDark;
 
-  // Web autofill styles for chrome/safari input boxes
-  useEffect(() => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const styleId = 'lms-autofill-styles';
-      let style = document.getElementById(styleId) as HTMLStyleElement | null;
-      if (!style) {
-        style = document.createElement('style');
-        style.id = styleId;
-        document.head.appendChild(style);
-      }
-      if (themeMode === 'light') {
-        style.innerHTML = `
-          input:-webkit-autofill,
-          input:-webkit-autofill:hover, 
-          input:-webkit-autofill:focus,
-          input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
-            -webkit-text-fill-color: #0F172A !important;
-            caret-color: #0F172A !important;
-            transition: background-color 5000s ease-in-out 0s;
-          }
-          input {
-            background-color: transparent !important;
-          }
-        `;
-      } else {
-        style.innerHTML = `
-          input:-webkit-autofill,
-          input:-webkit-autofill:hover, 
-          input:-webkit-autofill:focus,
-          input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 1000px rgba(15, 23, 42, 0.85) inset !important;
-            -webkit-text-fill-color: #FFFFFF !important;
-            caret-color: #FFFFFF !important;
-            transition: background-color 5000s ease-in-out 0s;
-          }
-          input {
-            background-color: transparent !important;
-          }
-        `;
-      }
-    }
-  }, [themeMode]);
 
   const handleSetPassword = async () => {
     setErrorMsg('');
@@ -222,7 +168,7 @@ export default function ForceChangePasswordScreen() {
           color={focusedInput === 'new' ? '#FF5E14' : (isLight ? '#94A3B8' : '#8A7D71')}
           style={styles.inputIcon}
         />
-        <TextInput
+        <AuthTextInput
           style={[
             styles.input,
             { color: isLight ? '#0F172A' : '#FFFFFF' },
@@ -270,7 +216,7 @@ export default function ForceChangePasswordScreen() {
           color={focusedInput === 'confirm' ? '#FF5E14' : (isLight ? '#94A3B8' : '#8A7D71')}
           style={styles.inputIcon}
         />
-        <TextInput
+        <AuthTextInput
           style={[
             styles.input,
             { color: isLight ? '#0F172A' : '#FFFFFF' },

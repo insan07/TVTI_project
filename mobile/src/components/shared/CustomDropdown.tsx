@@ -1,16 +1,11 @@
+import { KeyboardAvoidingView } from "./KeyboardForm";
+import { KeyboardTextInput as TextInput } from './KeyboardForm';
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-  FlatList,
-  TextInput,
-  ViewStyle
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, ViewStyle } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, RADIUS, SPACING, SHADOW } from '../../config/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { usersSectionTheme } from './usersSectionTheme';
 
 export interface DropdownItem {
   label: string;
@@ -28,6 +23,7 @@ interface CustomDropdownProps {
   iconName?: keyof typeof Icon.glyphMap;
   containerStyle?: ViewStyle;
   searchable?: boolean;
+  appearance?: 'default' | 'management';
 }
 
 export default function CustomDropdown({
@@ -38,8 +34,30 @@ export default function CustomDropdown({
   onValueChange,
   iconName,
   containerStyle,
-  searchable = true
+  searchable = true,
+  appearance = 'default',
 }: CustomDropdownProps) {
+  const { isDark } = useTheme();
+  const theme = usersSectionTheme(isDark);
+  const styles = appearance === 'management' ? {
+    ...defaultStyles,
+    label: { ...defaultStyles.label, color: theme.text },
+    triggerButton: { ...defaultStyles.triggerButton, backgroundColor: theme.field, borderColor: theme.line, shadowOpacity: 0, elevation: 0 },
+    triggerText: { ...defaultStyles.triggerText, color: theme.text },
+    placeholderText: { ...defaultStyles.placeholderText, color: theme.muted },
+    chevronBg: { ...defaultStyles.chevronBg, backgroundColor: 'transparent' },
+    modalCard: { ...defaultStyles.modalCard, backgroundColor: theme.surface, borderRadius: 16, borderWidth: 1, borderColor: theme.line },
+    modalTitle: { ...defaultStyles.modalTitle, color: theme.text },
+    modalHeader: { ...defaultStyles.modalHeader, borderBottomColor: theme.line },
+    searchBox: { ...defaultStyles.searchBox, backgroundColor: theme.field, borderColor: theme.line },
+    searchInput: { ...defaultStyles.searchInput, color: theme.text },
+    optionItem: { ...defaultStyles.optionItem, minHeight: 44, borderBottomColor: theme.line },
+    selectedOptionItem: { ...defaultStyles.selectedOptionItem, backgroundColor: theme.accentSoft },
+    optionLabel: { ...defaultStyles.optionLabel, color: theme.text },
+    selectedOptionLabel: { ...defaultStyles.selectedOptionLabel, color: theme.accent },
+    optionSubtext: { ...defaultStyles.optionSubtext, color: theme.muted },
+    emptyText: { ...defaultStyles.emptyText, color: theme.muted },
+  } : defaultStyles;
   const [modalVisible, setModalVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
 
@@ -62,13 +80,14 @@ export default function CustomDropdown({
       {label ? <Text style={styles.label}>{label}</Text> : null}
 
       <TouchableOpacity
+        accessibilityRole="button" accessibilityLabel={label || placeholder} accessibilityState={{ expanded: modalVisible }}
         style={styles.triggerButton}
         onPress={() => setModalVisible(true)}
         activeOpacity={0.8}
       >
         <View style={styles.triggerLeft}>
           {iconName ? (
-            <Icon name={iconName} size={18} color={COLORS.primary} style={styles.leftIcon} />
+            <Icon name={iconName} size={18} color={appearance === 'management' ? theme.muted : COLORS.primary} style={styles.leftIcon} />
           ) : null}
           <Text
             style={[
@@ -81,11 +100,12 @@ export default function CustomDropdown({
           </Text>
         </View>
         <View style={styles.chevronBg}>
-          <Icon name="chevron-down" size={16} color="#4B5563" />
+          <Icon name="chevron-down" size={16} color={appearance === 'management' ? theme.muted : '#4B5563'} />
         </View>
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} animationType="fade" transparent={true}>
+      <Modal visible={modalVisible} animationType="fade" transparent={true} onRequestClose={() => setModalVisible(false)}>
+<KeyboardAvoidingView style={{ flex: 1 }}>
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
@@ -100,10 +120,11 @@ export default function CustomDropdown({
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{label || 'Select Option'}</Text>
               <TouchableOpacity
+                accessibilityRole="button" accessibilityLabel="Close options"
                 style={styles.closeBtn}
                 onPress={() => setModalVisible(false)}
               >
-                <Icon name="close" size={20} color="#6B7280" />
+                <Icon name="close" size={20} color={appearance === 'management' ? theme.muted : '#6B7280'} />
               </TouchableOpacity>
             </View>
 
@@ -127,7 +148,7 @@ export default function CustomDropdown({
             ) : null}
 
             {/* Options List */}
-            <FlatList
+            <FlatList keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
               data={filteredItems}
               keyExtractor={item => item.value}
               style={{ maxHeight: 320 }}
@@ -139,6 +160,7 @@ export default function CustomDropdown({
                 const isSelected = item.value === selectedValue;
                 return (
                   <TouchableOpacity
+                    accessibilityRole="radio" accessibilityLabel={item.label} accessibilityState={{ checked: isSelected }}
                     style={[
                       styles.optionItem,
                       isSelected && styles.selectedOptionItem
@@ -150,7 +172,7 @@ export default function CustomDropdown({
                         <Icon
                           name={item.icon as any}
                           size={18}
-                          color={isSelected ? COLORS.primary : '#6B7280'}
+                          color={appearance === 'management' ? isSelected ? theme.accent : theme.muted : isSelected ? COLORS.primary : '#6B7280'}
                           style={{ marginRight: 10 }}
                         />
                       ) : null}
@@ -169,7 +191,7 @@ export default function CustomDropdown({
                       </View>
                     </View>
                     {isSelected ? (
-                      <Icon name="checkmark-circle" size={20} color={COLORS.primary} />
+                      <Icon name="checkmark-circle" size={20} color={appearance === 'management' ? theme.accent : COLORS.primary} />
                     ) : null}
                   </TouchableOpacity>
                 );
@@ -177,12 +199,13 @@ export default function CustomDropdown({
             />
           </TouchableOpacity>
         </TouchableOpacity>
-      </Modal>
+      </KeyboardAvoidingView>
+</Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const defaultStyles = StyleSheet.create({
   wrapper: {
     marginBottom: SPACING.md,
   },
@@ -242,6 +265,8 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 420,
+    maxHeight: '100%',
+    flexShrink: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,

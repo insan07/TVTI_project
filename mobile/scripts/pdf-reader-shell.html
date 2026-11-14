@@ -1,0 +1,117 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5"><style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent;font-family:Arial,sans-serif}body{overflow:auto;overscroll-behavior:contain}#sheet{padding:16px;min-width:100%;min-height:100%;width:max-content}.pdf-page{position:relative;margin:0 auto 16px;background:white}canvas{display:block;background:white;box-shadow:0 2px 16px #00000012;margin:0 auto}#status{color:#777;text-align:center;font-size:13px;padding:24px}
+</style></head><body><div id="sheet"><div id="status">Preparing your notesâ€¦</div><canvas id="page" role="img" aria-label="Document page" hidden></canvas></div>
+<script>/*__PDF_LIBRARY__*/</script><script>/*__PDF_WORKER__*/</script>
+<script>
+(function(){
+  let documentPdf,currentPage=1,currentZoom=1,epoch=0,running=false,queue=[],observer;
+  const status=document.getElementById('status'),sheet=document.getElementById('sheet');
+  const slots=[];
+  document.getElementById('page').remove();
+  function send(message){
+    const payload=Object.assign({source:'tvti-pdf'},message);
+    if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+    else window.parent.postMessage(payload,'*');
+  }
+  function fail(message){status.hidden=false;status.textContent=message;send({type:'error',message:message});}
+  function enqueue(index){
+    const slot=slots[index];
+    if(!slot||slot.rendered===epoch||queue.some(item=>item.index===index&&item.epoch===epoch))return;
+    queue.push({index:index,epoch:epoch});pump();
+  }
+  async function pump(){
+    if(running)return;
+    running=true;
+    try{
+      while(queue.length){
+        const requested=queue.shift(),slot=slots[requested.index];
+        if(requested.epoch!==epoch||slot.rendered===epoch)continue;
+        if(Math.abs(requested.index-(currentPage-1))>4)continue;
+        const pdfPage=await documentPdf.getPage(requested.index+1);
+        if(requested.epoch!==epoch){pdfPage.cleanup();continue;}
+        const natural=pdfPage.getViewport({scale:1});
+        slot.ratio=natural.height/natural.width;
+        const viewport=pdfPage.getViewport({scale:slot.width/natural.width});
+        const ratio=Math.min(window.devicePixelRatio||1,2);
+        slot.canvas.width=Math.ceil(viewport.width*ratio);slot.canvas.height=Math.ceil(viewport.height*ratio);
+        slot.canvas.style.width=viewport.width+'px';slot.canvas.style.height=viewport.height+'px';
+        slot.element.style.height=viewport.height+'px';
+        await pdfPage.render({canvas:slot.canvas,canvasContext:slot.canvas.getContext('2d'),viewport:viewport,transform:[ratio,0,0,ratio,0,0],annotationMode:0}).promise;
+        slot.rendered=requested.epoch;
+        slot.canvas.hidden=false;status.hidden=true;
+        pdfPage.cleanup();
+        if(requested.epoch===epoch)send({type:'ready',pages:documentPdf.numPages});
+      }
+    }catch(error){fail('This page could not be displayed. Please try again.');}
+    finally{running=false;}
+  }
+  function resizePages(){
+    epoch++;queue=[];
+    const width=Math.max(200,document.documentElement.clientWidth-32)*currentZoom;
+    slots.forEach(function(slot){slot.width=width;slot.element.style.width=width+'px';slot.element.style.height=(width*slot.ratio)+'px';});
+  }
+  function showPage(page,zoom){
+    if(!documentPdf)return;
+    const nextZoom=Math.max(.75,Math.min(2,Number(zoom)||1));
+    currentPage=Math.max(1,Math.min(documentPdf.numPages,Number(page)||1));
+    if(nextZoom!==currentZoom){currentZoom=nextZoom;resizePages();}
+    const slot=slots[currentPage-1];
+    const target=Math.min(slot.element.offsetTop,Math.max(0,document.documentElement.scrollHeight-window.innerHeight));
+    window.scrollTo({top:target,behavior:'instant'});
+    send({type:'page',page:currentPage});
+    enqueue(currentPage-1);
+    enqueue(currentPage);
+  }
+  window.TVTIReader={showPage:showPage};
+  window.addEventListener('message',function(event){
+    if(event.source!==window.parent||event.data?.type!=='tvti-pdf-command')return;
+    showPage(event.data.page,event.data.zoom);
+  });
+  let scrollFrame=false;
+  window.addEventListener('scroll',function(){
+    if(scrollFrame)return;scrollFrame=true;
+    requestAnimationFrame(function(){
+      scrollFrame=false;
+      const line=window.innerHeight*.35;
+      const atEnd=window.scrollY>0&&window.scrollY+window.innerHeight>=document.documentElement.scrollHeight-2;
+      let visible=atEnd?slots.length-1:slots.findIndex(function(slot){return slot.element.getBoundingClientRect().bottom>line;});
+      if(visible<0)visible=slots.length-1;
+      if(visible>=0&&currentPage!==visible+1){currentPage=visible+1;send({type:'page',page:currentPage});}
+      slots.forEach(function(slot,index){
+        const bounds=slot.element.getBoundingClientRect();
+        if(bounds.bottom>-window.innerHeight&&bounds.top<window.innerHeight*2)enqueue(index);
+        // Release canvases well outside the reading area to bound memory usage.
+        else if(slot.rendered===epoch&&Math.abs(index-visible)>3){slot.canvas.width=0;slot.canvas.height=0;slot.canvas.hidden=true;slot.rendered=-1;}
+      });
+    });
+  },{passive:true});
+  let resize;window.addEventListener('resize',function(){clearTimeout(resize);resize=setTimeout(function(){resizePages();showPage(currentPage,currentZoom)},150)});
+  document.addEventListener('contextmenu',function(event){event.preventDefault()});
+  (async function(){
+    try{
+      const bytes=Uint8Array.from(atob('__PDF_DATA__'),function(character){return character.charCodeAt(0)});
+      // The bundled worker exposes WorkerMessageHandler for PDF.js's supported
+      // main-thread fallback. This also works in local/opaque-origin WebViews.
+      const task=pdfjsLib.getDocument({data:bytes,isEvalSupported:false,useSystemFonts:true,disableAutoFetch:true,disableStream:true});
+      task.onPassword=function(){task.destroy();fail('These notes are password protected. Ask your instructor for an unlocked copy.');};
+      documentPdf=await task.promise;
+      send({type:'loaded',pages:documentPdf.numPages});
+      const first=await documentPdf.getPage(1);
+      const viewport=first.getViewport({scale:1});
+      for(let number=1;number<=documentPdf.numPages;number++){
+        const element=document.createElement('section'),canvas=document.createElement('canvas');
+        element.className='pdf-page';element.setAttribute('aria-label','Page '+number);
+        canvas.setAttribute('role','img');canvas.setAttribute('aria-label','Document page '+number+' of '+documentPdf.numPages);
+        canvas.hidden=true;element.appendChild(canvas);sheet.appendChild(element);
+        slots.push({element:element,canvas:canvas,width:0,ratio:viewport.height/viewport.width,rendered:-1});
+      }
+      first.cleanup();resizePages();
+      if(typeof IntersectionObserver!=='undefined'){
+        observer=new IntersectionObserver(function(entries){entries.forEach(function(entry){if(entry.isIntersecting)enqueue(slots.findIndex(function(slot){return slot.element===entry.target}))})},{rootMargin:'800px'});
+        slots.forEach(function(slot){observer.observe(slot.element)});
+      }
+      showPage(1,1);
+    }catch(error){fail('These notes could not be opened. Check the document with your instructor.');}
+  })();
+})();
+</script></body></html>

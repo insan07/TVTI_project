@@ -37,6 +37,7 @@ export interface IApplication extends Document {
   payment_status?: PaymentStatus;
   course_id: mongoose.Types.ObjectId;
   course_ids?: mongoose.Types.ObjectId[];
+  assigned_batch_ids?: mongoose.Types.ObjectId[];
   status: ApplicationStatus;
   terms_accepted: boolean;
   terms_accepted_at: Date;
@@ -80,6 +81,7 @@ const applicationSchema = new Schema<IApplication>(
     payment_status: { type: String, enum: ['pending', 'partially_paid', 'paid', 'waived'], default: 'pending' },
     course_id: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
     course_ids: [{ type: Schema.Types.ObjectId, ref: 'Course' }],
+    assigned_batch_ids: [{ type: Schema.Types.ObjectId, ref: 'Batch' }],
     status: {
       type: String,
       enum: ['pending', 'contacted', 'paid', 'approved', 'rejected'],

@@ -4,7 +4,7 @@ import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import MainPageHeader from '../../components/shared/MainPageHeader';
 import { FONTS } from '../../config/theme';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -61,7 +61,7 @@ export default function ScheduleScreen() {
   return (
     <SafeAreaView style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]} edges={['top']}>
       <ScreenBackground />
-      <ScreenHeader title="Weekly Schedule" subtitle="View scheduled classes & sessions" showBack={true} />
+      <MainPageHeader safeAreaHandled title="Weekly Schedule" subtitle="View scheduled classes & sessions" showBack={true} />
       <View style={[styles.calendarStrip, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {DAYS.map(day => (

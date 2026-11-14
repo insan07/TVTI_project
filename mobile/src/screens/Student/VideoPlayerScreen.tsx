@@ -1,603 +1,380 @@
-import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  TouchableOpacity,
-  Linking,
-  ScrollView,
-  Platform,
-} from 'react-native';
-import { VideoView, useVideoPlayer } from 'expo-video';
-import YoutubeIframe from 'react-native-youtube-iframe';
-import api from '../../services/api';
-import { API_URL } from '../../config/constants';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Platform, AppState, Animated, Pressable, useWindowDimensions } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import useViewerFullscreen from '../../hooks/useViewerFullscreen';
+import LessonVideoPlayer from '../../components/student/LessonVideoPlayer';
+import { LessonVideoHandle } from '../../components/student/LessonVideoPlayer.types';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ScreenHeader from '../../components/shared/ScreenHeader';
+import api from '../../services/api';
+import { COLORS, FONTS } from '../../config/theme';
+import ViewerBackButton from '../../components/shared/ViewerBackButton';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';
-import { AuthContext } from '../../context/AuthContext';
-import {
-  enableNativeScreenCaptureProtection,
-  disableNativeScreenCaptureProtection,
-  hardenHtmlVideoElement,
-  subscribeToScreenCaptureEvents,
-} from '../../utils/screenCaptureProtection';
+import LessonYouTubePlayer from '../../components/student/LessonYouTubePlayer';
+import { LessonYouTubeHandle } from '../../components/student/LessonYouTubePlayer.types';
+import { youtubeVideoId, playbackTime, DEFAULT_PLAYBACK_SPEEDS, availablePlaybackSpeeds } from '../../utils/lessonPlayback';
+import { enableNativeScreenCaptureProtection, disableNativeScreenCaptureProtection, subscribeToScreenCaptureEvents } from '../../utils/screenCaptureProtection';
 
-const WATERMARK_POSITIONS = [
-  { top: 14, left: 16 },
-  { top: 14, right: 16 },
-  { bottom: 48, right: 16 },
-  { bottom: 48, left: 16 },
-  { top: 92, left: '28%' as any },
-];
-
-const formatUploadedTime = (dateStr?: string) => {
-  if (!dateStr) return 'Upload date unknown';
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return 'Uploaded recently';
-
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffHours < 1) return 'Uploaded just now';
-  if (diffHours < 24) return `Uploaded ${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
-  if (diffDays < 7) return `Uploaded ${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
-
-  return `Uploaded on ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
-};
+type Lesson = { url: string; type: 'youtube' | 'video'; title?: string; topic?: string };
 
 export default function VideoPlayerScreen() {
   const route = useRoute<any>();
+  const immersive = useViewerFullscreen(true);
+  const windowSize = useWindowDimensions();
+  const apiPrefix = route.params?.instructor ? "/instructors" : "/students";
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
-  const auth = useContext(AuthContext);
   const videoId = route.params?.videoId;
-
-  const [videoData, setVideoData] = useState<any>(null);
+  const [lesson, setLesson] = useState<Lesson | null>(null);
   const [notesUrl, setNotesUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [securityLockReason, setSecurityLockReason] = useState<string | null>(null);
-  const [ytPlaying, setYtPlaying] = useState<boolean>(false);
-  const [watermarkPosIdx, setWatermarkPosIdx] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  const [protectionAttempt, setProtectionAttempt] = useState(0);
+  const [protection, setProtection] = useState<'waiting' | 'ready' | 'failed'>('waiting');
+  const [focused, setFocused] = useState(false);
+  const [lockReason, setLockReason] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [overlayVisible, setOverlayVisible] = useState(true);
+  const [interaction, setInteraction] = useState(0);
+  const [scrubbing, setScrubbing] = useState(false);
+  const controlsOpacity = useRef(new Animated.Value(1)).current;
+  const revealControls = () => { setOverlayVisible(true); setInteraction(value => value + 1); };
+  const beginSeek = () => { seeking.current = true; setScrubbing(true); revealControls(); };
+  const endSeek = () => { seeking.current = false; setScrubbing(false); revealControls(); };
+  const [muted, setMuted] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [youtubeRates, setYoutubeRates] = useState([1]);
+  const [speedOpen, setSpeedOpen] = useState(false);
+  const [time, setTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [width, setWidth] = useState(0);
+  const [seekWidth, setSeekWidth] = useState(0);
+  const seeking = useRef(false);
+  const pendingSeek = useRef<{ target: number; at: number } | null>(null);
+  const videoView = useRef<LessonVideoHandle>(null);
+  const youtube = useRef<LessonYouTubeHandle>(null);
+  const focusedRef = useRef(false);
+  const lockedRef = useRef(false);
+  const resumeRequested = useRef(false);
+  const timeRef = useRef(0);
+  const isYoutube = lesson?.type === 'youtube';
+  const youtubeId = isYoutube && lesson ? youtubeVideoId(lesson.url) : null;
+  const allowed = focused && protection === 'ready' && !lockReason && !error;
+  const allowedRef = useRef(false);
+  allowedRef.current = allowed;
+  const height = immersive.fullscreen ? Math.max(100, windowSize.height - insets.top - insets.bottom) : Math.max(isYoutube ? 200 : 180, width * 9 / 16);
+  const foreground = isDark || immersive.fullscreen ? '#F5F5F5' : COLORS.primary;
+  const secondary = isDark || immersive.fullscreen ? '#A5A5A5' : '#707070';
+  const border = isDark || immersive.fullscreen ? '#303030' : '#E8E8E8';
 
-  const player = useVideoPlayer('', (p) => {
-    p.loop = false;
-  });
-
-  const videoViewRef = useRef<any>(null);
-
-  const lockPlaybackForSecurity = useCallback(
-    (reason: string) => {
-      try {
-        player.pause();
-      } catch (_) {}
-      setYtPlaying(false);
-      setSecurityLockReason(reason);
-    },
-    [player]
-  );
-
-  // 1. Enable Native OS Screen-Recording Block (Android FLAG_SECURE / iOS capture prevention) while screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      enableNativeScreenCaptureProtection();
-      return () => {
-        disableNativeScreenCaptureProtection();
-      };
-    }, [])
-  );
-
-  // 2. Subscribe to AppState, Web blur/visibility, keyboard shortcuts, and getDisplayMedia interception
+  useEffect(() => { if (!playing) setOverlayVisible(true); }, [playing]);
   useEffect(() => {
-    const unsubscribe = subscribeToScreenCaptureEvents((reason) => {
-      lockPlaybackForSecurity(reason);
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, [lockPlaybackForSecurity]);
-
-  // 3. Rotate dynamic anti-piracy student watermark position every 5 seconds
+    if (!playing || !overlayVisible || speedOpen || scrubbing) return;
+    const timer = setTimeout(() => setOverlayVisible(false), 2800);
+    return () => clearTimeout(timer);
+  }, [playing, overlayVisible, interaction, speedOpen, scrubbing]);
   useEffect(() => {
-    const interval = setInterval(() => {
-      setWatermarkPosIdx((prev) => (prev + 1) % WATERMARK_POSITIONS.length);
-    }, 5000);
-    return () => clearInterval(interval);
+    Animated.timing(controlsOpacity, { toValue: overlayVisible ? 1 : 0, duration: 180, useNativeDriver: true }).start();
+  }, [controlsOpacity, overlayVisible]);
+  useEffect(() => { setOverlayVisible(true); setInteraction(value => value + 1); }, [immersive.fullscreen]);
+
+  const pauseAndLock = useCallback((reason: string) => {
+    resumeRequested.current = false;
+    lockedRef.current = true;
+    videoView.current?.pause();
+    setPlaying(false);
+    setSpeedOpen(false);
+    setLockReason(reason);
   }, []);
 
-  useEffect(() => {
-    if (videoData?.url && videoData.type !== 'youtube') {
-      player.replace(videoData.url);
-    }
-  }, [videoData?.url]);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    focusedRef.current = true;
+    setFocused(true);
+    setProtection('waiting');
+    enableNativeScreenCaptureProtection().then(success => {
+      if (active) setProtection(success ? 'ready' : 'failed');
+    }).catch(() => { if (active) setProtection('failed'); });
+    const unsubscribe = subscribeToScreenCaptureEvents(pauseAndLock);
+    return () => {
+      active = false;
+      focusedRef.current = false;
+      resumeRequested.current = false;
+      setFocused(false);
+      videoView.current?.pause();
+      setPlaying(false);
+      setReady(false);
+      unsubscribe();
+      void disableNativeScreenCaptureProtection();
+    };
+  }, [pauseAndLock, protectionAttempt]));
 
   useEffect(() => {
-    if (Platform.OS === 'web' && videoViewRef.current?.nativeRef?.current) {
-      const videoElement = videoViewRef.current.nativeRef.current;
-      hardenHtmlVideoElement(videoElement, lockPlaybackForSecurity);
-    }
-  }, [videoData?.url, loading, lockPlaybackForSecurity]);
-
-  useEffect(() => {
-    if (videoId) {
-      fetchVideoData();
-    } else {
-      setLoading(false);
-    }
-  }, [videoId]);
-
-  const fetchVideoData = async () => {
+    let active = true;
+    videoView.current?.pause();
+    setPlaying(false);
+    setReady(false);
+    setTime(0);
+    resumeRequested.current = false;
+    setPlaybackRate(1);
+    setYoutubeRates([1]);
+    timeRef.current = 0;
+    pendingSeek.current = null;
+    seeking.current = false;
+    setDuration(0);
+    setLesson(null);
+    setNotesUrl(null);
+    setError(null);
     setLoading(true);
-    try {
-      const [streamRes, notesRes] = await Promise.allSettled([
-        api.get(`/students/videos/${videoId}/stream-url`),
-        api.get(`/students/videos/${videoId}/notes-url`),
-      ]);
-
-      if (streamRes.status === 'fulfilled') {
-        setVideoData(streamRes.value.data);
-      }
-
-      if (notesRes.status === 'fulfilled') {
-        setNotesUrl(notesRes.value.data.url);
-      } else {
-        setNotesUrl(null);
-      }
-    } catch (e) {
-      console.warn(e);
-    } finally {
+    if (!videoId) {
       setLoading(false);
+      setError('Choose a lesson from Uploads to start watching.');
+      return () => { active = false; };
+    }
+    Promise.allSettled([
+      api.get(`${apiPrefix}/videos/${videoId}/stream-url`),
+      api.get(`${apiPrefix}/videos/${videoId}/notes-url`),
+    ]).then(([stream, notes]) => {
+      if (!active) return;
+      if (stream.status === 'fulfilled' && stream.value.data?.url) {
+        const data = stream.value.data;
+        if (data.type === 'youtube' && !youtubeVideoId(data.url)) setError('This video link is unavailable. Please contact your instructor.');
+        else setLesson(data);
+      } else {
+        const status = stream.status === 'rejected' ? stream.reason?.response?.status : null;
+        setError(status === 403 ? 'This lesson is available to enrolled students only.' : 'We could not load this lesson. Check your connection and try again.');
+      }
+      if (notes.status === 'fulfilled') setNotesUrl(notes.value.data?.url || null);
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [videoId, reload, apiPrefix]);
+
+  const updateProgress = (seconds: number, total: number) => {
+    if (Number.isFinite(total) && total > 0) setDuration(total);
+    if (!Number.isFinite(seconds) || seeking.current) return;
+    const pending = pendingSeek.current;
+    if (pending && Date.now() - pending.at < 1800 && Math.abs(seconds - pending.target) > 1.5) return;
+    pendingSeek.current = null;
+    timeRef.current = seconds;
+    setTime(seconds);
+  };
+  const seek = (seconds: number) => {
+    if (!allowed || !ready || !duration) return;
+    if (!Number.isFinite(seconds)) return;
+    const target = Math.min(duration, Math.max(0, seconds));
+    pendingSeek.current = { target, at: Date.now() };
+    if (isYoutube) youtube.current?.seekTo(target); else videoView.current?.seekTo(target);
+    timeRef.current = target;
+    setTime(target);
+  };
+  const togglePlay = () => {
+    if (!allowed || !ready || lockedRef.current) return;
+    if (isYoutube) {
+      if (!playing && duration && time >= duration) seek(0);
+      setPlaying(!playing);
+    } else {
+      if (playing) videoView.current?.pause();
+      else { if (duration && time >= duration) videoView.current?.seekTo(0); videoView.current?.play(); }
     }
   };
-
-  const getYoutubeId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url?.match(regExp);
-    return match && match[2].length === 11 ? match[2] : null;
+  const resume = () => {
+    if (!focusedRef.current || AppState.currentState === 'background' || AppState.currentState === 'inactive') return;
+    if (Platform.OS === 'web' && document.visibilityState !== 'visible') return;
+    if (protection !== 'ready' || error) return;
+    resumeRequested.current = true;
+    lockedRef.current = false;
+    setLockReason(null);
   };
-
-  if (loading) {
-    return (
-      <View style={[styles.center, isDark && { backgroundColor: '#0B0F19' }]}>
-        <ActivityIndicator size="large" color={COLORS.secondary} />
-      </View>
-    );
-  }
-
-  const yTId = videoData?.type === 'youtube' && videoData?.url ? getYoutubeId(videoData.url) : null;
-  const studentIdentity = auth?.user
-    ? `${auth.user.name || 'Student'} • ${auth.user.index_number || auth.user.email || 'TVTI'}`
-    : 'TVTI Protected Stream';
-
-  return (
-    <View style={[styles.container, isDark && { backgroundColor: '#0B0F19' }]}>
-      <ScreenBackground />
-      <View style={{ paddingTop: insets.top }}>
-        <ScreenHeader
-          title="Video Player"
-          subtitle={videoData?.title || 'Course Lesson'}
-          showBack={true}
-        />
-      </View>
-
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
-        {/* Protected Video Player Frame */}
-        <View
-          style={[styles.videoContainer, Platform.OS === 'web' && ({ userSelect: 'none', WebkitUserSelect: 'none' } as any)]}
-          {...({ onContextMenu: (e: any) => e.preventDefault() } as any)}
-        >
-          {videoData?.type === 'youtube' && yTId ? (
-            <YoutubeIframe
-              height={230}
-              videoId={yTId}
-              play={ytPlaying && !securityLockReason}
-              onChangeState={(state: string) => {
-                if (state === 'playing') setYtPlaying(true);
-                else if (state === 'paused' || state === 'ended') setYtPlaying(false);
-              }}
-              initialPlayerParams={{
-                modestbranding: true,
-                rel: false,
-                controls: true,
-              }}
-            />
-          ) : videoData?.url ? (
-            <VideoView
-              ref={videoViewRef}
-              style={styles.video}
-              player={player}
-              {...({
-                allowsFullscreen: true,
-                allowsPictureInPicture: false,
-                contentFit: 'contain',
-              } as any)}
-            />
-          ) : (
-            <View style={styles.videoMockContainer}>
-              <View style={styles.playButtonCircle}>
-                <Icon name="play" size={32} color="#1A1A1A" style={{ marginLeft: 4 }} />
-              </View>
-
-              {/* Controls bar at bottom */}
-              <View style={styles.controlsBar}>
-                <Icon name="pause" size={18} color="#FFFFFF" style={{ marginRight: 10 }} />
-                <View style={styles.progressTrack}>
-                  <View style={styles.progressFill} />
-                </View>
-                <Text style={styles.timestampText}>14:20 / 45:00</Text>
-                <Icon name="volume-high-outline" size={18} color="#FFFFFF" style={{ marginLeft: 10, marginRight: 8 }} />
-                <Icon name="expand-outline" size={18} color="#FFFFFF" />
-              </View>
-            </View>
-          )}
-
-          {/* Dynamic Moving Anti-Piracy Student Watermark Overlay */}
-          <View
-            pointerEvents="none"
-            style={[styles.watermarkOverlay, WATERMARK_POSITIONS[watermarkPosIdx]]}
-          >
-            <Text style={styles.watermarkText}>{studentIdentity}</Text>
-          </View>
-
-          {/* Security Blackout Shield when Screen Recording / Capture / Blur is Detected */}
-          {securityLockReason ? (
-            <View style={styles.securityBlackoutShield}>
-              <View style={styles.securityIconBadge}>
-                <Icon name="shield-half-outline" size={28} color="#F97316" />
-              </View>
-              <Text style={styles.securityBlackoutTitle}>Screen Recording & Capture Restricted</Text>
-              <Text style={styles.securityBlackoutDesc}>{securityLockReason}</Text>
-              <TouchableOpacity
-                style={styles.resumePlaybackBtn}
-                activeOpacity={0.85}
-                onPress={() => setSecurityLockReason(null)}
-              >
-                <Icon name="play" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.resumePlaybackBtnText}>Resume Protected Video</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-        </View>
-
-        {/* DRM / Screen-Recording Protection Notice Bar */}
-        <View style={[styles.drmNoticeBar, isDark && { backgroundColor: '#141B26', borderBottomColor: 'rgba(255,255,255,0.06)' }]}>
-          <Icon name="lock-closed" size={13} color="#F58220" style={{ marginRight: 6 }} />
-          <Text style={[styles.drmNoticeText, isDark && { color: '#94A3B8' }]}>
-            Protected Stream • 3rd-party screen recording & capture are blocked
-          </Text>
-        </View>
-
-        {/* Content Details Body */}
-        <View style={styles.contentPadding}>
-          {/* Title & Subtitle */}
-          <Text style={[styles.videoTitle, isDark && { color: '#FFFFFF' }]}>
-            {videoData?.title || 'Session Video'}
-          </Text>
-          {videoData?.module_name ? (
-            <Text style={[styles.moduleSubtitle, isDark && { color: '#94A3B8' }]}>
-              {videoData.module_name}
-            </Text>
-          ) : null}
-
-          {/* Uploaded Time Row */}
-          <View style={styles.uploadedTimeRow}>
-            <Icon name="time-outline" size={15} color={isDark ? '#94A3B8' : '#71717A'} style={{ marginRight: 6 }} />
-            <Text style={[styles.uploadedTimeText, isDark && { color: '#94A3B8' }]}>
-              {formatUploadedTime(videoData?.createdAt || videoData?.uploaded_at)}
-            </Text>
-          </View>
-
-          {/* Attached Notes Card */}
-          {notesUrl && (
-            <View style={[styles.notesCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
-              <View style={styles.notesCardHeaderRow}>
-                <View style={[styles.pdfIconCircle, isDark && { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
-                  <Icon name="document-text-outline" size={22} color={isDark ? '#FB923C' : '#1A1A1A'} />
-                </View>
-                <View style={styles.notesTitleContainer}>
-                  <Text style={[styles.notesCardTitle, isDark && { color: '#FFFFFF' }]}>Attached Notes</Text>
-                  <Text style={[styles.notesCardSubtitle, isDark && { color: '#94A3B8' }]}>PDF Document</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.viewNotesButton, isDark && { backgroundColor: '#F97316' }]}
-                activeOpacity={0.8}
-                onPress={() => {
-                  if (notesUrl) {
-                    let url = notesUrl;
-                    if (url.startsWith('/uploads/') || url.startsWith('/api/files/')) {
-                      url = `${API_URL.replace(/\/api\/?$/, '')}${url}`;
-                    }
-                    if (Platform.OS === 'web') {
-                      window.open(url, '_blank');
-                    } else {
-                      Linking.openURL(url).catch(() => {
-                        Alert.alert('Error', 'Unable to open PDF notes');
-                      });
-                    }
-                  }
-                }}
-              >
-                <Icon name="document-text" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.viewNotesButtonText}>View Notes (PDF)</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Session Overview Section */}
-          <Text style={[styles.sectionTitle, isDark && { color: '#FFFFFF' }]}>Session Overview</Text>
-          <Text style={[styles.overviewParagraph, isDark && { color: '#CBD5E1' }]}>
-            {videoData?.description || 'No description available for this video.'}
-          </Text>
-        </View>
-      </ScrollView>
-    </View>
+  useEffect(() => {
+    if (!resumeRequested.current || !allowed || !ready) return;
+    resumeRequested.current = false;
+    if (!isYoutube) videoView.current?.play();
+    setPlaying(true);
+  }, [allowed, ready, isYoutube]);
+  const control = (name: React.ComponentProps<typeof Icon>['name'], label: string, onPress: () => void, primary = false, caption?: string) => (
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} disabled={!allowed || !ready}
+      onPress={() => { revealControls(); onPress(); }} style={[styles.control, primary && styles.play, (!allowed || !ready) && styles.disabled]}>
+      <Icon name={name} size={primary ? 24 : 21} color={primary ? '#FFFFFF' : foreground} />{caption && <Text style={[styles.controlCaption, { color: primary ? "#FFFFFF" : secondary }]}>{caption}</Text>}
+    </TouchableOpacity>
   );
+
+  return <View ref={immersive.host} collapsable={false} style={[styles.screen, { paddingTop: insets.top, backgroundColor: immersive.fullscreen ? '#080808' : isDark ? '#111111' : '#F7F7F7' }]}>
+    <StatusBar hidden={immersive.fullscreen} />
+    {!immersive.fullscreen && <ScreenBackground />}
+    <ScrollView contentContainerStyle={[styles.content, { paddingBottom: immersive.fullscreen ? insets.bottom : insets.bottom + 28 }, immersive.fullscreen && styles.fullContent]} showsVerticalScrollIndicator={false} scrollEnabled={!immersive.fullscreen}>
+      <View style={[styles.card, { backgroundColor: immersive.fullscreen || isDark ? '#1B1B1B' : '#FFFFFF', borderColor: border }, immersive.fullscreen && styles.fullCard]}
+        onLayout={event => setWidth(Math.max(0, event.nativeEvent.layout.width - 2))}>
+        <View style={[styles.heading, immersive.fullscreen && { display: "none" }]}>
+          <ViewerBackButton />
+          <View style={styles.lessonInfo}>
+            <Text style={styles.eyebrow} numberOfLines={2}>{lesson?.topic || 'COURSE LESSON'}</Text>
+            <Text accessibilityRole="header" style={[styles.title, { color: foreground }]}>{lesson?.title || (loading ? 'Loading lesson…' : 'Video lesson')}</Text>
+          </View>
+        </View>
+        <View style={[styles.viewport, { height }]} {...(Platform.OS === 'web' ? { onContextMenu: (event: any) => event.preventDefault() } : {})}>
+          {loading || protection === 'waiting' ? <View style={styles.center}><ActivityIndicator color={COLORS.secondary} size="large" /></View>
+            : protection === 'failed' ? <View style={styles.message}>
+              <Icon name="shield-outline" size={30} color={COLORS.secondary} />
+              <Text style={styles.messageTitle}>Protection unavailable</Text>
+              <Text style={styles.messageText}>Reopen the app or try again to watch this lesson securely.</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setProtectionAttempt(value => value + 1)} style={styles.messageButton}><Text style={styles.buttonText}>Try again</Text></TouchableOpacity>
+            </View>
+            : error ? <View style={styles.message}>
+              <Icon name="play-circle-outline" size={32} color={COLORS.secondary} />
+              <Text style={styles.messageTitle}>Lesson unavailable</Text>
+              <Text style={styles.messageText}>{error}</Text>
+              {!!videoId && <TouchableOpacity accessibilityRole="button" onPress={() => setReload(value => value + 1)} style={styles.messageButton}><Text style={styles.buttonText}>Try again</Text></TouchableOpacity>}
+            </View>
+            : focused && lesson ? isYoutube && youtubeId ? <LessonYouTubePlayer key={`${videoId}-${reload}`} ref={youtube}
+              videoId={youtubeId} height={height} playing={playing} muted={muted} startTime={timeRef.current} playbackRate={playbackRate}
+              onRates={rates => setYoutubeRates(availablePlaybackSpeeds(rates))}
+              onRateChange={rate => { if (Number.isFinite(rate) && rate > 0) setPlaybackRate(rate); }}
+              onReady={() => setReady(true)} onPlaying={value => {
+                if (!allowedRef.current || lockedRef.current) { setPlaying(false); return; }
+                setPlaying(value);
+              }} onProgress={updateProgress}
+              onError={() => { setPlaying(false); setError('This YouTube lesson is unavailable or cannot be embedded. Please contact your instructor.'); }} />
+              : <>
+                <LessonVideoPlayer ref={videoView} url={lesson.url} startTime={timeRef.current} muted={muted} playbackRate={playbackRate}
+                  onReady={() => setReady(true)} onPlaying={value => {
+                    if (value && (!allowedRef.current || lockedRef.current)) { videoView.current?.pause(); return; }
+                    setPlaying(value);
+                  }} onProgress={updateProgress}
+                  onError={() => { setPlaying(false); setError('This video could not be played. Please try again.'); }}
+                  onRestrictedAction={pauseAndLock} />
+                {!ready && <View pointerEvents="none" style={styles.center}><ActivityIndicator color={COLORS.secondary} /></View>}
+              </> : null}
+          {ready && allowed && (!isYoutube || immersive.fullscreen) && <Pressable accessibilityRole="button"
+            accessibilityLabel={overlayVisible && playing ? 'Hide playback controls' : 'Show playback controls'}
+            style={StyleSheet.absoluteFill} onPress={() => { if (overlayVisible && playing) setOverlayVisible(false); else revealControls(); }} />}
+          {ready && allowed && overlayVisible && (!isYoutube || immersive.fullscreen) && <TouchableOpacity accessibilityRole="button"
+            accessibilityLabel={playing ? 'Pause video' : 'Play video'} onPress={() => { revealControls(); togglePlay(); }} style={styles.centerPlay}>
+            <Icon name={playing ? 'pause' : 'play'} size={30} color="#FFFFFF" />
+          </TouchableOpacity>}
+          {!!lockReason && protection === 'ready' && !error && !loading && <View style={[styles.message, styles.pauseOverlay]}>
+            <Icon name="pause-circle-outline" size={32} color={COLORS.secondary} />
+            <Text style={styles.messageTitle}>Lesson paused</Text>
+            <Text style={styles.messageText}>{lockReason}</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={resume} style={styles.messageButton}><Text style={styles.buttonText}>Continue</Text></TouchableOpacity>
+          </View>}
+        </View>
+        <Animated.View testID="video-playback-controls" pointerEvents={immersive.fullscreen && !overlayVisible ? 'none' : 'auto'}
+          accessibilityElementsHidden={immersive.fullscreen && !overlayVisible} aria-hidden={immersive.fullscreen && !overlayVisible} importantForAccessibility={immersive.fullscreen && !overlayVisible ? 'no-hide-descendants' : 'auto'}
+          style={[styles.details, immersive.fullscreen && styles.fullDetails, immersive.fullscreen && { opacity: controlsOpacity, paddingLeft: Math.max(16, insets.left), paddingRight: Math.max(16, insets.right), paddingBottom: Math.max(10, insets.bottom) }]}>
+          <View style={styles.timelineMeta}>
+            <Text style={[styles.time, { color: secondary }]}>{playbackTime(time)} / {playbackTime(duration)}</Text>
+          </View>
+          {Platform.OS === 'web' ? React.createElement('input', {
+            type: 'range', 'aria-label': 'Lesson progress', min: 0, max: duration || 1, step: 0.1, value: time,
+            disabled: !allowed || !ready || !duration,
+            onPointerDown: (event: React.PointerEvent<HTMLInputElement>) => { event.currentTarget.setPointerCapture?.(event.pointerId); beginSeek(); },
+            onPointerUp: endSeek,
+            onPointerCancel: endSeek,
+            onLostPointerCapture: endSeek,
+            onBlur: endSeek,
+            onChange: (event: React.ChangeEvent<HTMLInputElement>) => seek(Number(event.target.value)),
+            style: { width: '100%', height: 28, margin: 0, accentColor: COLORS.secondary, cursor: 'pointer' },
+          }) : <View accessible accessibilityRole="adjustable" accessibilityLabel="Lesson progress"
+            accessibilityValue={{ min: 0, max: Math.max(1, Math.floor(duration)), now: Math.floor(time) }}
+            accessibilityActions={[{ name: 'increment', label: 'Forward 10 seconds' }, { name: 'decrement', label: 'Rewind 10 seconds' }]}
+            onAccessibilityAction={event => seek(time + (event.nativeEvent.actionName === 'increment' ? 10 : -10))}
+            onStartShouldSetResponder={() => !!(allowed && ready && duration)} onMoveShouldSetResponder={() => !!(allowed && ready && duration)}
+            onResponderGrant={event => { beginSeek(); if (seekWidth) seek(event.nativeEvent.locationX / seekWidth * duration); }}
+            onResponderMove={event => { if (seekWidth) seek(event.nativeEvent.locationX / seekWidth * duration); }}
+            onResponderRelease={event => { if (seekWidth) seek(event.nativeEvent.locationX / seekWidth * duration); endSeek(); }}
+            onResponderTerminate={endSeek} onLayout={event => setSeekWidth(event.nativeEvent.layout.width)}
+            style={styles.seekHit}>
+            <View pointerEvents="none" style={[styles.track, { backgroundColor: border }]}><View style={[styles.progress, { width: `${duration ? Math.min(100, time / duration * 100) : 0}%` }]} /></View>
+          </View>}
+          <View style={styles.controls}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Playback speed: ${playbackRate}x`} disabled={!allowed || !ready} onPress={() => { revealControls(); setSpeedOpen(true); }} style={[styles.speedButton, { borderColor: border }, (!allowed || !ready) && styles.disabled]}>
+              <Text style={[styles.speedLabel, { color: foreground }]}>{playbackRate}×</Text><Text style={[styles.controlCaption, { color: secondary }]}>Speed</Text>
+            </TouchableOpacity>
+            {control('play-back-outline', 'Rewind 10 seconds', () => seek(time - 10), false, 'Back 10s')}
+            {control(playing ? 'pause' : 'play', playing ? 'Pause lesson' : 'Play lesson', togglePlay, true, playing ? 'Pause' : 'Play')}
+            {control('play-forward-outline', 'Forward 10 seconds', () => seek(time + 10), false, 'Next 10s')}
+
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={muted ? 'Unmute lesson' : 'Mute lesson'} disabled={!allowed || !ready} onPress={() => { revealControls(); videoView.current?.setMuted(!muted); setMuted(!muted); }} style={[styles.control, (!allowed || !ready) && styles.disabled]}><Icon name={muted ? 'volume-mute-outline' : 'volume-high-outline'} size={20} color={foreground} /><Text style={[styles.controlCaption, { color: secondary }]}>{muted ? 'Unmute' : 'Sound'}</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={immersive.fullscreen ? 'Exit video fullscreen' : 'Enter video fullscreen'} onPress={immersive.toggle} style={styles.control}><Icon name={immersive.fullscreen ? 'contract-outline' : 'expand-outline'} size={20} color={foreground} /><Text style={[styles.controlCaption, { color: foreground }]}>{immersive.fullscreen ? 'Exit' : 'Full screen'}</Text></TouchableOpacity>
+          </View>
+        </Animated.View>
+      </View>
+      {!immersive.fullscreen && !!notesUrl && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open lesson notes" activeOpacity={0.75}
+        onPress={() => navigation.navigate('PdfViewer', { pdfUrl: notesUrl, title: lesson?.title ? `${lesson.title} · Notes` : 'Lesson notes' })}
+        style={[styles.notes, { backgroundColor: immersive.fullscreen || isDark ? '#1B1B1B' : '#FFFFFF', borderColor: border }]}>
+        <View style={styles.notesIcon}><Icon name="document-text-outline" size={23} color={COLORS.secondary} /></View>
+        <View style={styles.notesCopy}><Text style={[styles.notesTitle, { color: foreground }]}>Lesson notes</Text><Text style={[styles.caption, { color: secondary }]}>Read alongside this lesson</Text></View>
+        <Icon name="arrow-forward" size={19} color={foreground} />
+      </TouchableOpacity>}
+    </ScrollView>
+    {speedOpen && allowed && <View style={[StyleSheet.absoluteFill, { zIndex: 100 }]} >
+      <View style={styles.speedBackdrop}>
+        <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel="Close playback speed" onPress={() => setSpeedOpen(false)} />
+        <View accessibilityViewIsModal style={[styles.speedMenu, { backgroundColor: immersive.fullscreen || isDark ? '#1B1B1B' : '#FFFFFF', borderColor: border }]}>
+          <View style={styles.speedMenuHeader}><Text style={[styles.speedMenuTitle, { color: foreground }]}>Playback speed</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close speed menu" onPress={() => setSpeedOpen(false)} style={styles.menuClose}><Icon name="close" size={21} color={foreground} /></TouchableOpacity>
+          </View>
+          <ScrollView style={{ maxHeight: Math.max(100, Math.min(340, windowSize.height - insets.top - insets.bottom - 140)) }}>
+            {(isYoutube ? youtubeRates : DEFAULT_PLAYBACK_SPEEDS).map(rate => <TouchableOpacity key={rate} accessibilityRole="radio"
+              accessibilityLabel={rate === 1 ? 'Normal speed, 1x' : `${rate}x speed`} accessibilityState={{ checked: playbackRate === rate }}
+              onPress={() => { setPlaybackRate(rate); setSpeedOpen(false); }} style={[styles.speedOption, { borderColor: border }]}>
+              <Text style={[styles.speedOptionLabel, { color: playbackRate === rate ? COLORS.secondary : foreground }]}>{rate === 1 ? 'Normal' : `${rate}×`}</Text>
+              {playbackRate === rate && <Icon name="checkmark" size={20} color={COLORS.secondary} />}
+            </TouchableOpacity>)}
+          </ScrollView>
+        </View>
+      </View>
+    </View>}
+  </View>;
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F6F8',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F6F8',
-  },
-  topNotificationBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xs,
-  },
-  backBtn: {
-    padding: SPACING.xs,
-  },
-  pageHeaderTitle: {
-    fontSize: 18,
-    color: '#1A1A1A',
-    ...FONTS.bold,
-  },
-  bellBtn: {
-    padding: SPACING.xs,
-  },
-  scrollContent: {
-    flex: 1,
-  },
-  videoContainer: {
-    width: '100%',
-    height: 230,
-    backgroundColor: '#000000',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  video: {
-    width: '100%',
-    height: '100%',
-  },
-  watermarkOverlay: {
-    position: 'absolute',
-    backgroundColor: 'rgba(15, 23, 42, 0.42)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    zIndex: 20,
-  },
-  watermarkText: {
-    color: 'rgba(255, 255, 255, 0.65)',
-    fontSize: 10.5,
-    ...FONTS.bold,
-    letterSpacing: 0.4,
-  },
-  securityBlackoutShield: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: '#090D16',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    zIndex: 50,
-  },
-  securityIconBadge: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(249, 115, 22, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.3)',
-  },
-  securityBlackoutTitle: {
-    color: '#FFFFFF',
-    fontSize: 15.5,
-    ...FONTS.bold,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  securityBlackoutDesc: {
-    color: '#94A3B8',
-    fontSize: 12,
-    ...FONTS.regular,
-    textAlign: 'center',
-    marginBottom: 14,
-    lineHeight: 17,
-  },
-  resumePlaybackBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F58220',
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 20,
-  },
-  resumePlaybackBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12.5,
-    ...FONTS.bold,
-  },
-  drmNoticeBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF7ED',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFEDD5',
-  },
-  drmNoticeText: {
-    fontSize: 11.5,
-    color: '#9A3412',
-    ...FONTS.medium,
-  },
-  videoMockContainer: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  playButtonCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  controlsBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  progressTrack: {
-    flex: 1,
-    height: 4,
-    backgroundColor: '#475569',
-    borderRadius: 2,
-    marginRight: 10,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    width: '32%',
-    height: '100%',
-    backgroundColor: '#F58220',
-  },
-  timestampText: {
-    color: '#FFFFFF',
-    fontSize: 11.5,
-    ...FONTS.medium,
-  },
-  contentPadding: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: SPACING.xxxl,
-  },
-  videoTitle: {
-    fontSize: 20,
-    color: '#1A1A1A',
-    ...FONTS.bold,
-    lineHeight: 26,
-    marginBottom: 4,
-  },
-  moduleSubtitle: {
-    fontSize: 14,
-    color: '#666666',
-    ...FONTS.regular,
-    marginBottom: 6,
-  },
-  uploadedTimeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-  uploadedTimeText: {
-    fontSize: 13.5,
-    color: '#71717A',
-    ...FONTS.medium,
-  },
-  notesCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    marginBottom: 14,
-    ...SHADOW.sm,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-  },
-  notesCardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  pdfIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  notesTitleContainer: {
-    flex: 1,
-  },
-  notesCardTitle: {
-    fontSize: 16.5,
-    color: '#1A1A1A',
-    ...FONTS.bold,
-    marginBottom: 2,
-  },
-  notesCardSubtitle: {
-    fontSize: 13,
-    color: '#666666',
-    ...FONTS.regular,
-  },
-  viewNotesButton: {
-    backgroundColor: '#000000',
-    borderRadius: RADIUS.md,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  viewNotesButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    ...FONTS.bold,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    color: '#1A1A1A',
-    ...FONTS.bold,
-    marginBottom: SPACING.sm,
-  },
-  overviewParagraph: {
-    fontSize: 14,
-    color: '#555555',
-    ...FONTS.regular,
-    lineHeight: 22,
-  },
+  screen: { flex: 1 },
+  fullContent: { maxWidth: '100%', paddingHorizontal: 0, paddingTop: 0, gap: 0, flexGrow: 1 }, fullCard: { borderWidth: 0, borderRadius: 0 },
+  menuClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, controlCaption: { ...FONTS.medium, fontSize: 9 },
+  content: { paddingHorizontal: 16, paddingTop: 12, gap: 16, width: '100%', maxWidth: 1040, alignSelf: 'center' },
+  card: { borderWidth: 1, borderRadius: 14, overflow: 'hidden' },
+  viewport: { backgroundColor: '#080808', overflow: 'hidden' },
+  center: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+  message: { flex: 1, padding: 18, gap: 9, alignItems: 'center', justifyContent: 'center' },
+  pauseOverlay: { ...StyleSheet.absoluteFill, backgroundColor: '#080808' },
+  messageTitle: { ...FONTS.semiBold, color: '#FFFFFF', fontSize: 16 },
+  messageText: { ...FONTS.regular, color: '#BBBBBB', fontSize: 12, lineHeight: 18, textAlign: 'center', maxWidth: 420 },
+  messageButton: { marginTop: 3, backgroundColor: COLORS.secondary, borderRadius: 7, paddingHorizontal: 17, paddingVertical: 9 },
+  buttonText: { ...FONTS.semiBold, color: '#FFFFFF', fontSize: 12 },
+  details: { paddingHorizontal: 12, paddingBottom: 10 },
+  fullDetails: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,8,8,0.88)', paddingTop: 4 },
+  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 3, paddingTop: 4 },
+  centerPlay: { position: 'absolute', top: '50%', left: '50%', marginTop: -29, marginLeft: -29, width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(245,130,32,0.92)', justifyContent: 'center', alignItems: 'center' },
+  control: { flex: 1, minWidth: 36, minHeight: 48, gap: 3, alignItems: 'center', justifyContent: 'center' },
+  play: { backgroundColor: COLORS.secondary, borderRadius: 12, maxWidth: 56, minHeight: 48 },
+  disabled: { opacity: 0.4 },
+  time: { ...FONTS.medium, fontSize: 11, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  timelineMeta: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 8 },
+  speedButton: { gap: 3, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: 10, flex: 1, minWidth: 36, minHeight: 48 },
+  speedLabel: { ...FONTS.semiBold, fontSize: 11 },
+  speedBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  speedMenu: { width: '100%', maxWidth: 340, borderWidth: 1, borderRadius: 14, paddingHorizontal: 18, paddingBottom: 12 },
+  speedMenuHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
+  speedMenuTitle: { ...FONTS.semiBold, fontSize: 16 },
+  speedOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 46, borderTopWidth: 1 },
+  speedOptionLabel: { ...FONTS.medium, fontSize: 14 },
+  seekHit: { height: 28, justifyContent: 'center' },
+  track: { height: 3, borderRadius: 2, overflow: 'hidden' },
+  progress: { height: '100%', backgroundColor: COLORS.secondary },
+  heading: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
+  lessonInfo: { flex: 1, minWidth: 0, gap: 4 },
+  eyebrow: { ...FONTS.semiBold, color: COLORS.secondary, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' },
+  title: { ...FONTS.bold, fontSize: 18, lineHeight: 25 },
+  caption: { ...FONTS.regular, fontSize: 11, lineHeight: 18 },
+  notes: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 16, borderWidth: 1, borderRadius: 12 },
+  notesIcon: { width: 42, height: 46, backgroundColor: 'rgba(245,130,32,0.08)', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+  notesCopy: { flex: 1, gap: 3 },
+  notesTitle: { ...FONTS.semiBold, fontSize: 14 },
 });
-

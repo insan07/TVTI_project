@@ -1,11 +1,12 @@
 import express from 'express';
-import { getMySchedule, getDashboardStats, getMyStudents } from '../controllers/instructorController';
+import { getMySchedule, getMyBatches, getDashboardStats, getMyStudents } from '../controllers/instructorController';
 import { getBatchTopics, getMyVideos, getMyMaterials, uploadVideo, updateVideo, deleteVideo } from '../controllers/videoController';
 import { uploadMaterial } from '../controllers/uploadController';
 import { createSlots, getMySlots, updateSlot, deleteSlot, getSlotBookings, cancelBookingByAdmin, addStudentBookingByAdmin, approveCancellation, rejectCancellation } from '../controllers/practiceSlotController';
 import { protect } from '../middleware/authMiddleware';
 import { checkRole } from '../middleware/roleMiddleware';
 import { upload } from '../middleware/uploadMiddleware';
+import { getVideoStreamUrl, getNotesUrl } from '../controllers/studentVideoController';
 
 const router = express.Router();
 
@@ -14,10 +15,13 @@ router.use(protect, checkRole(['instructor', 'admin']));
 // ── Dashboard ───────────────────────────────────────────────────────────────
 router.get('/dashboard-stats', getDashboardStats);
 router.get('/my-schedule',     getMySchedule);
+router.get('/my-batches',      getMyBatches);
 router.get('/my-students',     getMyStudents);
 
 // ── Videos ──────────────────────────────────────────────────────────────────
 router.get('/videos',     getMyVideos);
+router.get('/videos/:videoId/stream-url', getVideoStreamUrl);
+router.get('/videos/:videoId/notes-url', getNotesUrl);
 router.post(
   '/videos',
   upload.fields([
