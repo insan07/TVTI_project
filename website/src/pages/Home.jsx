@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import SectionHeading from '../components/SectionHeading'
-import Card from '../components/Card'
-import Button from '../components/Button'
+
+
 
 // Asset imports
 import courseMobile from '../assets/course_mobile.png'
@@ -10,8 +10,8 @@ import courseLaptop from '../assets/course_laptop.png'
 import courseAppliances from '../assets/course_appliances.png'
 import courseCctv from '../assets/course_cctv.png'
 import courseWiring from '../assets/course_wiring.png'
-import heroComputer from '../assets/hero_computer.png'
-import heroElectrical from '../assets/hero_electrical.png'
+
+
 import slideCert1 from '../assets/slide_cert_1.jpg'
 import slideCert2 from '../assets/slide_cert_2.jpg'
 import slideCert3 from '../assets/slide_cert_3.jpg'
@@ -339,7 +339,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-w-full font-sans select-none bg-[#FAFAFC] text-slate-800">
-      
+
       {/* 1. HERO BANNER SLIDER (Increased Height & Spacious Spacing) */}
       <section className="relative h-[75vh] min-h-[520px] max-h-[660px] w-full overflow-hidden bg-slate-950 text-white">
         {/* Background Image Carousel (Bright & Clear Photos) */}
@@ -404,7 +404,7 @@ export default function Home() {
             <h1 className="font-heading font-bold text-2xl sm:text-4xl lg:text-5xl text-white tracking-tight leading-snug text-center">
               Practical Vocational Training & Technical Certification
             </h1>
-            
+
             {/* Subtitle */}
             <p className="font-sans text-slate-200 text-xs sm:text-base max-w-2xl font-normal leading-relaxed text-center mx-auto">
               Build real industry skills with 100% hands-on workshop training in mobile repair, laptop systems, home appliances, CCTV, and electrical wiring.
@@ -523,14 +523,14 @@ export default function Home() {
                       className="w-full h-full object-cover object-center transition-transform duration-500 group-hover/card:scale-105"
                     />
                   </div>
-                  
+
                   {/* Content Area */}
                   <div className="p-4 space-y-2">
                     {/* Title */}
                     <h3 className="font-heading font-bold text-base sm:text-lg text-slate-900 leading-snug line-clamp-2 min-h-[44px]">
                       {course.title}
                     </h3>
-                    
+
                     {/* Description with arrow */}
                     <p className="font-sans text-xs text-slate-600 leading-relaxed line-clamp-3">
                       {course.description} <span className="text-orange-600 font-bold ml-1">&rarr;</span>
@@ -695,7 +695,7 @@ export default function Home() {
         {/* Ambient Orange Spotlight & Decorative Background Elements */}
         <div className="absolute top-0 right-0 w-72 h-72 bg-brand-orange/15 rounded-full filter blur-3xl pointer-events-none -mr-16 -mt-16" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-orange-600/10 rounded-full filter blur-3xl pointer-events-none -ml-16 -mb-16" />
-        
+
         {/* Subtle Decorative Technical Grid Pattern */}
         <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(#F2701C_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 

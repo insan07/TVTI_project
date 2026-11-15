@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Enrollment from '../models/Enrollment';
 import Batch from '../models/Batch';
 import Notification from '../models/Notification';

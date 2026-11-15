@@ -46,6 +46,7 @@ export async function regenerateAccountCredentials(userId: string) {
     if (!user || !['student', 'instructor'].includes(user.role)) throw new PracticalError(404, 'Student or instructor account not found.');
     await ensureAccountIdentifiers(user, session);
     user.password_hash = hash; user.must_change_password = true;
+    user.session_version = (user.session_version || 0) + 1;
     user.temp_password_expires_at = new Date(Date.now() + 7 * 86400000);
     user.passwordResetOtpHash = undefined; user.passwordResetOtpExpiresAt = undefined;
     user.passwordResetTokenHash = undefined; user.passwordResetTokenExpiresAt = undefined;

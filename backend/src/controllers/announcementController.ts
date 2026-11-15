@@ -1,14 +1,19 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Announcement from '../models/Announcement';
 import Enrollment from '../models/Enrollment';
 import { sendNotification } from '../services/notificationService';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { assignedUploadBatch } from '../services/uploadAccess';
 
 export const postAnnouncement = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { batch_id, title, message } = req.body;
 
     const actualBatchId = (batch_id && batch_id !== 'all') ? batch_id : null;
+    if (actualBatchId && !await assignedUploadBatch(req.user, String(actualBatchId))) {
+      res.status(403).json({ message: 'Select an active batch assigned to you.' });
+      return;
+    }
 
     const announcement = await Announcement.create({
       batch_id: actualBatchId,
@@ -75,6 +80,10 @@ export const updateAnnouncement = async (req: AuthRequest, res: Response): Promi
     if (title !== undefined) announcement.title = title.trim();
     if (message !== undefined) announcement.message = message.trim();
     if (batch_id !== undefined) {
+      if (batch_id && batch_id !== 'all' && !await assignedUploadBatch(req.user, String(batch_id))) {
+        res.status(403).json({ message: 'Select an active batch assigned to you.' });
+        return;
+      }
       announcement.batch_id = (batch_id && batch_id !== 'all') ? batch_id : null;
     }
 

@@ -2,16 +2,16 @@ import React, { useContext, useEffect, useState } from 'react';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, View, Text, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons as Icon } from '@expo/vector-icons';
+
 import { setupNotificationListeners } from '../services/NotificationService';
 
 import { AuthContext } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { AuthNavigator } from './AuthNavigator';
 import AppLoadingAnimation from '../components/shared/AppLoadingAnimation';
-import { API_URL } from '../config/constants';
+
 import { COLORS } from '../config/theme';
 import api from '../services/api';
 
@@ -19,7 +19,7 @@ import api from '../services/api';
 import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
 import UserManagementScreen from '../screens/Admin/UserManagementScreen';
 import ProfileScreen from '../screens/Shared/ProfileScreen';
-import ScheduleScreen from '../screens/Shared/ScheduleScreen';
+
 import HomeScreen from '../screens/Student/HomeScreen';
 import UploadVideoScreen from '../screens/Instructor/UploadVideoScreen';
 import VideosScreen from '../screens/Student/VideosScreen';
@@ -37,7 +37,7 @@ import MyStudentsScreen from '../screens/Instructor/MyStudentsScreen';
 import MyBatchesScreen from '../screens/Instructor/MyBatchesScreen';
 import ForceChangePasswordScreen from '../screens/Auth/ForceChangePasswordScreen';
 import AdminSlotManagementScreen from '../screens/Admin/AdminSlotManagementScreen';
-import ApplicationsManagementScreen from '../screens/Admin/ApplicationsManagementScreen';
+
 import PdfViewerScreen from '../screens/Student/PdfViewerScreen';
 
 const Stack = createNativeStackNavigator();

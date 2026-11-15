@@ -1,5 +1,5 @@
 import AuthBackground, { AuthBackdropProvider } from '../../components/shared/AuthBackground';
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   ScrollView
 } from 'react-native';
 import { useNavigation, CommonActions } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
+
 import { AuthGlassSurface, authGlassStyles } from '../../components/shared/AuthGlassSurface';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';

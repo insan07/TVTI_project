@@ -11,7 +11,7 @@ import ManagementDialog from '../../components/shared/ManagementDialog';
 import { usersSectionTheme } from '../../components/shared/usersSectionTheme';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS } from '../../config/theme';
+
 import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import { useTheme } from '../../context/ThemeContext';

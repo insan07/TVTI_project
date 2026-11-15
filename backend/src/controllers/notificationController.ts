@@ -1,7 +1,8 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import mongoose from 'mongoose';
 import Notification from '../models/Notification';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { assignedUploadBatch } from '../services/uploadAccess';
 
 export const getMyNotifications = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -100,6 +101,10 @@ export const sendCustomNotification = async (req: AuthRequest, res: Response): P
     }
 
     const { userIds, role, batchId, title, message, type, link } = req.body;
+    if (req.user.role === 'instructor' && (userIds || role && role !== 'student' || typeof batchId !== 'string' || !await assignedUploadBatch(req.user, batchId))) {
+      res.status(403).json({ message: 'Instructors may send notifications only to their assigned batches.' });
+      return;
+    }
     if (!title || !message) {
       res.status(400).json({ message: 'Title and message are required' });
       return;

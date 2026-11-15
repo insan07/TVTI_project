@@ -33,6 +33,8 @@ import User from './models/User';
 import { getGridFSDownloadStream } from './services/fileStorage';
 
 const app: Application = express();
+app.disable('x-powered-by');
+if (process.env.VERCEL) app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
 import path from 'path';
@@ -197,7 +199,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
   res.status(500).json({
     success: false,
-    message: err.message || 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : err.message || 'Internal Server Error',
   });
 });
 

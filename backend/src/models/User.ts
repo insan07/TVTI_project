@@ -48,6 +48,10 @@ export interface IUser extends Document {
   must_change_password?: boolean;
   temp_password_expires_at?: Date;
   password_set_at?: Date;
+  session_version?: number;
+  passwordResetOtpAttempts?: number;
+  passwordResetOtpSentAt?: Date;
+  passwordResetCredentialHash?: string;
   passwordResetOtpHash?: string;
   passwordResetOtpExpiresAt?: Date;
   passwordResetTokenHash?: string;
@@ -109,10 +113,14 @@ const userSchema = new Schema<IUser>(
     must_change_password: { type: Boolean, default: false },
     temp_password_expires_at: { type: Date },
     password_set_at: { type: Date },
-    passwordResetOtpHash: { type: String },
-    passwordResetOtpExpiresAt: { type: Date },
-    passwordResetTokenHash: { type: String },
-    passwordResetTokenExpiresAt: { type: Date },
+    session_version: { type: Number, default: 0 },
+    passwordResetOtpHash: { type: String, select: false },
+    passwordResetOtpExpiresAt: { type: Date, select: false },
+    passwordResetTokenHash: { type: String, select: false },
+    passwordResetTokenExpiresAt: { type: Date, select: false },
+    passwordResetOtpAttempts: { type: Number, select: false },
+    passwordResetOtpSentAt: { type: Date, select: false },
+    passwordResetCredentialHash: { type: String, select: false },
     deactivation_email_sent: { type: Boolean, default: false },
     deactivation_email_sent_at: { type: Date },
     deactivation_email_error: { type: String },

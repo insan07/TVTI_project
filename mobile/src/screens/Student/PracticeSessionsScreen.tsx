@@ -90,11 +90,7 @@ export default function PracticeSessionsScreen() {
     return new Date(d.setDate(diff));
   }
 
-  const changeWeek = (offset: number) => {
-    const newDate = new Date(weekStart);
-    newDate.setDate(newDate.getDate() + offset * 7);
-    setWeekStart(newDate);
-  };
+
 
   const fetchBatches = async () => {
     try {

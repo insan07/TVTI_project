@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
 import { AuthRequest } from '../middleware/authMiddleware';
@@ -113,7 +113,7 @@ export const getMyStudents = async (req: AuthRequest, res: Response): Promise<vo
       res.status(404).json({ message: 'This batch is no longer assigned to you.' }); return;
     }
     const batchIds = batches.map(b => b._id);
-    
+
     const enrollments = await Enrollment.find({ batch_id: { $in: batchIds }, ...(batchId ? {} : { status: 'active' }) })
       .populate('student_id', 'name email phone nic index_number registration_number profile_photo')
       .populate({

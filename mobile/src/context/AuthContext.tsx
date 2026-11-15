@@ -30,7 +30,7 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-import { API_URL as BASE_API_URL } from '../config/constants';
+
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         const storedToken = await storage.getItem('token');
         const userJson = await storage.getItem('user');
-        
+
         if (storedToken && userJson) {
           setToken(storedToken);
           setUser(JSON.parse(userJson));
@@ -75,8 +75,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       delete api.defaults.headers.common['Authorization'];
     });
 
+    const refreshListener = DeviceEventEmitter.addListener('session_refreshed', (nextToken: string) => setToken(nextToken));
+
     return () => {
       listener.remove();
+      refreshListener.remove();
     };
   }, []);
 
@@ -85,13 +88,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       const response = await api.post('/auth/login', { email, password });
       const { token: apiToken, ...userData } = response.data;
-      
+
       await storage.setItem('token', apiToken);
       await storage.setItem('user', JSON.stringify(userData));
-      
+
       setToken(apiToken);
       setUser(userData);
-      
+
       axios.defaults.headers.common['Authorization'] = `Bearer ${apiToken}`;
       api.defaults.headers.common['Authorization'] = `Bearer ${apiToken}`;
 
@@ -119,10 +122,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       await storage.removeItem('token');
       await storage.removeItem('user');
-      
+
       setToken(null);
       setUser(null);
-      
+
       delete axios.defaults.headers.common['Authorization'];
       delete api.defaults.headers.common['Authorization'];
     } catch (error) {

@@ -4,11 +4,11 @@ import React, { useState, useContext, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Platform, useWindowDimensions, Keyboard } from 'react-native';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
+
 import { AuthGlassSurface, authGlassStyles } from '../../components/shared/AuthGlassSurface';
 import { AuthFormScrollView, AuthTextInput } from '../../components/shared/AuthForm';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
+import { RADIUS } from '../../config/theme';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 

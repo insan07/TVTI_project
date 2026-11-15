@@ -23,7 +23,15 @@ api.interceptors.request.use(
 );
 
 api.interceptors.response.use(
-  (response) => response,
+  async (response) => {
+    if (['/users/change-password', '/users/force-change-password'].includes(response.config.url || '') && response.data?.token) {
+      await storage.setItem('token', response.data.token);
+      api.defaults.headers.common.Authorization = `Bearer ${response.data.token}`;
+      axios.defaults.headers.common.Authorization = `Bearer ${response.data.token}`;
+      DeviceEventEmitter.emit('session_refreshed', response.data.token);
+    }
+    return response;
+  },
   async (error) => {
     // Login feedback belongs to the form, including network/server failures.
     if (error.config?.url?.replace(/\?.*$/, '') === '/auth/login') return Promise.reject(error);

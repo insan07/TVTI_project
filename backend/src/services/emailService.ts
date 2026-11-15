@@ -1,6 +1,6 @@
 import { CredentialMail, renderCredentialEmail } from '../utils/credentialEmail';
 import dns from 'dns';
-import nodemailer from 'nodemailer';
+import * as nodemailer from 'nodemailer';
 
 if (dns.setDefaultResultOrder) {
   try {
@@ -17,11 +17,11 @@ export const sendPasswordChangeOtpEmail = async ({ to, otp }: SendOtpMailOptions
   const transporter = getTransporter();
   if (!transporter) return { success: false };
   try {
-    await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to,
+    const delivery = await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to,
       subject: 'TVTI - Confirm your password change',
       text: `Your TVTI password change verification code is ${otp}. It expires in 10 minutes and can only be used once. If you did not request this change, do not share this code.`,
     });
-    return { success: true };
+    return { success: !Array.isArray(delivery.accepted) || delivery.accepted.length > 0 };
   } catch { return { success: false }; }
 };
 
@@ -254,26 +254,20 @@ export const sendPasswordResetOtpEmail = async ({ to, otp }: SendPasswordResetOt
 
   if (transporter) {
     try {
-      await transporter.sendMail({
+      const delivery = await transporter.sendMail({
         from,
         to,
         subject: `TVTI Password Reset Verification Code: ${otp}`,
         text: `Your TVTI Password Reset Verification Code is: ${otp}. It expires in 10 minutes. If you did not request a password reset, please ignore this email.`,
         html: htmlContent,
       });
-      return { success: true };
+      return { success: !Array.isArray(delivery.accepted) || delivery.accepted.length > 0 };
     } catch (err: any) {
-      console.warn(`[RESET OTP EMAIL SMTP WARNING] (${err?.message || err}). Falling back to dev logger.`);
+      console.warn(`[RESET OTP EMAIL SMTP WARNING] (${err?.message || err}). Delivery failed.`);
     }
   }
 
-  console.log(`\n======================================================`);
-  console.log(`[DEV PASSWORD RESET OTP EMAIL NOTICE]`);
-  console.log(`To: ${to}`);
-  console.log(`OTP Code: [ ${otp} ]`);
-  console.log(`Valid for 10 minutes`);
-  console.log(`======================================================\n`);
-  return { success: true, simulated: true };
+  return { success: false };
 };
 
 /**
@@ -411,20 +405,20 @@ export const sendPasswordResetEmail = async ({ to, resetLink }: SendPasswordRese
 
   if (transporter) {
     try {
-      await transporter.sendMail({
+      const delivery = await transporter.sendMail({
         from,
         to,
         subject: `Twintec Password Reset Request`,
         text: `Click the following link to reset your Twintec password: ${resetLink}. It expires in 1 hour.`,
         html: htmlContent,
       });
-      return { success: true };
+      return { success: !Array.isArray(delivery.accepted) || delivery.accepted.length > 0 };
     } catch (err: any) {
       console.warn(`[RESET EMAIL SMTP WARNING] (${err?.message || err}).`);
     }
   }
 
-  return { success: true, simulated: true };
+  return { success: false };
 };
 
 export interface SendApprovalMailOptions {
@@ -619,7 +613,7 @@ export const sendRejectionEmail = async ({
           <p class="description">
             Thank you for your interest in enrolling at Twintec Vocational Training Institute. After reviewing your submitted application details, we regret to inform you that your application could not be approved at this time.
           </p>
-          
+
           <div class="reason-card">
             <div class="reason-label">Reason for Rejection:</div>
             <div class="reason-text">${rejectionReason || 'Details/documents provided do not meet the minimum entry requirements.'}</div>
@@ -855,26 +849,20 @@ export const sendCertificateVerificationOtpEmail = async ({
 
   if (transporter) {
     try {
-      await transporter.sendMail({
+      const delivery = await transporter.sendMail({
         from,
         to,
         subject: `[TVTI Verification] Certificate Security Code: ${otp} for Registration ${indexNumber}`,
         text: `Twintec Certificate Verification Code: ${otp}. Student: ${studentName}, Registration: ${indexNumber}. Valid for 10 minutes.`,
         html: htmlContent,
       });
-      return { success: true };
+      return { success: !Array.isArray(delivery.accepted) || delivery.accepted.length > 0 };
     } catch (err: any) {
-      console.warn(`[CERT OTP EMAIL SMTP WARNING] (${err?.message || err}). Falling back to dev logger.`);
+      console.warn(`[CERT OTP EMAIL SMTP WARNING] (${err?.message || err}). Delivery failed.`);
     }
   }
 
-  console.log(`\n======================================================`);
-  console.log(`[DEV CERTIFICATE OTP EMAIL NOTICE]`);
-  console.log(`To: ${to}`);
-  console.log(`Student: ${studentName} (${indexNumber})`);
-  console.log(`OTP Code: [ ${otp} ]`);
-  console.log(`======================================================\n`);
-  return { success: true, simulated: true };
+  return { success: false };
 };
 
 

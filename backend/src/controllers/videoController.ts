@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Request, Response } from 'express';
 import Video from '../models/Video';
-import Enrollment from '../models/Enrollment';
+
 import cloudinary from '../config/cloudinary';
 import { sendNotification } from '../services/notificationService';
 import { deleteGridFSFile, saveBufferToGridFS } from '../services/fileStorage';
@@ -64,6 +64,10 @@ const describeUploadError = (error: unknown): string => {
 
 export const getBatchTopics = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!await assignedUploadBatch((req as any).user, String(req.params.batchId))) {
+      res.status(403).json({ message: 'Select an active batch assigned to you.' });
+      return;
+    }
     const topics = await Video.find({ batch_id: req.params.batchId }).distinct('topic');
     res.json(topics);
   } catch (error) {

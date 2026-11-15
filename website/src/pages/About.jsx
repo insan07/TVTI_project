@@ -1,7 +1,7 @@
 import React from 'react'
 import SectionHeading from '../components/SectionHeading'
 import Card from '../components/Card'
-import Button from '../components/Button'
+
 
 export default function About() {
   return (
@@ -55,7 +55,7 @@ export default function About() {
         </Card>
       </section>
 
-     
+
     </div>
   )
 }

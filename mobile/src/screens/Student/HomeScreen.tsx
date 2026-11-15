@@ -1,21 +1,10 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Image,
-  Dimensions,
-  Platform,
-  Modal,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Platform, Modal } from 'react-native';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { COLORS, FONTS, SPACING, RADIUS } from '../../config/theme';
+import { COLORS, FONTS } from '../../config/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
@@ -138,12 +127,12 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
 
   // Upcoming Practical Details
   const nextPractice = data?.next_practice || data?.next_available_practice;
-  
+
   const practicalTitle =
     data?.next_practice?.slot_id?.batch_id?.course_id?.title ||
     data?.next_available_practice?.batch_id?.course_id?.title ||
     'Course Details Loading...';
-  
+
   const instructorData =
     data?.next_practice?.slot_id?.instructor_id ||
     data?.next_available_practice?.instructor_id;
@@ -499,12 +488,12 @@ export default function HomeScreen({ unreadCount: passedUnreadCount }: { unreadC
                 <Icon name="close" size={24} color={isDark ? '#94A3B8' : '#4B5563'} />
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.modalBody}>
               <Image source={{ uri: avatarUrl }} style={styles.modalAvatar} />
               <Text style={[styles.modalName, isDark && { color: '#FFFFFF' }]}>{instructorName}</Text>
               <Text style={[styles.modalRole, isDark && { color: '#94A3B8' }]}>Course Instructor</Text>
-              
+
               <View style={[styles.modalInfoBox, isDark && styles.modalInfoBoxDark]}>
                 <View style={[styles.modalInfoRow, isDark && { borderBottomColor: 'rgba(255, 255, 255, 0.08)' }]}>
                   <Icon name="mail-outline" size={18} color="#FF5E14" />

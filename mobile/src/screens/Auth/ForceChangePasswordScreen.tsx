@@ -4,7 +4,7 @@ import React, { useState, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform, Image, useWindowDimensions } from 'react-native';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
-import { LinearGradient } from 'expo-linear-gradient';
+
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { RADIUS } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';

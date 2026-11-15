@@ -6,7 +6,7 @@ import { usersSectionTheme } from '../../components/shared/usersSectionTheme';
 import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
 import { KeyboardScrollView as ScrollView, KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal, FlatList, RefreshControl, Platform, Animated, LayoutAnimation, UIManager, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Platform, UIManager } from 'react-native';
 import {
   PickerField,
   DatePickerModal,
@@ -22,7 +22,7 @@ import { isPracticalExpired, instituteDateKey, instituteWallTime } from '../../u
 import usePracticalClock from '../../hooks/usePracticalClock';
 import { scheduleToday } from '../../utils/scheduleViews';
 import ScreenBackground from '../../components/shared/ScreenBackground';
-import WhatsAppOptionsMenu, { MenuOption } from '../../components/shared/WhatsAppOptionsMenu';
+import { MenuOption } from '../../components/shared/WhatsAppOptionsMenu';
 import { useTheme } from '../../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as any).nativeFabricUIManager) {

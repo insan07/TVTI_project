@@ -5,14 +5,14 @@ import Card from '../components/Card'
 import Button from '../components/Button'
 
 // Asset imports
-import facilityAuto from '../assets/facility_auto.png'
+
 import courseMobile from '../assets/course_mobile.png'
 import courseLaptop from '../assets/course_laptop.png'
 import courseAppliances from '../assets/course_appliances.png'
 import courseCctv from '../assets/course_cctv.png'
 import courseWiring from '../assets/course_wiring.png'
-import facilityKitchen from '../assets/facility_kitchen.png'
-import courseBrick from '../assets/course_brick.png'
+
+
 
 export default function CourseDetail() {
   const { slug } = useParams()
@@ -201,7 +201,7 @@ export default function CourseDetail() {
 
   return (
     <div className="flex flex-col w-full overflow-hidden select-none">
-      
+
       {/* 1. HERO BANNER */}
       <section className="relative h-[180px] sm:h-[220px] lg:h-[250px] bg-brand-black overflow-hidden flex items-center">
         {/* Background Image */}
@@ -212,7 +212,7 @@ export default function CourseDetail() {
         />
         {/* Dark Overlay */}
         <div className="absolute inset-0 bg-brand-black/80" />
-        
+
         {/* Content */}
         <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 w-full text-left">
           <div className="max-w-3xl space-y-2.5">
@@ -237,10 +237,10 @@ export default function CourseDetail() {
       {/* 2. DUAL COLUMN LAYOUT */}
       <section className="py-8 sm:py-10 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
+
           {/* LEFT COLUMN: Main Info */}
           <div className="lg:col-span-8 space-y-8 text-left">
-            
+
             {/* Course Description */}
             <div className="space-y-3">
               <h2 className="font-heading font-bold text-lg sm:text-xl tracking-wider text-brand-black border-b border-black/5 pb-2">
@@ -318,7 +318,7 @@ export default function CourseDetail() {
                 <p className="font-heading font-extrabold text-brand-orange text-3xl">{course.fee}</p>
                 <span className="text-[10px] text-brand-charcoal/40 italic block">*Flexible payment plans available</span>
               </div>
-              
+
               <div className="border-t border-black/10 pt-4 space-y-3">
                 <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-brand-charcoal/70">Duration</span>

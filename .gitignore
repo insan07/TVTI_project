@@ -3,4 +3,10 @@ node_modules/
 dist/
 build/
 VIVA_NOTES.md
+Microsoft/
+**/dist-*-check/
+grok_logs.csv
+mobile/grok_logs.csv
+.env.*
+!.env.example
 

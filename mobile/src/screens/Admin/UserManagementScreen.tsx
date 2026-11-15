@@ -1,14 +1,14 @@
 import PaymentSummaryCard from '../../components/shared/PaymentSummaryCard';
 import { Linking } from 'react-native';
 import { API_URL } from '../../config/constants';
-import { paymentSummary, money, paymentStatusLabel } from '../../utils/paymentSummary';
+import { paymentSummary, money } from '../../utils/paymentSummary';
 import AccountCredentialsCard from '../../components/shared/AccountCredentialsCard';
 import { registrationNumberOf, compareRegistrationNumbers } from '../../utils/registrationIdentity';
 import UserAvatar from '../../components/shared/UserAvatar';
 import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
 import { KeyboardTextInput as TextInput, KeyboardScrollView as ScrollView } from '../../components/shared/KeyboardForm';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Platform, Image, LayoutAnimation, UIManager, Share } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Platform, Image, UIManager, Share } from 'react-native';
 import api from '../../services/api';
 import useScrollAwareControls from '../../hooks/useScrollAwareControls';
 import ScrollAwareControls from '../../components/shared/ScrollAwareControls';

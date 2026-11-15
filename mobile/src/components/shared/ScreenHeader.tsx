@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { HEADER_THEME } from '../../config/headerTheme';

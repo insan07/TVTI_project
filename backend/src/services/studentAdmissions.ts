@@ -78,6 +78,7 @@ export async function approveStudentApplication(applicationId: string, body: any
       payment_info: { total_fee: payment.total, amount_paid: payment.paid, payment_status: payment.status, payment_method: application.payment_method, payment_slip: application.payment_slip, last_updated: new Date() },
       role: 'student' as const, is_active: true, status: 'active', is_graduated: false, index_number: index, registration_number: registration,
       password_hash, must_change_password: true, temp_password_expires_at: new Date(Date.now() + 7 * 86400000),
+      session_version: (student?.session_version || 0) + 1,
     };
     if (student) { Object.assign(student, values); await student.save({ session }); }
     else [student] = await User.create([values], { session });

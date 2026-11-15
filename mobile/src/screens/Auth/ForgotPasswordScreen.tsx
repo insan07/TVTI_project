@@ -3,7 +3,7 @@ import { KeyboardAvoidingView } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Platform, useWindowDimensions, Keyboard, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
+
 import { AuthGlassSurface, authGlassStyles } from '../../components/shared/AuthGlassSurface';
 import { AuthFormScrollView, AuthTextInput } from '../../components/shared/AuthForm';
 import { Ionicons as Icon } from '@expo/vector-icons';

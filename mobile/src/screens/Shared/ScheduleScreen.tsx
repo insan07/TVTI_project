@@ -5,7 +5,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import MainPageHeader from '../../components/shared/MainPageHeader';
-import { FONTS } from '../../config/theme';
+
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

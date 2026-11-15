@@ -12,7 +12,7 @@ import { FONTS } from '../../config/theme';
 import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScreenBackground from '../../components/shared/ScreenBackground';
 import StudentPayments from '../../components/shared/StudentPayments';
-import PasswordChangeOtp from '../../components/shared/PasswordChangeOtp';
+import ProfilePasswordChange from '../../components/shared/ProfilePasswordChange';
 
 export default function ProfileScreen() {
   const context = useContext(AuthContext);
@@ -35,15 +35,10 @@ export default function ProfileScreen() {
   const [photoAsset, setPhotoAsset] = useState<any>(null);
 
   // Bank Slip Zoom Modal
-  const [slipZoomVisible, setSlipZoomVisible] = useState(false);
+
 
   // Change Password Modal
   const [passModalVisible, setPassModalVisible] = useState(false);
-  const [passData, setPassData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  const [passwordOtp, setPasswordOtp] = useState('');
-  const [showCurrentPass, setShowCurrentPass] = useState(false);
-  const [showNewPass, setShowNewPass] = useState(false);
-  const [showConfirmPass, setShowConfirmPass] = useState(false);
 
   // Help & Support Modal
   const [helpModalVisible, setHelpModalVisible] = useState(false);
@@ -138,38 +133,6 @@ export default function ProfileScreen() {
       } else {
         showAck('Error', serverMsg || 'Failed to update profile', 'error');
       }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleChangePassword = async () => {
-    if (!passData.currentPassword || !passData.newPassword || !passData.confirmPassword) {
-      return showAck('Error', 'Please fill all password fields', 'error');
-    }
-    if (passData.newPassword !== passData.confirmPassword) {
-      return showAck('Error', 'New passwords do not match', 'error');
-    }
-    if (passData.newPassword.length < 6) {
-      return showAck('Error', 'Password must be at least 6 characters', 'error');
-    }
-
-    if (!/^\d{6}$/.test(passwordOtp)) return showAck('Verification required', 'Send and enter the six-digit code from your registered email.', 'error');
-    setSaving(true);
-    try {
-      await api.put('/users/change-password', {
-        currentPassword: passData.currentPassword,
-        newPassword: passData.newPassword,
-        otp: passwordOtp,
-      });
-
-      showAck('Password Updated', 'Your password has been changed successfully', 'success', () => {
-        setPassModalVisible(false);
-        setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setPasswordOtp('');
-      });
-    } catch (e: any) {
-      showAck('Error', e.response?.data?.message || 'Failed to change password', 'error');
     } finally {
       setSaving(false);
     }
@@ -299,7 +262,7 @@ export default function ProfileScreen() {
           {/* Change Password Option Card */}
           <TouchableOpacity
             style={[styles.menuCard, isDark && { backgroundColor: '#141B26', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1 }]}
-            onPress={() => { setPasswordOtp(''); setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' }); setPassModalVisible(true); }}
+            onPress={() => setPassModalVisible(true)}
             activeOpacity={0.7}
           >
             <View style={styles.menuLeftContent}>
@@ -608,111 +571,14 @@ export default function ProfileScreen() {
       {/* ========================================================================= */}
       {/* CHANGE PASSWORD MODAL */}
       {/* ========================================================================= */}
-      <Modal visible={passModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={[styles.modalCard, { maxHeight: '100%', flexShrink: 1 }]}>
-<ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Change Password</Text>
-                <TouchableOpacity onPress={() => setPassModalVisible(false)}>
-                  <Icon name="close" size={22} color="#4B5563" />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.inputLabel}>Current Password *</Text>
-              <View style={styles.passwordRow}>
-                <TextInput
-                  style={styles.passwordInput}
-                  secureTextEntry={!showCurrentPass}
-                  value={passData.currentPassword}
-                  onChangeText={t => setPassData({ ...passData, currentPassword: t })}
-                  placeholder="Enter current password"
-                  placeholderTextColor="#9CA3AF"
-                />
-                <TouchableOpacity
-                  style={styles.eyeBtn}
-                  onPress={() => setShowCurrentPass(v => !v)}
-                >
-                  <Icon
-                    name={showCurrentPass ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color="#9CA3AF"
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.inputLabel}>New Password *</Text>
-              <View style={styles.passwordRow}>
-                <TextInput
-                  style={styles.passwordInput}
-                  secureTextEntry={!showNewPass}
-                  value={passData.newPassword}
-                  onChangeText={t => setPassData({ ...passData, newPassword: t })}
-                  placeholder="At least 6 characters"
-                  placeholderTextColor="#9CA3AF"
-                />
-                <TouchableOpacity
-                  style={styles.eyeBtn}
-                  onPress={() => setShowNewPass(v => !v)}
-                >
-                  <Icon
-                    name={showNewPass ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color="#9CA3AF"
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.inputLabel}>Confirm New Password *</Text>
-              <View style={styles.passwordRow}>
-                <TextInput
-                  style={styles.passwordInput}
-                  secureTextEntry={!showConfirmPass}
-                  value={passData.confirmPassword}
-                  onChangeText={t => setPassData({ ...passData, confirmPassword: t })}
-                  placeholder="Re-enter new password"
-                  placeholderTextColor="#9CA3AF"
-                />
-                <TouchableOpacity
-                  style={styles.eyeBtn}
-                  onPress={() => setShowConfirmPass(v => !v)}
-                >
-                  <Icon
-                    name={showConfirmPass ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color="#9CA3AF"
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {passModalVisible && <PasswordChangeOtp otp={passwordOtp} onChange={setPasswordOtp} currentPassword={passData.currentPassword} disabled={saving} />}
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelModalBtn}
-                  onPress={() => setPassModalVisible(false)}
-                >
-                  <Text style={styles.cancelModalText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.submitModalBtn}
-                  onPress={handleChangePassword}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.submitModalText}>Update Password</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-          </ScrollView>
-</View>
-        </KeyboardAvoidingView>
-      </Modal>
+      {passModalVisible && <ProfilePasswordChange
+        email={profile.email || ''}
+        onClose={() => setPassModalVisible(false)}
+        onSuccess={() => {
+          setPassModalVisible(false);
+          showAck('Password Updated', 'Your password has been changed successfully', 'success');
+        }}
+      />}
 
       {/* ========================================================================= */}
       {/* HELP & SUPPORT MODAL */}
@@ -1342,25 +1208,6 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: isDark ? '#FFFFFF' : '#18181B',
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: isDark ? '#0B0F19' : '#F4F4F6',
-    borderWidth: 1,
-    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E4E4E7',
-    borderRadius: 10,
-    paddingRight: 10,
-  },
-  passwordInput: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: isDark ? '#FFFFFF' : '#18181B',
-  },
-  eyeBtn: {
-    padding: 4,
   },
   modalFooterBtns: {
     flexDirection: 'row',

@@ -2,26 +2,13 @@ import { Request, Response } from 'express';
 import User from '../models/User';
 import Application from '../models/Application';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { sendOtp, verifyOtp, isEmailVerified, consumeEmailVerification, isValidEmail } from '../services/otpService';
 import { sendPasswordResetOtpEmail } from '../services/emailService';
 import crypto from 'crypto';
 import { changeAccountPassword } from '../services/passwordChange';
 import { PracticalError } from '../services/practicalScheduling';
-
-const getJwtSecret = (): string => {
-  const secret = process.env.JWT_SECRET?.trim();
-  if (!secret) {
-    throw new Error('JWT_SECRET must be configured');
-  }
-  return secret;
-};
-
-const generateToken = (id: string, expiresIn: any = '7d') => {
-  return jwt.sign({ id }, getJwtSecret(), {
-    expiresIn,
-  });
-};
+import { generateSessionToken } from '../config/auth';
+import { withAccountCredentialLock } from '../services/accountCredentialLock';
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, identifier, password } = req.body;
@@ -89,13 +76,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       registration_number: user.registration_number,
       profile_photo: user.profile_photo,
       must_change_password: user.must_change_password || false,
-      token: generateToken(String(user._id)),
+      token: generateSessionToken(user),
     });
   } catch (error: any) {
     console.error('Login error:', error);
     res.status(500).json({
       message: 'Server error during login',
-      error: error?.message || String(error)
     });
   }
 };
@@ -103,7 +89,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 export const forceChangePassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = await changeAccountPassword((req as any).user?._id, req.body, true);
-    res.json({ message: 'Password updated successfully. Access granted.', user: {
+    res.json({ message: 'Password updated successfully. Access granted.', token: generateSessionToken(user), user: {
       _id: user._id, name: user.name, email: user.email, role: user.role,
       index_number: user.index_number, registration_number: user.registration_number,
       profile_photo: user.profile_photo, must_change_password: false,
@@ -233,6 +219,10 @@ export const verifyOtpHandler = async (req: Request, res: Response): Promise<voi
 export const register = async (req: Request, res: Response): Promise<void> => {
   const { name, email, password, phone, nic, desired_course } = req.body;
   try {
+    if (typeof name !== 'string' || !name.trim() || typeof email !== 'string' || !isValidEmail(email.trim()) || email.length > 254 || typeof password !== 'string' || password.length < 6 || Buffer.byteLength(password, 'utf8') > 72) {
+      res.status(400).json({ message: 'Name, valid email, and a password of at least 6 characters and at most 72 bytes are required.' });
+      return;
+    }
     if (!email) {
       res.status(400).json({ message: 'Email is required' });
       return;
@@ -278,45 +268,54 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body;
-  
-  if (!email || typeof email !== 'string') {
+
+  if (typeof email !== 'string' || !isValidEmail(email.trim()) || email.length > 254) {
     res.status(400).json({ message: 'Email address is required.' });
     return;
   }
 
   const normalizedEmail = email.toLowerCase().trim();
-  
+
   try {
-    const user = await User.findOne({ email: normalizedEmail });
-    
-    if (user) {
-      // User found. Generate 6-digit OTP
-      const otp = crypto.randomInt(100000, 1000000).toString();
-      const salt = await bcrypt.genSalt(10);
-      const otpHash = await bcrypt.hash(otp, salt);
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+    await withAccountCredentialLock(normalizedEmail, async () => {
+      const user = await User.findOne({ email: normalizedEmail, is_active: true }).select('+passwordResetOtpSentAt');
 
-      // Store in DB
-      user.passwordResetOtpHash = otpHash;
-      user.passwordResetOtpExpiresAt = expiresAt;
-      await user.save();
+      if (user) {
+        if (user.passwordResetOtpSentAt && user.passwordResetOtpSentAt.getTime() + 60000 > Date.now()) return;
+        // User found. Generate 6-digit OTP
+        const otp = crypto.randomInt(100000, 1000000).toString();
+        const salt = await bcrypt.genSalt(10);
+        const otpHash = await bcrypt.hash(otp, salt);
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
-      // Send OTP email
-      await sendPasswordResetOtpEmail({ to: normalizedEmail, otp });
-    }
-    
+        // Send OTP email
+        const delivery = await sendPasswordResetOtpEmail({ to: normalizedEmail, otp });
+        if (!delivery.success || delivery.simulated) throw new PracticalError(503, 'Verification email could not be delivered. Please try again.');
+
+        // Store in DB
+        user.passwordResetOtpHash = otpHash;
+        user.passwordResetOtpExpiresAt = expiresAt;
+        user.passwordResetOtpSentAt = new Date();
+        user.passwordResetOtpAttempts = 0;
+        user.passwordResetCredentialHash = user.password_hash;
+        user.passwordResetTokenHash = undefined;
+        user.passwordResetTokenExpiresAt = undefined;
+        await user.save();
+      }
+    });
+
     // Always return the same generic message to prevent account enumeration
     res.json({ message: 'If an account exists for this email address, a verification code has been sent.' });
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ message: 'Server error processing forgot password request.' });
+    res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Server error processing forgot password request.' });
   }
 };
 
 export const verifyResetOtp = async (req: Request, res: Response): Promise<void> => {
   const { email, otp } = req.body;
 
-  if (!email || !otp) {
+  if (typeof email !== 'string' || !isValidEmail(email.trim()) || email.length > 254 || typeof otp !== 'string' || !/^\d{6}$/.test(otp)) {
     res.status(400).json({ message: 'Email and OTP are required.' });
     return;
   }
@@ -324,92 +323,70 @@ export const verifyResetOtp = async (req: Request, res: Response): Promise<void>
   const normalizedEmail = email.toLowerCase().trim();
 
   try {
-    const user = await User.findOne({ email: normalizedEmail });
-    if (!user || !user.passwordResetOtpHash || !user.passwordResetOtpExpiresAt) {
-      res.status(400).json({ message: 'Invalid or expired OTP. Please request a new one.' });
-      return;
-    }
+    await withAccountCredentialLock(normalizedEmail, async () => {
+      const user = await User.findOne({ email: normalizedEmail, is_active: true }).select('+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpAttempts +passwordResetCredentialHash');
+      if (!user || !user.passwordResetOtpHash || !user.passwordResetOtpExpiresAt || user.passwordResetCredentialHash !== user.password_hash) {
+        res.status(400).json({ message: 'Invalid or expired OTP. Please request a new one.' });
+        return;
+      }
 
-    if (new Date() > user.passwordResetOtpExpiresAt) {
-      res.status(400).json({ message: 'This verification code has expired. Please request a new code.' });
-      return;
-    }
+      if (new Date() > user.passwordResetOtpExpiresAt) {
+        res.status(400).json({ message: 'This verification code has expired. Please request a new code.' });
+        return;
+      }
 
-    const isMatch = await bcrypt.compare(otp, user.passwordResetOtpHash);
-    if (!isMatch) {
-      res.status(400).json({ message: 'The verification code is incorrect.' });
-      return;
-    }
+      if ((user.passwordResetOtpAttempts || 0) >= 5) {
+        res.status(400).json({ message: 'Too many incorrect attempts. Request a new code.' });
+        return;
+      }
+      user.passwordResetOtpAttempts = (user.passwordResetOtpAttempts || 0) + 1;
+      await user.save();
 
-    // OTP is valid. Generate short-lived reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const salt = await bcrypt.genSalt(10);
-    const tokenHash = await bcrypt.hash(resetToken, salt);
-    const tokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins for resetting
+      const isMatch = await bcrypt.compare(otp, user.passwordResetOtpHash);
+      if (!isMatch) {
+        res.status(400).json({ message: 'The verification code is incorrect.' });
+        return;
+      }
 
-    user.passwordResetTokenHash = tokenHash;
-    user.passwordResetTokenExpiresAt = tokenExpiresAt;
-    
-    // Clear OTP so it cannot be reused
-    user.passwordResetOtpHash = undefined;
-    user.passwordResetOtpExpiresAt = undefined;
-    await user.save();
+      // OTP is valid. Generate short-lived reset token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const salt = await bcrypt.genSalt(10);
+      const tokenHash = await bcrypt.hash(resetToken, salt);
+      const tokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins for resetting
 
-    res.json({
-      message: 'OTP verified successfully.',
-      resetToken: `${user._id}.${resetToken}`
+      user.passwordResetTokenHash = tokenHash;
+      user.passwordResetTokenExpiresAt = tokenExpiresAt;
+
+      // Clear OTP so it cannot be reused
+      user.passwordResetOtpHash = undefined;
+      user.passwordResetOtpExpiresAt = undefined;
+      await user.save();
+
+      res.json({
+        message: 'OTP verified successfully.',
+        resetToken: `${user._id}.${resetToken}`
+      });
     });
   } catch (error) {
     console.error('Verify OTP error:', error);
-    res.status(500).json({ message: 'Server error verifying OTP.' });
+    res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Server error verifying OTP.' });
   }
 };
 
 export const resendResetOtp = async (req: Request, res: Response): Promise<void> => {
-  const { email } = req.body;
-
-  if (!email) {
-    res.status(400).json({ message: 'Email address is required.' });
-    return;
-  }
-
-  const normalizedEmail = email.toLowerCase().trim();
-
-  try {
-    const user = await User.findOne({ email: normalizedEmail });
-    
-    if (user) {
-      // Optional: we can implement a cooldown check here. 
-      // For simplicity, we just generate a new one and overwrite.
-      
-      const otp = crypto.randomInt(100000, 1000000).toString();
-      const salt = await bcrypt.genSalt(10);
-      const otpHash = await bcrypt.hash(otp, salt);
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
-
-      user.passwordResetOtpHash = otpHash;
-      user.passwordResetOtpExpiresAt = expiresAt;
-      
-      // Clear any pending reset token since we are starting over
-      user.passwordResetTokenHash = undefined;
-      user.passwordResetTokenExpiresAt = undefined;
-      
-      await user.save();
-      await sendPasswordResetOtpEmail({ to: normalizedEmail, otp });
-    }
-
-    res.json({ message: 'If an account exists for this email address, a verification code has been sent.' });
-  } catch (error) {
-    console.error('Resend Reset OTP error:', error);
-    res.status(500).json({ message: 'Server error resending OTP.' });
-  }
+  // Optional: we can implement a cooldown check here.
+  // For simplicity, we just generate a new one and overwrite.
+  // Clear any pending reset token since we are starting over
+  // 10 mins
+  // Resends now share the enforced cooldown and delivery checks above.
+  return forgotPassword(req, res);
 };
 
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   const { resetToken, newPassword } = req.body;
 
-  if (!resetToken || !newPassword) {
-    res.status(400).json({ message: 'Reset token and new password are required.' });
+  if (typeof resetToken !== 'string' || !/^[a-f\d]{24}\.[a-f\d]{64}$/i.test(resetToken) || typeof newPassword !== 'string' || newPassword.length < 6 || Buffer.byteLength(newPassword, 'utf8') > 72) {
+    res.status(400).json({ message: 'A valid reset token and a password of 6 to 72 bytes are required.' });
     return;
   }
 
@@ -421,41 +398,49 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     }
     const [userId, rawToken] = parts;
 
-    const user = await User.findById(userId);
-    if (!user || !user.passwordResetTokenHash || !user.passwordResetTokenExpiresAt) {
-      res.status(400).json({ message: 'This password reset session has expired or is invalid. Please start again.' });
-      return;
-    }
+    const initial = await User.findById(userId);
+    if (!initial) { res.status(400).json({ message: 'Invalid password reset session.' }); return; }
+    await withAccountCredentialLock(initial.email, async () => {
+      const user = await User.findById(userId).select('+passwordResetTokenHash +passwordResetTokenExpiresAt +passwordResetCredentialHash');
+      if (!user || !user.is_active || !user.passwordResetTokenHash || !user.passwordResetTokenExpiresAt || user.passwordResetCredentialHash !== user.password_hash) {
+        res.status(400).json({ message: 'This password reset session has expired or is invalid. Please start again.' });
+        return;
+      }
 
-    if (new Date() > user.passwordResetTokenExpiresAt) {
-      res.status(400).json({ message: 'This password reset session has expired. Please start again.' });
-      return;
-    }
+      if (new Date() > user.passwordResetTokenExpiresAt) {
+        res.status(400).json({ message: 'This password reset session has expired. Please start again.' });
+        return;
+      }
 
-    const isMatch = await bcrypt.compare(rawToken, user.passwordResetTokenHash);
-    if (!isMatch) {
-      res.status(400).json({ message: 'This password reset session is invalid. Please start again.' });
-      return;
-    }
+      const isMatch = await bcrypt.compare(rawToken, user.passwordResetTokenHash);
+      if (!isMatch) {
+        res.status(400).json({ message: 'This password reset session is invalid. Please start again.' });
+        return;
+      }
 
-    // Hash new password
-    const salt = await bcrypt.genSalt(10);
-    user.password_hash = await bcrypt.hash(newPassword, salt);
-    
-    // Clear all reset credentials
-    user.passwordResetOtpHash = undefined;
-    user.passwordResetOtpExpiresAt = undefined;
-    user.passwordResetTokenHash = undefined;
-    user.passwordResetTokenExpiresAt = undefined;
-    user.must_change_password = false;
-    user.temp_password_expires_at = undefined;
-    user.password_set_at = new Date();
+      // Hash new password
+      const salt = await bcrypt.genSalt(10);
+      user.password_hash = await bcrypt.hash(newPassword, salt);
 
-    await user.save();
+      // Clear all reset credentials
+      user.passwordResetOtpHash = undefined;
+      user.passwordResetOtpExpiresAt = undefined;
+      user.passwordResetTokenHash = undefined;
+      user.passwordResetTokenExpiresAt = undefined;
+      user.passwordResetCredentialHash = undefined;
+      user.passwordResetOtpAttempts = undefined;
+      user.passwordResetOtpSentAt = undefined;
+      user.must_change_password = false;
+      user.temp_password_expires_at = undefined;
+      user.password_set_at = new Date();
+      user.session_version = (user.session_version || 0) + 1;
 
-    res.json({ message: 'Password reset successfully.' });
+      await user.save();
+
+      res.json({ message: 'Password reset successfully.' });
+    });
   } catch (error) {
     console.error('Reset Password error:', error);
-    res.status(500).json({ message: 'Server error resetting password.' });
+    res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Server error resetting password.' });
   }
 };

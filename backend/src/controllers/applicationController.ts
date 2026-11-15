@@ -4,9 +4,9 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Application from '../models/Application';
 import User from '../models/User';
-import Course from '../models/Course';
-import Batch from '../models/Batch';
-import Enrollment from '../models/Enrollment';
+
+
+
 import { sendNotification } from '../services/notificationService';
 import { isEmailVerified, consumeEmailVerification } from '../services/otpService';
 import { sendApplicationSubmissionEmail, sendRejectionEmail } from '../services/emailService';

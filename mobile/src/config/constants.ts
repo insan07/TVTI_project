@@ -58,13 +58,13 @@ const getApiUrl = () => {
   }
 
   // 3. Local Development Auto IP Detection (for Expo Go on physical device)
-  const autoIp = getDevHostIp();
+  const autoIp = __DEV__ ? getDevHostIp() : null;
   if (autoIp) {
     return `http://${autoIp}:5000/api`;
   }
 
   // 4. Android Emulator Fallback
-  if (Platform.OS === 'android') {
+  if (__DEV__ && Platform.OS === 'android') {
     return 'http://10.0.2.2:5000/api';
   }
 

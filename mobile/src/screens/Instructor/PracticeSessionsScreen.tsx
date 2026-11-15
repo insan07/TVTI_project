@@ -6,7 +6,7 @@ import { usersSectionTheme } from '../../components/shared/usersSectionTheme';
 import { KeyboardAvoidingView } from "../../components/shared/KeyboardForm";
 import { KeyboardScrollView as ScrollView, KeyboardTextInput as TextInput } from '../../components/shared/KeyboardForm';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, RefreshControl, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -16,12 +16,12 @@ import {
   TimePickerModal,
 } from '../../components/shared/DateTimePickerModals';
 import api from '../../services/api';
-import { updatePracticeSlot, getSlotBookings } from '../../services/practiceService';
+import { updatePracticeSlot } from '../../services/practiceService';
 import MainPageHeader from '../../components/shared/MainPageHeader';
 import ScheduleOverview, { scheduleOverviewStyles } from '../../components/schedule/ScheduleOverview';
 import ScheduleSlotCard from '../../components/schedule/ScheduleSlotCard';
 import ScreenBackground from '../../components/shared/ScreenBackground';
-import WhatsAppOptionsMenu, { MenuOption } from '../../components/shared/WhatsAppOptionsMenu';
+import { MenuOption } from '../../components/shared/WhatsAppOptionsMenu';
 import { useTheme } from '../../context/ThemeContext';
 import { isPracticalExpired, instituteDateKey, instituteWallTime } from '../../utils/practicalTime';
 import usePracticalClock from '../../hooks/usePracticalClock';

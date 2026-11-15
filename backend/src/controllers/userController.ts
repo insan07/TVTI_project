@@ -2,13 +2,14 @@ import { Response } from 'express';
 import User from '../models/User';
 import Enrollment from '../models/Enrollment';
 import Batch from '../models/Batch';
-import bcrypt from 'bcryptjs';
+
 import cloudinary from '../config/cloudinary';
 import { AuthRequest } from '../middleware/authMiddleware';
-import { requestPasswordChangeOtp, changeAccountPassword } from '../services/passwordChange';
+import { requestPasswordChangeOtp, changeAccountPassword, verifyPasswordChange } from '../services/passwordChange';
 import { PracticalError } from '../services/practicalScheduling';
 import PaymentSlip from '../models/PaymentSlip';
 import { summarizePayment } from '../utils/paymentSummary';
+import { generateSessionToken } from '../config/auth';
 
 export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -94,16 +95,21 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
 
 export const changePassword = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    await changeAccountPassword(req.user._id, req.body);
-    res.json({ message: 'Password updated successfully' });
+    const user = await changeAccountPassword(req.user._id, req.body);
+    res.json({ message: 'Password updated successfully', token: generateSessionToken(user) });
   } catch (error) {
     res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Password could not be changed.' });
   }
 };
 
 export const sendPasswordChangeOtp = async (req: AuthRequest, res: Response): Promise<void> => {
-  try { res.json(await requestPasswordChangeOtp(req.user._id, req.body.currentPassword)); }
+  try { res.json(await requestPasswordChangeOtp(req.user._id)); }
   catch (error) { res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Verification email could not be sent.' }); }
+};
+
+export const verifyPasswordChangeIdentity = async (req: AuthRequest, res: Response): Promise<void> => {
+  try { res.json(await verifyPasswordChange(req.user._id, req.body)); }
+  catch (error) { res.status(error instanceof PracticalError ? error.status : 500).json({ message: error instanceof PracticalError ? error.message : 'Password verification failed.' }); }
 };
 
 export const updatePushToken = async (req: AuthRequest, res: Response): Promise<void> => {

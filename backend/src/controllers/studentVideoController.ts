@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Video from '../models/Video';
 import Enrollment from '../models/Enrollment';
 import { AuthRequest } from '../middleware/authMiddleware';

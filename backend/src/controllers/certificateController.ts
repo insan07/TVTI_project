@@ -4,8 +4,9 @@ import User from '../models/User';
 import Enrollment from '../models/Enrollment';
 import Result from '../models/Result';
 import Application from '../models/Application';
-import OtpVerification from '../models/OtpVerification';
-import { generate6DigitOtp, verifyOtp } from '../services/otpService';
+import OtpVerification from '../models/CertificateOtpVerification';
+import { generate6DigitOtp } from '../services/otpService';
+import { withAccountCredentialLock } from '../services/accountCredentialLock';
 import { sendCertificateVerificationOtpEmail } from '../services/emailService';
 
 const OTP_EXPIRY_MINUTES = 10;
@@ -267,61 +268,56 @@ export const requestCertificateOtp = async (req: Request, res: Response): Promis
 
     const studentEmail = student.email.toLowerCase().trim();
 
-    // Enforce cooldown if existing OTP was sent recently
-    const existingOtp = await OtpVerification.findOne({ email: studentEmail });
-    if (existingOtp && existingOtp.last_sent_at) {
-      const elapsedSeconds = Math.floor((Date.now() - new Date(existingOtp.last_sent_at).getTime()) / 1000);
-      if (elapsedSeconds < RESEND_COOLDOWN_SECONDS) {
-        const remaining = RESEND_COOLDOWN_SECONDS - elapsedSeconds;
-        res.status(429).json({
-          verified: false,
-          requires_otp: true,
-          email_masked: maskEmail(studentEmail),
-          cooldownRemaining: remaining,
-          message: `Verification code was recently sent. Please wait ${remaining} seconds before requesting a new code.`
-        });
+    await withAccountCredentialLock(studentEmail, async () => {
+      // Enforce cooldown if existing OTP was sent recently
+      const existingOtp = await OtpVerification.findOne({ email: studentEmail });
+      if (existingOtp && existingOtp.last_sent_at) {
+        const elapsedSeconds = Math.floor((Date.now() - new Date(existingOtp.last_sent_at).getTime()) / 1000);
+        if (elapsedSeconds < RESEND_COOLDOWN_SECONDS) {
+          const remaining = RESEND_COOLDOWN_SECONDS - elapsedSeconds;
+          res.status(429).json({
+            verified: false,
+            requires_otp: true,
+            email_masked: maskEmail(studentEmail),
+            cooldownRemaining: remaining,
+            message: `Verification code was recently sent. Please wait ${remaining} seconds before requesting a new code.`
+          });
+          return;
+        }
+      }
+
+      // Generate 6-digit OTP code & Hash
+      const otp = generate6DigitOtp();
+      const salt = await bcrypt.genSalt(10);
+      const otp_hash = await bcrypt.hash(otp, salt);
+      const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+      // Dispatch email
+      const mailResult = await sendCertificateVerificationOtpEmail({
+        to: studentEmail,
+        studentName: student.name,
+        indexNumber: student.registration_number || student.index_number || 'Not assigned',
+        otp
+      });
+      if (!mailResult.success || mailResult.simulated) {
+        res.status(503).json({ success: false, verified: false, message: 'Verification email could not be delivered. Please try again.' });
         return;
       }
-    }
 
-    // Generate 6-digit OTP code & Hash
-    const otp = generate6DigitOtp();
-    const salt = await bcrypt.genSalt(10);
-    const otp_hash = await bcrypt.hash(otp, salt);
-    const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+      // Save OTP record to MongoDB
+      await OtpVerification.findOneAndUpdate({ email: studentEmail }, {
+        email: studentEmail, otp_hash, expires_at, attempts: 0, verified: false, verified_at: null, last_sent_at: new Date(),
+      }, { upsert: true, new: true });
 
-    // Save OTP record to MongoDB
-    await OtpVerification.findOneAndUpdate(
-      { email: studentEmail },
-      {
-        email: studentEmail,
-        otp_hash,
-        expires_at,
-        attempts: 0,
-        verified: false,
-        verified_at: null,
-        last_sent_at: new Date(),
-      },
-      { upsert: true, new: true }
-    );
-
-    // Dispatch email
-    const mailResult = await sendCertificateVerificationOtpEmail({
-      to: studentEmail,
-      studentName: student.name,
-      indexNumber: student.registration_number || student.index_number || 'Not assigned',
-      otp
-    });
-
-    res.status(200).json({
-      success: true,
-      requires_otp: true,
-      student_name: student.name,
-      index_number: student.index_number || '',
-      registration_number: student.registration_number || student.index_number || '',
-      email_masked: maskEmail(studentEmail),
-      message: `A 6-digit security code has been sent to the student's registered email (${maskEmail(studentEmail)}).`,
-      devOtp: mailResult.simulated ? otp : undefined
+      res.status(200).json({
+        success: true,
+        requires_otp: true,
+        student_name: student.name,
+        index_number: student.index_number || '',
+        registration_number: student.registration_number || student.index_number || '',
+        email_masked: maskEmail(studentEmail),
+        message: `A 6-digit security code has been sent to the student's registered email (${maskEmail(studentEmail)}).`,
+      });
     });
 
   } catch (error: any) {
@@ -349,7 +345,7 @@ export const verifyCertificateOtp = async (req: Request, res: Response): Promise
     ).toString().trim();
     const otp = (req.body?.otp || req.query?.otp || '').toString().trim();
 
-    if (!rawQuery || !otp) {
+    if (!rawQuery || !/^\d{6}$/.test(otp)) {
       res.status(400).json({
         verified: false,
         message: 'Please provide both Student Identifier and the 6-digit Email Verification Code.'
@@ -379,21 +375,26 @@ export const verifyCertificateOtp = async (req: Request, res: Response): Promise
 
     const studentEmail = student.email.toLowerCase().trim();
 
-    // Verify OTP code
-    const otpResult = await verifyOtp(studentEmail, otp);
+    await withAccountCredentialLock(studentEmail, async () => {
+      // Verify OTP code
+      const challenge = await OtpVerification.findOneAndUpdate({ email: studentEmail, verified: false,
+        expires_at: { $gt: new Date() }, attempts: { $lt: 5 } }, { $inc: { attempts: 1 } }, { new: true });
+      const otpResult = { success: !!challenge?.otp_hash && await bcrypt.compare(otp, challenge.otp_hash), message: 'Invalid or expired verification code. Please request a new code.' };
 
-    if (!otpResult.success) {
-      res.status(400).json({
-        verified: false,
-        requires_otp: true,
-        message: otpResult.message || 'Invalid or expired verification code. Please try again.'
-      });
-      return;
-    }
+      if (!otpResult.success) {
+        res.status(400).json({
+          verified: false,
+          requires_otp: true,
+          message: otpResult.message || 'Invalid or expired verification code. Please try again.'
+        });
+        return;
+      }
 
-    // OTP Verified! Return Certificate Transcript Data
-    const certResponse = await buildCertificateResponse(student);
-    res.status(200).json(certResponse);
+      // OTP Verified! Return Certificate Transcript Data
+      await OtpVerification.deleteOne({ _id: challenge!._id, otp_hash: challenge!.otp_hash });
+      const certResponse = await buildCertificateResponse(student);
+      res.status(200).json(certResponse);
+    });
 
   } catch (error: any) {
     console.error('Error in verifyCertificateOtp:', error);

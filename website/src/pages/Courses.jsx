@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import SectionHeading from '../components/SectionHeading'
+
 import Card from '../components/Card'
 import Button from '../components/Button'
 
 // Asset imports
-import facilityAuto from '../assets/facility_auto.png'
+
 import courseMobile from '../assets/course_mobile.png'
 import courseLaptop from '../assets/course_laptop.png'
 import courseAppliances from '../assets/course_appliances.png'
 import courseCctv from '../assets/course_cctv.png'
 import courseWiring from '../assets/course_wiring.png'
-import facilityKitchen from '../assets/facility_kitchen.png'
-import courseBrick from '../assets/course_brick.png'
+
+
 
 export default function Courses() {
   useEffect(() => {
@@ -105,7 +105,7 @@ export default function Courses() {
 
   return (
     <div className="flex flex-col w-full overflow-hidden select-none">
-      
+
       {/* 1. PAGE HEADER BANNER */}
       <section className="bg-brand-black text-brand-white py-6 sm:py-7 px-5 sm:px-8 lg:px-12 xl:px-16 border-b border-brand-charcoal relative">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -130,7 +130,7 @@ export default function Courses() {
 
       {/* 2. FILTER BAR & COURSE CARDS GRID */}
       <section className="py-8 sm:py-10 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full space-y-6">
-        
+
         {/* Filter Pills */}
         <div className="flex flex-wrap justify-center gap-3">
           {categories.map((cat) => (
@@ -162,13 +162,13 @@ export default function Courses() {
                       className="w-full h-full object-cover object-center transition-transform duration-500 hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-brand-black/10 hover:bg-brand-black/0 transition-colors" />
-                    
+
                     {/* Category pill overlays */}
                     <span className="absolute top-4 left-4 bg-brand-black/85 text-brand-orange font-heading font-bold text-[10px] uppercase tracking-wider px-3 py-1 rounded-md border border-brand-orange/20">
                       {course.category}
                     </span>
                   </div>
-                  
+
                   {/* Content */}
                   <div className="p-6 space-y-3 text-left">
                     <h3 className="font-heading font-bold text-lg text-brand-black leading-snug min-h-[56px] flex items-center">

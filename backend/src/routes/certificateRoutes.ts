@@ -1,4 +1,5 @@
 import express from 'express';
+import { emailRequestLimiter, otpAttemptLimiter } from '../middleware/publicRateLimits';
 import {
   verifyCertificate,
   searchStudentForVerification,
@@ -12,10 +13,10 @@ const router = express.Router();
 router.get('/search', searchStudentForVerification);
 router.post('/search', searchStudentForVerification);
 
-router.get('/verify', verifyCertificate);
-router.post('/verify', verifyCertificate);
-router.post('/request-otp', requestCertificateOtp);
-router.post('/send-otp', requestCertificateOtp);
-router.post('/verify-otp', verifyCertificateOtp);
+router.get('/verify', emailRequestLimiter, verifyCertificate);
+router.post('/verify', emailRequestLimiter, verifyCertificate);
+router.post('/request-otp', emailRequestLimiter, requestCertificateOtp);
+router.post('/send-otp', emailRequestLimiter, requestCertificateOtp);
+router.post('/verify-otp', otpAttemptLimiter, verifyCertificateOtp);
 
 export default router;

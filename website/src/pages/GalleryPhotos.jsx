@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import SectionHeading from '../components/SectionHeading'
-import Card from '../components/Card'
+
+
 
 // Asset imports
 import facilityAuto from '../assets/facility_auto.png'
@@ -142,7 +142,7 @@ export default function GalleryPhotos() {
 
   return (
     <div className="flex flex-col w-full overflow-hidden select-none">
-      
+
       {/* 1. PAGE HEADER BANNER */}
       <section className="bg-brand-black text-brand-white py-6 sm:py-7 px-5 sm:px-8 lg:px-12 xl:px-16 border-b border-brand-charcoal relative">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -169,7 +169,7 @@ export default function GalleryPhotos() {
 
       {/* 2. FILTER BAR & PHOTO GRID */}
       <section className="py-6 sm:py-8 px-5 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto w-full space-y-4">
-        
+
         {/* Filter Pills (Matching exact reference bar design with TVTI brand colors & accent border) */}
         <div className="flex flex-wrap items-center justify-start gap-2 overflow-x-auto pb-1">
           {categories.map((cat) => (
@@ -283,7 +283,7 @@ export default function GalleryPhotos() {
                   {activeImage.description}
                 </p>
               </div>
-              
+
               <div className="pt-6 border-t border-brand-light flex justify-between items-center text-xs text-brand-charcoal/50">
                 <span>Twintec Facility Tour</span>
                 <button 

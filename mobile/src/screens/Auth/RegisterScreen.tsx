@@ -6,11 +6,11 @@ import * as ImagePicker from 'expo-image-picker';
 import api from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
+
 import { AuthGlassSurface, authGlassStyles } from '../../components/shared/AuthGlassSurface';
 import { AuthFormScrollView, AuthTextInput } from '../../components/shared/AuthForm';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { COLORS, FONTS, SPACING, RADIUS, SHADOW } from '../../config/theme';
+import { RADIUS } from '../../config/theme';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 const FIELD_SURFACE = {

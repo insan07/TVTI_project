@@ -1,14 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-  ScrollView,
-  Platform,
-  TouchableWithoutFeedback,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform, TouchableWithoutFeedback } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 
 const MONTH_NAMES = [
@@ -16,10 +7,7 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-const MONTH_SHORT = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-];
+
 
 const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
