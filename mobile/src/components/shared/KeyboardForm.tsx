@@ -12,7 +12,7 @@ export const useKeyboardFormFocus = () => useContext(InputFocusContext);
 
 /** Avoid only the keyboard's overlap; Android's existing adjustResize can still resize the window. */
 export function KeyboardAvoidingView({ behavior, ...props }: KeyboardAvoidingViewProps) {
-  return <InputFocusContext.Provider value={ignoreFocus}><NativeKeyboardAvoidingView {...props} behavior={Platform.OS === 'web' ? undefined : behavior ?? 'padding'} /></InputFocusContext.Provider>;
+  return <InputFocusContext.Provider value={ignoreFocus}><NativeKeyboardAvoidingView {...props} behavior={Platform.OS === 'ios' ? behavior ?? 'padding' : undefined} /></InputFocusContext.Provider>;
 }
 
 export type KeyboardScrollView = NativeScrollView;

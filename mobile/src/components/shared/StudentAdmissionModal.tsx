@@ -59,7 +59,7 @@ export default function StudentAdmissionModal({ target, onClose, onSaved }: { ta
             <Text style={[styles.title, { color: theme.text }]}>{creating ? 'Add Student' : 'Approve and Assign Batches'}</Text>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close student form" disabled={saving} onPress={onClose} style={styles.close}><Icon name="close" size={22} color={theme.text} /></TouchableOpacity>
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
+          <ScrollView style={styles.scrollBody} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
             {creating ? <>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Personal Details</Text>
               {field('name', 'Full name *')}{field('email', 'Email *', 'email-address')}{field('phone', 'Phone *', 'phone-pad')}{field('nic', 'NIC')}{field('dob', 'Date of birth', 'default', 'YYYY-MM-DD')}
@@ -95,9 +95,10 @@ export default function StudentAdmissionModal({ target, onClose, onSaved }: { ta
 }
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  card: { width: '100%', maxWidth: 650, maxHeight: '90%', borderWidth: 1, borderRadius: 18, overflow: 'hidden' },
+  card: { width: '100%', maxWidth: 650, maxHeight: '90%', borderWidth: 1, borderRadius: 18, overflow: 'hidden', flexShrink: 1 },
+  scrollBody: { flexShrink: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, justifyContent: 'space-between', paddingLeft: 18, paddingRight: 8, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   title: { ...FONTS.bold, fontSize: 18, lineHeight: 25, flexShrink: 1 }, close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, body: { padding: 18, gap: 14 },
   field: { gap: 6 }, label: { ...FONTS.medium, fontSize: 12 }, input: { ...FONTS.regular, fontSize: 14, minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12 }, sectionTitle: { ...FONTS.bold, fontSize: 16, marginTop: 4 },
-  actions: { flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: StyleSheet.hairlineWidth }, button: { flex: 1, minHeight: 44, borderWidth: 1, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10 }, buttonText: { ...FONTS.semiBold, fontSize: 13, textAlign: 'center' },
+  actions: { flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: StyleSheet.hairlineWidth, flexShrink: 0 }, button: { flex: 1, minHeight: 44, borderWidth: 1, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10 }, buttonText: { ...FONTS.semiBold, fontSize: 13, textAlign: 'center' },
 });

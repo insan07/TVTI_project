@@ -708,9 +708,6 @@ export default function InquiryForm({ defaultCourse = null }) {
               <p>
                 <strong>3. Security & Password Setup:</strong> Temporary passwords expire after 7 days. On your first login, you are required to set a new permanent password.
               </p>
-              <p>
-                <strong>4. Attendance & Discipline:</strong> Enrolled students must maintain a minimum 80% practical workshop attendance.
-              </p>
             </div>
 
             <div className="pt-2 border-t border-black/10 text-right">

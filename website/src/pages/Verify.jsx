@@ -355,7 +355,7 @@ export default function Verify() {
         </aside>
       </div>}
 
-      {/* STEP 4: VERIFIED CERTIFICATE DIPLOMA RESULT */}
+      {/* STEP 4: VERIFIED CERTIFICATE OR TRAINING RECORD */}
       {step === 'result' && resultData?.verified && resultData.student && <section className="verification-result" aria-label="Verified student record">
         {/* Verification Status Header Banner */}
         <div className="verification-toolbar">

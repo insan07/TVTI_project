@@ -4,8 +4,6 @@ import Batch from '../models/Batch';
 import User from '../models/User';
 import Enrollment from '../models/Enrollment';
 import Video from '../models/Video';
-import Result from '../models/Result';
-import Attendance from '../models/Attendance';
 import Announcement from '../models/Announcement';
 import Application from '../models/Application';
 import PracticeSlot from '../models/PracticeSlot';
@@ -41,7 +39,7 @@ export async function deleteUnusedCourse(courseId: string) {
 
 async function hasBatchRecords(batchId: any, session: ClientSession) {
   // Preserve the identity and history of batches referenced anywhere in the app.
-  for (const model of [Enrollment, Video, Result, Attendance, Announcement, PracticeSlot] as any[]) {
+  for (const model of [Enrollment, Video, Announcement, PracticeSlot] as any[]) {
     if (await model.exists({ batch_id: batchId }).session(session)) return true;
   }
   return !!await Application.exists({ assigned_batch_ids: batchId }).session(session);

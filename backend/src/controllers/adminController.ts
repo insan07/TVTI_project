@@ -7,7 +7,6 @@ import User from '../models/User';
 import Course from '../models/Course';
 import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
-import Result from '../models/Result';
 import Video from '../models/Video';
 import PracticeSlot from '../models/PracticeSlot';
 import SlotBooking from '../models/SlotBooking';
@@ -253,14 +252,6 @@ export const getUserDetails = async (req: Request, res: Response): Promise<void>
         })
         .lean();
 
-      const results = await Result.find({ student_id: user._id })
-        .populate({
-          path: 'batch_id',
-          select: 'name course_id',
-          populate: { path: 'course_id', select: 'title' }
-        })
-        .lean();
-
       const bookings = await SlotBooking.find({ student_id: user._id })
         .populate({
           path: 'slot_id',
@@ -271,15 +262,10 @@ export const getUserDetails = async (req: Request, res: Response): Promise<void>
         })
         .lean();
 
-      const totalMarks = results.reduce((sum, r) => sum + (r.marks || 0), 0);
-      const averageMark = results.length > 0 ? (totalMarks / results.length).toFixed(1) : 0;
-
       res.json({
         user,
         enrollments,
-        results,
         bookings,
-        averageMark
       });
     } else if (user.role === 'instructor') {
       const assignedBatches = await Batch.find({ instructor_ids: user._id })
@@ -425,10 +411,10 @@ export const markUserCompleted = async (req: Request, res: Response): Promise<vo
     await sendNotification({
       userIds: [String(user._id)],
       title: 'Course Completed & Graduated 🎓',
-      message: 'Congratulations! You have been marked as graduated. View your academic results and certificate status.',
+      message: 'Congratulations! You have been marked as graduated. Your student record is ready for verification.',
       type: 'certificate',
       relatedId: user._id,
-      link: '/results'
+      link: '/student/profile'
     });
 
     res.json({ message: 'Student status updated to completed & graduated successfully', user });
@@ -476,7 +462,6 @@ export const deleteUserCompletely = async (req: Request, res: Response): Promise
       // Remove all student-related data
       await Enrollment.deleteMany({ student_id: user._id });
       await SlotBooking.deleteMany({ student_id: user._id });
-      await Result.deleteMany({ student_id: user._id });
     } else if (user.role === 'instructor') {
       // Remove instructor from batch assignments (don't delete the batch)
       await Batch.updateMany(

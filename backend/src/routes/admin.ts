@@ -2,7 +2,6 @@ import express from 'express';
 import { getUsers, getUserDetails, approveUser, rejectUser, deactivateUser, markUserCompleted, resendUserCredentials, deleteUserCompletely, createInstructor, getAdminStats, getAdminActivities, createStudent, reactivateUser } from '../controllers/adminController';
 import { getAdminCourses, createCourse, updateCourse, archiveCourse, deleteCourse } from '../controllers/courseController';
 import { getAdminBatches, getBatchDetails, createBatch, updateBatch, getBatchStudents, enrollStudents, deleteBatchCompletely } from '../controllers/batchController';
-import { getBatchResults, createResult, updateResult } from '../controllers/resultController';
 import { getCourseEnrolledStudents, getBatchEnrolledStudents } from '../controllers/enrollmentRosterController';
 import { getApplications, updateApplicationStatus, deleteApplicationCompletely, resendApplicationCredentials } from '../controllers/applicationController';
 import {
@@ -71,11 +70,6 @@ router.post('/batches', createBatch);
 router.put('/batches/:id', updateBatch);
 router.delete('/batches/:id/delete', deleteBatchCompletely);
 router.get('/batches/:id/students', getBatchStudents);
-router.get('/batches/:batchId/results', getBatchResults);
 router.post('/batches/:id/enroll', enrollStudents);
-
-// Results
-router.post('/results', createResult);
-router.put('/results/:id', updateResult);
 
 export default router;

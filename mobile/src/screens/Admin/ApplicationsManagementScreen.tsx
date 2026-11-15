@@ -659,7 +659,7 @@ export default function ApplicationsManagementScreen({
           <KeyboardAvoidingView style={{ flex: 1 }}><View style={{ flex: 1 }}>
           <View style={[StyleSheet.absoluteFill, { display: (Boolean(selectedAppForReview) && reviewModalVisible) ? 'flex' : 'none' }]}>
             <View style={styles.modalOverlay}>
-              <View style={[styles.modalCard, { height: '88%', width: '92%', maxWidth: 650, padding: 0, overflow: 'hidden' }]}>
+              <View style={[styles.modalCard, { height: '92%', width: '100%', maxWidth: 650, padding: 0, overflow: 'hidden' }]}>
                 <View style={{ flex: 1, backgroundColor: design.surface }}>
                 {/* Dossier Header Row with Save PDF, Share, and Close Icon Shortcuts */}
                 <View style={styles.detailsHeader}>
@@ -951,6 +951,7 @@ export default function ApplicationsManagementScreen({
           <View style={[StyleSheet.absoluteFill, { display: (credentialsModalVisible) ? 'flex' : 'none' }]}>
             <View style={styles.modalOverlay}>
               <View style={styles.credentialsModalCard}>
+                <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ alignItems: 'center' }} keyboardShouldPersistTaps="handled">
                 <View style={styles.successIconCircle}>
                   <Icon name="checkmark-circle-outline" size={50} color={design.accent} />
                 </View>
@@ -960,6 +961,7 @@ export default function ApplicationsManagementScreen({
                 </Text>
 
                 {approvedCredentials && <AccountCredentialsCard credentials={approvedCredentials} emailSent={credentialsEmailSent} />}
+                </ScrollView>
 
                 <TouchableOpacity accessibilityRole="button"                   style={styles.closeCredModalBtn}
                   onPress={() => {
@@ -979,8 +981,8 @@ export default function ApplicationsManagementScreen({
           {/* REJECTION REASON INPUT MODAL */}
           <View style={[StyleSheet.absoluteFill, { display: (rejectReasonModalVisible) ? 'flex' : 'none' }]}>
             <View style={styles.modalOverlay}>
-              <View style={[styles.rejectModalCard, { maxHeight: '100%', flexShrink: 1 }]}>
-                <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
+              <View style={styles.rejectModalCard}>
+                <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 12 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: design.dangerSoft, justifyContent: 'center', alignItems: 'center' }}>
@@ -1034,8 +1036,9 @@ export default function ApplicationsManagementScreen({
                     multiline={true}
                     numberOfLines={3}
                   />
+                </ScrollView>
 
-                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                  <View style={{ flexDirection: 'row', gap: 10, paddingTop: 16, borderTopWidth: 1, borderTopColor: design.line }}>
                     <TouchableOpacity accessibilityRole="button"                     style={[styles.modalBtn, { backgroundColor: design.field, flex: 1 }]}
                       onPress={() => { setRejectReasonModalVisible(false); setReviewModalVisible(true); }}
                       activeOpacity={0.8}
@@ -1055,7 +1058,6 @@ export default function ApplicationsManagementScreen({
                       )}
                     </TouchableOpacity>
                   </View>
-              </ScrollView>
 </View>
             </View>
           </View>
@@ -1744,6 +1746,7 @@ const createStyles = (design: ReturnType<typeof usersSectionTheme>) => StyleShee
     backgroundColor: design.surface,
     borderTopWidth: 1,
     borderTopColor: design.line,
+    flexShrink: 0,
   },
   footerActionBtn: {
     flex: 1,
@@ -1774,7 +1777,7 @@ const createStyles = (design: ReturnType<typeof usersSectionTheme>) => StyleShee
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
   },
   reviewModalCard: {
     backgroundColor: design.field,
@@ -2609,6 +2612,8 @@ const createStyles = (design: ReturnType<typeof usersSectionTheme>) => StyleShee
     width: '88%',
     alignItems: 'center',
     elevation: 0,
+    maxHeight: '92%',
+    flexShrink: 1,
   },
   successIconCircle: {
     marginBottom: 14,
@@ -2796,6 +2801,8 @@ const createStyles = (design: ReturnType<typeof usersSectionTheme>) => StyleShee
     padding: 20,
     width: '90%',
     maxWidth: 500,
+    maxHeight: '92%',
+    flexShrink: 1,
     ...Platform.select({
       web: { boxShadow: 'none' },
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0, shadowRadius: 15, elevation: 0 }

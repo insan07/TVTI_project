@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import User from '../models/User';
 import Enrollment from '../models/Enrollment';
-import Result from '../models/Result';
 import Application from '../models/Application';
 import OtpVerification from '../models/CertificateOtpVerification';
 import { generate6DigitOtp } from '../services/otpService';
@@ -54,65 +53,19 @@ async function buildCertificateResponse(student: any) {
     })
     .lean();
 
-  const results = await Result.find({ student_id: student._id }).lean();
-
-  const certItems = enrollments.map((enr: any, idx: number) => {
+  const certItems = enrollments.map((enr: any) => {
     const course = enr.batch_id?.course_id || {};
     const batch = enr.batch_id || {};
 
-    const batchResults = results.filter(
-      (r: any) => r.batch_id?.toString() === batch._id?.toString()
-    );
-
-    const avgMarks = batchResults.length > 0
-      ? Math.round(batchResults.reduce((acc: number, r: any) => acc + r.marks, 0) / batchResults.length)
-      : 85;
-
-    let grade = 'Distinction';
-    if (avgMarks < 50) grade = 'Pass';
-    else if (avgMarks < 65) grade = 'Credit';
-    else if (avgMarks < 75) grade = 'Merit';
-
     return {
-      certificate_no: `TVTI-CERT-${new Date().getFullYear()}-${student.index_number || '26T0001'}-${String(idx + 1).padStart(2, '0')}`,
+      certificate_no: `TVTI-REC-${String(enr._id).toUpperCase()}`,
       course_title: course.title || student.desired_course || 'Vocational Certificate Course',
       course_slug: course.slug || '',
-      completion_status: enr.status === 'completed' ? 'Certified / Passed' : 'Active Student / In Progress',
+      completion_status: enr.status === 'completed' ? 'Completed' : 'Active Student / In Progress',
       enrolled_date: enr.enrolled_date || student.createdAt,
-      issued_date: new Date(student.createdAt || Date.now()).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      }),
-      grade: grade,
-      average_marks: avgMarks,
       qualification_level: 'Vocational Certificate Course',
-      nvq_level: 'Vocational Certificate Course',
-      accreditation: 'Twintec Vocational Training Institute Education Board',
-      verification_seal: 'OFFICIAL_GOLD_SEAL_VERIFIED'
     };
   });
-
-  if (certItems.length === 0) {
-    certItems.push({
-      certificate_no: `TVTI-CERT-${new Date().getFullYear()}-${student.index_number || '26T0001'}-01`,
-      course_title: student.desired_course || 'Vocational Technical Certificate',
-      course_slug: '',
-      completion_status: 'Certified / Verified Student',
-      enrolled_date: student.createdAt,
-      issued_date: new Date(student.createdAt || Date.now()).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      }),
-      grade: 'Distinction',
-      average_marks: 88,
-      qualification_level: 'Vocational Certificate Course',
-      nvq_level: 'Vocational Certificate Course',
-      accreditation: 'Twintec Vocational Training Institute Education Board',
-      verification_seal: 'OFFICIAL_GOLD_SEAL_VERIFIED'
-    });
-  }
 
   return {
     verified: true,

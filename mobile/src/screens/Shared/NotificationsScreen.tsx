@@ -164,7 +164,7 @@ export default function NotificationsScreen() {
         navigation.navigate('InstructorApp', { screen: 'PostAnnouncement' });
         return;
       }
-      if (type === 'batch_assigned' || type === 'student_enrolled' || type === 'new_result') {
+      if (type === 'batch_assigned' || type === 'student_enrolled') {
         navigation.navigate('MyStudents');
         return;
       }
@@ -195,8 +195,8 @@ export default function NotificationsScreen() {
       navigation.navigate('StudentApp', { screen: 'Videos' });
       return;
     }
-    if (type === 'new_result' || type === 'result_published' || type === 'certificate') {
-      navigation.navigate('Results');
+    if (type === 'certificate') {
+      navigation.navigate('StudentApp', { screen: 'Profile' });
       return;
     }
     if (type === 'announcement') {
@@ -218,8 +218,8 @@ export default function NotificationsScreen() {
       navigation.navigate('StudentApp', { screen: 'Schedule' });
     } else if (link.includes('video')) {
       navigation.navigate('StudentApp', { screen: 'Videos' });
-    } else if (link.includes('result') || link.includes('certificate')) {
-      navigation.navigate('Results');
+    } else if (link.includes('certificate')) {
+      navigation.navigate('StudentApp', { screen: 'Profile' });
     } else if (link.includes('profile') || link.includes('payment')) {
       navigation.navigate('StudentApp', { screen: 'Profile' });
     } else if (link.includes('announcement') || link.includes('home')) {
@@ -275,7 +275,6 @@ export default function NotificationsScreen() {
     if (['new_video', 'video_uploaded'].includes(value)) return 'Video';
     if (['material', 'material_uploaded'].includes(value)) return 'Material';
     if (value === 'announcement') return 'Announcement';
-    if (['new_result', 'result_published'].includes(value)) return 'Result';
     if (value === 'certificate') return 'Certificate';
     if (value === 'payment') return 'Payment';
     if (['new_application', 'application_update'].includes(value)) return 'Admission';

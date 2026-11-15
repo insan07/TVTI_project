@@ -26,6 +26,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User | null) => void;
+  replaceSessionToken: (token: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +37,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const replaceSessionToken = async (nextToken: string) => {
+    if (!nextToken) throw new Error('A refreshed session token is required.');
+    await storage.setItem('token', nextToken);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${nextToken}`;
+    api.defaults.headers.common['Authorization'] = `Bearer ${nextToken}`;
+    setToken(nextToken);
+  };
 
   useEffect(() => {
     const restoreToken = async () => {
@@ -147,6 +155,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       value={{ 
         user, 
         userToken: token, // exposed as userToken to prevent breaking AppNavigator
+        replaceSessionToken,
         userRole: user?.role || null, 
         isLoading, 
         login, 

@@ -251,8 +251,8 @@ function handleNotificationNavigation(data: any, navigationRef: any) {
     navigationRef.navigate('Videos');
   } else if (type === 'announcement') {
     navigationRef.navigate('Notifications');
-  } else if (type === 'new_result' || type === 'certificate') {
-    navigationRef.navigate('Results');
+  } else if (type === 'certificate') {
+    navigationRef.navigate('Notifications');
   } else {
     navigationRef.navigate('Notifications');
   }

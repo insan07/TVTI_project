@@ -513,7 +513,7 @@ export default function UserManagementScreen() {
     setConfirmModal({
       visible: true,
       title: role === 'application' ? 'Delete application?' : 'Permanently delete user?',
-      message: role === 'application' ? `Permanently delete the application for ${userName || 'this applicant'}? This cannot be undone.` : `This will permanently delete ${userName || 'this user'} and all their related data (enrollments, results, bookings and uploads). This cannot be undone.`,
+      message: role === 'application' ? `Permanently delete the application for ${userName || 'this applicant'}? This cannot be undone.` : `This will permanently delete ${userName || 'this user'} and all their related data (enrollments, bookings and uploads). This cannot be undone.`,
       type: 'danger',
       confirmText: 'Delete Forever',
       cancelText: 'Cancel',
@@ -833,7 +833,6 @@ export default function UserManagementScreen() {
     return name.substring(0, 2).toUpperCase();
   }, []);
 
-  const getGradeColor = useCallback((_grade: string) => '#F58220', []);
 
   const renderPendingItem = ({ item }: { item: any }) => {
     const isSelected = selectedUserIds.includes(item._id);
@@ -1875,10 +1874,6 @@ export default function UserManagementScreen() {
                     <View style={styles.infoSectionCard}>
                       <Text style={styles.sectionCardHeaderTitle}>Academic Enrollments</Text>
                       <View style={styles.infoDivider} />
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Overall Average Marks:</Text>
-                        <Text style={[styles.infoVal, { color: design.accent, fontWeight: 'bold' }]}>{userDetails.averageMark}%</Text>
-                      </View>
                       {(!userDetails.enrollments || userDetails.enrollments.length === 0) ? (
                         <Text style={{ fontFamily: FONTS.regular.fontFamily,  fontSize: 13, color: design.muted, marginTop: 4, fontStyle: 'italic' }}>No active batch enrollments yet.</Text>
                       ) : (
@@ -2985,40 +2980,6 @@ const createStyles = (design: ReturnType<typeof usersSectionTheme>) => StyleShee
     fontSize: 11,
     color: design.muted,
     marginTop: 4,
-  },
-  resultItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: design.line,
-  },
-  resultName: { fontFamily: FONTS.bold.fontFamily,
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: design.text,
-  },
-  resultBatch: { fontFamily: FONTS.regular.fontFamily,
-    fontSize: 11,
-    color: design.muted,
-    marginTop: 1,
-  },
-  resultScore: { fontFamily: FONTS.bold.fontFamily,
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: design.text,
-  },
-  gradeChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginTop: 2,
-  },
-  gradeChipText: { fontFamily: FONTS.bold.fontFamily,
-    color: design.text,
-    fontSize: 10,
-    fontWeight: 'bold',
   },
   detailsFooter: {
     padding: 14,

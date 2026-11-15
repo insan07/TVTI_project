@@ -2,14 +2,13 @@ import React from 'react'
 import logoImg from '../assets/logo.png'
 
 export default function CertificateDocument({ student, certificate, verifiedAt }) {
-  const completed = certificate.completion_status === 'Certified / Passed'
+  const completed = certificate.completion_status === 'Completed'
   const registration = student.registration_number || student.index_number || 'Not recorded'
   const verifiedDate = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Colombo' }).format(verifiedAt)
-  const grade = certificate.grade && certificate.grade !== 'Not recorded' ? certificate.grade : null
 
   return (
-    /* OFFICIAL DIPLOMA CERTIFICATE CARD */
     <article className="certificate-document" aria-label={completed ? 'Certificate of completion' : 'Student training record'}>
+      {/* OFFICIAL DIPLOMA CERTIFICATE CARD */}
       {/* Background Watermark Badge */}
       {/* The institute logo is retained in the letterhead; the document uses an unmarked paper background. */}
       <div className="certificate-document__frame">
@@ -39,14 +38,11 @@ export default function CertificateDocument({ student, certificate, verifiedAt }
           {completed ? 'has completed the programme in' : 'is registered for the programme in'}
         </p>
         <h3 className="certificate-document__course">{certificate.course_title}</h3>
-        <p className="certificate-document__qualification">{certificate.qualification_level || certificate.nvq_level || 'Vocational training programme'}</p>
-        {completed && grade && <p className="certificate-document__grade">Overall grade: <strong>{grade}</strong>
-          {Number.isFinite(certificate.average_marks) && <span> · {certificate.average_marks}%</span>}
-        </p>}
+        <p className="certificate-document__qualification">{certificate.qualification_level || 'Vocational training programme'}</p>
         {!completed && <p className="certificate-document__progress">{certificate.completion_status || 'Training in progress'}</p>}
 
         <dl className="certificate-document__details">
-          <div><dt>Certificate reference</dt><dd>{certificate.certificate_no || 'Not recorded'}</dd></div>
+          <div><dt>Record reference</dt><dd>{certificate.certificate_no || 'Not recorded'}</dd></div>
           <div><dt>Registered on</dt><dd>{formatRecordDate(certificate.enrolled_date || student.registered_at)}</dd></div>
           <div><dt>Verified on</dt><dd>{verifiedDate}</dd></div>
         </dl>

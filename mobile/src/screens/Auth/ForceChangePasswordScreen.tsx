@@ -65,10 +65,11 @@ function ForceChangePasswordScreenContent() {
     if (!/^\d{6}$/.test(otp)) { setErrorMsg('Send and enter the six-digit email verification code.'); return; }
     try {
       setLoading(true);
-      await api.put('/users/force-change-password', {
+      const result = await api.put('/users/force-change-password', {
         newPassword,
         otp,
       });
+      await authContext.replaceSessionToken(result.data.token);
       showToast('Password updated successfully! Welcome to TVTI.', 'success');
       Alert.alert('Success', 'Password updated successfully! Welcome.');
 

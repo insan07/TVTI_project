@@ -87,8 +87,7 @@
 .certificate-document__statement { text-align: center; color: #6d6b62; font-size: 12px; margin: 0 0 10px; }
 .certificate-document__course { max-width: 720px; margin: 0 auto; text-align: center; font-family: Georgia, 'Times New Roman', serif; font-size: clamp(21px, 2.5vw, 29px); font-weight: 500; line-height: 1.4; letter-spacing: 0; }
 .certificate-document__qualification { text-align: center; color: #76684f; font-size: 10px; letter-spacing: .06em; margin: 12px 0 0; }
-.certificate-document__grade, .certificate-document__progress { text-align: center; color: #55564f; font-size: 11px; margin: 15px 0 0; }
-.certificate-document__grade strong { font-weight: 600; }
+.certificate-document__progress { text-align: center; color: #55564f; font-size: 11px; margin: 15px 0 0; }
 .certificate-document__details { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 20px; text-align: center; border-top: 1px solid #d7cdbc; margin: 30px 0 0; padding: 19px 0; }
 .certificate-document__details dt { font-size: 9px; color: #7a756b; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 7px; }
 .certificate-document__details dd { font-size: 11px; line-height: 1.6; font-weight: 500; margin: 0; overflow-wrap: anywhere; }

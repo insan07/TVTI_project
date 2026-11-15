@@ -425,7 +425,6 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
             else if (route.name === 'AdminCourses') iconName = 'book';
             else if (route.name === 'AdminBatches') iconName = 'layers';
             else if (route.name === 'AdminSlots') iconName = 'calendar';
-            else if (route.name === 'ManageResults') iconName = 'podium';
             else if (route.name === 'AdminAnnouncements') iconName = 'megaphone';
             else if (route.name === 'AdminUsers') iconName = 'people';
             else if (route.name === 'Videos' || route.name === 'Uploads') iconName = 'play-circle';
@@ -434,7 +433,6 @@ export const CustomFloatingTabBar: React.FC<BottomTabBarProps> = ({
             else if (route.name === 'Profile') iconName = 'person';
             else if (route.name === 'Users') iconName = 'people';
             else if (route.name === 'Courses') iconName = 'book';
-            else if (route.name === 'Results') iconName = 'podium';
 
             const onPress = () => {
               if (isDraggingRef.current) return;

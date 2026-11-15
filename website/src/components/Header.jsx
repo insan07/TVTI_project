@@ -107,57 +107,10 @@ export default function Header() {
 
   return (
     <header className="w-full z-50 font-sans select-none">
-      {/* 1. TOP UTILITY BAR (scrolls away naturally) */}
-      <div className="bg-brand-black text-brand-white text-[11px] h-7 sm:h-8 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-brand-charcoal">
-        {/* Left utility text */}
-        <div className="truncate">
-          <a
-            href={settings?.registration_open ? "https://lms.twintec.edu.lk" : "#"}
-            target={settings?.registration_open ? "_blank" : "_self"}
-            rel="noopener noreferrer"
-            className="text-brand-orange font-heading font-bold uppercase tracking-wider hover:underline hover:text-brand-orange/90 transition-colors text-[10px] sm:text-xs"
-          >
-            {settings?.registration_open ? 'Register for Courses — Apply Now' : 'Public Registration Closed'}
-          </a>
-        </div>
-        {/* Right hotline and social links */}
-        <div className="hidden sm:flex items-center space-x-4 lg:space-x-6 text-[11px]">
-          <div className="flex items-center space-x-1.5 text-brand-light/90">
-            <svg className="h-3 w-3 text-brand-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-            </svg>
-            <span className="font-semibold tracking-wide text-[10px] sm:text-[11px]">
-              {settings?.contact_phone || '076 538 0715 / 078 538 0715'}
-            </span>
-          </div>
-
-          <span className="h-3 w-px bg-brand-charcoal hidden md:block" />
-
-          {/* Socials */}
-          <div className="hidden md:flex items-center space-x-3 text-brand-light/75">
-            <a href="#facebook" aria-label="Facebook" className="hover:text-brand-orange transition-colors">
-              <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c4.56-.93 8-4.96 8-9.75z"/>
-              </svg>
-            </a>
-            <a href="#youtube" aria-label="YouTube" className="hover:text-brand-orange transition-colors">
-              <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M23.498 6.163a3.003 3.003 0 00-2.11-2.11C19.517 3.545 12 3.545 12 3.545s-7.517 0-9.388.508a3.003 3.003 0 00-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 002.11 2.11c1.871.508 9.388.508 9.388.508s7.517 0 9.388-.508a3.003 3.003 0 002.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-              </svg>
-            </a>
-            <a href="#instagram" aria-label="Instagram" className="hover:text-brand-orange transition-colors">
-              <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
-              </svg>
-            </a>
-          </div>
-        </div>
-      </div>
-
       {/* Placeholder spacer div when navbar becomes fixed to prevent content layout jump */}
       {isScrolled && <div className="h-[44px] sm:h-[48px] w-full" />}
 
-      {/* 2. MAIN NAVIGATION BAR */}
+      {/* MAIN NAVIGATION BAR */}
       <nav
         className={`text-brand-black border-b border-black/5 transition-all duration-300 ${
           isScrolled

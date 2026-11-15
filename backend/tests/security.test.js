@@ -9,6 +9,8 @@ const { MongoMemoryServer } = require('mongodb-memory-server-core');
 const User = require('../dist/models/User').default;
 const Application = require('../dist/models/Application').default;
 const Batch = require('../dist/models/Batch').default;
+const Course = require('../dist/models/Course').default;
+const Enrollment = require('../dist/models/Enrollment').default;
 const Otp = require('../dist/models/OtpVerification').default;
 const CertificateOtp = require('../dist/models/CertificateOtpVerification').default;
 const email = require('../dist/services/emailService');
@@ -143,9 +145,25 @@ test('certificate codes are single-use and cannot mark admissions email as verif
   const requested = await call('/api/certificates/request-otp', null, { query: student.email });
   assert.equal(requested.status, 200); assert.equal(requested.body.devOtp, undefined);
   const body = { query: student.email, otp: sent[0].otp };
-  assert.equal((await call('/api/certificates/verify-otp', null, body)).status, 200);
+  const verified = await call('/api/certificates/verify-otp', null, body);
+  assert.equal(verified.status, 200);
+  assert.deepEqual(verified.body.certifications, []);
   assert.equal((await call('/api/certificates/verify-otp', null, body)).status, 400);
   assert.equal(await Otp.countDocuments(), 0);
+});
+
+test('completed enrollment verifies without invented exam marks or grades', async () => {
+  const course = await Course.create({ title: 'Electrical Repair', description: 'Workshop', fee: 1000, duration_weeks: 12 });
+  const batch = await Batch.create({ name: 'Repair A', course_id: course._id, capacity: 20, start_date: new Date(), end_date: new Date(), instructor_ids: [instructor._id] });
+  await Enrollment.create({ student_id: student._id, batch_id: batch._id, status: 'completed' });
+  assert.equal((await call('/api/certificates/request-otp', null, { query: student.email })).status, 200);
+  const verified = await call('/api/certificates/verify-otp', null, { query: student.email, otp: sent[0].otp });
+  assert.equal(verified.status, 200);
+  assert.equal(verified.body.certifications.length, 1);
+  assert.equal(verified.body.certifications[0].completion_status, 'Completed');
+  assert.equal(verified.body.certifications[0].course_title, course.title);
+  assert.equal(verified.body.certifications[0].grade, undefined);
+  assert.equal(verified.body.certifications[0].average_marks, undefined);
 });
 
 test('instructors cannot list another batch topics or broadcast to arbitrary recipients', async () => {

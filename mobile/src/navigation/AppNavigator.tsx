@@ -32,7 +32,6 @@ import InstructorPracticeScreen from '../screens/Instructor/PracticeSessionsScre
 import StudentScheduleScreen from '../screens/Student/StudentScheduleScreen';
 import NotificationsScreen from '../screens/Shared/NotificationsScreen';
 import PostAnnouncementScreen from '../screens/Instructor/PostAnnouncementScreen';
-import ResultsScreen from '../screens/Student/ResultsScreen';
 import MyStudentsScreen from '../screens/Instructor/MyStudentsScreen';
 import MyBatchesScreen from '../screens/Instructor/MyBatchesScreen';
 import ForceChangePasswordScreen from '../screens/Auth/ForceChangePasswordScreen';
@@ -206,7 +205,6 @@ const linking: LinkingOptions<any> = {
       Notifications: 'notifications',
       MyBatches: 'instructor/batches',
       MyStudents: 'instructor/students',
-      Results: 'results',
       PdfViewer: 'pdf-viewer',
     },
   },
@@ -328,7 +326,6 @@ export const AppNavigator = () => {
                 </Stack.Screen>
                 <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Results" component={ResultsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ headerShown: false }} />
               </>
             )}

@@ -1,4 +1,5 @@
 backend/
+build/
 website/
 .git/
 *.pdf
@@ -12,4 +13,7 @@ mobile/android/.idea/
 mobile/android/local.properties
 mobile/node_modules/
 mobile/.expo/
+mobile/dist/
+mobile/dist-*/
+audit/
 

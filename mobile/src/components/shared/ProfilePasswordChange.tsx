@@ -1,4 +1,5 @@
-import React, { useRef, useState } from 'react';
+import React, { useContext, useRef, useState } from 'react';
+import { AuthContext } from '../../context/AuthContext';
 import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { KeyboardAvoidingView, KeyboardScrollView, KeyboardTextInput } from './KeyboardForm';
@@ -10,6 +11,7 @@ import api from '../../services/api';
 type Props = { onClose: () => void; onSuccess: () => void; email: string };
 
 export default function ProfilePasswordChange({ onClose, onSuccess, email }: Props) {
+  const auth = useContext(AuthContext);
   const { isDark } = useTheme();
   const theme = usersSectionTheme(isDark);
   const [step, setStep] = useState<'password' | 'otp' | 'new-password'>('password');
@@ -40,7 +42,8 @@ export default function ProfilePasswordChange({ onClose, onSuccess, email }: Pro
     busy.current = true; setSaving(true);
     try {
       if (step === 'new-password') {
-        await api.put('/users/change-password', { verificationToken, newPassword, confirmPassword });
+        const result = await api.put('/users/change-password', { verificationToken, newPassword, confirmPassword });
+        await auth?.replaceSessionToken(result.data.token);
         onSuccess();
       } else {
         const result = await api.post('/users/verify-password-change', step === 'password'

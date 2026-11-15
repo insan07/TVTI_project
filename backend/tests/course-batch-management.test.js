@@ -4,7 +4,7 @@ const { test, before, beforeEach, after } = require('node:test');
 const { MongoMemoryReplSet } = require('mongodb-memory-server-core');
 const mongoose = require('mongoose'), express = require('express'), jwt = require('jsonwebtoken');
 process.env.JWT_SECRET = 'course-batch-tests-only';
-const models = Object.fromEntries(['User', 'Course', 'Batch', 'Enrollment', 'Video', 'Result', 'Attendance', 'Announcement', 'Application', 'PracticeSlot', 'SlotBooking'].map(name => [name, require(`../dist/models/${name}`).default]));
+const models = Object.fromEntries(['User', 'Course', 'Batch', 'Enrollment', 'Video', 'Announcement', 'Application', 'PracticeSlot', 'SlotBooking'].map(name => [name, require(`../dist/models/${name}`).default]));
 const { User, Course, Batch, Enrollment, Video, PracticeSlot, SlotBooking } = models;
 const notifications = require('../dist/services/notificationService'), email = require('../dist/services/emailService');
 const originalNotify = notifications.sendNotification, originalEmail = email.sendBatchAssignmentEmail;

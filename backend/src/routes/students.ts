@@ -1,6 +1,5 @@
 import express from 'express';
 import { getMySchedule, getHomeDashboard } from '../controllers/studentController';
-import { getMyResults } from '../controllers/resultController';
 import { getEnrolledBatches, getBatchVideos, getBatchMaterials, getVideoStreamUrl, getNotesUrl, setVideoPinned } from '../controllers/studentVideoController';
 import { getOpenSlots, bookSlot, cancelBooking as cancelPracticeBooking, getMyBookings as getMyPracticeBookings } from '../controllers/studentPracticeController';
 import { getStudentAnnouncements } from '../controllers/announcementController';
@@ -32,8 +31,6 @@ router.post('/practice-slots/:slotId/book', bookSlot);
 router.delete('/practice-slots/:slotId/book', cancelPracticeBooking);
 router.get('/my-practice-bookings', getMyPracticeBookings);
 
-// Results
-router.get('/my-results', getMyResults);
 
 // Announcements (batch-specific + global)
 router.get('/announcements', getStudentAnnouncements);

@@ -24,7 +24,6 @@ import PracticeSlot from './models/PracticeSlot';
 import SlotBooking from './models/SlotBooking';
 import Video from './models/Video';
 import Announcement from './models/Announcement';
-import Result from './models/Result';
 
 dotenv.config();
 
@@ -49,7 +48,6 @@ const seedDatabase = async () => {
     await SlotBooking.deleteMany({});
     await Video.deleteMany({});
     await Announcement.deleteMany({});
-    await Result.deleteMany({});
     console.log('Cleared all old database records.');
 
     const commonPassword = await bcrypt.hash('password123', 10);
@@ -287,42 +285,7 @@ const seedDatabase = async () => {
 
     console.log('Enrolled students into batches.');
 
-    // 7. Assessment Results
-    await Result.create({
-      student_id: student1._id,
-      batch_id: batch1._id,
-      assessment_name: 'Micro-soldering & Power IC Rework Exam',
-      marks: 92.5,
-      grade: 'A+'
-    });
-
-    await Result.create({
-      student_id: student2._id,
-      batch_id: batch1._id,
-      assessment_name: 'SMD Component Testing & Short Isolation',
-      marks: 85.0,
-      grade: 'A'
-    });
-
-    await Result.create({
-      student_id: student3._id,
-      batch_id: batch3._id,
-      assessment_name: 'Laptop Power Rail & Schematic Diagnostic Test',
-      marks: 88.0,
-      grade: 'A'
-    });
-
-    await Result.create({
-      student_id: student4._id,
-      batch_id: batch4._id,
-      assessment_name: 'Inverter Compressor & Refrigerator PCB Repair',
-      marks: 95.0,
-      grade: 'A+'
-    });
-
-    console.log('Created Student Assessment Results.');
-
-    // 8. Practical Video Lessons
+    // 7. Practical Video Lessons
     await Video.create({
       title: 'Micro-Soldering & SMD Hot Air Station Rework',
       description: 'Step-by-step techniques for replacing SMD capacitors, resistors, and charging ICs.',
@@ -355,7 +318,7 @@ const seedDatabase = async () => {
 
     console.log('Created Practical Video Lessons.');
 
-    // 9. Announcements
+    // 8. Announcements
     await Announcement.create({
       title: 'Practical Workshop Schedule Update',
       message: 'The upcoming practical session for Mobile Micro-soldering will take place in Electronics Lab 1.',
@@ -363,16 +326,9 @@ const seedDatabase = async () => {
       batch_id: batch1._id
     });
 
-    await Announcement.create({
-      title: 'Vocational Examination Results Published',
-      message: 'Practical marks for all course modules are now published. Check the Results tab in your mobile app.',
-      posted_by: admin._id,
-      batch_id: null
-    });
-
     console.log('Created Announcements.');
 
-    // 10. Open Practice Slots & Bookings
+    // 9. Open Practice Slots & Bookings
     function getMonday(d: Date) {
       d = new Date(d);
       var day = d.getDay(), diff = d.getDate() - day + (day === 0 ? -6 : 1);

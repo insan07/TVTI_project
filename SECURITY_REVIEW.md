@@ -5,14 +5,15 @@ Reviewed on 2026-11-15. This review covers the backend, mobile application, publ
 ## Cleanup completed
 
 - Removed 91 tracked files totaling approximately 32.6 MiB, plus ignored temporary exports, browser fixtures' generated output, historical build logs, and a redundant test database download archive.
-- Removed the committed Android verification export, accidental PowerShell cache, stray search output, empty backend placeholders, duplicate logs, and the duplicate issue-creation script. The original issue-creation script remains at the repository root.
+- Removed the committed Android verification export, accidental PowerShell cache, stray search output, empty backend placeholders, duplicate logs, and the duplicate issue-creation script. The original issue-creation script was later archived outside the repository.
 - Removed unreferenced image/template assets and five unreferenced source modules that contained no comments.
 - Removed compiler/linter-confirmed unused imports and dead helper code. Retained source comments were checked against a snapshot taken before cleanup.
 - Removed unused root-level `dotenv` and `mongoose` dependencies. The backend retains its own runtime dependencies; root commands delegate to the backend/mobile packages.
-- Preserved application uploads, database/schema documentation, tests, installed dependencies, native project configuration, APK releases, build dependency backups, the PDF reader/license, and the local MongoDB executable required by tests.
+- Preserved application uploads, tests, installed dependencies, native project configuration, APK releases, the PDF reader/license, and the local MongoDB executable required by tests. Build workfiles and the unused SQL schema draft were later archived outside the repository.
 - Added ignore rules to prevent the accidental cache/export/log files and environment variants from being committed again.
+- Removed attendance and assessment models, routes, screens, seed data, and display fields. Archived unused website screens, an unused mobile hook, standalone backend debug scripts and misplaced Expo config, generated outputs, and older documentation outside the repository. The current draw.io diagram matches the remaining MongoDB models.
 
-Standalone maintenance scripts, commented source modules, and unreferenced business screens were retained when removing them could erase comments or an intentional manual workflow. Static reachability alone does not establish that an operational tool is unnecessary.
+Potentially useful source comments and historical files were preserved in the sibling archive. Static reachability alone does not establish that an operational tool is unnecessary, so functional modules remain in place.
 
 ## Security fixes completed
 
@@ -43,7 +44,7 @@ These findings mean the system should not yet be described as fully secure.
 | --- | --- | --- |
 | High | `backend/src/server.ts` serves `/uploads` and `/api/files/:fileId` without resource authorization. Study materials and payment slips use these URLs. Anyone possessing a URL can bypass the protected listing/view endpoints. External storage URLs may have the same exposure. | Introduce resource ownership/enrollment checks and short-lived signed viewing URLs. Update native/web viewers and distinguish intentional public gallery images from private documents before disabling direct access. This requires coordinated viewer/storage changes; a blanket authentication middleware would break current viewers. |
 | High | The JWT secret in the local ignored backend environment file is configured but shorter than 32 characters. The deployed secret was not inspected. No secret value is included in this report. | Generate a cryptographically random secret with at least 256 bits of entropy and configure hosting securely. Rotate deployed credentials if the same weak value was reused. Rotation invalidates existing sessions and was not performed automatically. |
-| High | `backend/src/controllers/certificateController.ts` still generates fallback grades/marks when results or enrollments are absent, including a default certified-looking entry. Email ownership proves identity, not academic completion. | Define certificate eligibility and issuance rules; derive grades from approved results and completed enrollments only. Remove fabricated defaults as part of that business-rule change. |
+| High | The certificate view no longer invents marks, grades, or a record without an enrollment. It still treats a completed enrollment as completion without a dedicated issuance or revocation record. Email ownership proves identity, not official certificate approval. | Define certificate eligibility, issue and revocation rules, and store approved certificate records before relying on the page as official issuance evidence. |
 | High | Admissions verification is stored as an email-level flag for up to two hours. `isEmailVerified(email)` does not require a proof bound to the browser/device that verified the OTP. A third party knowing that email can attempt submission during the verification window. | Return a short-lived, single-use verification grant and require it on registration/application submission. Update both mobile registration and the website inquiry/application form together. |
 | Medium | Public rate-limit counters use the default in-memory store. Multiple serverless instances do not share those counters. Recovery/certificate attempt limits and credential locks are persisted, but not every public limit is distributed. | Use a shared rate-limit store and test multi-instance behavior. |
 | Medium | Registration OTP verification still uses read/modify/save attempt accounting. Concurrent verification requests can lose attempt increments. | Make challenge consumption and attempt increments atomic, and bind the verification grant to the requester. |
@@ -69,11 +70,11 @@ Remaining backend chains: `gaxios`, `gcp-metadata`, `glob`, `google-gax`, `minim
 ## Validation
 
 - Backend TypeScript build passed, including the previously failing payment-status type check.
-- All 149 backend tests passed. The 14 security integration tests were rerun after the final announcement-scope change and passed.
-- All 64 mobile tests passed; mobile TypeScript checking passed.
+- All 160 backend tests passed after assessment removal. The 15 security integration tests include completed-enrollment verification without marks or grades. The full-suite log is in the sibling `TVTI_project_deliverables/backend-test-final.txt`.
+- All 66 mobile tests passed; mobile TypeScript checking passed.
 - Mobile web export, Android JavaScript/Hermes export, and website production build passed.
 - Website lint completed without errors; pre-existing hook/refresh and unused-state warnings remain.
-- No missing comments were found in retained source files against the pre-cleanup snapshot. The deleted duplicate script's comments remain in the original copy.
+- No missing comments were found in retained source files against the pre-cleanup snapshot. Archived files retain their comments.
 - Comment content was checked in all 266 retained source files from the baseline; none was removed. Whitespace-only formatting is ignored by this check.
 - The current tracked-source scan found no recognized private-key blocks, credential-bearing MongoDB URLs, GitHub tokens, or AWS access-key indicators. This targeted scan is not a guarantee that every possible secret format is absent. The checked environment/private-key path history returned no matches.
 

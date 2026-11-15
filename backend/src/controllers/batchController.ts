@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import Batch from '../models/Batch';
 import Enrollment from '../models/Enrollment';
-import Result from '../models/Result';
 import Video from '../models/Video';
 import User from '../models/User';
 import { sendBatchAssignmentEmail } from '../services/emailService';
@@ -50,10 +49,6 @@ export const getBatchDetails = async (req: Request, res: Response): Promise<void
       .populate('student_id', 'name email phone nic index_number registration_number is_active createdAt profile_photo')
       .lean();
 
-    const results = await Result.find({ batch_id: batch._id })
-      .populate('student_id', 'name email index_number registration_number profile_photo')
-      .lean();
-
     const videos = await Video.find({ batch_id: batch._id })
       .populate('instructor_id', 'name profile_photo')
       .lean();
@@ -61,7 +56,6 @@ export const getBatchDetails = async (req: Request, res: Response): Promise<void
     res.json({
       batch,
       enrollments,
-      results,
       videos,
       enrolled_count: enrollments.filter(entry => entry.status !== 'dropped').length
     });
